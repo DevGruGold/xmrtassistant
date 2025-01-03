@@ -26,9 +26,9 @@ export const useWallet = () => {
     if (typeof window.ethereum === 'undefined') {
       // Check if on mobile
       if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Deep link to MetaMask with WalletConnect project ID
+        // Deep link to MetaMask NFT portfolio with WalletConnect project ID
         const dappUrl = window.location.href;
-        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.host}?wc=2-9efb5d5040e71c51224a123c9f2b1e07`;
+        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.host}/nft?wc=2-9efb5d5040e71c51224a123c9f2b1e07`;
         
         // Attempt to open MetaMask mobile app
         window.location.href = metamaskAppDeepLink;

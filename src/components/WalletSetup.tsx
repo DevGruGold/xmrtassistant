@@ -33,7 +33,7 @@ const WalletSetup = ({ accounts, onComplete }: WalletSetupProps) => {
           <CardHeader>
             <CardTitle className="text-white">Select Your Account</CardTitle>
             <CardDescription className="text-gray-400">
-              Choose which MetaMask account you'd like to use for collectables
+              Choose which MetaMask account you'd like to use for your NFT portfolio
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -64,25 +64,31 @@ const WalletSetup = ({ accounts, onComplete }: WalletSetupProps) => {
       {step === 2 && (
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader>
-            <CardTitle className="text-white">Create Collectables Wallet</CardTitle>
+            <CardTitle className="text-white">Create NFT Portfolio</CardTitle>
             <CardDescription className="text-gray-400">
-              We'll set up a dedicated space for your digital collectables
+              Set up your dedicated space for digital collectables and NFTs
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-gray-300">
-              <h3 className="font-semibold mb-2">What you'll get:</h3>
+              <h3 className="font-semibold mb-2">Portfolio Features:</h3>
               <ul className="list-disc list-inside space-y-2">
-                <li>Dedicated NFT storage</li>
-                <li>Easy collectables management</li>
-                <li>Secure asset tracking</li>
+                <li>View and manage all your NFTs in one place</li>
+                <li>Track NFT values and collection statistics</li>
+                <li>Easily transfer and showcase your digital art</li>
+                <li>Get notifications for NFT activities</li>
               </ul>
+            </div>
+            <div className="bg-gray-700/50 p-4 rounded-lg">
+              <p className="text-sm text-gray-300">
+                Your NFT portfolio will be created in MetaMask, allowing you to manage your digital collectables directly through the app.
+              </p>
             </div>
             <Button
               className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
               onClick={handleNext}
             >
-              Create Wallet
+              Create NFT Portfolio
             </Button>
           </CardContent>
         </Card>
