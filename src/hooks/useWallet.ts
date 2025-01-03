@@ -22,9 +22,23 @@ export const useWallet = () => {
   });
 
   const connectWallet = async () => {
+    // Check if MetaMask is installed
     if (typeof window.ethereum === 'undefined') {
-      toast.error('Please install MetaMask!');
-      return;
+      // Check if on mobile
+      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Deep link to MetaMask
+        const dappUrl = window.location.href;
+        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.host}`;
+        
+        // Attempt to open MetaMask mobile app
+        window.location.href = metamaskAppDeepLink;
+        
+        toast.info('Opening MetaMask mobile app...');
+        return;
+      } else {
+        toast.error('Please install MetaMask!');
+        return;
+      }
     }
 
     try {
