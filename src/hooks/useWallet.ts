@@ -7,6 +7,8 @@ export interface WalletState {
   balance: string | null;
   chainId: number | null;
   isConnected: boolean;
+  isSetupComplete: boolean;
+  availableAccounts: string[];
 }
 
 export const useWallet = () => {
@@ -15,6 +17,8 @@ export const useWallet = () => {
     balance: null,
     chainId: null,
     isConnected: false,
+    isSetupComplete: false,
+    availableAccounts: [],
   });
 
   const connectWallet = async () => {
@@ -24,12 +28,10 @@ export const useWallet = () => {
     }
 
     try {
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const web3 = new Web3(window.ethereum);
-      const accounts = await web3.eth.getAccounts();
       const balance = await web3.eth.getBalance(accounts[0]);
       const chainIdBigInt = await web3.eth.getChainId();
-      // Convert BigInt to number for chainId
       const chainId = Number(chainIdBigInt);
 
       setWallet({
@@ -37,6 +39,8 @@ export const useWallet = () => {
         balance: web3.utils.fromWei(balance, 'ether'),
         chainId,
         isConnected: true,
+        isSetupComplete: false,
+        availableAccounts: accounts,
       });
 
       toast.success('Wallet connected successfully!');
@@ -44,6 +48,15 @@ export const useWallet = () => {
       console.error('Error connecting wallet:', error);
       toast.error('Failed to connect wallet');
     }
+  };
+
+  const completeSetup = (selectedAccount: string) => {
+    setWallet(prev => ({
+      ...prev,
+      address: selectedAccount,
+      isSetupComplete: true,
+    }));
+    toast.success('Wallet setup completed!');
   };
 
   useEffect(() => {
@@ -55,6 +68,8 @@ export const useWallet = () => {
             balance: null,
             chainId: null,
             isConnected: false,
+            isSetupComplete: false,
+            availableAccounts: [],
           });
           toast.info('Wallet disconnected');
         }
@@ -66,5 +81,5 @@ export const useWallet = () => {
     }
   }, []);
 
-  return { wallet, connectWallet };
+  return { wallet, connectWallet, completeSetup };
 };

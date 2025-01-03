@@ -1,11 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WalletState } from "@/hooks/useWallet";
+import WalletSetup from "./WalletSetup";
 
 interface DashboardProps {
   wallet: WalletState;
+  onSetupComplete: (selectedAccount: string) => void;
 }
 
-const Dashboard = ({ wallet }: DashboardProps) => {
+const Dashboard = ({ wallet, onSetupComplete }: DashboardProps) => {
+  if (!wallet.isSetupComplete) {
+    return <WalletSetup accounts={wallet.availableAccounts} onComplete={onSetupComplete} />;
+  }
+
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       <Card className="bg-gray-800 border-gray-700">

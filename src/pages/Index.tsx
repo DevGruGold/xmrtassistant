@@ -5,7 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 
 const Index = () => {
-  const { wallet, connectWallet } = useWallet();
+  const { wallet, connectWallet, completeSetup } = useWallet();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -75,7 +75,7 @@ const Index = () => {
             </Card>
           </div>
         ) : (
-          <Dashboard wallet={wallet} />
+          <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
         )}
       </div>
     </div>
