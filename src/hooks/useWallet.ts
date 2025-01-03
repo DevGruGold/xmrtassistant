@@ -28,7 +28,9 @@ export const useWallet = () => {
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.getAccounts();
       const balance = await web3.eth.getBalance(accounts[0]);
-      const chainId = await web3.eth.getChainId();
+      const chainIdBigInt = await web3.eth.getChainId();
+      // Convert BigInt to number for chainId
+      const chainId = Number(chainIdBigInt);
 
       setWallet({
         address: accounts[0],
