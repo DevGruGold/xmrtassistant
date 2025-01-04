@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
 import { mainnet } from 'viem/chains';
 
-// Initialize WalletConnect
+// Initialize Web3Modal with configuration
 const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
 
 const metadata = {
@@ -21,11 +21,28 @@ const wagmiConfig = defaultWagmiConfig({
   metadata,
 });
 
-createWeb3Modal({
+// Create Web3Modal instance with support for multiple wallets
+const web3Modal = createWeb3Modal({
   wagmiConfig,
   projectId,
   chains,
   themeMode: 'dark',
+  themeVariables: {
+    '--w3m-accent-color': '#7C3AED', // Purple accent to match our theme
+    '--w3m-background-color': '#1F2937', // Gray background
+  },
+  featuredWalletIds: [
+    'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+    '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Coinbase
+    '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+    '225affb176778569276e484e1b92637ad061b01e13a048b35a9d280c3b58970f', // Trust Wallet
+  ],
+  includeWalletIds: [
+    'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+    '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Coinbase
+    '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+    '225affb176778569276e484e1b92637ad061b01e13a048b35a9d280c3b58970f', // Trust Wallet
+  ],
 });
 
 export interface WalletState {
@@ -48,37 +65,30 @@ export const useWallet = () => {
   });
 
   const connectWallet = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      // Check if on mobile
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Deep link to MetaMask NFT portfolio using WalletConnect v2
-        const wcUri = `https://metamask.app.link/dapp/${window.location.host}/nft?wc-project-id=${projectId}&wc-version=2`;
-        window.location.href = wcUri;
-        toast.info('Opening MetaMask mobile app...');
-        return;
-      } else {
-        toast.error('Please install MetaMask!');
-        return;
-      }
-    }
-
     try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const web3 = new Web3(window.ethereum);
-      const balance = await web3.eth.getBalance(accounts[0]);
-      const chainIdBigInt = await web3.eth.getChainId();
-      const chainId = Number(chainIdBigInt);
+      // Open Web3Modal to let user select their preferred wallet
+      await web3Modal.open();
+      
+      // The connection will be handled by Web3Modal's internal logic
+      // We'll get the account info through the ethereum object once connected
+      if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const web3 = new Web3(window.ethereum);
+        const balance = await web3.eth.getBalance(accounts[0]);
+        const chainIdBigInt = await web3.eth.getChainId();
+        const chainId = Number(chainIdBigInt);
 
-      setWallet({
-        address: accounts[0],
-        balance: web3.utils.fromWei(balance, 'ether'),
-        chainId,
-        isConnected: true,
-        isSetupComplete: false,
-        availableAccounts: accounts,
-      });
+        setWallet({
+          address: accounts[0],
+          balance: web3.utils.fromWei(balance, 'ether'),
+          chainId,
+          isConnected: true,
+          isSetupComplete: false,
+          availableAccounts: accounts,
+        });
 
-      toast.success('Wallet connected successfully!');
+        toast.success('Wallet connected successfully!');
+      }
     } catch (error) {
       console.error('Error connecting wallet:', error);
       toast.error('Failed to connect wallet');
