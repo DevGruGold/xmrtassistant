@@ -1,6 +1,24 @@
 import { useEffect, useState } from 'react';
 import Web3 from 'web3';
 import { toast } from 'sonner';
+import { createWeb3Modal } from '@web3modal/wagmi/react';
+import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
+import { WagmiConfig } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+
+// Initialize WalletConnect
+const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
+const metadata = {
+  name: 'AssetVerse Nexus',
+  description: 'Your Gateway to Digital Asset Management',
+  url: window.location.host,
+  icons: ['https://avatars.githubusercontent.com/u/37784886']
+};
+
+const chains = [mainnet];
+const wagmiConfig = defaultWagmiConfig({ chains, projectId, metadata });
+
+createWeb3Modal({ wagmiConfig, projectId, chains });
 
 export interface WalletState {
   address: string | null;
@@ -22,17 +40,12 @@ export const useWallet = () => {
   });
 
   const connectWallet = async () => {
-    // Check if MetaMask is installed
     if (typeof window.ethereum === 'undefined') {
       // Check if on mobile
       if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Deep link to MetaMask NFT portfolio with WalletConnect project ID
-        const dappUrl = window.location.href;
-        const metamaskAppDeepLink = `https://metamask.app.link/dapp/${window.location.host}/nft?wc=2-9efb5d5040e71c51224a123c9f2b1e07`;
-        
-        // Attempt to open MetaMask mobile app
-        window.location.href = metamaskAppDeepLink;
-        
+        // Deep link to MetaMask NFT portfolio using WalletConnect v2
+        const wcUri = `https://metamask.app.link/dapp/${window.location.host}/nft?wc-project-id=${projectId}&wc-version=2`;
+        window.location.href = wcUri;
         toast.info('Opening MetaMask mobile app...');
         return;
       } else {
