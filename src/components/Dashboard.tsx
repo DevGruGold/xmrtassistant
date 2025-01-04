@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WalletState } from "@/hooks/useWallet";
 import WalletSetup from "./WalletSetup";
+import { CheckCircle, Wallet2 } from "lucide-react";
 
 interface DashboardProps {
   wallet: WalletState;
@@ -12,11 +13,26 @@ const Dashboard = ({ wallet, onSetupComplete }: DashboardProps) => {
     return <WalletSetup accounts={wallet.availableAccounts} onComplete={onSetupComplete} />;
   }
 
+  const getWalletBrand = () => {
+    if (typeof window.ethereum !== 'undefined') {
+      if (window.ethereum.isMetaMask) return 'MetaMask';
+      if (window.ethereum.isWalletConnect) return 'WalletConnect';
+      return 'Unknown Wallet';
+    }
+    return 'No Wallet Detected';
+  };
+
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       <Card className="bg-gray-800 border-gray-700">
         <CardHeader>
-          <CardTitle className="text-white">Wallet Info</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white flex items-center gap-2">
+              <Wallet2 className="h-5 w-5 text-purple-400" />
+              {getWalletBrand()}
+              <CheckCircle className="h-5 w-5 text-green-400 animate-pulse" />
+            </CardTitle>
+          </div>
           <CardDescription className="text-gray-400">
             Connected wallet details
           </CardDescription>
