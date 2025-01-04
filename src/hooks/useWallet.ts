@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import Web3 from 'web3';
 import { toast } from 'sonner';
-import { createWeb3Modal } from '@web3modal/wagmi/react';
-import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
-import { WagmiConfig } from 'wagmi';
+import { configureChains, createConfig } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
+import { createWeb3Modal } from '@web3modal/wagmi';
+import { WagmiConfig } from 'wagmi';
+import { publicProvider } from 'wagmi/providers/public';
 
 // Initialize WalletConnect
 const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
+
 const metadata = {
   name: 'AssetVerse Nexus',
   description: 'Your Gateway to Digital Asset Management',
@@ -15,10 +17,22 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 };
 
-const chains = [mainnet];
-const wagmiConfig = defaultWagmiConfig({ chains, projectId, metadata });
+const { chains, publicClient } = configureChains(
+  [mainnet],
+  [publicProvider()]
+);
 
-createWeb3Modal({ wagmiConfig, projectId, chains });
+const config = createConfig({
+  autoConnect: true,
+  publicClient,
+});
+
+createWeb3Modal({
+  wagmiConfig: config,
+  projectId,
+  chains,
+  themeMode: 'dark',
+});
 
 export interface WalletState {
   address: string | null;
