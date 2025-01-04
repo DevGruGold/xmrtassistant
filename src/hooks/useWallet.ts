@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'react';
 import Web3 from 'web3';
 import { toast } from 'sonner';
-import { configureChains, createConfig } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
-import { createWeb3Modal } from '@web3modal/wagmi';
-import { WagmiConfig } from 'wagmi';
-import { publicProvider } from 'wagmi/providers/public';
+import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
+import { mainnet } from 'viem/chains';
 
 // Initialize WalletConnect
 const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
@@ -17,18 +14,15 @@ const metadata = {
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 };
 
-const { chains, publicClient } = configureChains(
-  [mainnet],
-  [publicProvider()]
-);
-
-const config = createConfig({
-  autoConnect: true,
-  publicClient,
+const chains = [mainnet];
+const wagmiConfig = defaultWagmiConfig({
+  chains,
+  projectId,
+  metadata,
 });
 
 createWeb3Modal({
-  wagmiConfig: config,
+  wagmiConfig,
   projectId,
   chains,
   themeMode: 'dark',
