@@ -28,8 +28,9 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent-color': '#7C3AED', // Purple accent to match our theme
-    '--w3m-background-color': '#1F2937', // Gray background
+    '--w3m-font-family': 'Roboto, sans-serif',
+    '--w3m-accent': '#7C3AED',
+    '--w3m-background': '#1F2937',
   },
   featuredWalletIds: [
     'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
