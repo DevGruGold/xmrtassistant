@@ -3,6 +3,7 @@ import Web3 from 'web3';
 import { toast } from 'sonner';
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
 import { mainnet } from 'viem/chains';
+import { initializeMasterContract } from '../utils/contractUtils';
 
 // Initialize Web3Modal with configuration
 const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
@@ -53,6 +54,7 @@ export interface WalletState {
   isConnected: boolean;
   isSetupComplete: boolean;
   availableAccounts: string[];
+  contract: any | null;
 }
 
 export const useWallet = () => {
@@ -63,21 +65,22 @@ export const useWallet = () => {
     isConnected: false,
     isSetupComplete: false,
     availableAccounts: [],
+    contract: null,
   });
 
   const connectWallet = async () => {
     try {
-      // Open Web3Modal to let user select their preferred wallet
       await web3Modal.open();
       
-      // The connection will be handled by Web3Modal's internal logic
-      // We'll get the account info through the ethereum object once connected
       if (typeof window.ethereum !== 'undefined') {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const web3 = new Web3(window.ethereum);
         const balance = await web3.eth.getBalance(accounts[0]);
         const chainIdBigInt = await web3.eth.getChainId();
         const chainId = Number(chainIdBigInt);
+
+        // Initialize master contract after successful connection
+        const contract = await initializeMasterContract(web3);
 
         setWallet({
           address: accounts[0],
@@ -86,6 +89,7 @@ export const useWallet = () => {
           isConnected: true,
           isSetupComplete: false,
           availableAccounts: accounts,
+          contract,
         });
 
         toast.success('Wallet connected successfully!');
@@ -116,6 +120,7 @@ export const useWallet = () => {
             isConnected: false,
             isSetupComplete: false,
             availableAccounts: [],
+            contract: null,
           });
           toast.info('Wallet disconnected');
         }
