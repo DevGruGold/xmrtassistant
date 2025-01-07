@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Web3 from 'web3';
 import { toast } from 'sonner';
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
@@ -19,11 +19,11 @@ const metadata = {
 const chains = [mainnet];
 const queryClient = new QueryClient();
 
+// Create wagmi config
 const wagmiConfig = defaultWagmiConfig({
   chains,
   projectId,
-  metadata,
-  queryClient
+  metadata
 });
 
 // Create Web3Modal instance with support for multiple wallets
@@ -33,8 +33,8 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent': '#7C3AED',
-    '--w3m-background': '#1F2937',
+    '--w3m-color-background': '#1F2937',
+    '--w3m-accent-fill-color': '#7C3AED',
     '--w3m-font-family': 'Roboto, sans-serif',
   },
   featuredWalletIds: [
