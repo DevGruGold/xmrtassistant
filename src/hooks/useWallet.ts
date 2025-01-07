@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import Web3 from "web3";
 import { initializeMasterContract } from "@/utils/contractUtils";
-import { createWeb3Modal } from '@web3modal/wagmi';
-import { defaultConfig } from '@web3modal/wagmi/config';
+import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
 import { mainnet } from 'viem/chains';
 
 export interface WalletState {
@@ -30,17 +29,17 @@ export const useWallet = () => {
     const metadata = {
       name: 'XMRT Master DAO',
       description: 'XMRT Master DAO Web3 Application',
-      url: 'https://xmrt.dao', 
+      url: 'https://xmrt.dao',
       icons: ['https://avatars.githubusercontent.com/u/37784886']
     };
 
     const chains = [mainnet];
     const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
-    const wagmiConfig = defaultConfig({ 
-      chains, 
-      projectId, 
-      metadata 
+    const wagmiConfig = defaultWagmiConfig({
+      chains,
+      projectId,
+      metadata
     });
 
     createWeb3Modal({
@@ -50,7 +49,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-color-bg-1': '#242424'
+        '--w3m-background-color': '#242424'
       }
     });
   }, []);
