@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Web3 from "web3";
 import { initializeMasterContract } from "@/utils/contractUtils";
 import { createWeb3Modal } from '@web3modal/wagmi/react';
-import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
+import { defaultConfig } from '@web3modal/wagmi';
 import { mainnet } from 'viem/chains';
 
 export interface WalletState {
@@ -37,7 +37,7 @@ export const useWallet = () => {
     const chains = [mainnet];
     const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
-    const wagmiConfig = defaultWagmiConfig({ 
+    const wagmiConfig = defaultConfig({ 
       chains, 
       projectId, 
       metadata 
@@ -50,7 +50,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-color-bg-1': '#242424'
+        '--w3m-background-color': '#242424'
       }
     });
   }, []);
