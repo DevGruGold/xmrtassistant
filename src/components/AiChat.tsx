@@ -21,16 +21,19 @@ export function AiChat() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input };
+    const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
       // TODO: Implement actual Gemini AI integration
-      const response = "This is a placeholder response. The Gemini AI integration will be implemented once you provide the API key.";
+      const response: Message = {
+        role: "assistant",
+        content: "This is a placeholder response. The Gemini AI integration will be implemented once you provide the API key."
+      };
       
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      setMessages((prev) => [...prev, response]);
     } catch (error) {
       toast({
         title: "Error",

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { createWeb3Modal, defaultWagmiConfig } from '@web3modal/wagmi';
 import { mainnet } from 'viem/chains';
 import { initializeMasterContract } from '../utils/contractUtils';
+import { QueryClient } from '@tanstack/react-query';
 
 // Initialize Web3Modal with configuration
 const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
@@ -16,10 +17,13 @@ const metadata = {
 };
 
 const chains = [mainnet];
+const queryClient = new QueryClient();
+
 const wagmiConfig = defaultWagmiConfig({
   chains,
   projectId,
   metadata,
+  queryClient
 });
 
 // Create Web3Modal instance with support for multiple wallets
@@ -29,8 +33,8 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent-color': '#7C3AED',
-    '--w3m-background-color': '#1F2937',
+    '--w3m-accent': '#7C3AED',
+    '--w3m-background': '#1F2937',
     '--w3m-font-family': 'Roboto, sans-serif',
   },
   featuredWalletIds: [
