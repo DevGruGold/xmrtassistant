@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Web3 from "web3";
 import { initializeMasterContract } from "@/utils/contractUtils";
 import { createWeb3Modal } from '@web3modal/wagmi/react';
-import { defaultConfig } from '@web3modal/wagmi';
+import { defaultConfig } from '@web3modal/wagmi/react/config';
 import { mainnet } from 'viem/chains';
 
 export interface WalletState {
@@ -50,7 +50,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-background-color': '#242424'
+        '--w3m-background': '#242424'
       }
     });
   }, []);
