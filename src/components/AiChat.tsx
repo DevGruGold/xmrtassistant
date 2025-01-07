@@ -33,8 +33,8 @@ export function AiChat() {
 
       const chat = model.startChat({
         history: messages.map(msg => ({
-          role: msg.role,
-          parts: msg.content,
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: msg.content }],
         })),
         generationConfig: {
           maxOutputTokens: 1000,
