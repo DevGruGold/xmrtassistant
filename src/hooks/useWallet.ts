@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Web3 from "web3";
 import { initializeMasterContract } from "@/utils/contractUtils";
 import { createWeb3Modal } from '@web3modal/wagmi/react';
+import { defaultWagmiConfig } from '@web3modal/wagmi/react/config';
+import { mainnet } from 'viem/chains';
 
 export interface WalletState {
   isConnected: boolean;
@@ -25,13 +27,31 @@ export const useWallet = () => {
   const [wallet, setWallet] = useState<WalletState>(defaultWalletState);
 
   useEffect(() => {
+    const metadata = {
+      name: 'XMRT Master DAO',
+      description: 'XMRT Master DAO Web3 Application',
+      url: 'https://xmrt.dao', 
+      icons: ['https://avatars.githubusercontent.com/u/37784886']
+    };
+
+    const chains = [mainnet];
+    const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
+
+    const wagmiConfig = defaultWagmiConfig({ 
+      chains, 
+      projectId, 
+      metadata 
+    });
+
     createWeb3Modal({
-      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "",
+      wagmiConfig,
+      projectId,
+      chains,
       themeMode: "dark",
       themeVariables: {
-        "--w3m-accent": "#646cff",
-        "--w3m-background": "#242424",
-      },
+        '--w3m-accent': '#646cff',
+        '--w3m-color-bg-1': '#242424'
+      }
     });
   }, []);
 
@@ -47,7 +67,7 @@ export const useWallet = () => {
         isConnected: true,
         address: accounts[0],
         balance: web3.utils.fromWei(balance, "ether"),
-        chainId: Number(chainId), // Convert bigint to number
+        chainId: Number(chainId),
         availableAccounts: accounts,
         isSetupComplete: true,
       });
