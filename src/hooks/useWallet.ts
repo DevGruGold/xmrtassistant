@@ -35,10 +35,8 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-color-fg-1': '#FFFFFF',
-    '--w3m-color-bg-1': '#1F2937',
-    '--w3m-color-bg-2': '#374151',
-    '--w3m-accent-color': '#7C3AED',
+    '--w3m-accent': '#7C3AED',
+    '--w3m-background': '#1F2937',
     '--w3m-font-family': 'Roboto, sans-serif',
   },
   featuredWalletIds: [
