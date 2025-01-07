@@ -7,11 +7,11 @@ import { initializeMasterContract } from '../utils/contractUtils';
 import { QueryClient } from '@tanstack/react-query';
 
 // Initialize Web3Modal with configuration
-const projectId = '9efb5d5040e71c51224a123c9f2b1e07';
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
 const metadata = {
-  name: 'AssetVerse Nexus',
-  description: 'Your Gateway to Digital Asset Management',
+  name: 'XMRT Master DAO',
+  description: 'Decentralized Asset Management & Governance',
   url: window.location.host,
   icons: ['https://avatars.githubusercontent.com/u/37784886']
 };
@@ -33,8 +33,8 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-color-background': '#1F2937',
-    '--w3m-accent-fill-color': '#7C3AED',
+    '--w3m-accent-color': '#7C3AED',
+    '--w3m-background-color': '#1F2937',
     '--w3m-font-family': 'Roboto, sans-serif',
   },
   featuredWalletIds: [

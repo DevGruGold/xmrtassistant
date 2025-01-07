@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "./ui/use-toast";
 import { Bot, Send, User } from "lucide-react";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,14 +28,31 @@ export function AiChat() {
     setIsLoading(true);
 
     try {
-      // TODO: Implement actual Gemini AI integration
-      const response: Message = {
+      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const chat = model.startChat({
+        history: messages.map(msg => ({
+          role: msg.role,
+          parts: msg.content,
+        })),
+        generationConfig: {
+          maxOutputTokens: 1000,
+        },
+      });
+
+      const result = await chat.sendMessage(input);
+      const response = await result.response;
+      const text = response.text();
+
+      const assistantMessage: Message = {
         role: "assistant",
-        content: "This is a placeholder response. The Gemini AI integration will be implemented once you provide the API key."
+        content: text,
       };
       
-      setMessages((prev) => [...prev, response]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      console.error('AI Chat Error:', error);
       toast({
         title: "Error",
         description: "Failed to get AI response. Please try again.",
