@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Wallet2 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
+import { AiChat } from "@/components/AiChat";
+import { Footer } from "@/components/Footer";
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup } = useWallet();
@@ -10,11 +12,15 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <AiChat />
+        </div>
+        
         <header className="mb-12 text-center">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-            AssetVerse Nexus
+            XMRT Master DAO
           </h1>
-          <p className="text-gray-400">Your Gateway to Digital Asset Management</p>
+          <p className="text-gray-400">Decentralized Asset Management & Governance</p>
         </header>
 
         {!wallet.isConnected ? (
@@ -23,7 +29,7 @@ const Index = () => {
               <CardHeader>
                 <CardTitle className="text-white">Connect Wallet</CardTitle>
                 <CardDescription className="text-gray-400">
-                  Start managing your digital assets
+                  Join XMRT Master DAO
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -55,19 +61,19 @@ const Index = () => {
 
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
-                <CardTitle className="text-white">Asset Overview</CardTitle>
+                <CardTitle className="text-white">DAO Governance</CardTitle>
                 <CardDescription className="text-gray-400">
-                  View and manage your digital assets
+                  Participate in XMRT governance
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span>NFTs</span>
+                    <span>Proposals</span>
                     <span className="text-purple-400">0</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Smart Contracts</span>
+                    <span>Members</span>
                     <span className="text-blue-400">0</span>
                   </div>
                 </div>
@@ -78,6 +84,7 @@ const Index = () => {
           <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
         )}
       </div>
+      <Footer />
     </div>
   );
 };
