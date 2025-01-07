@@ -6,11 +6,7 @@ import { mainnet } from 'viem/chains';
 import { initializeMasterContract } from '../utils/contractUtils';
 
 // Initialize Web3Modal with configuration
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
-
-if (!projectId) {
-  throw new Error('VITE_WALLETCONNECT_PROJECT_ID environment variable is not set');
-}
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'default-development-id';
 
 const metadata = {
   name: 'XMRT Master DAO',
@@ -35,8 +31,8 @@ const web3Modal = createWeb3Modal({
   chains,
   themeMode: 'dark',
   themeVariables: {
-    '--w3m-accent': '#7C3AED',
-    '--w3m-background': '#1F2937',
+    '--w3m-accent-color': '#7C3AED',
+    '--w3m-background-color': '#1F2937',
     '--w3m-font-family': 'Roboto, sans-serif',
   },
   featuredWalletIds: [
