@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Web3 from "web3";
 import { initializeMasterContract } from "@/utils/contractUtils";
-import { configureWeb3Modal } from "@web3modal/wagmi/react";
+import { createWeb3Modal } from '@web3modal/wagmi/react';
 
 export interface WalletState {
   isConnected: boolean;
@@ -25,7 +25,7 @@ export const useWallet = () => {
   const [wallet, setWallet] = useState<WalletState>(defaultWalletState);
 
   useEffect(() => {
-    configureWeb3Modal({
+    createWeb3Modal({
       projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "",
       themeMode: "dark",
       themeVariables: {
@@ -47,7 +47,7 @@ export const useWallet = () => {
         isConnected: true,
         address: accounts[0],
         balance: web3.utils.fromWei(balance, "ether"),
-        chainId,
+        chainId: Number(chainId), // Convert bigint to number
         availableAccounts: accounts,
         isSetupComplete: true,
       });
