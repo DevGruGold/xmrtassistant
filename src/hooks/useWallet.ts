@@ -26,6 +26,9 @@ export const useWallet = () => {
   const [wallet, setWallet] = useState<WalletState>(defaultWalletState);
 
   useEffect(() => {
+    // WalletConnect project ID is required
+    const projectId = "c9924a38c86312780b4c55a0c8c70b89";  // Using a public test project ID
+
     const metadata = {
       name: 'XMRT Master DAO',
       description: 'XMRT Master DAO Web3 Application',
@@ -34,7 +37,6 @@ export const useWallet = () => {
     };
 
     const chains = [mainnet];
-    const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "";
 
     const wagmiConfig = defaultWagmiConfig({
       chains,
@@ -49,7 +51,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-background-color': '#242424'
+        '--w3m-color-bg': '#242424'  // Updated theme variable name
       }
     });
   }, []);
