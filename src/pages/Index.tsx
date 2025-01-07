@@ -5,9 +5,12 @@ import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import { AiChat } from "@/components/AiChat";
 import { Footer } from "@/components/Footer";
+import DaoTabs from "@/components/DaoTabs";
+import { useState } from "react";
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup } = useWallet();
+  const [activeTab, setActiveTab] = useState("members");
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
@@ -81,7 +84,12 @@ const Index = () => {
             </Card>
           </div>
         ) : (
-          <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
+          <>
+            <div className="mb-6">
+              <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            </div>
+            <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
+          </>
         )}
       </div>
       <Footer />
