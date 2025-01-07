@@ -12,8 +12,37 @@ interface Message {
   content: string;
 }
 
+const CONTRACT_CONTEXT = `I am an AI assistant for the XMRT Master DAO. This DAO is governed by a smart contract that includes the following key features:
+
+1. Governance Structure:
+   - Members can create and vote on proposals
+   - Voting weight is based on reputation or stake
+   - Supports both human members and AI agents
+   - Has a quorum requirement for proposal execution
+
+2. Treasury Management:
+   - Maintains a treasury balance
+   - Allows deposits from members
+   - AI agents can initiate fund transfers with proper authorization
+
+3. Member Management:
+   - Tracks member details including voting weight and region
+   - Distinguishes between human members and AI agents
+   - Maintains a list of all members
+
+4. Proposal Lifecycle:
+   - Creation with description and duration
+   - Voting period with weighted votes
+   - Execution after meeting quorum requirements
+   - Transparent tracking of votes and results
+
+I can help you understand how the DAO works and assist with any questions about its governance, treasury, or membership systems.`;
+
 export function AiChat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([{
+    role: "assistant",
+    content: "Hello! I'm the XMRT Master DAO AI Assistant. I can help you understand how our DAO works, including its governance, treasury management, and membership systems. What would you like to know?"
+  }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -38,10 +67,20 @@ export function AiChat() {
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       const chat = model.startChat({
-        history: messages.map(msg => ({
-          role: msg.role === "user" ? "user" : "model",
-          parts: [{ text: msg.content }],
-        })),
+        history: [
+          {
+            role: "user",
+            parts: [{ text: "Here is the context about the DAO you're assisting with: " + CONTRACT_CONTEXT }],
+          },
+          {
+            role: "model",
+            parts: [{ text: "I understand the XMRT Master DAO structure and features. I'll help users with their questions about it." }],
+          },
+          ...messages.map(msg => ({
+            role: msg.role === "user" ? "user" : "model",
+            parts: [{ text: msg.content }],
+          })),
+        ],
         generationConfig: {
           maxOutputTokens: 1000,
         },
