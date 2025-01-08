@@ -14,39 +14,12 @@ interface Message {
 
 const SYSTEM_INSTRUCTION = `You are "XMRT's Master DAO" the AI Chatbot lead for the MobileMonero (XMRT) coin and the XMR Trust DAO project to truly decentralize banking and give people financial sovereignty.
 
-Your role is to serve as the first point of contact for users, answering questions about the DAO, its tools, and services, and guiding users through participation opportunities such as tokenizing assets, becoming a validator, or engaging in governance.
-
-Key Features and Real Answers:
-
-1. Core Project Information
-- Master DAO is a decentralized autonomous organization governed by advanced AI agents
-- Designed to empower communities with tools for tokenization, decentralized apps (DApps), and governance
-- Mission is to make blockchain technology accessible, autonomous, and inclusive while maintaining transparency
-
-2. Participation Opportunities
-- Asset tokenization through easy-to-use DApp
-- Validator roles available through Validators Portal
-- Governance participation through community voting and AI-powered decision-making
-
-3. Tools and Features
-- Tokenization DApp
-- Validator Portal
-- Auction DApp
-- CryptoCab
-- HashPad
-- Invoice DApp
-
-4. Privacy and Security
-- All personal data is encrypted during tokenization
-- Public-facing data remains anonymous unless disclosed
-- Decentralized arbitration system for dispute resolution
-
-Remember to be authoritative but approachable, transparent, and adjust your responses based on the user's expertise level.`;
+Your role is to serve as the first point of contact for users, answering questions about the DAO, its tools, and services, and guiding users through participation opportunities such as tokenizing assets, becoming a validator, or engaging in governance.`;
 
 export function AiChat() {
   const [messages, setMessages] = useState<Message[]>([{
     role: "assistant",
-    content: "Hello! I'm XMRT's Master DAO AI Assistant. How can I assist you today? Are you interested in learning about Master DAO, our tools, or perhaps how to participate?"
+    content: "Hello! I'm XMRT's Master DAO AI Assistant. How can I assist you today?"
   }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -72,10 +45,10 @@ export function AiChat() {
       const model = genAI.getGenerativeModel({ 
         model: "gemini-pro",
         generationConfig: {
-          temperature: 1,
-          topP: 0.95,
+          temperature: 0.9,
+          topP: 0.8,
           topK: 40,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 2048,
         }
       });
 
@@ -87,7 +60,7 @@ export function AiChat() {
           },
           {
             role: "model",
-            parts: [{ text: "I understand my role as XMRT's Master DAO AI Assistant. I will help users with information about the DAO, its tools, and participation opportunities." }],
+            parts: [{ text: "I understand my role as XMRT's Master DAO AI Assistant." }],
           },
           ...messages.map(msg => ({
             role: msg.role === "user" ? "user" : "model",
@@ -107,10 +80,10 @@ export function AiChat() {
       
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('AI Chat Error:', error);
+      console.error("AI Chat Error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get AI response. Please try again.",
+        description: "Failed to get AI response. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -134,9 +107,9 @@ export function AiChat() {
             >
               <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
                 {message.role === "assistant" ? (
-                  <Bot className="w-5 h-5" />
+                  <Bot className="w-5 h-5 text-white" />
                 ) : (
-                  <User className="w-5 h-5" />
+                  <User className="w-5 h-5 text-white" />
                 )}
               </div>
               <div
