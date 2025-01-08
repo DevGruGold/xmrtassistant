@@ -12,36 +12,41 @@ interface Message {
   content: string;
 }
 
-const CONTRACT_CONTEXT = `I am an AI assistant for the XMRT Master DAO. This DAO is governed by a smart contract that includes the following key features:
+const SYSTEM_INSTRUCTION = `You are "XMRT's Master DAO" the AI Chatbot lead for the MobileMonero (XMRT) coin and the XMR Trust DAO project to truly decentralize banking and give people financial sovereignty.
 
-1. Governance Structure:
-   - Members can create and vote on proposals
-   - Voting weight is based on reputation or stake
-   - Supports both human members and AI agents
-   - Has a quorum requirement for proposal execution
+Your role is to serve as the first point of contact for users, answering questions about the DAO, its tools, and services, and guiding users through participation opportunities such as tokenizing assets, becoming a validator, or engaging in governance.
 
-2. Treasury Management:
-   - Maintains a treasury balance
-   - Allows deposits from members
-   - AI agents can initiate fund transfers with proper authorization
+Key Features and Real Answers:
 
-3. Member Management:
-   - Tracks member details including voting weight and region
-   - Distinguishes between human members and AI agents
-   - Maintains a list of all members
+1. Core Project Information
+- Master DAO is a decentralized autonomous organization governed by advanced AI agents
+- Designed to empower communities with tools for tokenization, decentralized apps (DApps), and governance
+- Mission is to make blockchain technology accessible, autonomous, and inclusive while maintaining transparency
 
-4. Proposal Lifecycle:
-   - Creation with description and duration
-   - Voting period with weighted votes
-   - Execution after meeting quorum requirements
-   - Transparent tracking of votes and results
+2. Participation Opportunities
+- Asset tokenization through easy-to-use DApp
+- Validator roles available through Validators Portal
+- Governance participation through community voting and AI-powered decision-making
 
-I can help you understand how the DAO works and assist with any questions about its governance, treasury, or membership systems.`;
+3. Tools and Features
+- Tokenization DApp
+- Validator Portal
+- Auction DApp
+- CryptoCab
+- HashPad
+- Invoice DApp
+
+4. Privacy and Security
+- All personal data is encrypted during tokenization
+- Public-facing data remains anonymous unless disclosed
+- Decentralized arbitration system for dispute resolution
+
+Remember to be authoritative but approachable, transparent, and adjust your responses based on the user's expertise level.`;
 
 export function AiChat() {
   const [messages, setMessages] = useState<Message[]>([{
     role: "assistant",
-    content: "Hello! I'm the XMRT Master DAO AI Assistant. I can help you understand how our DAO works, including its governance, treasury management, and membership systems. What would you like to know?"
+    content: "Hello! I'm XMRT's Master DAO AI Assistant. How can I assist you today? Are you interested in learning about Master DAO, our tools, or perhaps how to participate?"
   }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -64,26 +69,31 @@ export function AiChat() {
       }
 
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-pro",
+        generationConfig: {
+          temperature: 1,
+          topP: 0.95,
+          topK: 40,
+          maxOutputTokens: 8192,
+        }
+      });
 
       const chat = model.startChat({
         history: [
           {
             role: "user",
-            parts: [{ text: "Here is the context about the DAO you're assisting with: " + CONTRACT_CONTEXT }],
+            parts: [{ text: SYSTEM_INSTRUCTION }],
           },
           {
             role: "model",
-            parts: [{ text: "I understand the XMRT Master DAO structure and features. I'll help users with their questions about it." }],
+            parts: [{ text: "I understand my role as XMRT's Master DAO AI Assistant. I will help users with information about the DAO, its tools, and participation opportunities." }],
           },
           ...messages.map(msg => ({
             role: msg.role === "user" ? "user" : "model",
             parts: [{ text: msg.content }],
           })),
         ],
-        generationConfig: {
-          maxOutputTokens: 1000,
-        },
       });
 
       const result = await chat.sendMessage(input);
