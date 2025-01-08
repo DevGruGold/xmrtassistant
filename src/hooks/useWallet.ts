@@ -50,7 +50,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-color-bg': '#242424'
+        '--w3m-background-color': '#242424'
       }
     });
   }, []);
