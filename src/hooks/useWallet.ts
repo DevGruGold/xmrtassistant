@@ -26,7 +26,8 @@ export const useWallet = () => {
   const [wallet, setWallet] = useState<WalletState>(defaultWalletState);
 
   useEffect(() => {
-    const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;  // Using environment variable for project ID
+    // WalletConnect project ID is required
+    const projectId = "c9924a38c86312780b4c55a0c8c70b89";  // Using a public test project ID
 
     const metadata = {
       name: 'XMRT Master DAO',
@@ -50,7 +51,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-color-bg': '#242424'
+        '--w3m-background-color': '#242424'  // Using the correct theme variable name
       }
     });
   }, []);
