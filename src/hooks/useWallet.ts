@@ -51,7 +51,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-background': '#242424'  // Changed from --w3m-color-bg to --w3m-background
+        '--w3m-background-color': '#242424'  // Updated to correct theme variable name
       }
     });
   }, []);
