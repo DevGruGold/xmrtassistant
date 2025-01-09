@@ -26,7 +26,8 @@ export const useWallet = () => {
   const [wallet, setWallet] = useState<WalletState>(defaultWalletState);
 
   useEffect(() => {
-    const projectId = "c9924a38c86312780b4c55a0c8c70b89";
+    // Updated project ID for WalletConnect
+    const projectId = "2aca272d18deb10ff748260da5f78bfd";
 
     const metadata = {
       name: 'XMRT Master DAO',
@@ -50,7 +51,7 @@ export const useWallet = () => {
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff',
-        '--w3m-color-bg': '#242424' // Using the correct theme variable name
+        '--w3m-background': '#242424' // Using the correct theme variable name
       }
     });
   }, []);
