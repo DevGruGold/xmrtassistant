@@ -96,7 +96,7 @@ const Index = () => {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 w-full h-96 bg-gray-900 border-t border-gray-700">
+      <div className="w-full h-96 bg-gray-900 border-t border-gray-700">
         <iframe
           src="https://mobilemonero.chatango.com/"
           className="w-full h-full"
