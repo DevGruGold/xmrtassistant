@@ -7,6 +7,7 @@ import { AiChat } from "@/components/AiChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import { useState } from "react";
+import { MobileNav } from "@/components/MobileNav";
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup } = useWallet();
@@ -14,6 +15,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+      <MobileNav />
+      
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <AiChat />
@@ -92,6 +95,16 @@ const Index = () => {
           </>
         )}
       </div>
+
+      <div className="fixed bottom-0 left-0 w-full h-96 bg-gray-900 border-t border-gray-700">
+        <iframe
+          src="https://mobilemonero.chatango.com/"
+          className="w-full h-full"
+          style={{ border: "none" }}
+          title="XMRT Chat"
+        />
+      </div>
+      
       <Footer />
     </div>
   );
