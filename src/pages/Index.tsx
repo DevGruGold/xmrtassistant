@@ -14,42 +14,50 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("members");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
       <MobileNav />
       
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <AiChat />
-        </div>
-        
-        <header className="mb-12 text-center">
-          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-            XMRT Master DAO
-          </h1>
-          <p className="text-gray-400">Decentralized Asset Management & Governance</p>
-        </header>
-
-        {!wallet.isConnected ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <CardTitle className="text-white">Connect Wallet</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Join XMRT Master DAO
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20 backdrop-blur-sm" />
+        <div className="container mx-auto px-4 py-20 relative">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
+                XMRT Master DAO
+              </h1>
+              <p className="text-xl text-gray-300">
+                Revolutionizing decentralized asset management and governance through innovative blockchain solutions.
+              </p>
+              {!wallet.isConnected && (
                 <Button 
-                  className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-lg py-6"
                   onClick={connectWallet}
                 >
-                  <Wallet2 className="mr-2 h-4 w-4" />
-                  Connect MetaMask
+                  <Wallet2 className="mr-2 h-5 w-5" />
+                  Connect Wallet
                 </Button>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+            <div className="lg:block">
+              <AiChat />
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <Card className="bg-gray-800 border-gray-700">
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-12">
+        {wallet.isConnected ? (
+          <>
+            <div className="mb-6">
+              <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
+            </div>
+            <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
+          </>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-6 mt-12">
+            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
               <CardHeader>
                 <CardTitle className="text-white">Multi-Chain Support</CardTitle>
                 <CardDescription className="text-gray-400">
@@ -65,7 +73,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
               <CardHeader>
                 <CardTitle className="text-white">DAO Governance</CardTitle>
                 <CardDescription className="text-gray-400">
@@ -76,26 +84,41 @@ const Index = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span>Proposals</span>
-                    <span className="text-purple-400">0</span>
+                    <span className="text-purple-400">Active</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Members</span>
-                    <span className="text-blue-400">0</span>
+                    <span className="text-blue-400">Growing</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white">Asset Management</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Secure and efficient asset handling
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span>Security</span>
+                    <span className="text-green-400">Enhanced</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Efficiency</span>
+                    <span className="text-yellow-400">Optimized</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-        ) : (
-          <>
-            <div className="mb-6">
-              <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            </div>
-            <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
-          </>
         )}
-      </div>
+      </main>
 
+      {/* Chat Section */}
       <div className="w-full h-96 bg-gray-900 border-t border-gray-700">
         <iframe
           src="https://mobilemonero.chatango.com/"
