@@ -124,7 +124,7 @@ const Index = () => {
           src="https://mobilemonero.chatango.com/"
           className="w-full h-full"
           style={{ border: "none" }}
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
           title="XMRT Chat"
         />
       </div>
