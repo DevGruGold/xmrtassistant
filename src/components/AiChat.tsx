@@ -42,15 +42,7 @@ export function AiChat() {
       }
 
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-pro",
-        generationConfig: {
-          temperature: 0.9,
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 2048,
-        }
-      });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
       const chat = model.startChat({
         history: [
