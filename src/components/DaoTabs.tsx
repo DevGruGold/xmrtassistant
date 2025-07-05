@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Gavel, PiggyBank, FileText, MessageSquare } from "lucide-react";
+import { Users, Gavel, PiggyBank, FileText, MessageSquare, Coins } from "lucide-react";
 
 interface DaoTabsProps {
   activeTab: string;
@@ -9,10 +9,14 @@ interface DaoTabsProps {
 const DaoTabs = ({ activeTab, onTabChange }: DaoTabsProps) => {
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-      <TabsList className="grid grid-cols-5 w-full bg-gray-800">
+      <TabsList className="grid grid-cols-6 w-full bg-gray-800">
         <TabsTrigger value="members" className="data-[state=active]:bg-gray-700">
           <Users className="h-5 w-5 mr-2" />
           <span className="hidden sm:inline">Members</span>
+        </TabsTrigger>
+        <TabsTrigger value="xmrt" className="data-[state=active]:bg-gray-700">
+          <Coins className="h-5 w-5 mr-2" />
+          <span className="hidden sm:inline">XMRT</span>
         </TabsTrigger>
         <TabsTrigger value="governance" className="data-[state=active]:bg-gray-700">
           <Gavel className="h-5 w-5 mr-2" />

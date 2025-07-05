@@ -6,11 +6,12 @@ import Dashboard from "@/components/Dashboard";
 import { AiChat } from "@/components/AiChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
+import XMRTDashboard from "@/components/XMRTDashboard";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 
 const Index = () => {
-  const { wallet, connectWallet, completeSetup } = useWallet();
+  const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
   const [activeTab, setActiveTab] = useState("members");
 
   return (
@@ -53,7 +54,11 @@ const Index = () => {
             <div className="mb-6">
               <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
-            <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
+            {activeTab === "xmrt" ? (
+              <XMRTDashboard wallet={wallet} onRefreshXMRT={refreshXMRTData} />
+            ) : (
+              <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
+            )}
           </>
         ) : (
           <div className="grid md:grid-cols-3 gap-6 mt-12">
