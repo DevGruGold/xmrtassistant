@@ -155,7 +155,7 @@ export const getXMRTBalance = async (web3: Web3, address: string, chainId: numbe
   try {
     const contract = getXMRTContract(web3, chainId);
     const balance = await contract.methods.balanceOf(address).call();
-    return web3.utils.fromWei(balance as string, 'ether');
+    return web3.utils.fromWei(String(balance), 'ether');
   } catch (error) {
     console.error('Error getting XMRT balance:', error);
     return '0';
