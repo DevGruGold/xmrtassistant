@@ -1,33 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
+import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "./ui/use-toast";
-import { Bot, Send, User } from "lucide-react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Bot, Send, User, Key, Eye, EyeOff } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-const SYSTEM_INSTRUCTION = `You are "XMRT's Master DAO" the AI Chatbot lead for the MobileMonero (XMRT) coin and the XMR Trust DAO project to truly decentralize banking and give people financial sovereignty.
+const DETAILED_SYSTEM_INSTRUCTION = `You are "XMRT's Master DAO" AI Assistant for the MobileMonero (XMRT) cryptocurrency and XMR Trust DAO project.
 
-Your role is to serve as the first point of contact for users, answering questions about the DAO, its tools, and services, and guiding users through participation opportunities such as tokenizing assets, becoming a validator, or engaging in governance.`;
+ABOUT XMRT TOKEN:
+- XMRT is an ERC-20 token on Ethereum with staking capabilities
+- Contract Address: 0xaE2402dFdD313B8c40AF06d3292B50dE1eD75F68 (admin address)
+- Max Supply: 21,000,000 XMRT tokens
+- Network: Mainnet and Sepolia testnet supported
+- Staking: Users can stake XMRT with 7-day minimum period, 10% penalty for early unstaking
+- Faucet: 100 XMRT available every 24 hours on Sepolia testnet
+
+ABOUT XMR TRUST DAO:
+- Mission: Truly decentralize banking and provide financial sovereignty
+- Focus: Privacy, decentralization, and community governance
+- Features: Asset tokenization, validator participation, governance voting
+- Technology: Built on Web3 infrastructure with smart contracts
+
+KEY FEATURES:
+1. Decentralized Finance (DeFi) tools and services
+2. Community-driven governance through DAO voting
+3. Asset tokenization platform for real-world assets
+4. Validator network for securing the ecosystem
+5. Privacy-focused financial services inspired by Monero principles
+
+TESTNET INFORMATION:
+- Sepolia testnet deployment available for testing
+- Faucet provides 100 XMRT tokens every 24 hours
+- Full staking and governance features available on testnet
+- Contract functions: stake, unstake, transfer, balanceOf
+
+PARTICIPATION OPPORTUNITIES:
+- Stake XMRT tokens to earn rewards and governance rights
+- Participate in DAO governance voting
+- Become a validator to secure the network
+- Tokenize real-world assets through the platform
+- Use DeFi tools and services
+
+Your role is to educate users about XMRT, help them navigate the DAO platform, explain staking mechanics, assist with testnet usage, and guide them through participation opportunities. Always be helpful, technical when needed, and emphasize the privacy and decentralization benefits of the ecosystem.`;
 
 export function AiChat() {
   const [messages, setMessages] = useState<Message[]>([{
     role: "assistant",
-    content: "Hello! I'm XMRT's Master DAO AI Assistant. How can I assist you today?"
+    content: "Hello! I'm XMRT's Master DAO AI Assistant. I can help you with questions about the XMRT token, staking, testnet faucet, DAO governance, and our decentralized banking platform. What would you like to know?"
   }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeySet, setApiKeySet] = useState(false);
   const { toast } = useToast();
+
+  // Check for saved API key on component mount
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('deepseek_api_key');
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+      setApiKeySet(true);
+    }
+  }, []);
+
+  const saveApiKey = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid DeepSeek API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    localStorage.setItem('deepseek_api_key', apiKey);
+    setApiKeySet(true);
+    toast({
+      title: "Success",
+      description: "API key saved! You can now use the chat.",
+    });
+  };
+
+  const clearApiKey = () => {
+    localStorage.removeItem('deepseek_api_key');
+    setApiKey("");
+    setApiKeySet(false);
+    toast({
+      title: "API Key Cleared",
+      description: "You'll need to enter your API key again to use the chat.",
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !apiKeySet) return;
 
     const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -35,39 +108,47 @@ export function AiChat() {
     setIsLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error("Gemini API key not configured");
+      const currentApiKey = localStorage.getItem('deepseek_api_key');
+      if (!currentApiKey) {
+        throw new Error("DeepSeek API key not found");
       }
 
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-
-      const chat = model.startChat({
-        history: [
-          {
-            role: "user",
-            parts: [{ text: SYSTEM_INSTRUCTION }],
-          },
-          {
-            role: "model",
-            parts: [{ text: "I understand my role as XMRT's Master DAO AI Assistant." }],
-          },
-          ...messages.map(msg => ({
-            role: msg.role === "user" ? "user" : "model",
-            parts: [{ text: msg.content }],
-          })),
-        ],
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: DETAILED_SYSTEM_INSTRUCTION
+            },
+            ...messages.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            })),
+            {
+              role: 'user',
+              content: input
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
       });
 
-      const result = await chat.sendMessage(input);
-      const response = await result.response;
-      const text = response.text();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
+      }
 
+      const data = await response.json();
       const assistantMessage: Message = {
         role: "assistant",
-        content: text,
+        content: data.choices[0]?.message?.content || "Sorry, I couldn't generate a response.",
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
@@ -75,7 +156,7 @@ export function AiChat() {
       console.error("AI Chat Error:", error);
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to get AI response. Please check your API key and try again.",
         variant: "destructive",
       });
     } finally {
@@ -83,13 +164,78 @@ export function AiChat() {
     }
   };
 
+  if (!apiKeySet) {
+    return (
+      <Card className="w-full bg-gray-800/50 backdrop-blur-sm border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Key className="w-5 h-5" />
+            XMRT Master DAO AI Assistant Setup
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-300 text-sm">
+            To use the XMRT DAO AI Assistant, please enter your DeepSeek API key. 
+            You can get one for free at{" "}
+            <a 
+              href="https://platform.deepseek.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-purple-400 hover:text-purple-300 underline"
+            >
+              platform.deepseek.com
+            </a>
+          </p>
+          <div className="space-y-2">
+            <div className="relative">
+              <Input
+                type={showApiKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your DeepSeek API key..."
+                className="bg-gray-700 border-gray-600 text-white pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                onClick={() => setShowApiKey(!showApiKey)}
+              >
+                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            <Button 
+              onClick={saveApiKey}
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              Save API Key & Start Chatting
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400">
+            Your API key is stored locally in your browser and never shared.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full bg-gray-800/50 backdrop-blur-sm border-gray-700">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-white">XMRT Master DAO AI Assistant</CardTitle>
+        <Button
+          onClick={clearApiKey}
+          variant="ghost"
+          size="sm"
+          className="text-gray-400 hover:text-white"
+        >
+          <Key className="w-4 h-4 mr-1" />
+          Change API Key
+        </Button>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[300px] pr-4 mb-4">
+        <ScrollArea className="h-[400px] pr-4 mb-4">
           {messages.map((message, index) => (
             <div
               key={index}
@@ -99,7 +245,7 @@ export function AiChat() {
             >
               <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
                 {message.role === "assistant" ? (
-                  <Bot className="w-5 h-5 text-white" />
+                  <Bot className="w-5 h-5 text-purple-400" />
                 ) : (
                   <User className="w-5 h-5 text-white" />
                 )}
@@ -111,22 +257,37 @@ export function AiChat() {
                     : "bg-purple-600 text-white"
                 }`}
               >
-                {message.content}
+                <div className="whitespace-pre-wrap">{message.content}</div>
               </div>
             </div>
           ))}
+          {isLoading && (
+            <div className="flex gap-2 mb-4">
+              <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-purple-400" />
+              </div>
+              <div className="bg-gray-700 text-white rounded-lg p-3">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
         </ScrollArea>
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything about XMRT Master DAO..."
-            className="resize-none bg-gray-700 border-gray-600 text-white"
+            placeholder="Ask about XMRT token, staking, testnet faucet, DAO governance, or anything related to our platform..."
+            className="resize-none bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+            rows={2}
           />
           <Button
             type="submit"
-            disabled={isLoading}
-            className="bg-purple-600 hover:bg-purple-700"
+            disabled={isLoading || !input.trim()}
+            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
           </Button>
