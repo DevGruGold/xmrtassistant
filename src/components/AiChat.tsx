@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { useToast } from "./ui/use-toast";
-import { Bot, Send, User, Key, Eye, EyeOff } from "lucide-react";
+import { Bot, Send, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -57,50 +56,11 @@ export function AiChat() {
   }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [apiKeySet, setApiKeySet] = useState(false);
   const { toast } = useToast();
-
-  // Check for saved API key on component mount
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('deepseek_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-      setApiKeySet(true);
-    }
-  }, []);
-
-  const saveApiKey = () => {
-    if (!apiKey.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid DeepSeek API key",
-        variant: "destructive",
-      });
-      return;
-    }
-    localStorage.setItem('deepseek_api_key', apiKey);
-    setApiKeySet(true);
-    toast({
-      title: "Success",
-      description: "API key saved! You can now use the chat.",
-    });
-  };
-
-  const clearApiKey = () => {
-    localStorage.removeItem('deepseek_api_key');
-    setApiKey("");
-    setApiKeySet(false);
-    toast({
-      title: "API Key Cleared",
-      description: "You'll need to enter your API key again to use the chat.",
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !apiKeySet) return;
+    if (!input.trim()) return;
 
     const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -108,15 +68,16 @@ export function AiChat() {
     setIsLoading(true);
 
     try {
-      const currentApiKey = localStorage.getItem('deepseek_api_key');
-      if (!currentApiKey) {
-        throw new Error("DeepSeek API key not found");
+      const apiKey = import.meta.env.VITE_DEEPSEEK_API;
+      
+      if (!apiKey) {
+        throw new Error("DeepSeek API key not configured");
       }
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${currentApiKey}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -156,7 +117,7 @@ export function AiChat() {
       console.error("AI Chat Error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get AI response. Please check your API key and try again.",
+        description: error instanceof Error ? error.message : "Failed to get AI response. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -164,75 +125,10 @@ export function AiChat() {
     }
   };
 
-  if (!apiKeySet) {
-    return (
-      <Card className="w-full bg-gray-800/50 backdrop-blur-sm border-gray-700">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Key className="w-5 h-5" />
-            XMRT Master DAO AI Assistant Setup
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-gray-300 text-sm">
-            To use the XMRT DAO AI Assistant, please enter your DeepSeek API key. 
-            You can get one for free at{" "}
-            <a 
-              href="https://platform.deepseek.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-purple-400 hover:text-purple-300 underline"
-            >
-              platform.deepseek.com
-            </a>
-          </p>
-          <div className="space-y-2">
-            <div className="relative">
-              <Input
-                type={showApiKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your DeepSeek API key..."
-                className="bg-gray-700 border-gray-600 text-white pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                onClick={() => setShowApiKey(!showApiKey)}
-              >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </Button>
-            </div>
-            <Button 
-              onClick={saveApiKey}
-              className="w-full bg-purple-600 hover:bg-purple-700"
-            >
-              Save API Key & Start Chatting
-            </Button>
-          </div>
-          <p className="text-xs text-gray-400">
-            Your API key is stored locally in your browser and never shared.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full bg-gray-800/50 backdrop-blur-sm border-gray-700">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader>
         <CardTitle className="text-white">XMRT Master DAO AI Assistant</CardTitle>
-        <Button
-          onClick={clearApiKey}
-          variant="ghost"
-          size="sm"
-          className="text-gray-400 hover:text-white"
-        >
-          <Key className="w-4 h-4 mr-1" />
-          Change API Key
-        </Button>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px] pr-4 mb-4">
