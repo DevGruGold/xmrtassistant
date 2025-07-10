@@ -71,7 +71,7 @@ export function AiChat() {
       const apiKey = import.meta.env.VITE_DEEPSEEK_API;
       
       if (!apiKey) {
-        throw new Error("DeepSeek API key not configured");
+        throw new Error("DeepSeek API key not configured - make sure VITE_DEEPSEEK_API is set in environment variables");
       }
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
