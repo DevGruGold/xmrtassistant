@@ -109,11 +109,21 @@ export function AiChat() {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error("AI Chat Error:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get AI response. Please try again.",
-        variant: "destructive",
-      });
+      
+      let errorMessage = "Sorry, I couldn't process your request right now.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("insufficient") || error.message.includes("quota") || error.message.includes("billing")) {
+          errorMessage = "The AI service is temporarily unavailable due to API limitations. Please try again later.";
+        } else if (error.message.includes("API")) {
+          errorMessage = "There was an issue connecting to the AI service. Please try again.";
+        }
+      }
+      
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: errorMessage
+      }]);
     } finally {
       setIsLoading(false);
     }
