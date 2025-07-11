@@ -31,21 +31,34 @@ const WalletInfo = ({ wallet }: WalletInfoProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span>Address</span>
+            <span className="text-gray-400">Address</span>
             <span className="text-purple-400 text-sm truncate max-w-[200px]">
               {wallet.address}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span>Balance</span>
-            <span className="text-blue-400">{wallet.balance} ETH</span>
+            <span className="text-gray-400">Sepolia ETH</span>
+            <span className="text-blue-400 font-mono">{parseFloat(wallet.balance).toFixed(4)} ETH</span>
           </div>
           <div className="flex justify-between items-center">
-            <span>Network</span>
-            <span className="text-green-400">Chain ID: {wallet.chainId}</span>
+            <span className="text-gray-400">XMRT Balance</span>
+            <span className="text-green-400 font-mono">{parseFloat(wallet.xmrtBalance).toFixed(2)} XMRT</span>
           </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Network</span>
+            <span className={`${wallet.chainId === 11155111 ? 'text-green-400' : 'text-yellow-400'}`}>
+              {wallet.chainId === 11155111 ? 'Sepolia Testnet' : `Chain ID: ${wallet.chainId}`}
+            </span>
+          </div>
+          {wallet.chainId !== 11155111 && (
+            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-3 mt-3">
+              <p className="text-yellow-400 text-sm">
+                ⚠️ Please switch to Sepolia testnet for full XMRT functionality
+              </p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

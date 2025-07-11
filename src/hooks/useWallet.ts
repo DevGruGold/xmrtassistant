@@ -67,10 +67,59 @@ export const useWallet = () => {
     });
   }, []);
 
+  const switchToSepolia = async () => {
+    if (!window.ethereum) return false;
+    
+    try {
+      // Try to switch to Sepolia testnet
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0xAA36A7' }], // Sepolia chainId in hex
+      });
+      return true;
+    } catch (switchError: any) {
+      // If the chain doesn't exist, add it
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0xAA36A7',
+              chainName: 'Sepolia test network',
+              nativeCurrency: {
+                name: 'SepoliaETH',
+                symbol: 'ETH',
+                decimals: 18,
+              },
+              rpcUrls: ['https://rpc.sepolia.org'],
+              blockExplorerUrls: ['https://sepolia.etherscan.io'],
+            }],
+          });
+          return true;
+        } catch (addError) {
+          console.error('Error adding Sepolia network:', addError);
+          return false;
+        }
+      }
+      console.error('Error switching to Sepolia:', switchError);
+      return false;
+    }
+  };
+
   const connectWallet = async () => {
     try {
       const web3 = new Web3(window.ethereum);
       const accounts = await web3.eth.requestAccounts();
+      
+      // Automatically switch to Sepolia testnet
+      const switched = await switchToSepolia();
+      if (!switched) {
+        console.warn('Could not switch to Sepolia testnet');
+      }
+      
+      // Wait a moment for the network switch to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const balance = await web3.eth.getBalance(accounts[0]);
       const chainId = await web3.eth.getChainId();
       const contract = await initializeMasterContract(web3);
@@ -125,5 +174,6 @@ export const useWallet = () => {
     connectWallet,
     completeSetup,
     refreshXMRTData,
+    switchToSepolia,
   };
 };
