@@ -71,7 +71,12 @@ export function AiChat() {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       
       if (!apiKey) {
-        throw new Error("Gemini API key not configured - make sure VITE_GEMINI_API_KEY is set in environment variables");
+        const errorMessage = "API key not configured. Please check your environment variables.";
+        setMessages((prev) => [...prev, {
+          role: "assistant",
+          content: errorMessage
+        }]);
+        return;
       }
 
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
