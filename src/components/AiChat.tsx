@@ -68,48 +68,37 @@ export function AiChat() {
     setIsLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_DEEPSEEK_API;
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       
       if (!apiKey) {
-        throw new Error("DeepSeek API key not configured - make sure VITE_DEEPSEEK_API is set in environment variables");
+        throw new Error("Gemini API key not configured - make sure VITE_GEMINI_API_KEY is set in environment variables");
       }
 
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: [
-            {
-              role: 'system',
-              content: DETAILED_SYSTEM_INSTRUCTION
-            },
-            ...messages.map(msg => ({
-              role: msg.role,
-              content: msg.content
-            })),
-            {
-              role: 'user',
-              content: input
-            }
-          ],
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const chatHistory = [
+        ...messages.map(msg => ({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        }))
+      ];
+
+      const chat = model.startChat({
+        history: chatHistory,
+        systemInstruction: DETAILED_SYSTEM_INSTRUCTION,
+        generationConfig: {
           temperature: 0.7,
-          max_tokens: 2000,
-        }),
+          maxOutputTokens: 2000,
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const result = await chat.sendMessage(input);
+      const response = await result.response;
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.choices[0]?.message?.content || "Sorry, I couldn't generate a response.",
+        content: response.text() || "Sorry, I couldn't generate a response.",
       };
       
       setMessages((prev) => [...prev, assistantMessage]);
