@@ -17,44 +17,44 @@ export function Footer() {
   };
 
   return (
-    <footer className="w-full bg-gray-800/50 backdrop-blur-sm border-t border-gray-700 py-6 mt-12">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-gray-400 text-sm">
+    <footer className="w-full bg-gray-800/50 backdrop-blur-sm border-t border-gray-700 py-4 sm:py-6 mt-8 sm:mt-12">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
+          <div className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">
             © 2024 XMRT Master DAO. All rights reserved.
           </div>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-3 sm:gap-4 items-center">
             <Button
               variant="ghost"
               size="icon"
               onClick={openEmail}
-              className="text-gray-400 hover:text-purple-500 transition-colors"
+              className="text-gray-400 hover:text-purple-500 transition-colors h-8 w-8 sm:h-10 sm:w-10"
             >
-              <Mail className="w-5 h-5" />
+              <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={openWhatsApp}
-              className="text-gray-400 hover:text-purple-500 transition-colors"
+              className="text-gray-400 hover:text-purple-500 transition-colors h-8 w-8 sm:h-10 sm:w-10"
             >
-              <Phone className="w-5 h-5" />
+              <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <a
               href="https://twitter.com/XMRTMasterDAO"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-purple-500 transition-colors"
+              className="text-gray-400 hover:text-purple-500 transition-colors p-2"
             >
-              <Twitter className="w-5 h-5" />
+              <Twitter className="w-4 h-4 sm:w-5 sm:h-5" />
             </a>
             <a
               href="https://github.com/XMRTMasterDAO"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-purple-500 transition-colors"
+              className="text-gray-400 hover:text-purple-500 transition-colors p-2"
             >
-              <Github className="w-5 h-5" />
+              <Github className="w-4 h-4 sm:w-5 sm:h-5" />
             </a>
           </div>
         </div>
