@@ -22,27 +22,27 @@ const Index = () => {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20 backdrop-blur-sm" />
         <div className="container mx-auto px-4 py-20 relative">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-                XMRT Master DAO
-              </h1>
-              <p className="text-xl text-gray-300">
-                Revolutionizing decentralized asset management and governance through innovative blockchain solutions.
-              </p>
-              {!wallet.isConnected && (
-                <Button 
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-lg py-6"
-                  onClick={connectWallet}
-                >
-                  <Wallet2 className="mr-2 h-5 w-5" />
-                  Connect Wallet
-                </Button>
-              )}
-            </div>
-            <div className="lg:block">
-              <MobileMoneroCalculator />
-            </div>
+          <div className="text-center space-y-6 mb-12">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
+              XMRT Master DAO
+            </h1>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Revolutionizing decentralized asset management and governance through innovative blockchain solutions.
+            </p>
+            {!wallet.isConnected && (
+              <Button 
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-lg py-6"
+                onClick={connectWallet}
+              >
+                <Wallet2 className="mr-2 h-5 w-5" />
+                Connect Wallet
+              </Button>
+            )}
+          </div>
+          
+          {/* MobileMonero Calculator */}
+          <div className="mb-12">
+            <MobileMoneroCalculator />
           </div>
         </div>
       </section>
@@ -62,59 +62,59 @@ const Index = () => {
           </>
         ) : (
           <div className="grid md:grid-cols-3 gap-6 mt-12">
-            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
+            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl">
               <CardHeader>
-                <CardTitle className="text-white">Multi-Chain Support</CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardTitle className="text-white text-xl font-bold">Multi-Chain Support</CardTitle>
+                <CardDescription className="text-gray-300 text-base">
                   Manage assets across different blockchains
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 flex-wrap">
-                  <div className="px-3 py-1 bg-gray-700 rounded-full text-sm">Ethereum</div>
-                  <div className="px-3 py-1 bg-gray-700 rounded-full text-sm">Polygon</div>
-                  <div className="px-3 py-1 bg-gray-700 rounded-full text-sm">BSC</div>
+                  <div className="px-4 py-2 bg-gray-700/80 rounded-full text-sm text-white font-medium">Ethereum</div>
+                  <div className="px-4 py-2 bg-gray-700/80 rounded-full text-sm text-white font-medium">Polygon</div>
+                  <div className="px-4 py-2 bg-gray-700/80 rounded-full text-sm text-white font-medium">BSC</div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
+            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl">
               <CardHeader>
-                <CardTitle className="text-white">DAO Governance</CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardTitle className="text-white text-xl font-bold">DAO Governance</CardTitle>
+                <CardDescription className="text-gray-300 text-base">
                   Participate in XMRT governance
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span>Proposals</span>
-                    <span className="text-purple-400">Active</span>
+                    <span className="text-gray-200 font-medium">Proposals</span>
+                    <span className="text-purple-400 font-bold">Active</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Members</span>
-                    <span className="text-blue-400">Growing</span>
+                    <span className="text-gray-200 font-medium">Members</span>
+                    <span className="text-blue-400 font-bold">Growing</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800/50 backdrop-blur-sm border-gray-700">
+            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl">
               <CardHeader>
-                <CardTitle className="text-white">Asset Management</CardTitle>
-                <CardDescription className="text-gray-400">
+                <CardTitle className="text-white text-xl font-bold">Asset Management</CardTitle>
+                <CardDescription className="text-gray-300 text-base">
                   Secure and efficient asset handling
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span>Security</span>
-                    <span className="text-green-400">Enhanced</span>
+                    <span className="text-gray-200 font-medium">Security</span>
+                    <span className="text-green-400 font-bold">Enhanced</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Efficiency</span>
-                    <span className="text-yellow-400">Optimized</span>
+                    <span className="text-gray-200 font-medium">Efficiency</span>
+                    <span className="text-yellow-400 font-bold">Optimized</span>
                   </div>
                 </div>
               </CardContent>
