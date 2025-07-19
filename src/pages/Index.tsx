@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Wallet2 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
-import { AiChat } from "@/components/AiChat";
+import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
@@ -41,7 +41,7 @@ const Index = () => {
               )}
             </div>
             <div className="lg:block">
-              <AiChat />
+              <MobileMoneroCalculator />
             </div>
           </div>
         </div>
