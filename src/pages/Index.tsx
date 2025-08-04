@@ -5,6 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
 import LiveMiningStats from "@/components/LiveMiningStats";
+import ElizaChat from "@/components/ElizaChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
@@ -52,9 +53,10 @@ const Index = () => {
             )}
           </div>
           
-          {/* Live Mining Stats */}
-          <div className="mb-8 sm:mb-12 animate-fade-in">
+          {/* Live Mining Stats and Eliza Chat */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-8 sm:mb-12 animate-fade-in">
             <LiveMiningStats />
+            <ElizaChat />
           </div>
           
           {/* MobileMonero Calculator */}
