@@ -1,9 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet2 } from "lucide-react";
+import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
+import LiveMiningStats from "@/components/LiveMiningStats";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
@@ -15,33 +16,49 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("members");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
+    <div className="min-h-screen bg-background">
       <MobileNav />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20 backdrop-blur-sm" />
-        <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-8 sm:py-12 lg:py-20 relative">
-          <div className="text-center space-y-4 sm:space-y-6 mb-8 sm:mb-12">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent leading-tight">
+      <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-secondary">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(271_81%_56%_/_0.1),transparent_50%),radial-gradient(circle_at_70%_80%,hsl(199_89%_48%_/_0.1),transparent_50%)]" />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 relative">
+          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8 mb-12 sm:mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4 animate-fade-in">
+              <Sparkles className="h-4 w-4" />
+              Live Mining Dashboard
+            </div>
+            
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-tight animate-slide-in">
               XMRT Master DAO
             </h1>
-            <p className="text-base sm:text-lg lg:text-xl text-gray-300 max-w-3xl mx-auto px-4">
-              Revolutionizing decentralized asset management and governance through innovative blockchain solutions.
+            
+            <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in">
+              Revolutionizing decentralized asset management and governance through innovative blockchain solutions with real-time mining integration.
             </p>
+            
             {!wallet.isConnected && (
-              <Button 
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-base sm:text-lg py-4 sm:py-6 px-6 sm:px-8 w-full sm:w-auto"
-                onClick={connectWallet}
-              >
-                <Wallet2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                Connect Wallet
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-in">
+                <Button 
+                  size="lg"
+                  className="bg-gradient-to-r from-primary to-mining-info hover:from-primary/90 hover:to-mining-info/90 text-lg py-6 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+                  onClick={connectWallet}
+                >
+                  <Wallet2 className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+                  Connect Wallet
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </div>
             )}
           </div>
           
+          {/* Live Mining Stats */}
+          <div className="mb-8 sm:mb-12 animate-fade-in">
+            <LiveMiningStats />
+          </div>
+          
           {/* MobileMonero Calculator */}
-          <div className="mb-8 sm:mb-12">
+          <div className="mb-8 sm:mb-12 animate-fade-in">
             <MobileMoneroCalculator />
           </div>
         </div>
@@ -61,60 +78,75 @@ const Index = () => {
             )}
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 mt-8 sm:mt-12">
-            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl">
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="text-white text-lg sm:text-xl font-bold">Multi-Chain Support</CardTitle>
-                <CardDescription className="text-gray-300 text-sm sm:text-base">
-                  Manage assets across different blockchains
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-12">
+            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                    <Layers className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-foreground text-xl font-bold">Multi-Chain Support</CardTitle>
+                </div>
+                <CardDescription className="text-muted-foreground">
+                  Manage assets across different blockchains seamlessly
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-                  <div className="px-2 sm:px-4 py-1 sm:py-2 bg-gray-700/80 rounded-full text-xs sm:text-sm text-white font-medium">Ethereum</div>
-                  <div className="px-2 sm:px-4 py-1 sm:py-2 bg-gray-700/80 rounded-full text-xs sm:text-sm text-white font-medium">Polygon</div>
-                  <div className="px-2 sm:px-4 py-1 sm:py-2 bg-gray-700/80 rounded-full text-xs sm:text-sm text-white font-medium">BSC</div>
+                <div className="flex gap-2 flex-wrap">
+                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">Ethereum</div>
+                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">Polygon</div>
+                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">BSC</div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl">
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="text-white text-lg sm:text-xl font-bold">DAO Governance</CardTitle>
-                <CardDescription className="text-gray-300 text-sm sm:text-base">
-                  Participate in XMRT governance
+            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
+                    <Users className="h-6 w-6 text-mining-active" />
+                  </div>
+                  <CardTitle className="text-foreground text-xl font-bold">DAO Governance</CardTitle>
+                </div>
+                <CardDescription className="text-muted-foreground">
+                  Participate in XMRT governance and mining decisions
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-200 font-medium text-sm sm:text-base">Proposals</span>
-                    <span className="text-purple-400 font-bold text-sm sm:text-base">Active</span>
+                    <span className="text-foreground font-medium">Proposals</span>
+                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">Active</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-200 font-medium text-sm sm:text-base">Members</span>
-                    <span className="text-blue-400 font-bold text-sm sm:text-base">Growing</span>
+                    <span className="text-foreground font-medium">Members</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Growing</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-900/80 backdrop-blur-sm border-gray-600 shadow-xl md:col-span-2 xl:col-span-1">
-              <CardHeader className="pb-3 sm:pb-6">
-                <CardTitle className="text-white text-lg sm:text-xl font-bold">Asset Management</CardTitle>
-                <CardDescription className="text-gray-300 text-sm sm:text-base">
-                  Secure and efficient asset handling
+            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in md:col-span-2 xl:col-span-1">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
+                    <Shield className="h-6 w-6 text-mining-info" />
+                  </div>
+                  <CardTitle className="text-foreground text-xl font-bold">Asset Management</CardTitle>
+                </div>
+                <CardDescription className="text-muted-foreground">
+                  Secure and efficient asset handling with mining rewards
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-200 font-medium text-sm sm:text-base">Security</span>
-                    <span className="text-green-400 font-bold text-sm sm:text-base">Enhanced</span>
+                    <span className="text-foreground font-medium">Security</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Enhanced</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-200 font-medium text-sm sm:text-base">Efficiency</span>
-                    <span className="text-yellow-400 font-bold text-sm sm:text-base">Optimized</span>
+                    <span className="text-foreground font-medium">Mining</span>
+                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">Optimized</span>
                   </div>
                 </div>
               </CardContent>
@@ -124,10 +156,10 @@ const Index = () => {
       </main>
 
       {/* Chat Section */}
-      <div className="w-full h-64 sm:h-80 lg:h-96 bg-gray-900 border-t border-gray-700">
+      <div className="w-full h-64 sm:h-80 lg:h-96 bg-secondary/50 border-t border-border backdrop-blur-sm">
         <iframe
           src="https://mobilemonero.chatango.com/"
-          className="w-full h-full"
+          className="w-full h-full rounded-t-lg"
           style={{ border: "none" }}
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
           title="XMRT Chat"
