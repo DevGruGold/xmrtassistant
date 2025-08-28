@@ -4,12 +4,15 @@ import { Badge } from "./ui/badge";
 import { Activity, Hash, Coins, Clock, Zap, TrendingUp } from "lucide-react";
 
 interface MiningStats {
-  hashrate: number;
-  sharesFound: number;
-  lastShare: number;
-  totalEarnings: number;
+  hash: number;
+  validShares: number;
+  invalidShares: number;
+  lastHash: number;
+  totalHashes: number;
+  amtDue: number;
+  amtPaid: number;
+  txnCount: number;
   isOnline: boolean;
-  workerCount: number;
 }
 
 const LiveMiningStats = () => {
@@ -31,12 +34,15 @@ const LiveMiningStats = () => {
       const data = await response.json();
       
       setStats({
-        hashrate: data.hashrate || 0,
-        sharesFound: data.totalShares || 0,
-        lastShare: data.lastShare || 0,
-        totalEarnings: data.totalEarnings || 0,
-        isOnline: data.lastShare > Date.now() - 300000, // 5 minutes
-        workerCount: data.workers?.length || 0
+        hash: data.hash || 0,
+        validShares: data.validShares || 0,
+        invalidShares: data.invalidShares || 0,
+        lastHash: data.lastHash || 0,
+        totalHashes: data.totalHashes || 0,
+        amtDue: data.amtDue || 0,
+        amtPaid: data.amtPaid || 0,
+        txnCount: data.txnCount || 0,
+        isOnline: data.lastHash > (Date.now() / 1000) - 300 // 5 minutes
       });
       
       setLastUpdate(new Date());
@@ -144,50 +150,50 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Hash className="h-4 w-4" />
-              Hashrate
+              Current Hashrate
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats ? formatHashrate(stats.hashrate) : "0 H/s"}
+              {stats ? formatHashrate(stats.hash) : "0 H/s"}
             </div>
           </div>
           
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <TrendingUp className="h-4 w-4" />
-              Total Shares
+              Valid Shares
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats?.sharesFound.toLocaleString() || "0"}
+              {stats?.validShares.toLocaleString() || "0"}
             </div>
           </div>
           
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Clock className="h-4 w-4" />
-              Last Share
+              Last Hash
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats ? formatTimeAgo(stats.lastShare) : "Never"}
+              {stats ? formatTimeAgo(stats.lastHash) : "Never"}
             </div>
           </div>
           
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Coins className="h-4 w-4" />
-              Total Earnings
+              Amount Due
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats ? `${(stats.totalEarnings / 1000000000000).toFixed(6)} XMR` : "0 XMR"}
+              {stats ? `${(stats.amtDue / 1000000000000).toFixed(6)} XMR` : "0 XMR"}
             </div>
           </div>
           
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Zap className="h-4 w-4" />
-              Workers
+              Total Hashes
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats?.workerCount || "0"}
+              {stats?.totalHashes.toLocaleString() || "0"}
             </div>
           </div>
           
