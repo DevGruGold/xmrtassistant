@@ -139,24 +139,24 @@ const ElizaChat = () => {
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-4">
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
+      <CardContent className="flex-1 flex flex-col p-4 min-h-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 mb-4 pr-2">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                className={`max-w-[80%] min-w-0 rounded-lg px-3 py-2 ${
                   message.isUser
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground'
                 }`}
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   {!message.isUser && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
                   {message.isUser && <User className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0 flex-1">{message.content}</div>
                 </div>
                 <div className="text-xs opacity-70 mt-1">
                   {message.timestamp.toLocaleTimeString()}
