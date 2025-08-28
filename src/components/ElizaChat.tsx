@@ -32,7 +32,10 @@ const ElizaChat = () => {
   const [apiKey, setApiKey] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
   const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
+  const [userIP, setUserIP] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const FOUNDER_IP = ""; // This will be set when first user connects
 
   const fetchMiningStats = async () => {
     try {
@@ -71,6 +74,27 @@ const ElizaChat = () => {
     return `${hashrate.toFixed(2)} H/s`;
   };
 
+  const fetchUserIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      setUserIP(data.ip);
+      
+      // Store founder IP if not already set
+      const storedFounderIP = localStorage.getItem('founderIP');
+      if (!storedFounderIP) {
+        localStorage.setItem('founderIP', data.ip);
+      }
+    } catch (error) {
+      console.error('Failed to fetch IP:', error);
+    }
+  };
+
+  const isFounder = () => {
+    const founderIP = localStorage.getItem('founderIP');
+    return founderIP === userIP;
+  };
+
   const getElizaResponseWithGemini = async (userInput: string): Promise<string> => {
     if (!apiKey) {
       return "Please provide a Gemini API key to enable intelligent responses.";
@@ -94,13 +118,14 @@ Current XMRT-DAO Mining Status:
 - Wallet: 46UxNFuGM2E3UwmZWWJic...C5mg
       ` : 'Mining data currently unavailable.';
 
+      const userTitle = isFounder() ? 'Founder' : 'user';
       const prompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You are professional, knowledgeable, and helpful. 
 
 ${miningContext}
 
-Respond to the user's query: "${userInput}"
+Respond to the ${userTitle}'s query: "${userInput}"
 
-Keep responses concise and informative. Use the real mining data when relevant. Address the user as "Founder" when appropriate.`;
+Keep responses concise and informative. Use the real mining data when relevant. ${isFounder() ? 'Address this user as "Founder" since they are the project founder.' : 'Address this user generically without special titles.'}`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -120,22 +145,33 @@ Keep responses concise and informative. Use the real mining data when relevant. 
   }, [messages]);
 
   useEffect(() => {
-    // Fetch mining stats on component mount and every 30 seconds
-    fetchMiningStats();
-    const interval = setInterval(fetchMiningStats, 30000);
-    return () => clearInterval(interval);
+    // Fetch IP and initialize
+    const initialize = async () => {
+      await fetchUserIP();
+      fetchMiningStats();
+      const interval = setInterval(fetchMiningStats, 30000);
+      return () => clearInterval(interval);
+    };
+    
+    initialize();
   }, []);
 
   useEffect(() => {
-    // Initialize with Eliza's greeting
-    setMessages([{
-      id: Date.now().toString(),
-      content: "Greetings, Founder. I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you today?",
-      isUser: false,
-      timestamp: new Date()
-    }]);
-    setIsConnected(true);
-  }, []);
+    // Initialize with conditional greeting based on IP
+    if (userIP) {
+      const greeting = isFounder() 
+        ? "Greetings, Founder. I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you today?"
+        : "Hello! I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you?";
+        
+      setMessages([{
+        id: Date.now().toString(),
+        content: greeting,
+        isUser: false,
+        timestamp: new Date()
+      }]);
+      setIsConnected(true);
+    }
+  }, [userIP]);
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
