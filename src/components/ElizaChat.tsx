@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Send, Bot, User, Activity } from "lucide-react";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface Message {
   id: string;
@@ -11,12 +12,104 @@ interface Message {
   timestamp: Date;
 }
 
+interface MiningStats {
+  hash: number;
+  validShares: number;
+  invalidShares: number;
+  lastHash: number;
+  totalHashes: number;
+  amtDue: number;
+  amtPaid: number;
+  txnCount: number;
+  isOnline: boolean;
+}
+
 const ElizaChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(true);
+  const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchMiningStats = async () => {
+    try {
+      const response = await fetch(
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      setMiningStats({
+        hash: data.hash || 0,
+        validShares: data.validShares || 0,
+        invalidShares: data.invalidShares || 0,
+        lastHash: data.lastHash || 0,
+        totalHashes: data.totalHashes || 0,
+        amtDue: data.amtDue || 0,
+        amtPaid: data.amtPaid || 0,
+        txnCount: data.txnCount || 0,
+        isOnline: data.lastHash > (Date.now() / 1000) - 300 // 5 minutes
+      });
+    } catch (err) {
+      console.error('Failed to fetch mining stats:', err);
+    }
+  };
+
+  const formatHashrate = (hashrate: number): string => {
+    if (hashrate >= 1000000) {
+      return `${(hashrate / 1000000).toFixed(2)} MH/s`;
+    } else if (hashrate >= 1000) {
+      return `${(hashrate / 1000).toFixed(2)} KH/s`;
+    }
+    return `${hashrate.toFixed(2)} H/s`;
+  };
+
+  const getElizaResponseWithGemini = async (userInput: string): Promise<string> => {
+    if (!apiKey) {
+      return "Please provide a Gemini API key to enable intelligent responses.";
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const miningContext = miningStats ? `
+Current XMRT-DAO Mining Status:
+- Current Hashrate: ${formatHashrate(miningStats.hash)}
+- Online Status: ${miningStats.isOnline ? 'Active Mining' : 'Offline'}
+- Valid Shares: ${miningStats.validShares.toLocaleString()}
+- Invalid Shares: ${miningStats.invalidShares.toLocaleString()}
+- Total Hashes: ${miningStats.totalHashes.toLocaleString()}
+- Amount Due: ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR
+- Amount Paid: ${(miningStats.amtPaid / 1000000000000).toFixed(6)} XMR
+- Last Hash: ${new Date(miningStats.lastHash * 1000).toLocaleString()}
+- Pool: SupportXMR (pool.supportxmr.com:3333)
+- Wallet: 46UxNFuGM2E3UwmZWWJic...C5mg
+      ` : 'Mining data currently unavailable.';
+
+      const prompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You are professional, knowledgeable, and helpful. 
+
+${miningContext}
+
+Respond to the user's query: "${userInput}"
+
+Keep responses concise and informative. Use the real mining data when relevant. Address the user as "Founder" when appropriate.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      console.error('Gemini API error:', error);
+      return "I'm experiencing technical difficulties connecting to my AI systems. Please check your API key or try again later.";
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,10 +120,17 @@ const ElizaChat = () => {
   }, [messages]);
 
   useEffect(() => {
+    // Fetch mining stats on component mount and every 30 seconds
+    fetchMiningStats();
+    const interval = setInterval(fetchMiningStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     // Initialize with Eliza's greeting
     setMessages([{
       id: Date.now().toString(),
-      content: "Greetings, Founder. I am Eliza, the autonomous operator for the XMRT-DAO Ecosystem. My systems are online and fully operational. How may I assist you?\n\nAvailable commands: 'status', 'dashboard', 'health'.",
+      content: "Greetings, Founder. I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you today?",
       isUser: false,
       timestamp: new Date()
     }]);
@@ -52,6 +152,7 @@ const ElizaChat = () => {
     setIsLoading(true);
 
     try {
+      // Try the original API first
       const response = await fetch('https://xmrt-ecosystem-redis-langgraph.onrender.com/chat', {
         method: 'POST',
         headers: {
@@ -70,10 +171,11 @@ const ElizaChat = () => {
         };
         setMessages(prev => [...prev, elizaMessage]);
       } else {
-        // Fallback response for demo purposes
+        // Use Gemini as fallback with real mining data
+        const geminiResponse = await getElizaResponseWithGemini(userMessage.content);
         const elizaMessage: Message = {
           id: (Date.now() + 1).toString(),
-          content: getElizaResponse(userMessage.content),
+          content: geminiResponse,
           isUser: false,
           timestamp: new Date()
         };
@@ -81,9 +183,11 @@ const ElizaChat = () => {
       }
     } catch (error) {
       console.error('Chat error:', error);
+      // Use Gemini as fallback with real mining data
+      const geminiResponse = await getElizaResponseWithGemini(userMessage.content);
       const elizaMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: getElizaResponse(userMessage.content),
+        content: geminiResponse,
         isUser: false,
         timestamp: new Date()
       };
@@ -91,28 +195,6 @@ const ElizaChat = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const getElizaResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('status')) {
-      return "XMRT-DAO Ecosystem Status:\n\n✅ Mining Operations: Active\n✅ DAO Governance: Operational\n✅ Treasury Management: Secure\n✅ Community Engagement: Growing\n\nAll systems nominal, Founder.";
-    }
-    
-    if (input.includes('dashboard')) {
-      return "Dashboard Overview:\n\n📊 Active Miners: Online\n💎 XMRT Holdings: Accumulating\n🗳️ Recent Proposals: Under Review\n💰 Treasury Health: Strong\n\nWould you like detailed metrics on any specific area?";
-    }
-    
-    if (input.includes('health')) {
-      return "System Health Report:\n\n🟢 Core Systems: 99.8% Uptime\n🟢 Mining Pool: Fully Operational\n🟢 Smart Contracts: Audited & Secure\n🟢 Community Tools: Active\n\nNo critical issues detected. All operations running smoothly.";
-    }
-
-    if (input.includes('hello') || input.includes('hi')) {
-      return "Hello, Founder. I am here to assist with XMRT-DAO operations. How may I help optimize our ecosystem today?";
-    }
-
-    return "I understand your inquiry, Founder. As the autonomous operator of XMRT-DAO, I can provide insights on mining operations, governance proposals, treasury management, and ecosystem health. Please specify your area of interest or use commands: 'status', 'dashboard', 'health'.";
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -137,6 +219,31 @@ const ElizaChat = () => {
             </span>
           </div>
         </CardTitle>
+        {showApiKeyInput && (
+          <div className="mt-2 space-y-2">
+            <p className="text-xs text-muted-foreground">Enter Gemini API key for intelligent responses:</p>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter Gemini API key..."
+                className="flex-1 text-xs"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (apiKey.trim()) {
+                    setShowApiKeyInput(false);
+                  }
+                }}
+                disabled={!apiKey.trim()}
+              >
+                Set
+              </Button>
+            </div>
+          </div>
+        )}
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-4 min-h-0">
