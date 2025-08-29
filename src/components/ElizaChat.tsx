@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Send, Bot, User, Activity } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import ElizaAvatar from "./ElizaAvatar";
 
 interface Message {
   id: string;
@@ -33,6 +34,7 @@ const ElizaChat = () => {
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
   const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
   const [userIP, setUserIP] = useState<string>("");
+  const [lastElizaMessage, setLastElizaMessage] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const FOUNDER_IP = ""; // This will be set when first user connects
@@ -169,6 +171,7 @@ Keep responses concise and informative. Use the real mining data when relevant. 
         isUser: false,
         timestamp: new Date()
       }]);
+      setLastElizaMessage(greeting);
       setIsConnected(true);
     }
   }, [userIP]);
@@ -206,6 +209,7 @@ Keep responses concise and informative. Use the real mining data when relevant. 
           timestamp: new Date()
         };
         setMessages(prev => [...prev, elizaMessage]);
+        setLastElizaMessage(data || "I'm processing your request...");
       } else {
         // Use Gemini as fallback with real mining data
         const geminiResponse = await getElizaResponseWithGemini(userMessage.content);
@@ -216,6 +220,7 @@ Keep responses concise and informative. Use the real mining data when relevant. 
           timestamp: new Date()
         };
         setMessages(prev => [...prev, elizaMessage]);
+        setLastElizaMessage(geminiResponse);
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -228,6 +233,7 @@ Keep responses concise and informative. Use the real mining data when relevant. 
         timestamp: new Date()
       };
       setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(geminiResponse);
     } finally {
       setIsLoading(false);
     }
@@ -244,15 +250,26 @@ Keep responses concise and informative. Use the real mining data when relevant. 
     <Card className="bg-gradient-to-br from-card to-secondary border-border h-96 flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            Eliza - XMRT-DAO Operator
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-mining-active animate-pulse' : 'bg-mining-inactive'}`} />
-            <span className="text-xs text-muted-foreground">
-              {isConnected ? 'Online' : 'Offline'}
-            </span>
+          <div className="flex items-center gap-3">
+            <ElizaAvatar 
+              apiKey={apiKey}
+              lastMessage={lastElizaMessage}
+              isConnected={isConnected}
+              isSpeaking={isLoading}
+              className="scale-75"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-primary" />
+                Eliza - XMRT-DAO Operator
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-mining-active animate-pulse' : 'bg-mining-inactive'}`} />
+                <span className="text-xs text-muted-foreground">
+                  {isConnected ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
           </div>
         </CardTitle>
         {showApiKeyInput && (
