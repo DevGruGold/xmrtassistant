@@ -37,25 +37,32 @@ const Index = () => {
             <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in">
               Revolutionizing decentralized asset management and governance through innovative blockchain solutions with real-time mining integration.
             </p>
-            
-            {!wallet.isConnected && (
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-in">
-                <Button 
-                  size="lg"
-                  className="bg-gradient-to-r from-primary to-mining-info hover:from-primary/90 hover:to-mining-info/90 text-lg py-6 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
-                  onClick={connectWallet}
-                >
-                  <Wallet2 className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                  Connect Wallet
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </div>
-            )}
           </div>
           
-          {/* Live Mining Stats and Eliza Chat */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-8 sm:mb-12 animate-fade-in">
+          {/* Live Mining Stats - Moved Higher */}
+          <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
             <LiveMiningStats />
+          </div>
+          
+          {/* Start Mining CTA */}
+          <div className="max-w-4xl mx-auto text-center mb-8 sm:mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-in">
+              <Button 
+                size="lg"
+                className="bg-gradient-to-r from-primary to-mining-info hover:from-primary/90 hover:to-mining-info/90 text-lg py-6 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+                asChild
+              >
+                <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
+                  <Sparkles className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+                  Start Mining
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </a>
+              </Button>
+            </div>
+          </div>
+          
+          {/* Eliza Chat */}
+          <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
             <ElizaChat />
           </div>
           
