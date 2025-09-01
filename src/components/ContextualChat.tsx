@@ -6,8 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
-import { LiveVoiceProcessor } from './LiveVoiceProcessor';
-import { LiveCameraProcessor } from './LiveCameraProcessor';
+import { HumeVoiceProvider } from './HumeVoiceProvider';
+import { HumeVoiceChat } from './HumeVoiceChat';
 import { MultimodalInput } from './MultimodalInput';
 import { realTimeProcessingService } from '@/services/RealTimeProcessingService';
 import { contextAwarenessService } from '@/services/ContextAwarenessService';
@@ -561,20 +561,25 @@ CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
       {isRealTimeEnabled && (
         <div className="px-4 pb-3 border-b">
           <div className="grid grid-cols-2 gap-4">
-            <LiveVoiceProcessor
-              isEnabled={realtimeConfig.voiceProcessing}
-              onTranscriptionUpdate={(transcript) => console.log('Voice transcript:', transcript)}
-              onFinalTranscript={handleFinalTranscript}
-              onEmotionDetected={handleEmotionDetected}
-              onVoiceActivityChange={handleVoiceActivity}
-              className="text-xs"
-            />
-            <LiveCameraProcessor
-              onEmotionDetected={handleEmotionDetected}
-              onVisualContextUpdate={handleVisualContext}
-              isEnabled={realtimeConfig.videoProcessing}
-              className="text-xs"
-            />
+            <HumeVoiceProvider>
+              <HumeVoiceChat
+                isEnabled={realtimeConfig.voiceProcessing}
+                miningStats={miningStats}
+                userContext={`IP: ${userIP}, Founder: ${isFounder()}, Mining Stats: ${JSON.stringify(miningStats)}`}
+                onEmotionDetected={handleEmotionDetected}
+                onTranscriptUpdate={(transcript, isFinal) => {
+                  console.log('Voice transcript:', transcript);
+                  if (isFinal) {
+                    handleFinalTranscript(transcript, 0.9);
+                  }
+                }}
+                className="text-xs"
+              />
+            </HumeVoiceProvider>
+            {/* Camera processor temporarily disabled until we fix LiveCameraProcessor */}
+            <div className="text-xs text-muted-foreground p-2 border rounded">
+              Camera processing available in next update
+            </div>
           </div>
         </div>
       )}
