@@ -57,7 +57,8 @@ interface UnifiedChatProps {
   miningStats?: MiningStats;
 }
 
-const UnifiedChat: React.FC<UnifiedChatProps> = ({
+// Internal component that uses the useVoice hook
+const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
   className = '',
   miningStats: externalMiningStats
@@ -526,8 +527,7 @@ Keep responses thoughtful and informative, connecting technical details to philo
   const statusValue = typeof status === 'object' ? status.value : status;
 
   return (
-    <HumeVoiceProvider>
-      <Card className={`bg-gradient-to-br from-card to-secondary border-border min-h-[24rem] max-h-[32rem] flex flex-col ${className}`}>
+    <Card className={`bg-gradient-to-br from-card to-secondary border-border min-h-[24rem] max-h-[32rem] flex flex-col ${className}`}>
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
@@ -679,6 +679,14 @@ Keep responses thoughtful and informative, connecting technical details to philo
           </div>
         </div>
       </Card>
+  );
+};
+
+// Main component that wraps with HumeVoiceProvider
+const UnifiedChat: React.FC<UnifiedChatProps> = (props) => {
+  return (
+    <HumeVoiceProvider>
+      <UnifiedChatInner {...props} />
     </HumeVoiceProvider>
   );
 };
