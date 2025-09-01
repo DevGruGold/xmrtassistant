@@ -99,7 +99,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hume Voice integration - Pure STT only
+// Hume EVI integration - Full conversational AI
   const {
     status,
     isMuted,
@@ -140,22 +140,23 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (inputMode === 'voice' || inputMode === 'rich') {
         if (status?.value !== 'connected') {
           try {
-            // Connect in pure STT mode - no voice configuration
+            // Connect to Hume EVI with full conversational AI
             await connect({
+              configId: 'b201d214-914c-4d0a-b8e4-54adfc14a0dd', // XMRT-DAO Eliza config
               auth: {
                 type: 'apiKey',
                 value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
               }
             });
           } catch (error) {
-            console.error('Failed to connect to Hume STT:', error);
+            console.error('Failed to connect to Hume EVI:', error);
           }
         }
       } else if (inputMode === 'text' && status?.value === 'connected') {
         try {
           await disconnect();
         } catch (error) {
-          console.error('Failed to disconnect from Hume STT:', error);
+          console.error('Failed to disconnect from Hume EVI:', error);
         }
       }
     };
@@ -165,10 +166,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Initialize greeting when IP is available
   useEffect(() => {
-    if (userIP && messages.length === 0) {
+        if (userIP && messages.length === 0) {
       const modeDescription = {
-        text: 'Text mode active - type your messages to interact.',
-        voice: 'Voice mode active - I can hear and respond to your speech.',
+        text: 'Text mode active - type your messages to interact with Gemini AI.',
+        voice: 'Voice mode active - Hume EVI conversational AI is ready.',
         rich: 'Rich mode active - use text, voice, camera, and files to communicate.'
       };
 
@@ -214,12 +215,12 @@ How may I assist you in understanding our mission to transform users into builde
     setIsConnected(status?.value === 'connected');
   }, [status]);
 
-  // Process Hume messages for emotions and transcripts (filter out AI responses)
+  // Process Hume messages for both transcripts and AI responses
   useEffect(() => {
     if (humeMessages.length > 0) {
       const latestMessage = humeMessages[humeMessages.length - 1];
       
-      // Only process user messages, ignore AI/assistant responses from Hume
+      // Handle user voice transcripts
       if (latestMessage.type === 'user_message') {
         // Handle emotion detection
         if ((latestMessage as any).models?.prosody) {
@@ -238,16 +239,36 @@ How may I assist you in understanding our mission to transform users into builde
         // Handle transcript updates - only from user messages
         if ((latestMessage as any).message?.content) {
           const transcript = (latestMessage as any).message.content;
-          if (transcript && transcript.trim()) {
-            handleVoiceTranscript(transcript, 0.8);
+          if (transcript && transcript.trim() && !isProcessing) {
+            const userMessage: UnifiedMessage = {
+              id: `user-voice-${Date.now()}`,
+              content: transcript,
+              sender: 'user',
+              timestamp: new Date(),
+              emotion: currentEmotion,
+              confidence: emotionConfidence
+            };
+            setMessages(prev => [...prev, userMessage]);
           }
         }
       }
       
-      // Ignore assistant_message, agent_message, or any other Hume AI responses
-      // We want pure transcription only - Gemini handles all AI responses
+      // Handle AI responses from Hume EVI
+      if (latestMessage.type === 'assistant_message') {
+        const response = (latestMessage as any).message?.content;
+        if (response && response.trim()) {
+          const elizaMessage: UnifiedMessage = {
+            id: `eliza-hume-${Date.now()}`,
+            content: response,
+            sender: 'eliza',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, elizaMessage]);
+          setLastElizaMessage(response);
+        }
+      }
     }
-  }, [humeMessages]);
+  }, [humeMessages, isProcessing, currentEmotion, emotionConfidence]);
 
   // XMRT Knowledge Base Integration Functions
   const fetchMiningStats = async () => {
