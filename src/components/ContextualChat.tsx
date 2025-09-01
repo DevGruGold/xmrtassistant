@@ -677,3 +677,5 @@ CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
     </Card>
   );
 };
+
+export default ContextualChat;

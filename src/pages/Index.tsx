@@ -5,7 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
 import LiveMiningStats from "@/components/LiveMiningStats";
-import { ContextualChat } from "@/components/ContextualChat";
+import ContextualChat from "@/components/ContextualChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
