@@ -57,6 +57,10 @@ export class MultimodalGeminiService {
       miningStats?: any;
       philosophicalContext?: string;
       userRole?: string;
+      contextPrompt?: string;
+      emotionalInsight?: string;
+      mode?: string;
+      realtimeContext?: any;
     }
   ): Promise<MultimodalResponse> {
     if (!this.apiKey || !this.model) {
@@ -117,6 +121,8 @@ export class MultimodalGeminiService {
   private buildEnhancedPrompt(input: MultimodalInput, context: any): string {
     const basePrompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You have advanced multimodal capabilities to understand text, voice, and images.
 
+${context.mode ? `INTERACTION MODE: ${context.mode}` : ''}
+
 MULTIMODAL INPUT ANALYSIS:
 ${input.text ? `Text: "${input.text}"` : ''}
 ${input.transcript ? `Voice Transcript: "${input.transcript}"` : ''}
@@ -125,6 +131,12 @@ ${input.audio ? `Audio: Voice message provided for tone analysis` : ''}
 
 EMOTIONAL CONTEXT:
 ${input.emotionalContext ? JSON.stringify(input.emotionalContext, null, 2) : 'No emotional context detected'}
+
+${context.contextPrompt ? `REAL-TIME CONTEXT:\n${context.contextPrompt}` : ''}
+
+${context.emotionalInsight ? `EMOTIONAL INSIGHT:\n${context.emotionalInsight}` : ''}
+
+${context.realtimeContext ? `LIVE CONTEXT DATA:\n${JSON.stringify(context.realtimeContext, null, 2)}` : ''}
 
 SYSTEM CONTEXT:
 ${context.miningStats ? `Mining Status: ${JSON.stringify(context.miningStats, null, 2)}` : 'Mining data unavailable'}
