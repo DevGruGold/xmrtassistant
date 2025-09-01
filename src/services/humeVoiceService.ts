@@ -5,26 +5,27 @@ const HUME_CONFIG = {
   baseUrl: 'https://api.hume.ai',
 };
 
-// XMRT-specific EVI configuration - optimized for transcription only
-export const XMRT_EVI_CONFIG = {
-  // Minimal system prompt - we want Hume to focus on transcription
-  systemPrompt: `You are a voice transcription assistant. Your primary role is to accurately transcribe user speech and detect emotional context. Do not generate conversational responses - simply acknowledge transcription with brief confirmations like "Got it" or "I heard you." The main AI system will handle all substantive responses.`,
-
-  // Voice and conversation settings optimized for transcription
+// Hume Voice Configuration - Pure transcription mode
+export const HUME_VOICE_CONFIG = {
+  // Voice ID for consistent voice output
+  voiceId: 'b201d214-914c-4d0a-b8e4-54adfc14a0dd',
+  
+  // Voice settings for optimal quality
   voiceSettings: {
     speed: 1.0,
-    temperature: 0.1, // Low temperature for consistent, brief responses
-    maxTokens: 20,    // Very short responses
+    stability: 0.5,
+    clarity: 0.7,
   },
 
-  // Emotion detection settings
-  emotionSettings: {
+  // Transcription settings
+  transcriptionSettings: {
     enableEmotionDetection: true,
     emotionThreshold: 0.3,
+    language: 'en',
   },
 
-  // Configuration to minimize AI responses from Hume
-  transcriptionMode: true,
+  // Pure transcription mode - no AI responses from Hume
+  transcriptionOnly: true,
 }
 
 export default HUME_CONFIG;

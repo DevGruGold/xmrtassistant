@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
-import { XMRT_EVI_CONFIG } from '../services/humeVoiceService';
+import { HUME_VOICE_CONFIG } from '../services/humeVoiceService';
 
 interface HumeVoiceChatProps {
   className?: string;
