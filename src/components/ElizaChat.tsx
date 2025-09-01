@@ -109,7 +109,15 @@ const ElizaChat = () => {
       const context = await contextManager.analyzeContext(userInput, miningStats);
       
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 2048,
+        }
+      });
 
       const miningContext = miningStats ? `
 Current XMRT-DAO Mining Status:

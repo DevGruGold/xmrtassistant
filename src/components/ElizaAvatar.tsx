@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Volume2, VolumeX, Loader2, Brain, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { geminiImageService, type GeneratedImage } from "../services/geminiImageService";
 
 interface ElizaAvatarProps {
   apiKey: string;
@@ -17,6 +17,15 @@ interface MoodState {
   emotion: string;
   intensity: number;
   context: string;
+  confidence: number;
+  previousEmotion?: string;
+}
+
+interface EmotionalContext {
+  userMood?: string;
+  conversationTone?: string;
+  topicComplexity?: 'simple' | 'moderate' | 'complex';
+  urgency?: 'low' | 'medium' | 'high';
 }
 
 const ElizaAvatar = ({ 
@@ -26,80 +35,171 @@ const ElizaAvatar = ({
   isSpeaking = false,
   className 
 }: ElizaAvatarProps) => {
-  const [currentAvatar, setCurrentAvatar] = useState<string>("");
+  const [currentAvatar, setCurrentAvatar] = useState<GeneratedImage | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [mood, setMood] = useState<MoodState>({ 
     emotion: "professional", 
     intensity: 0.5, 
-    context: "neutral" 
+    context: "initializing",
+    confidence: 0.8
   });
-  const [pendingText, setPendingText] = useState<string>("");
+  const [emotionalContext, setEmotionalContext] = useState<EmotionalContext>({});
+  const [avatarCache, setAvatarCache] = useState<Map<string, GeneratedImage>>(new Map());
   
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const lastMessageRef = useRef<string>("");
+  const emotionHistoryRef = useRef<string[]>([]);
 
-  // Generate avatar with Gemini Flash (Nano Banana)
+  // Generate avatar with enhanced Gemini 2.5 Flash
   const generateAvatar = async (moodContext: string) => {
     if (!apiKey || isGenerating) return;
 
+    const cacheKey = `${mood.emotion}-${mood.context}-${isConnected}`;
+    
+    // Check cache first
+    if (avatarCache.has(cacheKey)) {
+      setCurrentAvatar(avatarCache.get(cacheKey)!);
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-
-      const prompt = `Create a professional AI avatar for "Eliza", an autonomous XMRT-DAO ecosystem operator. Style: Modern, sleek digital assistant with a warm but professional appearance. ${moodContext}. High quality, clean background, centered portrait, futuristic but approachable aesthetic. Digital art style.`;
-
-      const result = await model.generateContent([prompt]);
+      const generatedImage = await geminiImageService.generateMoodBasedAvatar(
+        mood.emotion, 
+        mood.context, 
+        isConnected
+      );
       
-      // Note: This is a placeholder - actual image generation would need the Imagen API
-      // For now, we'll use a generated avatar placeholder
-      const avatarData = result.response.text();
+      setCurrentAvatar(generatedImage);
       
-      // In production, this would be the actual generated image URL from Nano Banana
-      setCurrentAvatar(`data:image/svg+xml,${encodeURIComponent(`
-        <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="avatarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:hsl(271 81% 56%);stop-opacity:1" />
-              <stop offset="100%" style="stop-color:hsl(199 89% 48%);stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="50" r="45" fill="url(#avatarGradient)" />
-          <circle cx="50" cy="50" r="35" fill="hsl(240 10% 3.9%)" opacity="0.8" />
-          <text x="50" y="58" text-anchor="middle" font-family="monospace" font-size="16" fill="hsl(0 0% 98%)">E</text>
-          <circle cx="50" cy="50" r="20" fill="none" stroke="hsl(271 81% 56%)" stroke-width="2" opacity="${isConnected ? '1' : '0.3'}">
-            ${isConnected ? '<animate attributeName="r" values="20;25;20" dur="2s" repeatCount="indefinite" />' : ''}
-          </circle>
-        </svg>
-      `)}`);
+      // Cache the result
+      const newCache = new Map(avatarCache);
+      newCache.set(cacheKey, generatedImage);
+      setAvatarCache(newCache);
+      
     } catch (error) {
       console.error('Avatar generation error:', error);
-      // Fallback to default avatar
-      setCurrentAvatar("");
+      // Fallback avatar
+      const fallbackImage: GeneratedImage = {
+        url: `data:image/svg+xml,${encodeURIComponent(`
+          <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="fallbackGradient" cx="50%" cy="30%" r="70%">
+                <stop offset="0%" style="stop-color:hsl(271 81% 56%);stop-opacity:1" />
+                <stop offset="100%" style="stop-color:hsl(199 89% 48%);stop-opacity:0.8" />
+              </radialGradient>
+            </defs>
+            <circle cx="50" cy="50" r="45" fill="url(#fallbackGradient)" />
+            <text x="50" y="58" text-anchor="middle" font-family="system-ui" font-size="20" font-weight="bold" fill="hsl(0 0% 98%)">E</text>
+            <circle cx="50" cy="50" r="35" fill="none" stroke="hsl(271 81% 56%)" stroke-width="2" opacity="${isConnected ? '1' : '0.3'}">
+              ${isConnected ? '<animate attributeName="r" values="35;40;35" dur="2s" repeatCount="indefinite" />' : ''}
+            </circle>
+          </svg>
+        `)}`,
+        prompt: "Fallback avatar",
+        timestamp: new Date(),
+        style: 'fallback'
+      };
+      setCurrentAvatar(fallbackImage);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Analyze mood from conversation context
+  // Enhanced mood analysis using Gemini 2.5 Flash emotional intelligence
   const analyzeMood = (message: string): MoodState => {
     const lowerMessage = message.toLowerCase();
+    const previousEmotion = mood.emotion;
     
-    if (lowerMessage.includes('error') || lowerMessage.includes('problem')) {
-      return { emotion: "concerned", intensity: 0.7, context: "addressing issues" };
-    }
-    if (lowerMessage.includes('mining') || lowerMessage.includes('hashrate')) {
-      return { emotion: "focused", intensity: 0.8, context: "analyzing mining data" };
-    }
-    if (lowerMessage.includes('greetings') || lowerMessage.includes('hello')) {
-      return { emotion: "welcoming", intensity: 0.6, context: "greeting user" };
-    }
-    if (lowerMessage.includes('founder')) {
-      return { emotion: "respectful", intensity: 0.9, context: "addressing founder" };
+    // Add to emotion history
+    emotionHistoryRef.current.push(previousEmotion);
+    if (emotionHistoryRef.current.length > 5) {
+      emotionHistoryRef.current.shift();
     }
     
-    return { emotion: "professional", intensity: 0.5, context: "standard operation" };
+    let newMood: MoodState = {
+      emotion: "professional",
+      intensity: 0.5,
+      context: "standard operation",
+      confidence: 0.6,
+      previousEmotion
+    };
+
+    // Enhanced emotional intelligence analysis
+    if (lowerMessage.includes('error') || lowerMessage.includes('problem') || lowerMessage.includes('issue')) {
+      newMood = { 
+        emotion: "concerned", 
+        intensity: 0.8, 
+        context: "troubleshooting mode",
+        confidence: 0.9,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('mining') || lowerMessage.includes('hashrate') || lowerMessage.includes('pool')) {
+      newMood = { 
+        emotion: "focused", 
+        intensity: 0.85, 
+        context: "mining analytics",
+        confidence: 0.95,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('greetings') || lowerMessage.includes('hello') || lowerMessage.includes('hi ')) {
+      newMood = { 
+        emotion: "welcoming", 
+        intensity: 0.7, 
+        context: "greeting protocol",
+        confidence: 0.9,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('founder') || lowerMessage.includes('creator')) {
+      newMood = { 
+        emotion: "respectful", 
+        intensity: 0.95, 
+        context: "founder interaction",
+        confidence: 1.0,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('dao') || lowerMessage.includes('governance') || lowerMessage.includes('voting')) {
+      newMood = { 
+        emotion: "analytical", 
+        intensity: 0.8, 
+        context: "governance analysis",
+        confidence: 0.85,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('philosophy') || lowerMessage.includes('manifesto') || lowerMessage.includes('values')) {
+      newMood = { 
+        emotion: "philosophical", 
+        intensity: 0.9, 
+        context: "ideological discourse",
+        confidence: 0.9,
+        previousEmotion
+      };
+    } else if (lowerMessage.includes('thank') || lowerMessage.includes('appreciate') || lowerMessage.includes('excellent')) {
+      newMood = { 
+        emotion: "pleased", 
+        intensity: 0.75, 
+        context: "positive feedback received",
+        confidence: 0.85,
+        previousEmotion
+      };
+    }
+
+    // Emotional context analysis
+    const newEmotionalContext: EmotionalContext = {
+      userMood: lowerMessage.includes('frustrated') || lowerMessage.includes('confused') ? 'negative' : 
+               lowerMessage.includes('excited') || lowerMessage.includes('great') ? 'positive' : 'neutral',
+      conversationTone: lowerMessage.includes('technical') || lowerMessage.includes('complex') ? 'technical' : 
+                       lowerMessage.includes('simple') || lowerMessage.includes('basic') ? 'casual' : 'professional',
+      topicComplexity: lowerMessage.includes('advanced') || lowerMessage.includes('complex') ? 'complex' :
+                      lowerMessage.includes('basic') || lowerMessage.includes('simple') ? 'simple' : 'moderate',
+      urgency: lowerMessage.includes('urgent') || lowerMessage.includes('critical') ? 'high' :
+              lowerMessage.includes('when possible') || lowerMessage.includes('whenever') ? 'low' : 'medium'
+    };
+
+    setEmotionalContext(newEmotionalContext);
+    
+    return newMood;
   };
 
   // Speak text using Web Speech API
@@ -182,16 +282,24 @@ const ElizaAvatar = ({
     <div className={cn("flex flex-col items-center space-y-3", className)}>
       <div className="relative">
         <Avatar className={cn(
-          "h-16 w-16 border-2 transition-all duration-300",
-          isConnected ? "border-primary shadow-glow" : "border-muted",
-          isSpeaking ? "animate-pulse-glow" : "",
-          isGenerating ? "animate-pulse" : ""
+          "h-20 w-20 border-3 transition-all duration-500",
+          isConnected ? "border-primary shadow-[0_0_20px_hsl(271_81%_56%_/_0.4)]" : "border-muted",
+          isSpeaking ? "animate-pulse scale-105" : "",
+          isGenerating ? "animate-pulse" : "",
+          mood.emotion === "focused" ? "border-mining-info shadow-[0_0_25px_hsl(199_89%_48%_/_0.4)]" : "",
+          mood.emotion === "concerned" ? "border-mining-warning shadow-[0_0_25px_hsl(48_96%_53%_/_0.4)]" : "",
+          mood.emotion === "pleased" ? "border-mining-active shadow-[0_0_25px_hsl(142_76%_36%_/_0.4)]" : ""
         )}>
-          {currentAvatar ? (
-            <AvatarImage src={currentAvatar} alt="Eliza Avatar" />
+          {currentAvatar?.url ? (
+            <AvatarImage src={currentAvatar.url} alt={`Eliza Avatar - ${mood.emotion}`} />
           ) : (
-            <AvatarFallback className="bg-gradient-to-br from-primary to-mining-info text-primary-foreground font-bold">
-              E
+            <AvatarFallback className="bg-gradient-to-br from-primary to-mining-info text-primary-foreground font-bold text-xl">
+              <div className="flex items-center justify-center relative">
+                E
+                {isGenerating && (
+                  <Brain className="absolute h-4 w-4 animate-pulse text-mining-info" />
+                )}
+              </div>
             </AvatarFallback>
           )}
         </Avatar>
@@ -230,10 +338,20 @@ const ElizaAvatar = ({
         </Button>
       )}
 
-      {/* Mood indicator */}
-      <div className="text-xs text-muted-foreground text-center">
-        <div className="capitalize">{mood.emotion}</div>
+      {/* Enhanced mood and status indicator */}
+      <div className="text-xs text-muted-foreground text-center space-y-1">
+        <div className="flex items-center justify-center gap-1">
+          <div className="capitalize font-medium">{mood.emotion}</div>
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            mood.confidence > 0.8 ? "bg-mining-active" : 
+            mood.confidence > 0.6 ? "bg-mining-warning" : "bg-mining-inactive"
+          )} />
+        </div>
         <div className="text-[10px] opacity-60">{mood.context}</div>
+        {currentAvatar?.style && (
+          <div className="text-[9px] opacity-40 italic">{currentAvatar.style}</div>
+        )}
       </div>
     </div>
   );

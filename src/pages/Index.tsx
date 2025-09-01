@@ -30,10 +30,14 @@ const Index = () => {
               Live Mining Dashboard
             </div>
             
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-tight animate-slide-in">
-              XMRT Economy<br />
-              Mobile Mining DAO • AI Assistant Eliza
-            </h1>
+            <div className="space-y-4">
+              <h1 className="text-6xl sm:text-8xl lg:text-9xl font-black bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-[0.9] animate-slide-in drop-shadow-2xl">
+                XMRT Economy
+              </h1>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-medium text-muted-foreground/80 tracking-wide animate-fade-in">
+                Mobile Mining DAO • AI Assistant Eliza
+              </h2>
+            </div>
             
             <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in">
               Revolutionizing decentralized asset management and governance through innovative blockchain solutions with real-time mining integration.
