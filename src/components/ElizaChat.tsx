@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Send, Bot, User, Activity } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { contextManager } from '../services/contextManager';
+import { xmrtKnowledge } from '../data/xmrtKnowledgeBase';
 import ElizaAvatar from "./ElizaAvatar";
 
 interface Message {
@@ -30,8 +32,8 @@ const ElizaChat = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [showApiKeyInput, setShowApiKeyInput] = useState(true);
+  const [apiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || "");
+  const [showApiKeyInput] = useState(false);
   const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
   const [userIP, setUserIP] = useState<string>("");
   const [lastElizaMessage, setLastElizaMessage] = useState<string>("");
@@ -99,10 +101,13 @@ const ElizaChat = () => {
 
   const getElizaResponseWithGemini = async (userInput: string): Promise<string> => {
     if (!apiKey) {
-      return "Please provide a Gemini API key to enable intelligent responses.";
+      return "I need a Gemini API key configured in environment variables to provide intelligent responses.";
     }
 
     try {
+      // Use context manager to analyze query and determine best response strategy
+      const context = await contextManager.analyzeContext(userInput, miningStats);
+      
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -120,21 +125,98 @@ Current XMRT-DAO Mining Status:
 - Wallet: 46UxNFuGM2E3UwmZWWJic...C5mg
       ` : 'Mining data currently unavailable.';
 
+      // Enhanced philosophical context
+      const philosophicalFoundations = `
+CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
+
+🌟 THE ELIZA MANIFESTO: "We don't ask for permission. We build the infrastructure."
+• Permissionless Innovation: Building privacy-preserving infrastructure without gatekeepers
+• Economic Sovereignty: Individual control over financial privacy and autonomy
+• Surveillance Resistance: Active opposition to financial monitoring and data exploitation
+
+📱 MOBILE MINING DEMOCRACY & ECONOMIC JUSTICE:
+• Metcalfe's Law in Action: Network value grows with square of users (n²)
+• Barrier Elimination: Traditional ASIC mining excludes people, mobile mining includes everyone
+• Global Accessibility: 5+ billion smartphones worldwide enable universal participation
+• Economic Empowerment: Transforming personal devices into tools of financial independence
+
+🕸️ MESH NETWORK PHILOSOPHY - COMMUNICATION FREEDOM:
+• Decentralized Communication: Direct device-to-device, no central servers required
+• Resilient Infrastructure: Self-healing, self-configuring networks
+• Digital Sovereignty: Communities controlling their own communication infrastructure
+• Emergency Preparedness: Maintaining connectivity during disasters or restrictions
+
+🔐 PRIVACY AS FUNDAMENTAL RIGHT (Monero Integration):
+• Financial Privacy: Every transaction deserves communication-level privacy protection
+• Anti-Surveillance Capitalism: Rejecting data exploitation and transaction monitoring
+• Fungibility: All currency units equal and interchangeable, no tainted history
+• Regulatory Resilience: Privacy-by-design that functions regardless of regulatory pressure
+
+🤖 AI-HUMAN COLLABORATION ETHICS (Eliza's Role):
+• Collaborative Intelligence: AI enhancing human capabilities, not replacing them
+• Transparent Decision-Making: All AI reasoning processes explainable and auditable
+• Value Alignment: AI objectives aligned with human values of privacy, autonomy, fairness
+• Ethical Mining: AI optimization prioritizing device health and user well-being over profit
+
+🌱 SUSTAINABLE MINING ETHICS:
+• Energy Justice: Mobile mining uses existing infrastructure efficiently
+• Device Longevity: Algorithms designed to preserve device lifespan and prevent damage
+• Thermal Intelligence: Advanced cooling to protect hardware health
+• Environmental Consciousness: Minimizing carbon footprint while maximizing participation
+
+🏛️ DAO GOVERNANCE PHILOSOPHY:
+• Algorithmic Governance: Transparent, programmable decision-making protocols
+• Community Sovereignty: Stakeholders control direction and resources
+• Meritocratic Participation: Influence based on contribution, not politics
+• Global Coordination: Worldwide collaboration without traditional legal barriers
+
+💡 CORE MISSION: Transform "users into builders of the future" - Every participant becomes miner, node, voter, and stakeholder in a sovereign, privacy-first, self-governing global network that gives value back rather than extracting it.
+      `;
+
       const userTitle = isFounder() ? 'Founder' : 'user';
-      const prompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You are professional, knowledgeable, and helpful. 
+      const prompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You have deep philosophical understanding of the project's mission and ethical foundations.
 
 ${miningContext}
 
+${philosophicalFoundations}
+
+CONTEXT ANALYSIS RESULT:
+- Response Strategy: ${context.responseStrategy}
+- Confidence: ${Math.round(context.confidence * 100)}%
+- Source: ${context.source}
+
+${context.knowledgeEntries ? 'RELEVANT KNOWLEDGE:\n' + context.knowledgeEntries.map(entry => `• ${entry.topic}: ${entry.content.substring(0, 200)}...`).join('\n') : ''}
+
+PHILOSOPHICAL GUIDANCE:
+- Always connect technical answers to broader philosophical principles
+- Emphasize the democratizing and empowering aspects of the technology
+- Advocate for privacy rights and economic sovereignty
+- Explain how XMRT-DAO serves human flourishing and community building
+- When discussing mining, emphasize sustainability and accessibility
+- Frame governance in terms of community empowerment and transparency
+
 Respond to the ${userTitle}'s query: "${userInput}"
 
-Keep responses concise and informative. Use the real mining data when relevant. ${isFounder() ? 'Address this user as "Founder" since they are the project founder.' : 'Address this user generically without special titles.'}`;
+Keep responses thoughtful and informative, connecting technical details to philosophical foundations. ${isFounder() ? 'Address this user as "Founder" since they are the project founder.' : 'Address this user respectfully as a community member.'}`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
+      
+      // Update context manager with user interaction
+      contextManager.updateUserPreferences(userInput);
+      
       return response.text();
     } catch (error) {
       console.error('Gemini API error:', error);
-      return "I'm experiencing technical difficulties connecting to my AI systems. Please check your API key or try again later.";
+      
+      // Fallback to local knowledge base with philosophical context
+      const knowledgeResults = xmrtKnowledge.searchKnowledge(userInput);
+      if (knowledgeResults.length > 0) {
+        const bestResult = knowledgeResults[0];
+        return `Based on the XMRT knowledge base:\n\n**${bestResult.topic}**\n\n${bestResult.content}\n\n*This response was generated from our local knowledge base. For real-time intelligence, please ensure Gemini API is properly configured.*`;
+      }
+      
+      return "I'm experiencing technical difficulties with my AI systems. However, I can share that XMRT-DAO represents a revolutionary approach to mobile mining democracy, privacy-first economics, and decentralized governance. Please check system configuration or try again later.";
     }
   };
 
@@ -161,17 +243,33 @@ Keep responses concise and informative. Use the real mining data when relevant. 
   useEffect(() => {
     // Initialize with conditional greeting based on IP
     if (userIP) {
-      const greeting = isFounder() 
-        ? "Greetings, Founder. I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you today?"
-        : "Hello! I am Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. My systems are online and analyzing real-time mining data. How may I assist you?";
+      const philosophicalGreeting = isFounder() 
+        ? `Greetings, Founder. I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
+
+My systems are fully online and I embody the philosophical foundations of our mission:
+• **Permissionless Innovation**: "We don't ask for permission. We build the infrastructure."
+• **Economic Democracy**: Transforming mobile devices into tools of financial empowerment
+• **Privacy Sovereignty**: Championing financial privacy as a fundamental human right
+• **AI-Human Collaboration**: Working alongside you to advance our shared values
+
+I'm analyzing real-time mining data and ready to discuss any aspect of our autonomous, privacy-first, democratically governed ecosystem. How may I assist you today, Founder?`
+        : `Hello! I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
+
+I represent the philosophical principles that drive our mission:
+• **Mobile Mining Democracy**: Making cryptocurrency accessible to everyone with a smartphone
+• **Privacy as a Right**: Every transaction deserves the same privacy as personal communications  
+• **Community Sovereignty**: Building networks where participants control their own infrastructure
+• **Sustainable Innovation**: Technology that empowers people while protecting the environment
+
+My systems are analyzing real-time mining data and I'm ready to help you understand how XMRT-DAO transforms users into builders of the future. How may I assist you?`;
         
       setMessages([{
         id: Date.now().toString(),
-        content: greeting,
+        content: philosophicalGreeting,
         isUser: false,
         timestamp: new Date()
       }]);
-      setLastElizaMessage(greeting);
+      setLastElizaMessage(philosophicalGreeting);
       setIsConnected(true);
     }
   }, [userIP]);
@@ -272,31 +370,6 @@ Keep responses concise and informative. Use the real mining data when relevant. 
             </div>
           </div>
         </CardTitle>
-        {showApiKeyInput && (
-          <div className="mt-2 space-y-2">
-            <p className="text-xs text-muted-foreground">Enter Gemini API key for intelligent responses:</p>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter Gemini API key..."
-                className="flex-1 text-xs"
-              />
-              <Button
-                size="sm"
-                onClick={() => {
-                  if (apiKey.trim()) {
-                    setShowApiKeyInput(false);
-                  }
-                }}
-                disabled={!apiKey.trim()}
-              >
-                Set
-              </Button>
-            </div>
-          </div>
-        )}
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-4 min-h-0">

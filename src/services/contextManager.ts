@@ -2,7 +2,7 @@
 // Intelligently manages context switching between knowledge sources
 
 import { xmrtKnowledge, XMRTKnowledgeEntry } from '../data/xmrtKnowledgeBase';
-import { webSearchService, SearchContext, SearchResult } from './webSearchService';
+import { WebSearchService, webSearchService, SearchContext, SearchResult } from './webSearchService';
 
 export interface ResponseContext {
   source: 'knowledge' | 'web' | 'mining' | 'hybrid';

@@ -20,7 +20,7 @@ export class WebSearchService {
   private geminiApiKey: string | null = null;
 
   constructor(geminiApiKey?: string) {
-    this.geminiApiKey = geminiApiKey || null;
+    this.geminiApiKey = geminiApiKey || import.meta.env.VITE_GEMINI_API_KEY || null;
   }
 
   setGeminiApiKey(apiKey: string) {
@@ -240,4 +240,4 @@ export class WebSearchService {
   }
 }
 
-export const webSearchService = new WebSearchService();
+export const webSearchService = new WebSearchService(import.meta.env.VITE_GEMINI_API_KEY);
