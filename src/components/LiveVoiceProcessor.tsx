@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 
 interface LiveVoiceProcessorProps {
   onTranscriptionUpdate?: (transcript: string) => void;
+  onFinalTranscript?: (transcript: string, confidence: number) => void;
   onEmotionDetected?: (emotion: string, confidence: number) => void;
   onVoiceActivityChange?: (isActive: boolean, confidence: number) => void;
   isEnabled?: boolean;
@@ -14,6 +15,7 @@ interface LiveVoiceProcessorProps {
 
 export const LiveVoiceProcessor: React.FC<LiveVoiceProcessorProps> = ({
   onTranscriptionUpdate,
+  onFinalTranscript,
   onEmotionDetected,
   onVoiceActivityChange,
   isEnabled = true,
@@ -65,24 +67,28 @@ export const LiveVoiceProcessor: React.FC<LiveVoiceProcessorProps> = ({
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
+        const transcript = event.results[i][0].transcript.trim();
+        const confidence = event.results[i][0].confidence;
         
-        if (event.results[i].isFinal) {
+        if (event.results[i].isFinal && transcript.length > 0) {
           finalTranscript += transcript;
           
           // Analyze emotion from final transcript
           const emotionData = emotionalIntelligenceService.analyzeTextEmotion(transcript);
           onEmotionDetected?.(emotionData.primary, emotionData.confidence);
           
+          // Trigger immediate response for complete sentences
+          onFinalTranscript?.(transcript, confidence);
+          
           // Update real-time processing service
-          realTimeProcessingService.updateVoiceActivity(true, event.results[i][0].confidence);
+          realTimeProcessingService.updateVoiceActivity(true, confidence);
         } else {
           interimTranscript += transcript;
         }
       }
 
       const fullTranscript = finalTranscript + interimTranscript;
-      setCurrentTranscript(fullTranscript);
+      setCurrentTranscript(interimTranscript); // Only show interim for live feedback
       onTranscriptionUpdate?.(fullTranscript);
     };
 

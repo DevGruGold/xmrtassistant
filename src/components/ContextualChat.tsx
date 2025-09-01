@@ -242,22 +242,8 @@ How may I assist you in understanding our mission to transform users into builde
   };
 
   const handleVoiceActivity = (data: any) => {
-    // Clear previous processing timeout
-    if (processingTimeoutRef.current) {
-      clearTimeout(processingTimeoutRef.current);
-    }
-
-    if (data.isActive && data.confidence > 0.7) {
-      setIsProcessing(true);
-      
-      // Auto-respond after voice activity ends
-      processingTimeoutRef.current = setTimeout(() => {
-        if (conversationMode === 'active') {
-          generateVoiceResponse(data);
-        }
-        setIsProcessing(false);
-      }, 2000);
-    }
+    // Voice activity is now handled by onFinalTranscript for immediate responses
+    // This is kept for visual feedback only
   };
 
   const handleVisualContext = (data: any) => {
@@ -308,36 +294,111 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  const generateVoiceResponse = async (voiceData: any) => {
-    if (!apiKey) return;
+  const handleFinalTranscript = async (transcript: string, confidence: number) => {
+    if (!transcript.trim() || isProcessing) return;
+
+    const userMessage: Message = {
+      id: `voice-user-${Date.now()}`,
+      content: transcript,
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsProcessing(true);
 
     try {
+      // Use the same knowledge-aware pipeline as text chat
+      const xmrtContext = await contextManager.analyzeContext(transcript, miningStats);
+      
       const contextPrompt = contextAwarenessService.buildContextPrompt();
+      const emotionalInsight = emotionalIntelligenceService.generateEmotionalInsight();
+      
+      // Build enhanced context with XMRT knowledge
+      const miningContext = miningStats ? `
+Current XMRT-DAO Mining Status:
+- Current Hashrate: ${formatHashrate(miningStats.hash)}
+- Online Status: ${miningStats.isOnline ? 'Active Mining' : 'Offline'}
+- Valid Shares: ${miningStats.validShares.toLocaleString()}
+- Amount Due: ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR
+- Pool: SupportXMR (pool.supportxmr.com:3333)
+      ` : 'Mining data currently unavailable.';
+
+      const philosophicalContext = `
+CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
+🌟 THE ELIZA MANIFESTO: "We don't ask for permission. We build the infrastructure."
+📱 MOBILE MINING DEMOCRACY & ECONOMIC JUSTICE
+🕸️ MESH NETWORK PHILOSOPHY - COMMUNICATION FREEDOM
+🔐 PRIVACY AS FUNDAMENTAL RIGHT (Monero Integration)
+🤖 AI-HUMAN COLLABORATION ETHICS (Eliza's Role)
+🌱 SUSTAINABLE MINING ETHICS
+🏛️ DAO GOVERNANCE PHILOSOPHY
+      `;
       
       const response = await multimodalGeminiService.processMultimodalInput({
-        text: 'User voice activity detected - provide contextual response',
+        text: transcript,
         emotionalContext: {
+          facialExpression: currentEmotion,
           voiceTone: currentEmotion,
-          confidenceLevel: voiceData.confidence
+          confidenceLevel: confidence
         }
       }, {
-        contextPrompt,
-        mode: 'voice_responsive'
+        contextPrompt: `${contextPrompt}\n\nXMRT CONTEXT:\n${xmrtContext.knowledgeEntries ? xmrtContext.knowledgeEntries.map(entry => `• ${entry.topic}: ${entry.content.substring(0, 200)}...`).join('\n') : 'No specific XMRT knowledge triggered.'}\n\nResponse Strategy: ${xmrtContext.responseStrategy} (Confidence: ${Math.round(xmrtContext.confidence * 100)}%)`,
+        emotionalInsight,
+        realtimeContext: currentContext,
+        miningStats,
+        philosophicalContext: philosophicalContext,
+        userRole: isFounder() ? 'Founder' : 'Community Member',
+        mode: 'voice_conversation'
       });
 
-      if (response.text) {
-        const voiceMessage: Message = {
-          id: `voice-${Date.now()}`,
-          content: response.text,
-          sender: 'eliza',
-          timestamp: new Date(),
-          context: voiceData
-        };
+      const elizaMessage: Message = {
+        id: `voice-eliza-${Date.now()}`,
+        content: response.text || 'I understand, but I\'m having trouble formulating a response right now.',
+        sender: 'eliza',
+        timestamp: new Date(),
+        emotion: response.emotionalAnalysis?.detectedMood,
+        confidence: response.emotionalAnalysis?.confidence
+      };
 
-        setMessages(prev => [...prev, voiceMessage]);
-      }
+      setMessages(prev => [...prev, elizaMessage]);
+      
+      // Update context manager with voice interaction
+      contextManager.updateUserPreferences(transcript);
+      
     } catch (error) {
-      console.error('Failed to generate voice response:', error);
+      console.error('Failed to process voice input:', error);
+      
+      // Fallback to XMRT knowledge base
+      try {
+        const knowledgeResults = xmrtKnowledge.searchKnowledge(transcript);
+        let fallbackContent = 'I apologize, but I\'m having trouble processing your voice input right now.';
+        
+        if (knowledgeResults.length > 0) {
+          const bestResult = knowledgeResults[0];
+          fallbackContent = `Based on the XMRT knowledge base:\n\n**${bestResult.topic}**\n\n${bestResult.content}\n\n*Note: This response was generated from our local knowledge base while my enhanced AI systems are temporarily unavailable.*`;
+        }
+        
+        const errorMessage: Message = {
+          id: `voice-fallback-${Date.now()}`,
+          content: fallbackContent,
+          sender: 'eliza',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+      } catch (fallbackError) {
+        const errorMessage: Message = {
+          id: `voice-error-${Date.now()}`,
+          content: 'I apologize, but I\'m having trouble processing your voice input right now. However, I can share that XMRT-DAO represents a revolutionary approach to mobile mining democracy, privacy-first economics, and decentralized governance. Please try again.',
+          sender: 'eliza',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -501,10 +562,11 @@ CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
         <div className="px-4 pb-3 border-b">
           <div className="grid grid-cols-2 gap-4">
             <LiveVoiceProcessor
-              onTranscriptionUpdate={(transcript) => console.log('Live transcript:', transcript)}
+              isEnabled={realtimeConfig.voiceProcessing}
+              onTranscriptionUpdate={(transcript) => console.log('Voice transcript:', transcript)}
+              onFinalTranscript={handleFinalTranscript}
               onEmotionDetected={handleEmotionDetected}
               onVoiceActivityChange={handleVoiceActivity}
-              isEnabled={realtimeConfig.voiceProcessing}
               className="text-xs"
             />
             <LiveCameraProcessor
