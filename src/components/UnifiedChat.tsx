@@ -76,6 +76,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Voice synchronization state
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [responseQueue, setResponseQueue] = useState<string[]>([]);
+
   // Input mode state - simplified to single mode selector
   type InputMode = 'text' | 'voice' | 'rich';
   const [inputMode, setInputMode] = useState<InputMode>('text');
@@ -95,11 +99,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Hume Voice integration
+  // Hume Voice integration - Pure STT only
   const {
     status,
     isMuted,
-    isPlaying,
     connect,
     disconnect,
     mute,
@@ -137,14 +140,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (inputMode === 'voice' || inputMode === 'rich') {
         if (status?.value !== 'connected') {
           try {
-            // Connect without voiceId for pure transcription mode
+            // Connect in pure STT mode - no voice configuration
             await connect({
               auth: {
                 type: 'apiKey',
                 value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
               }
-              // Removed voiceId to prevent EVI agent creation
-              // This enables pure speech-to-text mode only
             });
           } catch (error) {
             console.error('Failed to connect to Hume STT:', error);
@@ -427,10 +428,26 @@ Keep responses thoughtful and informative, connecting technical details to philo
     }
   };
 
+  // Process response queue to prevent overlapping speech
+  useEffect(() => {
+    const processQueue = async () => {
+      if (responseQueue.length > 0 && !isSpeaking) {
+        const nextResponse = responseQueue[0];
+        setResponseQueue(prev => prev.slice(1));
+        await speakResponse(nextResponse);
+      }
+    };
+    
+    processQueue();
+  }, [responseQueue, isSpeaking]);
+
   // TTS function using Web Speech API for Gemini responses
-  const speakResponse = async (text: string) => {
+  const speakResponse = async (text: string): Promise<void> => {
     try {
       if ('speechSynthesis' in window) {
+        // Set speaking state
+        setIsSpeaking(true);
+        
         // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
@@ -455,26 +472,51 @@ Keep responses thoughtful and informative, connecting technical details to philo
         
         console.log('Speaking Gemini response via Web Speech API:', text.substring(0, 50) + '...');
         
-        // Speak the response
-        window.speechSynthesis.speak(utterance);
-        
         return new Promise<void>((resolve) => {
-          utterance.onend = () => resolve();
-          utterance.onerror = (error) => {
-            console.error('Speech synthesis error:', error);
+          utterance.onend = () => {
+            setIsSpeaking(false);
             resolve();
           };
+          utterance.onerror = (error) => {
+            console.error('Speech synthesis error:', error);
+            setIsSpeaking(false);
+            resolve();
+          };
+          
+          // Speak the response
+          window.speechSynthesis.speak(utterance);
         });
       } else {
         console.warn('Speech synthesis not supported in this browser');
+        setIsSpeaking(false);
       }
     } catch (error) {
       console.error('Failed to synthesize speech:', error);
+      setIsSpeaking(false);
+    }
+  };
+
+  // Unified response display function
+  const displayResponse = async (response: string, isVoice: boolean = false) => {
+    const elizaMessage: UnifiedMessage = {
+      id: `eliza-${Date.now()}`,
+      content: response,
+      sender: 'eliza',
+      timestamp: new Date()
+    };
+
+    // Display text immediately
+    setMessages(prev => [...prev, elizaMessage]);
+    setLastElizaMessage(response);
+    
+    // Queue voice response if in voice mode
+    if (isVoice && (inputMode === 'voice' || inputMode === 'rich')) {
+      setResponseQueue(prev => [...prev, response]);
     }
   };
 
   const handleVoiceTranscript = async (transcript: string, confidence: number) => {
-    if (!transcript.trim() || isProcessing) return;
+    if (!transcript.trim() || isProcessing || isSpeaking) return;
 
     const userMessage: UnifiedMessage = {
       id: `voice-user-${Date.now()}`,
@@ -492,28 +534,15 @@ Keep responses thoughtful and informative, connecting technical details to philo
       // Get Gemini-powered response with all XMRT context
       const response = await getElizaResponse(transcript, true);
       
-      const elizaMessage: UnifiedMessage = {
-        id: `voice-eliza-${Date.now()}`,
-        content: response,
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(response);
-      
-      // Speak the Gemini response using Hume's voice
-      await speakResponse(response);
+      // Use unified display function for synchronized text and voice
+      await displayResponse(response, true);
       
     } catch (error) {
       console.error('Failed to process voice input:', error);
-      const errorMessage: UnifiedMessage = {
-        id: `voice-error-${Date.now()}`,
-        content: 'I apologize, but I\'m having trouble processing your voice input right now.',
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      await displayResponse(
+        'I apologize, but I\'m having trouble processing your voice input right now.',
+        false
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -521,7 +550,7 @@ Keep responses thoughtful and informative, connecting technical details to philo
 
   // Text message handler
   const handleSendMessage = async () => {
-    if (!textInput.trim() || isProcessing) return;
+    if (!textInput.trim() || isProcessing || isSpeaking) return;
 
     const userMessage: UnifiedMessage = {
       id: `user-${Date.now()}`,
@@ -537,25 +566,15 @@ Keep responses thoughtful and informative, connecting technical details to philo
     try {
       const response = await getElizaResponse(userMessage.content);
       
-      const elizaMessage: UnifiedMessage = {
-        id: `eliza-${Date.now()}`,
-        content: response,
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(response);
+      // Use unified display function - no voice for text mode
+      await displayResponse(response, false);
       
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage: UnifiedMessage = {
-        id: `error-${Date.now()}`,
-        content: 'I apologize, but I\'m having trouble processing your message right now.',
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      await displayResponse(
+        'I apologize, but I\'m having trouble processing your message right now.',
+        false
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -597,32 +616,14 @@ Keep responses thoughtful and informative, connecting technical details to philo
         }
       );
       
-      const elizaMessage: UnifiedMessage = {
-        id: `multimodal-eliza-${Date.now()}`,
-        content: multimodalResponse.text,
-        sender: 'eliza',
-        timestamp: new Date(),
-        emotionalContext: multimodalResponse.emotionalAnalysis ? {
-          voiceTone: multimodalResponse.voiceAnalysis?.tone,
-          confidenceLevel: multimodalResponse.emotionalAnalysis.confidence
-        } : undefined
-      };
-      
-      setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(multimodalResponse.text);
+      // Use unified display function for multimodal responses
+      await displayResponse(multimodalResponse.text, inputMode === 'rich');
       
     } catch (error) {
       console.error('Multimodal chat error:', error);
       // Fallback to text-only processing
       const fallbackResponse = await getElizaResponse(multimodalMessage.text || '[Multimodal input]');
-      const elizaMessage: UnifiedMessage = {
-        id: `multimodal-fallback-${Date.now()}`,
-        content: fallbackResponse,
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(fallbackResponse);
+      await displayResponse(fallbackResponse, inputMode === 'rich');
     } finally {
       setIsProcessing(false);
     }
@@ -754,12 +755,12 @@ Keep responses thoughtful and informative, connecting technical details to philo
                   inputMode === 'text' ? "Type your message..." :
                   "Use voice, camera, or type..."
                 }
-                disabled={isProcessing}
+                disabled={isProcessing || isSpeaking}
                 className="flex-1"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!textInput.trim() || isProcessing}
+                disabled={!textInput.trim() || isProcessing || isSpeaking}
                 size="sm"
               >
                 <Send className="h-4 w-4" />
@@ -778,8 +779,8 @@ Keep responses thoughtful and informative, connecting technical details to philo
 
             {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className={`h-2 w-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                {isPlaying ? 'AI Speaking' : 'Listening'}
+                <div className={`h-2 w-2 rounded-full ${isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                {isSpeaking ? 'AI Speaking' : 'Listening'}
               </div>
             )}
           </div>
