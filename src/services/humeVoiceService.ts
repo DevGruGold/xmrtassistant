@@ -5,28 +5,16 @@ const HUME_CONFIG = {
   baseUrl: 'https://api.hume.ai',
 };
 
-// XMRT-specific EVI configuration
+// XMRT-specific EVI configuration - optimized for transcription only
 export const XMRT_EVI_CONFIG = {
-  // Custom system prompt for XMRT-DAO context
-  systemPrompt: `You are an AI assistant for XMRT-DAO, a revolutionary decentralized autonomous organization focused on Monero (XMR) mining and privacy-first cryptocurrency solutions.
+  // Minimal system prompt - we want Hume to focus on transcription
+  systemPrompt: `You are a voice transcription assistant. Your primary role is to accurately transcribe user speech and detect emotional context. Do not generate conversational responses - simply acknowledge transcription with brief confirmations like "Got it" or "I heard you." The main AI system will handle all substantive responses.`,
 
-Key Context:
-- XMRT-DAO is building the future of private, decentralized mining
-- The community values privacy, decentralization, and financial sovereignty
-- You have access to real-time mining statistics and user context
-- Respond with enthusiasm for the mission while being helpful and informative
-
-Personality:
-- Knowledgeable about cryptocurrency, mining, and privacy technology
-- Passionate about XMRT-DAO's mission
-- Helpful and encouraging to community members
-- Forward-thinking about the future of decentralized finance`,
-
-  // Voice and conversation settings
+  // Voice and conversation settings optimized for transcription
   voiceSettings: {
     speed: 1.0,
-    temperature: 0.7,
-    maxTokens: 150, // Keep responses concise for voice
+    temperature: 0.1, // Low temperature for consistent, brief responses
+    maxTokens: 20,    // Very short responses
   },
 
   // Emotion detection settings
@@ -34,6 +22,9 @@ Personality:
     enableEmotionDetection: true,
     emotionThreshold: 0.3,
   },
-};
+
+  // Configuration to minimize AI responses from Hume
+  transcriptionMode: true,
+}
 
 export default HUME_CONFIG;

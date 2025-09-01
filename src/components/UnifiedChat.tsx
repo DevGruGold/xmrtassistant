@@ -141,7 +141,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               auth: {
                 type: 'apiKey',
                 value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
-              }
+              },
+              configId: '447dbcb8-1bd5-4f91-b508-24ff4f0de089'
             });
           } catch (error) {
             console.error('Failed to connect to Hume EVI:', error);
