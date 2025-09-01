@@ -68,7 +68,7 @@ const Index = () => {
           
           {/* Eliza Chat */}
           <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
-            <div className="relative z-10">
+            <div className="relative z-10 max-h-[500px]">
               <ContextualChat />
             </div>
           </div>

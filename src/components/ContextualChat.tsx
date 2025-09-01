@@ -517,7 +517,7 @@ CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
   };
 
   return (
-    <Card className={`flex flex-col h-[600px] ${className}`}>
+    <Card className={`flex flex-col h-[500px] max-h-[500px] ${className}`}>
       <CardHeader className="flex-shrink-0 pb-3">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -580,8 +580,8 @@ CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
       )}
 
       {/* Messages Area */}
-      <CardContent className="flex-1 flex flex-col p-0">
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+        <ScrollArea className="flex-1 p-4 max-h-[300px]" ref={scrollAreaRef}>
           <div className="space-y-4">
             {messages.map((message) => (
               <div
