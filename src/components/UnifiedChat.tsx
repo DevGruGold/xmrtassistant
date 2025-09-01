@@ -76,9 +76,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
-  // Voice and multimodal state
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-  const [isMultimodalMode, setIsMultimodalMode] = useState(false);
+  // Input mode state - simplified to single mode selector
+  type InputMode = 'text' | 'voice' | 'rich';
+  const [inputMode, setInputMode] = useState<InputMode>('text');
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
 
@@ -131,9 +131,43 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
+  // Auto-connect/disconnect voice based on input mode
+  useEffect(() => {
+    const handleVoiceConnection = async () => {
+      if (inputMode === 'voice' || inputMode === 'rich') {
+        if (status?.value !== 'connected') {
+          try {
+            await connect({
+              auth: {
+                type: 'apiKey',
+                value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
+              }
+            });
+          } catch (error) {
+            console.error('Failed to connect to Hume EVI:', error);
+          }
+        }
+      } else if (inputMode === 'text' && status?.value === 'connected') {
+        try {
+          await disconnect();
+        } catch (error) {
+          console.error('Failed to disconnect from Hume EVI:', error);
+        }
+      }
+    };
+
+    handleVoiceConnection();
+  }, [inputMode, status, connect, disconnect]);
+
   // Initialize greeting when IP is available
   useEffect(() => {
     if (userIP && messages.length === 0) {
+      const modeDescription = {
+        text: 'Text mode active - type your messages to interact.',
+        voice: 'Voice mode active - I can hear and respond to your speech.',
+        rich: 'Rich mode active - use text, voice, camera, and files to communicate.'
+      };
+
       const philosophicalGreeting = isFounder() 
         ? `Greetings, Founder. I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
 
@@ -143,7 +177,7 @@ My advanced systems are online, embodying our philosophical foundations:
 • **Privacy Sovereignty**: Championing financial privacy as a fundamental human right
 • **AI-Human Collaboration**: Working alongside you with multimodal awareness
 
-${isVoiceEnabled ? 'Voice integration active - I can hear and respond to your speech patterns.' : 'Enable voice mode for enhanced multimodal interaction capabilities.'}
+${modeDescription[inputMode]}
 
 How may I assist you today, Founder?`
         : `Hello! I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
@@ -154,7 +188,7 @@ I represent the philosophical principles that drive our mission:
 • **Community Sovereignty**: Building networks where participants control their own infrastructure
 • **Sustainable Innovation**: Technology that empowers people while protecting the environment
 
-${isVoiceEnabled ? 'Voice processing is active - I can hear and understand your voice input.' : 'Enable voice mode for seamless multimodal interactions.'}
+${modeDescription[inputMode]}
 
 How may I assist you in understanding our mission to transform users into builders of the future?`;
         
@@ -169,7 +203,7 @@ How may I assist you in understanding our mission to transform users into builde
       setLastElizaMessage(philosophicalGreeting);
       setIsConnected(true);
     }
-  }, [userIP, isVoiceEnabled]);
+  }, [userIP, inputMode]);
 
   // Handle Hume voice connection status
   useEffect(() => {
@@ -357,25 +391,22 @@ Keep responses thoughtful and informative, connecting technical details to philo
     }
   };
 
-  // Voice interaction handlers
-  const handleVoiceConnect = async () => {
-    try {
-      await connect({
-        auth: {
-          type: 'apiKey',
-          value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
-        }
-      });
-    } catch (error) {
-      console.error('Failed to connect to Hume EVI:', error);
+  // Simplified mode management
+  const getModeIcon = (mode: InputMode) => {
+    switch (mode) {
+      case 'text': return '💬';
+      case 'voice': return '🎤';
+      case 'rich': return '📸';
+      default: return '💬';
     }
   };
 
-  const handleVoiceDisconnect = async () => {
-    try {
-      await disconnect();
-    } catch (error) {
-      console.error('Failed to disconnect from Hume EVI:', error);
+  const getModeLabel = (mode: InputMode) => {
+    switch (mode) {
+      case 'text': return 'Text Mode';
+      case 'voice': return 'Voice Mode';
+      case 'rich': return 'Rich Mode';
+      default: return 'Text Mode';
     }
   };
 
@@ -557,7 +588,7 @@ Keep responses thoughtful and informative, connecting technical details to philo
                 apiKey={apiKey}
                 className="h-10 w-10"
                 size="sm"
-                enableVoice={isVoiceEnabled}
+                enableVoice={inputMode !== 'text'}
               />
               <div>
                 <h3 className="font-semibold text-foreground">Eliza</h3>
@@ -574,38 +605,33 @@ Keep responses thoughtful and informative, connecting technical details to philo
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Voice Controls */}
-              <div className="flex items-center gap-1">
-                <Button
-                  onClick={isConnected ? handleVoiceDisconnect : handleVoiceConnect}
-                  variant={isConnected ? "destructive" : "default"}
-                  size="sm"
-                  disabled={!isVoiceEnabled}
-                >
-                  {isConnected ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-
-                {isConnected && (
+            <div className="flex items-center gap-3">
+              {/* Input Mode Selector */}
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                {(['text', 'voice', 'rich'] as const).map((mode) => (
                   <Button
-                    onClick={toggleMute}
-                    variant="outline"
+                    key={mode}
+                    onClick={() => setInputMode(mode)}
+                    variant={inputMode === mode ? "default" : "ghost"}
                     size="sm"
+                    className="text-xs gap-1 min-w-[70px]"
                   >
-                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    <span>{getModeIcon(mode)}</span>
+                    {getModeLabel(mode).split(' ')[0]}
                   </Button>
-                )}
+                ))}
               </div>
 
-              {/* Mode toggles */}
-              <div className="flex items-center gap-2 text-sm">
-                <Switch
-                  checked={isVoiceEnabled}
-                  onCheckedChange={setIsVoiceEnabled}
-                  id="voice-toggle"
-                />
-                <label htmlFor="voice-toggle" className="text-xs">Voice</label>
-              </div>
+              {/* Voice Controls - only show when voice/rich mode is active and connected */}
+              {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
+                <Button
+                  onClick={toggleMute}
+                  variant="outline"
+                  size="sm"
+                >
+                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -653,7 +679,7 @@ Keep responses thoughtful and informative, connecting technical details to philo
 
         {/* Input Area */}
         <div className="p-4 border-t border-border">
-          {isMultimodalMode ? (
+          {inputMode === 'rich' ? (
             <MultimodalInput
               onSend={handleMultimodalMessage}
               className="w-full"
@@ -664,7 +690,11 @@ Keep responses thoughtful and informative, connecting technical details to philo
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder={isVoiceEnabled ? "Type or speak your message..." : "Type your message..."}
+                placeholder={
+                  inputMode === 'voice' ? "Speak or type your message..." :
+                  inputMode === 'text' ? "Type your message..." :
+                  "Use voice, camera, or type..."
+                }
                 disabled={isProcessing}
                 className="flex-1"
               />
@@ -678,20 +708,16 @@ Keep responses thoughtful and informative, connecting technical details to philo
             </div>
           )}
 
-          {/* Mode toggle */}
+          {/* Status indicator */}
           <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Switch
-                checked={isMultimodalMode}
-                onCheckedChange={setIsMultimodalMode}
-                id="multimodal-toggle"
-              />
-              <label htmlFor="multimodal-toggle" className="text-xs text-muted-foreground">
-                Multimodal Mode
-              </label>
+            <div className="text-xs text-muted-foreground">
+              {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
+              {(inputMode === 'voice' || inputMode === 'rich') && !isConnected && (
+                <span className="text-orange-500"> • Connecting...</span>
+              )}
             </div>
 
-            {isVoiceEnabled && isConnected && (
+            {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className={`h-2 w-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                 {isPlaying ? 'AI Speaking' : 'Listening'}
