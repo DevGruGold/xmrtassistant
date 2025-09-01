@@ -31,7 +31,7 @@ const Index = () => {
             </div>
             
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-tight animate-slide-in">
-              XMRT Master DAO
+              XMRT Economy Mobile Mining DAO • AI Assistant Eliza
             </h1>
             
             <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in">
