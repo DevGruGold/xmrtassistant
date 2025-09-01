@@ -20,6 +20,13 @@ import { multimodalGeminiService } from '@/services/multimodalGeminiService';
 import { contextManager } from '@/services/contextManager';
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 
+// Debug environment variables on component load
+console.log('UnifiedChat Environment Check:', {
+  VITE_GEMINI_API_KEY_exists: !!import.meta.env.VITE_GEMINI_API_KEY,
+  VITE_GEMINI_API_KEY_length: import.meta.env.VITE_GEMINI_API_KEY?.length || 0,
+  all_env_vars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+});
+
 interface UnifiedMessage {
   id: string;
   content: string;
@@ -256,8 +263,22 @@ How may I assist you in understanding our mission to transform users into builde
 
   // Enhanced AI response generation
   const getElizaResponse = async (userInput: string, isVoice = false): Promise<string> => {
+    // Debug logging for API key
+    console.log('API Key status:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length || 0,
+      envVarExists: !!import.meta.env.VITE_GEMINI_API_KEY,
+      envVarLength: import.meta.env.VITE_GEMINI_API_KEY?.length || 0
+    });
+
     if (!apiKey) {
-      return "I need a Gemini API key configured to provide intelligent responses.";
+      return `I need a Gemini API key configured to provide intelligent responses. 
+      
+Environment Variable Status:
+- VITE_GEMINI_API_KEY present: ${!!import.meta.env.VITE_GEMINI_API_KEY}
+- Length: ${import.meta.env.VITE_GEMINI_API_KEY?.length || 0} characters
+
+Please ensure VITE_GEMINI_API_KEY is set in your Vercel environment variables.`;
     }
 
     try {
@@ -683,10 +704,23 @@ Keep responses thoughtful and informative, connecting technical details to philo
 };
 
 // Main component that wraps with HumeVoiceProvider
-const UnifiedChat: React.FC<UnifiedChatProps> = (props) => {
+const UnifiedChat: React.FC<UnifiedChatProps> = ({ 
+  apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
+  ...props 
+}) => {
+  // Ensure we always pass the API key explicitly
+  const finalApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY || "";
+  
+  console.log('UnifiedChat Main Component API Key Check:', {
+    propApiKey: !!apiKey,
+    envApiKey: !!import.meta.env.VITE_GEMINI_API_KEY,
+    finalApiKey: !!finalApiKey,
+    finalApiKeyLength: finalApiKey.length
+  });
+
   return (
     <HumeVoiceProvider>
-      <UnifiedChatInner {...props} />
+      <UnifiedChatInner {...props} apiKey={finalApiKey} />
     </HumeVoiceProvider>
   );
 };
