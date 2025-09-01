@@ -60,4 +60,6 @@ interface Window {
   };
   SpeechRecognition: typeof SpeechRecognition;
   webkitSpeechRecognition: typeof webkitSpeechRecognition;
+  AudioContext: typeof AudioContext;
+  webkitAudioContext: typeof AudioContext;
 }
