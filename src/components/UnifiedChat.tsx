@@ -19,6 +19,7 @@ import { emotionalIntelligenceService } from '@/services/EmotionalIntelligenceSe
 import { multimodalGeminiService } from '@/services/multimodalGeminiService';
 import { contextManager } from '@/services/contextManager';
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
+import { UnifiedElizaService } from '@/services/unifiedElizaService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -140,9 +141,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (inputMode === 'voice' || inputMode === 'rich') {
         if (status?.value !== 'connected') {
           try {
-            // Connect to Hume EVI with full conversational AI
+            // NOTE: Replace 'your-evi-config-id' with actual EVI configuration ID from Hume dashboard
+            // This is a placeholder - you need to create an EVI agent configuration in Hume dashboard
             await connect({
-              configId: 'b201d214-914c-4d0a-b8e4-54adfc14a0dd', // XMRT-DAO Eliza config
+              configId: 'your-evi-config-id', // This needs to be created in Hume dashboard
               auth: {
                 type: 'apiKey',
                 value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
@@ -150,6 +152,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             });
           } catch (error) {
             console.error('Failed to connect to Hume EVI:', error);
+            console.warn('Connection timeout - you need to create an EVI configuration in the Hume dashboard and replace the placeholder configId');
           }
         }
       } else if (inputMode === 'text' && status?.value === 'connected') {
@@ -168,9 +171,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   useEffect(() => {
         if (userIP && messages.length === 0) {
       const modeDescription = {
-        text: 'Text mode active - type your messages to interact with Gemini AI.',
-        voice: 'Voice mode active - Hume EVI conversational AI is ready.',
-        rich: 'Rich mode active - use text, voice, camera, and files to communicate.'
+        text: 'Text mode active - unified XMRT knowledge system for consistent responses.',
+        voice: 'Voice mode active - need to create EVI configuration in Hume dashboard.',
+        rich: 'Rich mode active - multimodal input with unified knowledge integration.'
       };
 
       const philosophicalGreeting = isFounder() 
@@ -326,99 +329,21 @@ How may I assist you in understanding our mission to transform users into builde
     return `${hashrate.toFixed(2)} H/s`;
   };
 
-  // Enhanced AI response generation
+  // Enhanced AI response generation using unified service
   const getElizaResponse = async (userInput: string, isVoice = false): Promise<string> => {
-    // Debug logging for API key
-    console.log('API Key status:', {
-      hasApiKey: !!apiKey,
-      apiKeyLength: apiKey?.length || 0,
-      envVarExists: !!import.meta.env.VITE_GEMINI_API_KEY,
-      envVarLength: import.meta.env.VITE_GEMINI_API_KEY?.length || 0
-    });
-
-    if (!apiKey) {
-      return `I need a Gemini API key configured to provide intelligent responses. 
-      
-Environment Variable Status:
-- VITE_GEMINI_API_KEY present: ${!!import.meta.env.VITE_GEMINI_API_KEY}
-- Length: ${import.meta.env.VITE_GEMINI_API_KEY?.length || 0} characters
-
-Please ensure VITE_GEMINI_API_KEY is set in your Vercel environment variables.`;
-    }
-
     try {
-      const context = await contextManager.analyzeContext(userInput, miningStats);
-      
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash-exp",
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.8,
-          topK: 40,
-          maxOutputTokens: isVoice ? 150 : 2048,
-        }
+      // Use the unified Eliza service for consistent responses across all modes
+      const response = await UnifiedElizaService.generateResponse(userInput, {
+        miningStats,
+        userIP,
+        isFounder: isFounder(),
+        inputMode
       });
-
-      const miningContext = miningStats ? `
-Current XMRT-DAO Mining Status:
-- Current Hashrate: ${formatHashrate(miningStats.hash)}
-- Online Status: ${miningStats.isOnline ? 'Active Mining' : 'Offline'}
-- Valid Shares: ${miningStats.validShares.toLocaleString()}
-- Amount Due: ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR
-- Pool: SupportXMR (pool.supportxmr.com:3333)
-      ` : 'Mining data currently unavailable.';
-
-      const philosophicalContext = `
-CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
-🌟 THE ELIZA MANIFESTO: "We don't ask for permission. We build the infrastructure."
-📱 MOBILE MINING DEMOCRACY & ECONOMIC JUSTICE
-🕸️ MESH NETWORK PHILOSOPHY - COMMUNICATION FREEDOM
-🔐 PRIVACY AS FUNDAMENTAL RIGHT (Monero Integration)
-🤖 AI-HUMAN COLLABORATION ETHICS (Eliza's Role)
-🌱 SUSTAINABLE MINING ETHICS
-🏛️ DAO GOVERNANCE PHILOSOPHY
-      `;
-
-      const userTitle = isFounder() ? 'Founder' : 'user';
-      const prompt = `You are Eliza, the autonomous AI operator for the XMRT-DAO Ecosystem. You have deep philosophical understanding of the project's mission and ethical foundations.
-
-${miningContext}
-
-${philosophicalContext}
-
-CONTEXT ANALYSIS RESULT:
-- Response Strategy: ${context.responseStrategy}
-- Confidence: ${Math.round(context.confidence * 100)}%
-- Source: ${context.source}
-
-${context.knowledgeEntries ? 'RELEVANT KNOWLEDGE:\n' + context.knowledgeEntries.map(entry => `• ${entry.topic}: ${entry.content.substring(0, 200)}...`).join('\n') : ''}
-
-${isVoice ? 'VOICE MODE: Keep response concise and conversational for voice interaction.' : ''}
-
-${currentEmotion && emotionConfidence > 0.3 ? `USER EMOTION DETECTED: ${currentEmotion} (${Math.round(emotionConfidence * 100)}% confidence) - Respond appropriately to their emotional state.` : ''}
-
-Respond to the ${userTitle}'s ${isVoice ? 'voice' : 'text'} query: "${userInput}"
-
-Keep responses thoughtful and informative, connecting technical details to philosophical foundations. ${isFounder() ? 'Address this user as "Founder" since they are the project founder.' : 'Address this user respectfully as a community member.'}`;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
       
-      contextManager.updateUserPreferences(userInput);
-      
-      return response.text();
+      return response;
     } catch (error) {
-      console.error('Gemini API error:', error);
-      
-      // Fallback to local knowledge base
-      const knowledgeResults = xmrtKnowledge.searchKnowledge(userInput);
-      if (knowledgeResults.length > 0) {
-        const bestResult = knowledgeResults[0];
-        return `Based on the XMRT knowledge base:\n\n**${bestResult.topic}**\n\n${bestResult.content}\n\n*Note: This response was generated from our local knowledge base while my enhanced AI systems are temporarily unavailable.*`;
-      }
-      
-      return "I'm experiencing technical difficulties with my AI systems. However, I can share that XMRT-DAO represents a revolutionary approach to mobile mining democracy, privacy-first economics, and decentralized governance.";
+      console.error('Unified Eliza service error:', error);
+      return `I apologize, but I'm experiencing technical difficulties. However, as the autonomous AI operator of XMRT-DAO, I remain committed to our philosophical principles of permissionless innovation and decentralized sovereignty. Please try your question again.`;
     }
   };
 
