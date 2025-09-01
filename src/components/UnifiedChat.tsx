@@ -137,23 +137,24 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (inputMode === 'voice' || inputMode === 'rich') {
         if (status?.value !== 'connected') {
           try {
+            // Connect without voiceId for pure transcription mode
             await connect({
               auth: {
                 type: 'apiKey',
                 value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
-              },
-              // Use specific voice ID for consistent voice output
-              voiceId: 'b201d214-914c-4d0a-b8e4-54adfc14a0dd'
+              }
+              // Removed voiceId to prevent EVI agent creation
+              // This enables pure speech-to-text mode only
             });
           } catch (error) {
-            console.error('Failed to connect to Hume EVI:', error);
+            console.error('Failed to connect to Hume STT:', error);
           }
         }
       } else if (inputMode === 'text' && status?.value === 'connected') {
         try {
           await disconnect();
         } catch (error) {
-          console.error('Failed to disconnect from Hume EVI:', error);
+          console.error('Failed to disconnect from Hume STT:', error);
         }
       }
     };
@@ -212,32 +213,38 @@ How may I assist you in understanding our mission to transform users into builde
     setIsConnected(status?.value === 'connected');
   }, [status]);
 
-  // Process Hume messages for emotions and transcripts
+  // Process Hume messages for emotions and transcripts (filter out AI responses)
   useEffect(() => {
     if (humeMessages.length > 0) {
       const latestMessage = humeMessages[humeMessages.length - 1];
       
-      // Handle emotion detection
-      if (latestMessage.type === 'user_message' && (latestMessage as any).models?.prosody) {
-        const emotions = (latestMessage as any).models.prosody.scores;
-        if (emotions && Object.keys(emotions).length > 0) {
-          const topEmotion = Object.entries(emotions).reduce((a, b) => 
-            emotions[a[0]] > emotions[b[0]] ? a : b
-          );
-          
-          const [emotion, confidence] = topEmotion;
-          setCurrentEmotion(emotion);
-          setEmotionConfidence(confidence as number);
+      // Only process user messages, ignore AI/assistant responses from Hume
+      if (latestMessage.type === 'user_message') {
+        // Handle emotion detection
+        if ((latestMessage as any).models?.prosody) {
+          const emotions = (latestMessage as any).models.prosody.scores;
+          if (emotions && Object.keys(emotions).length > 0) {
+            const topEmotion = Object.entries(emotions).reduce((a, b) => 
+              emotions[a[0]] > emotions[b[0]] ? a : b
+            );
+            
+            const [emotion, confidence] = topEmotion;
+            setCurrentEmotion(emotion);
+            setEmotionConfidence(confidence as number);
+          }
         }
-      }
 
-      // Handle transcript updates
-      if (latestMessage.type === 'user_message' && (latestMessage as any).message?.content) {
-        const transcript = (latestMessage as any).message.content;
-        if (transcript && transcript.trim()) {
-          handleVoiceTranscript(transcript, 0.8);
+        // Handle transcript updates - only from user messages
+        if ((latestMessage as any).message?.content) {
+          const transcript = (latestMessage as any).message.content;
+          if (transcript && transcript.trim()) {
+            handleVoiceTranscript(transcript, 0.8);
+          }
         }
       }
+      
+      // Ignore assistant_message, agent_message, or any other Hume AI responses
+      // We want pure transcription only - Gemini handles all AI responses
     }
   }, [humeMessages]);
 
@@ -420,6 +427,52 @@ Keep responses thoughtful and informative, connecting technical details to philo
     }
   };
 
+  // TTS function using Web Speech API for Gemini responses
+  const speakResponse = async (text: string) => {
+    try {
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        // Create new speech synthesis utterance
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Configure voice settings for optimal quality
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 0.8;
+        
+        // Try to use a high-quality English voice
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(voice => 
+          voice.lang.includes('en') && 
+          (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Samantha'))
+        ) || voices.find(voice => voice.lang.includes('en'));
+        
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+        
+        console.log('Speaking Gemini response via Web Speech API:', text.substring(0, 50) + '...');
+        
+        // Speak the response
+        window.speechSynthesis.speak(utterance);
+        
+        return new Promise<void>((resolve) => {
+          utterance.onend = () => resolve();
+          utterance.onerror = (error) => {
+            console.error('Speech synthesis error:', error);
+            resolve();
+          };
+        });
+      } else {
+        console.warn('Speech synthesis not supported in this browser');
+      }
+    } catch (error) {
+      console.error('Failed to synthesize speech:', error);
+    }
+  };
+
   const handleVoiceTranscript = async (transcript: string, confidence: number) => {
     if (!transcript.trim() || isProcessing) return;
 
@@ -436,6 +489,7 @@ Keep responses thoughtful and informative, connecting technical details to philo
     setIsProcessing(true);
 
     try {
+      // Get Gemini-powered response with all XMRT context
       const response = await getElizaResponse(transcript, true);
       
       const elizaMessage: UnifiedMessage = {
@@ -447,6 +501,9 @@ Keep responses thoughtful and informative, connecting technical details to philo
 
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(response);
+      
+      // Speak the Gemini response using Hume's voice
+      await speakResponse(response);
       
     } catch (error) {
       console.error('Failed to process voice input:', error);
