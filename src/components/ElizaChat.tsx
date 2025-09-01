@@ -434,7 +434,7 @@ My systems are analyzing real-time mining data and I'm ready to help you underst
   };
 
   return (
-    <Card className="bg-gradient-to-br from-card to-secondary border-border h-96 flex flex-col">
+    <Card className="bg-gradient-to-br from-card to-secondary border-border min-h-[24rem] max-h-[32rem] flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-3">

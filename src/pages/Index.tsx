@@ -68,11 +68,13 @@ const Index = () => {
           
           {/* Eliza Chat */}
           <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
-            <ElizaChat />
+            <div className="relative z-10">
+              <ElizaChat />
+            </div>
           </div>
           
           {/* MobileMonero Calculator */}
-          <div className="mb-8 sm:mb-12 animate-fade-in">
+          <div className="mb-8 sm:mb-12 animate-fade-in relative z-0 mt-8">
             <MobileMoneroCalculator />
           </div>
         </div>

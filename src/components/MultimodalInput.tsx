@@ -112,7 +112,7 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
   const hasAttachments = attachments.audio || attachments.images.length > 0;
 
   return (
-    <div className={cn("border rounded-lg bg-background", className)}>
+    <div className={cn("border rounded-lg bg-background max-h-80 overflow-hidden", className)}>
       {/* Attachments Preview */}
       {hasAttachments && (
         <div className="p-3 border-b bg-secondary/30">
@@ -181,7 +181,7 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
               onChange={(e) => setTextInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message to Eliza..."
-              className="min-h-[100px] resize-none"
+              className="min-h-[80px] max-h-[120px] resize-none"
               disabled={disabled}
             />
           </div>
@@ -215,7 +215,7 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
         <TabsContent value="voice" className="p-4">
           <VoiceRecorder
             onAudioCapture={handleAudioCapture}
-            className="min-h-[150px] flex items-center justify-center"
+            className="min-h-[120px] max-h-[150px] flex items-center justify-center overflow-hidden"
           />
           {(textInput || hasAttachments) && (
             <div className="mt-4 pt-3 border-t flex justify-end">
@@ -230,7 +230,7 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
         <TabsContent value="camera" className="p-4">
           <CameraCapture
             onImageCapture={handleImageCapture}
-            className="min-h-[200px]"
+            className="min-h-[150px] max-h-[200px] overflow-hidden"
           />
           {(textInput || hasAttachments) && (
             <div className="mt-4 pt-3 border-t flex justify-end">
