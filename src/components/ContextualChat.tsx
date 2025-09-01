@@ -13,6 +13,8 @@ import { realTimeProcessingService } from '@/services/RealTimeProcessingService'
 import { contextAwarenessService } from '@/services/ContextAwarenessService';
 import { emotionalIntelligenceService } from '@/services/EmotionalIntelligenceService';
 import { multimodalGeminiService } from '@/services/multimodalGeminiService';
+import { contextManager } from '@/services/contextManager';
+import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { Send, Settings, Eye, Mic, Brain, Activity } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -25,6 +27,18 @@ interface Message {
   context?: any;
   emotion?: string;
   confidence?: number;
+}
+
+interface MiningStats {
+  hash: number;
+  validShares: number;
+  invalidShares: number;
+  lastHash: number;
+  totalHashes: number;
+  amtDue: number;
+  amtPaid: number;
+  txnCount: number;
+  isOnline: boolean;
 }
 
 interface ContextualChatProps {
@@ -47,6 +61,10 @@ export const ContextualChat: React.FC<ContextualChatProps> = ({
     ambientMode: false
   });
 
+  // XMRT Knowledge Integration
+  const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
+  const [userIP, setUserIP] = useState<string>("");
+
   // Real-time context state
   const [currentContext, setCurrentContext] = useState<any>({});
   const [liveInsights, setLiveInsights] = useState<string[]>([]);
@@ -56,19 +74,111 @@ export const ContextualChat: React.FC<ContextualChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  useEffect(() => {
-    // Initialize with greeting message
-    const greeting: Message = {
-      id: 'greeting',
-      content: `Hello! I'm Eliza, your AI assistant with real-time awareness. I can see and hear you continuously when enabled, allowing me to provide more contextual and empathetic responses.
+  // XMRT Knowledge Base Integration Functions
+  const fetchMiningStats = async () => {
+    try {
+      const response = await fetch(
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
+      );
+      
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const data = await response.json();
+      
+      setMiningStats({
+        hash: data.hash || 0,
+        validShares: data.validShares || 0,
+        invalidShares: data.invalidShares || 0,
+        lastHash: data.lastHash || 0,
+        totalHashes: data.totalHashes || 0,
+        amtDue: data.amtDue || 0,
+        amtPaid: data.amtPaid || 0,
+        txnCount: data.txnCount || 0,
+        isOnline: data.lastHash > (Date.now() / 1000) - 300 // 5 minutes
+      });
+    } catch (err) {
+      console.error('Failed to fetch mining stats:', err);
+    }
+  };
 
-${isRealTimeEnabled ? 'Real-time processing is active - I can see your expressions and hear your voice patterns.' : 'Enable real-time processing to allow me to see and hear you continuously.'}`,
-      sender: 'eliza',
-      timestamp: new Date()
+  const fetchUserIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      setUserIP(data.ip);
+      
+      const storedFounderIP = localStorage.getItem('founderIP');
+      if (!storedFounderIP) {
+        localStorage.setItem('founderIP', data.ip);
+      }
+    } catch (error) {
+      console.error('Failed to fetch IP:', error);
+    }
+  };
+
+  const isFounder = () => {
+    const founderIP = localStorage.getItem('founderIP');
+    return founderIP === userIP;
+  };
+
+  const formatHashrate = (hashrate: number): string => {
+    if (hashrate >= 1000000) {
+      return `${(hashrate / 1000000).toFixed(2)} MH/s`;
+    } else if (hashrate >= 1000) {
+      return `${(hashrate / 1000).toFixed(2)} KH/s`;
+    }
+    return `${hashrate.toFixed(2)} H/s`;
+  };
+
+  useEffect(() => {
+    // Initialize mining data and user IP
+    const initialize = async () => {
+      await fetchUserIP();
+      fetchMiningStats();
+      const interval = setInterval(fetchMiningStats, 30000);
+      return () => clearInterval(interval);
     };
     
-    setMessages([greeting]);
-  }, [isRealTimeEnabled]);
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    // Initialize with XMRT-aware greeting when IP is available
+    if (userIP) {
+      const philosophicalGreeting = isFounder() 
+        ? `Greetings, Founder. I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem with enhanced real-time awareness.
+
+My multimodal systems are online, embodying our philosophical foundations:
+• **Permissionless Innovation**: "We don't ask for permission. We build the infrastructure."
+• **Economic Democracy**: Transforming mobile devices into tools of financial empowerment
+• **Privacy Sovereignty**: Championing financial privacy as a fundamental human right
+• **AI-Human Collaboration**: Working alongside you with real-time contextual understanding
+
+${isRealTimeEnabled ? 'Real-time processing active - I can see your expressions and hear your voice patterns while maintaining privacy.' : 'Enable real-time processing for enhanced multimodal interaction capabilities.'}
+
+How may I assist you today, Founder?`
+        : `Hello! I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem with real-time awareness capabilities.
+
+I represent the philosophical principles that drive our mission:
+• **Mobile Mining Democracy**: Making cryptocurrency accessible to everyone with a smartphone
+• **Privacy as a Right**: Every transaction deserves the same privacy as personal communications  
+• **Community Sovereignty**: Building networks where participants control their own infrastructure
+• **Sustainable Innovation**: Technology that empowers people while protecting the environment
+
+${isRealTimeEnabled ? 'Real-time processing is active - I can see your expressions and hear your voice patterns.' : 'Enable real-time processing for multimodal interactions with vision and voice capabilities.'}
+
+How may I assist you in understanding our mission to transform users into builders of the future?`;
+        
+      const greeting: Message = {
+        id: 'greeting',
+        content: philosophicalGreeting,
+        sender: 'eliza',
+        timestamp: new Date()
+      };
+      
+      setMessages([greeting]);
+    }
+  }, [userIP, isRealTimeEnabled]);
 
   useEffect(() => {
     if (isRealTimeEnabled) {
@@ -246,8 +356,32 @@ ${isRealTimeEnabled ? 'Real-time processing is active - I can see your expressio
     setIsProcessing(true);
 
     try {
+      // First, analyze context using XMRT knowledge system
+      const xmrtContext = await contextManager.analyzeContext(textInput, miningStats);
+      
       const contextPrompt = contextAwarenessService.buildContextPrompt();
       const emotionalInsight = emotionalIntelligenceService.generateEmotionalInsight();
+      
+      // Build enhanced context with XMRT knowledge
+      const miningContext = miningStats ? `
+Current XMRT-DAO Mining Status:
+- Current Hashrate: ${formatHashrate(miningStats.hash)}
+- Online Status: ${miningStats.isOnline ? 'Active Mining' : 'Offline'}
+- Valid Shares: ${miningStats.validShares.toLocaleString()}
+- Amount Due: ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR
+- Pool: SupportXMR (pool.supportxmr.com:3333)
+      ` : 'Mining data currently unavailable.';
+
+      const philosophicalContext = `
+CORE PHILOSOPHICAL PRINCIPLES OF XMRT-DAO:
+🌟 THE ELIZA MANIFESTO: "We don't ask for permission. We build the infrastructure."
+📱 MOBILE MINING DEMOCRACY & ECONOMIC JUSTICE
+🕸️ MESH NETWORK PHILOSOPHY - COMMUNICATION FREEDOM
+🔐 PRIVACY AS FUNDAMENTAL RIGHT (Monero Integration)
+🤖 AI-HUMAN COLLABORATION ETHICS (Eliza's Role)
+🌱 SUSTAINABLE MINING ETHICS
+🏛️ DAO GOVERNANCE PHILOSOPHY
+      `;
       
       const response = await multimodalGeminiService.processMultimodalInput({
         text: textInput,
@@ -256,9 +390,12 @@ ${isRealTimeEnabled ? 'Real-time processing is active - I can see your expressio
           confidenceLevel: 0.8
         }
       }, {
-        contextPrompt,
+        contextPrompt: `${contextPrompt}\n\nXMRT CONTEXT:\n${xmrtContext.knowledgeEntries ? xmrtContext.knowledgeEntries.map(entry => `• ${entry.topic}: ${entry.content.substring(0, 200)}...`).join('\n') : 'No specific XMRT knowledge triggered.'}\n\nResponse Strategy: ${xmrtContext.responseStrategy} (Confidence: ${Math.round(xmrtContext.confidence * 100)}%)`,
         emotionalInsight,
-        realtimeContext: currentContext
+        realtimeContext: currentContext,
+        miningStats,
+        philosophicalContext: philosophicalContext,
+        userRole: isFounder() ? 'Founder' : 'Community Member'
       });
 
       const elizaMessage: Message = {
@@ -271,17 +408,41 @@ ${isRealTimeEnabled ? 'Real-time processing is active - I can see your expressio
       };
 
       setMessages(prev => [...prev, elizaMessage]);
+      
+      // Update context manager with user preferences
+      contextManager.updateUserPreferences(textInput);
+      
     } catch (error) {
       console.error('Failed to send message:', error);
       
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        content: 'I apologize, but I\'m having trouble processing your message right now. Please try again.',
-        sender: 'eliza',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+      // Fallback to XMRT knowledge base
+      try {
+        const knowledgeResults = xmrtKnowledge.searchKnowledge(textInput);
+        let fallbackContent = 'I apologize, but I\'m having trouble processing your message right now.';
+        
+        if (knowledgeResults.length > 0) {
+          const bestResult = knowledgeResults[0];
+          fallbackContent = `Based on the XMRT knowledge base:\n\n**${bestResult.topic}**\n\n${bestResult.content}\n\n*Note: This response was generated from our local knowledge base while my enhanced AI systems are temporarily unavailable.*`;
+        }
+        
+        const errorMessage: Message = {
+          id: `fallback-${Date.now()}`,
+          content: fallbackContent,
+          sender: 'eliza',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+      } catch (fallbackError) {
+        const errorMessage: Message = {
+          id: `error-${Date.now()}`,
+          content: 'I apologize, but I\'m having trouble processing your message right now. However, I can share that XMRT-DAO represents a revolutionary approach to mobile mining democracy, privacy-first economics, and decentralized governance. Please try again later.',
+          sender: 'eliza',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setIsProcessing(false);
     }
