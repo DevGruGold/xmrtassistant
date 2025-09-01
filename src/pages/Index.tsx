@@ -5,7 +5,7 @@ import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
 import LiveMiningStats from "@/components/LiveMiningStats";
-import ContextualChat from "@/components/ContextualChat";
+import { ConversationalChat } from "@/components/ConversationalChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
@@ -67,10 +67,8 @@ const Index = () => {
           </div>
           
           {/* Eliza Chat */}
-          <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
-            <div className="relative z-10 max-h-[500px]">
-              <ContextualChat />
-            </div>
+          <div className="max-w-4xl mx-auto mb-8 sm:mb-12 animate-fade-in">
+            <ConversationalChat />
           </div>
           
           {/* MobileMonero Calculator */}
