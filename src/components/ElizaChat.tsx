@@ -7,12 +7,25 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { contextManager } from '../services/contextManager';
 import { xmrtKnowledge } from '../data/xmrtKnowledgeBase';
 import ElizaAvatar from "./ElizaAvatar";
+import { MultimodalInput, type MultimodalMessage } from "./MultimodalInput";
+import { multimodalGeminiService } from '../services/multimodalGeminiService';
+import { useMediaAccess } from '../hooks/useMediaAccess';
 
 interface Message {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
+  attachments?: {
+    images?: string[];
+    audio?: Blob;
+    transcript?: string;
+  };
+  emotionalContext?: {
+    voiceTone?: string;
+    facialExpression?: string;
+    confidenceLevel?: number;
+  };
 }
 
 interface MiningStats {
@@ -37,7 +50,9 @@ const ElizaChat = () => {
   const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
   const [userIP, setUserIP] = useState<string>("");
   const [lastElizaMessage, setLastElizaMessage] = useState<string>("");
+  const [isMultimodalMode, setIsMultimodalMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { permissions } = useMediaAccess();
 
   const FOUNDER_IP = ""; // This will be set when first user connects
 
@@ -282,6 +297,72 @@ My systems are analyzing real-time mining data and I'm ready to help you underst
     }
   }, [userIP]);
 
+  const sendMultimodalMessage = async (multimodalMessage: MultimodalMessage) => {
+    if (isLoading) return;
+    if (!multimodalMessage.text?.trim() && !multimodalMessage.audio && !multimodalMessage.images?.length) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: multimodalMessage.text || '[Multimodal message]',
+      isUser: true,
+      timestamp: new Date(),
+      attachments: {
+        images: multimodalMessage.images,
+        audio: multimodalMessage.audio,
+        transcript: multimodalMessage.transcript
+      }
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      // Use multimodal Gemini service
+      const multimodalResponse = await multimodalGeminiService.processMultimodalInput(
+        {
+          text: multimodalMessage.text,
+          audio: multimodalMessage.audio,
+          images: multimodalMessage.images,
+          transcript: multimodalMessage.transcript
+        },
+        {
+          miningStats,
+          philosophicalContext: 'XMRT-DAO multimodal interaction',
+          userRole: isFounder() ? 'Founder' : 'Community Member'
+        }
+      );
+      
+      const elizaMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: multimodalResponse.text,
+        isUser: false,
+        timestamp: new Date(),
+        emotionalContext: multimodalResponse.emotionalAnalysis ? {
+          voiceTone: multimodalResponse.voiceAnalysis?.tone,
+          confidenceLevel: multimodalResponse.emotionalAnalysis.confidence
+        } : undefined
+      };
+      
+      setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(multimodalResponse.text);
+      
+    } catch (error) {
+      console.error('Multimodal chat error:', error);
+      // Fallback to text-only processing
+      const fallbackResponse = await getElizaResponseWithGemini(multimodalMessage.text || '[Multimodal input]');
+      const elizaMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: fallbackResponse,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(fallbackResponse);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -397,7 +478,44 @@ My systems are analyzing real-time mining data and I'm ready to help you underst
                 <div className="flex items-start gap-2 min-w-0">
                   {!message.isUser && <Bot className="h-4 w-4 mt-0.5 flex-shrink-0" />}
                   {message.isUser && <User className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                  <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere min-w-0 flex-1">{message.content}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere">{message.content}</div>
+                    
+                    {/* Attachments Display */}
+                    {message.attachments?.images && message.attachments.images.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {message.attachments.images.map((image, index) => (
+                          <img
+                            key={index}
+                            src={image}
+                            alt={`Attachment ${index + 1}`}
+                            className="max-w-32 max-h-32 object-cover rounded border"
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {message.attachments?.audio && (
+                      <div className="mt-2 flex items-center gap-2 text-xs opacity-70">
+                        <Activity className="h-3 w-3" />
+                        <span>Voice message</span>
+                        {message.attachments.transcript && (
+                          <span className="italic">"{message.attachments.transcript.substring(0, 50)}..."</span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {message.emotionalContext && (
+                      <div className="mt-1 text-xs opacity-50 flex items-center gap-1">
+                        {message.emotionalContext.voiceTone && (
+                          <span>Tone: {message.emotionalContext.voiceTone}</span>
+                        )}
+                        {message.emotionalContext.confidenceLevel && (
+                          <span>• Confidence: {Math.round(message.emotionalContext.confidenceLevel * 100)}%</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs opacity-70 mt-1">
                   {message.timestamp.toLocaleTimeString()}
@@ -424,23 +542,53 @@ My systems are analyzing real-time mining data and I'm ready to help you underst
           <div ref={messagesEndRef} />
         </div>
         
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask Eliza about XMRT-DAO operations..."
-            className="flex-1"
-            disabled={isLoading}
-          />
-          <Button
-            onClick={sendMessage}
-            disabled={isLoading || !input.trim()}
-            size="icon"
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+        <div className="flex flex-col gap-3">
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isMultimodalMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsMultimodalMode(true)}
+              disabled={isLoading}
+            >
+              🎤 Multimodal
+            </Button>
+            <Button
+              variant={!isMultimodalMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsMultimodalMode(false)}
+              disabled={isLoading}
+            >
+              ✍️ Text Only
+            </Button>
+          </div>
+          
+          {/* Input Interface */}
+          {isMultimodalMode ? (
+            <MultimodalInput
+              onSend={sendMultimodalMessage}
+              disabled={isLoading}
+            />
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask Eliza about XMRT-DAO operations..."
+                className="flex-1"
+                disabled={isLoading}
+              />
+              <Button
+                onClick={sendMessage}
+                disabled={isLoading || !input.trim()}
+                size="icon"
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Volume2, VolumeX, Loader2, Brain, Sparkles } from "lucide-react";
+import { Volume2, VolumeX, Loader2, Brain, Sparkles, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { geminiImageService, type GeneratedImage } from "../services/geminiImageService";
+import { useMediaAccess } from "../hooks/useMediaAccess";
 
 interface ElizaAvatarProps {
   apiKey: string;
@@ -11,6 +12,8 @@ interface ElizaAvatarProps {
   isConnected: boolean;
   isSpeaking?: boolean;
   className?: string;
+  userImages?: string[]; // New: Images from user for visual context
+  userEmotion?: string; // New: Detected user emotion from camera
 }
 
 interface MoodState {
@@ -33,11 +36,14 @@ const ElizaAvatar = ({
   lastMessage, 
   isConnected, 
   isSpeaking = false,
-  className 
+  className,
+  userImages = [],
+  userEmotion
 }: ElizaAvatarProps) => {
   const [currentAvatar, setCurrentAvatar] = useState<GeneratedImage | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [visualMode, setVisualMode] = useState(false);
   const [mood, setMood] = useState<MoodState>({ 
     emotion: "professional", 
     intensity: 0.5, 
@@ -46,6 +52,7 @@ const ElizaAvatar = ({
   });
   const [emotionalContext, setEmotionalContext] = useState<EmotionalContext>({});
   const [avatarCache, setAvatarCache] = useState<Map<string, GeneratedImage>>(new Map());
+  const { permissions, requestCameraAccess, stopStream } = useMediaAccess();
   
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const lastMessageRef = useRef<string>("");
@@ -107,8 +114,8 @@ const ElizaAvatar = ({
     }
   };
 
-  // Enhanced mood analysis using Gemini 2.5 Flash emotional intelligence
-  const analyzeMood = (message: string): MoodState => {
+  // Enhanced mood analysis with visual context
+  const analyzeMood = (message: string, visualContext?: { userImages: string[]; userEmotion?: string }): MoodState => {
     const lowerMessage = message.toLowerCase();
     const previousEmotion = mood.emotion;
     
@@ -126,12 +133,28 @@ const ElizaAvatar = ({
       previousEmotion
     };
 
-    // Enhanced emotional intelligence analysis
+    // Visual context influence
+    if (visualContext?.userEmotion) {
+      const userEmo = visualContext.userEmotion.toLowerCase();
+      if (userEmo.includes('happy') || userEmo.includes('smiling')) {
+        newMood.emotion = "pleased";
+        newMood.intensity = 0.8;
+        newMood.context = "mirroring user's positive mood";
+        newMood.confidence = 0.9;
+      } else if (userEmo.includes('confused') || userEmo.includes('frustrated')) {
+        newMood.emotion = "concerned";
+        newMood.intensity = 0.85;
+        newMood.context = "responding to user difficulty";
+        newMood.confidence = 0.95;
+      }
+    }
+
+    // Enhanced textual analysis with visual augmentation
     if (lowerMessage.includes('error') || lowerMessage.includes('problem') || lowerMessage.includes('issue')) {
       newMood = { 
         emotion: "concerned", 
-        intensity: 0.8, 
-        context: "troubleshooting mode",
+        intensity: visualContext?.userImages.length ? 0.9 : 0.8, // Higher intensity if user shared images
+        context: visualContext?.userImages.length ? "visual troubleshooting mode" : "troubleshooting mode",
         confidence: 0.9,
         previousEmotion
       };
@@ -139,15 +162,15 @@ const ElizaAvatar = ({
       newMood = { 
         emotion: "focused", 
         intensity: 0.85, 
-        context: "mining analytics",
+        context: visualContext?.userImages.length ? "analyzing mining hardware visuals" : "mining analytics",
         confidence: 0.95,
         previousEmotion
       };
     } else if (lowerMessage.includes('greetings') || lowerMessage.includes('hello') || lowerMessage.includes('hi ')) {
       newMood = { 
         emotion: "welcoming", 
-        intensity: 0.7, 
-        context: "greeting protocol",
+        intensity: visualContext?.userEmotion?.includes('happy') ? 0.9 : 0.7, 
+        context: visualContext?.userImages.length ? "greeting with visual recognition" : "greeting protocol",
         confidence: 0.9,
         previousEmotion
       };
@@ -185,10 +208,11 @@ const ElizaAvatar = ({
       };
     }
 
-    // Emotional context analysis
+    // Enhanced emotional context with visual cues
     const newEmotionalContext: EmotionalContext = {
-      userMood: lowerMessage.includes('frustrated') || lowerMessage.includes('confused') ? 'negative' : 
-               lowerMessage.includes('excited') || lowerMessage.includes('great') ? 'positive' : 'neutral',
+      userMood: visualContext?.userEmotion || 
+               (lowerMessage.includes('frustrated') || lowerMessage.includes('confused') ? 'negative' : 
+                lowerMessage.includes('excited') || lowerMessage.includes('great') ? 'positive' : 'neutral'),
       conversationTone: lowerMessage.includes('technical') || lowerMessage.includes('complex') ? 'technical' : 
                        lowerMessage.includes('simple') || lowerMessage.includes('basic') ? 'casual' : 'professional',
       topicComplexity: lowerMessage.includes('advanced') || lowerMessage.includes('complex') ? 'complex' :
@@ -233,10 +257,25 @@ const ElizaAvatar = ({
     speechSynthesis.speak(utterance);
   };
 
+  // Effect to respond to user images and emotions
+  useEffect(() => {
+    if (userImages.length > 0 || userEmotion) {
+      const visualContext = { userImages, userEmotion };
+      const contextualMood = analyzeMood(lastMessage || "visual input detected", visualContext);
+      
+      if (Math.abs(contextualMood.intensity - mood.intensity) > 0.2 || 
+          contextualMood.emotion !== mood.emotion) {
+        setMood(contextualMood);
+        generateAvatar(`Visual context: ${userImages.length} images, emotion: ${userEmotion || 'none'}, mood: ${contextualMood.emotion}`);
+      }
+    }
+  }, [userImages, userEmotion]);
+
   // Effect to generate new avatar when mood changes significantly
   useEffect(() => {
     if (lastMessage && lastMessage !== lastMessageRef.current) {
-      const newMood = analyzeMood(lastMessage);
+      const visualContext = { userImages, userEmotion };
+      const newMood = analyzeMood(lastMessage, visualContext);
       
       // Only regenerate if mood changed significantly
       if (Math.abs(newMood.intensity - mood.intensity) > 0.3 || 
@@ -252,7 +291,7 @@ const ElizaAvatar = ({
       
       lastMessageRef.current = lastMessage;
     }
-  }, [lastMessage, mood, voiceEnabled, apiKey]);
+  }, [lastMessage, mood, voiceEnabled, apiKey, userImages, userEmotion]);
 
   // Initial avatar generation
   useEffect(() => {
@@ -268,6 +307,20 @@ const ElizaAvatar = ({
       speechSynthesis.getVoices();
     }
   }, []);
+
+  const toggleVisualMode = async () => {
+    if (visualMode) {
+      stopStream('video');
+      setVisualMode(false);
+    } else {
+      try {
+        await requestCameraAccess();
+        setVisualMode(true);
+      } catch (error) {
+        console.error('Failed to access camera:', error);
+      }
+    }
+  };
 
   const toggleVoice = () => {
     if (voiceEnabled) {
@@ -318,25 +371,46 @@ const ElizaAvatar = ({
         </div>
       </div>
 
-      {/* Voice control */}
-      {'speechSynthesis' in window && (
+      {/* Enhanced controls with visual mode */}
+      <div className="flex space-x-1">
+        {/* Voice control */}
+        {'speechSynthesis' in window && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleVoice}
+            className={cn(
+              "p-2 h-8 w-8",
+              voiceEnabled ? "text-mining-active" : "text-muted-foreground"
+            )}
+            title={voiceEnabled ? "Disable voice" : "Enable voice"}
+          >
+            {voiceEnabled ? (
+              <Volume2 className="h-4 w-4" />
+            ) : (
+              <VolumeX className="h-4 w-4" />
+            )}
+          </Button>
+        )}
+        
+        {/* Visual mode control */}
         <Button
           variant="ghost"
           size="sm"
-          onClick={toggleVoice}
+          onClick={toggleVisualMode}
           className={cn(
             "p-2 h-8 w-8",
-            voiceEnabled ? "text-mining-active" : "text-muted-foreground"
+            visualMode ? "text-mining-info" : "text-muted-foreground"
           )}
-          title={voiceEnabled ? "Disable voice" : "Enable voice"}
+          title={visualMode ? "Disable visual mode" : "Enable visual mode"}
         >
-          {voiceEnabled ? (
-            <Volume2 className="h-4 w-4" />
+          {visualMode ? (
+            <Eye className="h-4 w-4" />
           ) : (
-            <VolumeX className="h-4 w-4" />
+            <EyeOff className="h-4 w-4" />
           )}
         </Button>
-      )}
+      </div>
 
       {/* Enhanced mood and status indicator */}
       <div className="text-xs text-muted-foreground text-center space-y-1">
