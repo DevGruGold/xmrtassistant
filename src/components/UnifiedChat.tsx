@@ -272,7 +272,7 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Voice input handler - WITH smart TTS timing
+  // Voice input handler - WITH smart TTS timing and speech recognition pausing
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript?.trim() || isProcessing) return;
 
@@ -297,7 +297,7 @@ How may I assist you in understanding our mission to transform users into builde
         shouldSpeak: true // Enable TTS with smart timing
       });
       
-      // Display WITH voice synthesis - the delay is handled in displayResponse
+      // Display WITH voice synthesis - speech recognition will be paused during TTS
       await displayResponse(response, true);
       
     } catch (error) {
@@ -481,6 +481,7 @@ How may I assist you in understanding our mission to transform users into builde
               isSpeaking={isSpeaking}
               disabled={!voiceEnabled}
               autoListen={true}
+              externalListening={!isSpeaking} // Pause listening when Eliza is speaking
             />
           ) : (
             <div className="p-3 sm:p-4 space-y-2">

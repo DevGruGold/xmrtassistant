@@ -9,6 +9,7 @@ import { BrowserCompatibilityService } from '@/utils/browserCompatibility';
 interface EnhancedContinuousVoiceProps {
   onTranscript: (transcript: string, isFinal?: boolean) => void;
   isListening?: boolean;
+  externalListening?: boolean; // New prop to control listening from parent
   isProcessing?: boolean;
   isSpeaking?: boolean;
   disabled?: boolean;
@@ -20,6 +21,7 @@ interface EnhancedContinuousVoiceProps {
 export const EnhancedContinuousVoice = ({
   onTranscript,
   isListening: externalListening,
+  externalListening: parentControlledListening, // New prop
   isProcessing = false,
   isSpeaking = false,
   disabled = false,
@@ -156,26 +158,30 @@ export const EnhancedContinuousVoice = ({
     recognition.onend = () => {
       console.log('🔄 Speech recognition ENDED');
       
-      // Enhanced restart logic with mobile-specific handling
+      // Enhanced restart logic with mobile-specific handling and TTS awareness
       const capabilities = BrowserCompatibilityService.detectCapabilities();
       
-      // More aggressive restart on mobile to handle connectivity issues
+      // Don't restart if Eliza is speaking (prevents feedback loop)
       const shouldRestart = isListening && !isSpeaking && hasPermission && 
+        (parentControlledListening == null || parentControlledListening) && // Respect parent control
         (capabilities.isMobile ? retryCount < 5 : retryCount < 3);
       
       if (shouldRestart) {
-        console.log('🔄 Auto-restarting speech recognition...', { mobile: capabilities.isMobile, retryCount });
-        const restartDelay = capabilities.isMobile ? 300 : 100; // Longer delay on mobile
+        console.log('🔄 Auto-restarting speech recognition...', { 
+          mobile: capabilities.isMobile, 
+          retryCount, 
+          elizaSpeaking: isSpeaking 
+        });
+        const restartDelay = capabilities.isMobile ? 300 : 100;
         
         setTimeout(() => {
-          if (recognitionRef.current && isListening) {
+          if (recognitionRef.current && isListening && !isSpeaking && (parentControlledListening == null || parentControlledListening)) {
             try {
               recognition.start();
               setRetryCount(prev => prev + 1);
             } catch (error) {
               console.error('❌ Failed to restart recognition:', error);
               if (capabilities.isMobile && error.name === 'InvalidStateError') {
-                // Mobile browsers sometimes need a hard reset
                 console.log('🔄 Attempting hard reset on mobile...');
                 recognitionRef.current = null;
                 window.location.reload();
@@ -184,7 +190,14 @@ export const EnhancedContinuousVoice = ({
           }
         }, restartDelay);
       } else {
-        console.log('🛑 Not restarting recognition:', { isListening, isSpeaking, hasPermission, retryCount, mobile: capabilities.isMobile });
+        console.log('🛑 Not restarting recognition:', { 
+          isListening, 
+          isSpeaking, 
+          hasPermission, 
+          retryCount, 
+          mobile: capabilities.isMobile,
+          parentControlled: parentControlledListening
+        });
         setIsListening(false);
       }
     };
@@ -429,12 +442,29 @@ export const EnhancedContinuousVoice = ({
     };
   }, [autoListen, disabled, browserSupported]); // Removed isListening from deps to prevent loop
 
-  // Sync with external listening state - Fixed logic
+  // Enhanced sync with external listening state and TTS awareness
   useEffect(() => {
-    console.log('🔗 External listening state sync:', { externalListening, isListening, disabled });
+    console.log('🔗 External listening state sync:', { 
+      externalListening, 
+      parentControlledListening,
+      isListening, 
+      disabled, 
+      isSpeaking 
+    });
     
-    if (externalListening !== undefined) {
-      if (externalListening && !isListening && !disabled && browserSupported) {
+    // If parent explicitly controls listening (like when TTS is playing)
+    if (parentControlledListening !== undefined) {
+      if (parentControlledListening && !isListening && !disabled && browserSupported && !isSpeaking) {
+        console.log('📡 Starting listening from parent control...');
+        startListening();
+      } else if (!parentControlledListening && isListening) {
+        console.log('📡 Stopping listening from parent control (TTS playing)...');
+        stopListening();
+      }
+    }
+    // Fallback to old externalListening prop
+    else if (externalListening !== undefined) {
+      if (externalListening && !isListening && !disabled && browserSupported && !isSpeaking) {
         console.log('📡 Starting listening from external state...');
         startListening();
       } else if (!externalListening && isListening) {
@@ -442,7 +472,7 @@ export const EnhancedContinuousVoice = ({
         stopListening();
       }
     }
-  }, [externalListening, disabled, browserSupported]); // Removed isListening from deps
+  }, [externalListening, parentControlledListening, disabled, browserSupported, isSpeaking]);
 
   // Toggle listening with user gesture handling - Enhanced logging
   const toggleListening = () => {
