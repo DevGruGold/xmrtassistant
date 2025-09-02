@@ -159,7 +159,7 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 rounded-none border-none bg-transparent">
+        <TabsList className="grid w-full grid-cols-2 rounded-none border-none bg-transparent">
           <TabsTrigger value="text" className="flex items-center space-x-2">
             <Type className="h-4 w-4" />
             <span>Text</span>
@@ -167,10 +167,6 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
           <TabsTrigger value="rich" className="flex items-center space-x-2">
             <Camera className="h-4 w-4" />
             <span>Rich</span>
-          </TabsTrigger>
-          <TabsTrigger value="voice" className="flex items-center space-x-2">
-            <Mic className="h-4 w-4" />
-            <span>Voice</span>
           </TabsTrigger>
         </TabsList>
 
@@ -231,16 +227,6 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
               </Button>
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="voice" className="p-0">
-          {/* Voice tab content will be handled by UnifiedChat directly */}
-          <div className="min-h-[200px] flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Mic className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>Continuous voice mode handled by chat interface</p>
-            </div>
-          </div>
         </TabsContent>
       </Tabs>
     </div>

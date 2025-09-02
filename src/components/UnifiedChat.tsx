@@ -5,17 +5,14 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
-import { MultimodalInput, type MultimodalMessage } from './MultimodalInput';
-import { ContinuousVoice } from './ContinuousVoice';
-import { Send, Mic, MicOff, Volume2, VolumeX, Settings } from 'lucide-react';
-import { Switch } from './ui/switch';
+import { EnhancedContinuousVoice } from './EnhancedContinuousVoice';
+import { Send, Volume2, VolumeX } from 'lucide-react';
 
 // Services
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { realTimeProcessingService } from '@/services/RealTimeProcessingService';
 import { contextAwarenessService } from '@/services/ContextAwarenessService';
 import { emotionalIntelligenceService } from '@/services/EmotionalIntelligenceService';
-import { multimodalGeminiService } from '@/services/multimodalGeminiService';
 import { contextManager } from '@/services/contextManager';
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -83,9 +80,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [elevenLabsService, setElevenLabsService] = useState<ElevenLabsService | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
 
-  // Input mode state - simplified to single mode selector
-  type InputMode = 'text' | 'voice' | 'rich';
-  const [inputMode, setInputMode] = useState<InputMode>('text');
+  // Input mode state - streamlined to 2 modes
+  type InputMode = 'text' | 'voice';
+  const [inputMode, setInputMode] = useState<InputMode>('voice'); // Default to voice for fluid experience
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
 
@@ -149,8 +146,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (userIP && messages.length === 0) {
       const modeDescription = {
         text: 'Text mode active - unified XMRT knowledge system for consistent responses.',
-        voice: 'Voice mode active - ElevenLabs TTS ready for speech synthesis.',
-        rich: 'Rich mode active - multimodal input with voice synthesis available.'
+        voice: 'Voice mode active - ElevenLabs TTS ready for speech synthesis.'
       };
 
       const philosophicalGreeting = isFounder() 
@@ -245,22 +241,20 @@ How may I assist you in understanding our mission to transform users into builde
     return `${hashrate.toFixed(2)} H/s`;
   };
 
-  // Simplified mode management
+  // Streamlined mode management
   const getModeIcon = (mode: InputMode) => {
     switch (mode) {
       case 'text': return '💬';
       case 'voice': return '🎤';
-      case 'rich': return '📸';
       default: return '💬';
     }
   };
 
   const getModeLabel = (mode: InputMode) => {
     switch (mode) {
-      case 'text': return 'Text Mode';
-      case 'voice': return 'Voice Mode';
-      case 'rich': return 'Rich Mode';
-      default: return 'Text Mode';
+      case 'text': return 'Text';
+      case 'voice': return 'Voice';
+      default: return 'Text';
     }
   };
 
@@ -367,60 +361,6 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Multimodal message handler
-  const handleMultimodalMessage = async (multimodalMessage: MultimodalMessage) => {
-    if (isProcessing) return;
-    if (!multimodalMessage.text?.trim() && !multimodalMessage.audio && !multimodalMessage.images?.length) return;
-
-    const userMessage: UnifiedMessage = {
-      id: `multimodal-user-${Date.now()}`,
-      content: multimodalMessage.text || '[Multimodal message]',
-      sender: 'user',
-      timestamp: new Date(),
-      attachments: {
-        images: multimodalMessage.images,
-        audio: multimodalMessage.audio,
-        transcript: multimodalMessage.transcript
-      }
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsProcessing(true);
-
-    try {
-      // Use multimodal Gemini service
-      const multimodalResponse = await multimodalGeminiService.processMultimodalInput(
-        {
-          text: multimodalMessage.text,
-          audio: multimodalMessage.audio,
-          images: multimodalMessage.images,
-          transcript: multimodalMessage.transcript
-        },
-        {
-          miningStats,
-          philosophicalContext: 'XMRT-DAO multimodal interaction',
-          userRole: isFounder() ? 'Founder' : 'Community Member'
-        }
-      );
-      
-      // Use unified display function for multimodal responses
-      await displayResponse(multimodalResponse.text, inputMode === 'rich');
-      
-    } catch (error) {
-      console.error('Multimodal chat error:', error);
-      // Fallback to unified service
-      const fallbackResponse = await UnifiedElizaService.generateResponse(multimodalMessage.text || '[Multimodal input]', {
-        miningStats,
-        userIP,
-        isFounder: isFounder(),
-        inputMode: 'rich'
-      });
-      await displayResponse(fallbackResponse, inputMode === 'rich');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -467,9 +407,9 @@ How may I assist you in understanding our mission to transform users into builde
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Input Mode Selector */}
+              {/* Input Mode Selector - Streamlined to 2 modes */}
               <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-                {(['text', 'voice', 'rich'] as const).map((mode) => (
+                {(['text', 'voice'] as const).map((mode) => (
                   <Button
                     key={mode}
                     onClick={() => setInputMode(mode)}
@@ -478,13 +418,13 @@ How may I assist you in understanding our mission to transform users into builde
                     className="text-xs gap-1 min-w-[70px]"
                   >
                     <span>{getModeIcon(mode)}</span>
-                    {getModeLabel(mode).split(' ')[0]}
+                    {getModeLabel(mode)}
                   </Button>
                 ))}
               </div>
 
-              {/* Voice Controls - show when voice synthesis is available */}
-              {voiceEnabled && (inputMode === 'voice' || inputMode === 'rich') && (
+              {/* Voice Controls - show when voice mode is active */}
+              {voiceEnabled && inputMode === 'voice' && (
                 <Button
                   onClick={toggleVoiceSynthesis}
                   variant={isSpeaking ? "default" : "outline"}
@@ -539,24 +479,17 @@ How may I assist you in understanding our mission to transform users into builde
           </div>
         </ScrollArea>
 
-        {/* Input Area */}
+        {/* Input Area - Streamlined */}
         <div className="border-t border-border">
           {inputMode === 'voice' ? (
-            <ContinuousVoice
+            <EnhancedContinuousVoice
               onTranscript={handleVoiceInput}
               isProcessing={isProcessing}
               isSpeaking={isSpeaking}
               disabled={!voiceEnabled}
+              autoListen={true}
               className="min-h-[300px]"
             />
-          ) : inputMode === 'rich' ? (
-            <div className="p-4">
-              <MultimodalInput
-                onSend={handleMultimodalMessage}
-                className="w-full"
-                disabled={isProcessing}
-              />
-            </div>
           ) : (
             <div className="p-4 space-y-2">
               <div className="flex gap-2">
