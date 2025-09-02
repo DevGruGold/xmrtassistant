@@ -5,8 +5,8 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
-import { EnhancedContinuousVoice } from './EnhancedContinuousVoice';
-import { MobileVoiceEnhancer } from './MobileVoiceEnhancer';
+import { MobileVoiceInterface } from './MobileVoiceInterface';
+import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX } from 'lucide-react';
 
 // Services
@@ -422,7 +422,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   return (
     <>
-      <MobileVoiceEnhancer />
       <Card className={`bg-gradient-to-br from-card to-secondary border-border flex flex-col h-[600px] sm:h-[700px] ${className}`}>
         {/* Header */}
         <div className="p-3 sm:p-4 border-b border-border">
@@ -527,14 +526,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         {/* Input Area - Mobile optimized */}
         <div className="border-t border-border">
           {inputMode === 'voice' ? (
-            <EnhancedContinuousVoice
-              onTranscript={handleVoiceInput}
-              isProcessing={isProcessing}
-              isSpeaking={isSpeaking}
-              disabled={!voiceEnabled}
-              autoListen={true}
-              externalListening={!isSpeaking} // Pause listening when Eliza is speaking
-            />
+            <div className="p-3 sm:p-4">
+              <MobileVoiceInterface
+                onTranscript={handleVoiceInput}
+                isProcessing={isProcessing}
+                disabled={!voiceEnabled}
+              />
+            </div>
           ) : (
             <div className="p-3 sm:p-4 space-y-2">
               <div className="flex gap-2">
