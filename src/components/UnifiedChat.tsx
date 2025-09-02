@@ -380,9 +380,9 @@ How may I assist you in understanding our mission to transform users into builde
   };
 
   return (
-    <Card className={`bg-gradient-to-br from-card to-secondary border-border min-h-[24rem] max-h-[32rem] flex flex-col ${className}`}>
+    <Card className={`bg-gradient-to-br from-card to-secondary border-border flex flex-col h-[600px] sm:h-[700px] ${className}`}>
         {/* Header */}
-        <div className="p-4 border-b border-border">
+        <div className="p-3 sm:p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AdaptiveAvatar
@@ -438,48 +438,52 @@ How may I assist you in understanding our mission to transform users into builde
           </div>
         </div>
 
-        {/* Messages */}
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[70%] p-3 rounded-lg ${
-                    message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground ml-12'
-                      : 'bg-muted text-muted-foreground mr-12'
-                  }`}
-                >
-                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                  {message.emotion && (
-                    <div className="text-xs opacity-70 mt-1">
-                      Emotion: {message.emotion} ({Math.round((message.confidence || 0) * 100)}%)
+        {/* Messages - Improved scrolling */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-3 sm:p-4">
+              <div className="space-y-3 sm:space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[85%] sm:max-w-[70%] p-2 sm:p-3 rounded-lg ${
+                        message.sender === 'user'
+                          ? 'bg-primary text-primary-foreground ml-4 sm:ml-12'
+                          : 'bg-muted text-muted-foreground mr-4 sm:mr-12'
+                      }`}
+                    >
+                      <div className="text-xs sm:text-sm whitespace-pre-wrap">{message.content}</div>
+                      {message.emotion && (
+                        <div className="text-xs opacity-70 mt-1">
+                          Emotion: {message.emotion} ({Math.round((message.confidence || 0) * 100)}%)
+                        </div>
+                      )}
+                      <div className="text-xs opacity-50 mt-1">
+                        {message.timestamp.toLocaleTimeString()}
+                      </div>
                     </div>
-                  )}
-                  <div className="text-xs opacity-50 mt-1">
-                    {message.timestamp.toLocaleTimeString()}
                   </div>
-                </div>
-              </div>
-            ))}
+                ))}
 
-            {isProcessing && (
-              <div className="flex justify-start">
-                <div className="bg-muted text-muted-foreground p-3 rounded-lg mr-12">
-                  <div className="flex items-center gap-2">
-                    <div className="animate-pulse">Eliza is thinking...</div>
+                {isProcessing && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted text-muted-foreground p-2 sm:p-3 rounded-lg mr-4 sm:mr-12">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-pulse text-xs sm:text-sm">Eliza is thinking...</div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+        </div>
 
-        {/* Input Area - Streamlined */}
+        {/* Input Area - Mobile optimized */}
         <div className="border-t border-border">
           {inputMode === 'voice' ? (
             <EnhancedContinuousVoice
@@ -488,23 +492,23 @@ How may I assist you in understanding our mission to transform users into builde
               isSpeaking={isSpeaking}
               disabled={!voiceEnabled}
               autoListen={true}
-              className="min-h-[300px]"
             />
           ) : (
-            <div className="p-4 space-y-2">
+            <div className="p-3 sm:p-4 space-y-2">
               <div className="flex gap-2">
                 <Input
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
+                  className="text-sm sm:text-base min-h-[44px] flex-1" // Larger touch target
                   disabled={isProcessing || isSpeaking}
-                  className="flex-1"
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={!textInput.trim() || isProcessing || isSpeaking}
                   size="sm"
+                  className="px-4 py-2 min-h-[44px] min-w-[44px]" // Larger touch target for mobile
                 >
                   <Send className="h-4 w-4" />
                 </Button>
