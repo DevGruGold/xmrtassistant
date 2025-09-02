@@ -3,6 +3,7 @@ import { UnifiedElizaService } from './unifiedElizaService';
 import { FallbackTTSService } from './fallbackTTSService';
 import { FallbackAIService } from './fallbackAIService';
 import { FallbackSpeechService } from './fallbackSpeechService';
+import { GeminiTTSService } from './geminiTTSService';
 import type { MiningStats } from './unifiedDataService';
 
 export interface UnifiedServiceOptions {
@@ -20,6 +21,7 @@ export interface ServiceStatus {
 
 export class UnifiedFallbackService {
   private elevenLabsService: ElevenLabsService | null = null;
+  private geminiTTSService: GeminiTTSService | null = null;
   private options: UnifiedServiceOptions;
   private serviceStatus: ServiceStatus = {
     elevenlabs: 'loading',
@@ -48,6 +50,16 @@ export class UnifiedFallbackService {
       this.serviceStatus.elevenlabs = 'unavailable';
     }
 
+    // Initialize Gemini TTS if API key provided
+    if (this.options.geminiApiKey) {
+      try {
+        this.geminiTTSService = await GeminiTTSService.create();
+        console.log('Gemini TTS service initialized');
+      } catch (error) {
+        console.error('Gemini TTS initialization failed:', error);
+      }
+    }
+
     // Test Web Speech API availability
     this.serviceStatus.webSpeech = ('speechSynthesis' in window && 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window) 
       ? 'available' : 'unavailable';
@@ -70,7 +82,15 @@ export class UnifiedFallbackService {
       });
     }
 
-    // Fallback: Local TTS
+    // Fallback 1: Gemini TTS (enhanced Web Speech)
+    if (this.geminiTTSService && this.serviceStatus.gemini === 'available') {
+      methods.push({
+        name: 'Gemini TTS',
+        fn: () => this.geminiTTSService!.speakText({ text, voiceId })
+      });
+    }
+
+    // Fallback 2: Local TTS (Web Speech + Local models)
     methods.push({
       name: 'Fallback TTS',
       fn: async () => {

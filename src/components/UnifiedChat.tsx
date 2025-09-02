@@ -292,23 +292,52 @@ How may I assist you in understanding our mission to transform users into builde
     setIsProcessing(true);
 
     try {
-      // Get unified XMRT response
-      const response = await UnifiedElizaService.generateResponse(transcript, {
-        miningStats,
-        userContext,
-        inputMode: 'voice',
-        shouldSpeak: true // Enable TTS with smart timing
+      // Use unified fallback service for AI response
+      const aiResponse = await unifiedFallbackService.generateResponse(transcript, {
+        miningStats: miningStats || undefined,
+        userContext: userContext || undefined
       });
-      
-      // Display WITH voice synthesis - speech recognition will be paused during TTS
-      await displayResponse(response, true);
+
+      setCurrentAIMethod(aiResponse.method);
+
+      const elizaMessage: UnifiedMessage = {
+        id: `eliza-${Date.now()}`,
+        content: aiResponse.text,
+        sender: 'eliza',
+        timestamp: new Date(),
+        confidence: aiResponse.confidence
+      };
+
+      setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(aiResponse.text);
+
+      // Speak response using unified fallback service
+      if (voiceEnabled) {
+        try {
+          setIsSpeaking(true);
+          
+          // Add small delay in voice mode to let speech recognition settle
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const ttsResult = await unifiedFallbackService.speakText(aiResponse.text);
+          setCurrentTTSMethod(ttsResult.method);
+        } catch (error) {
+          console.error('TTS failed:', error);
+          setCurrentTTSMethod('failed');
+        } finally {
+          setIsSpeaking(false);
+        }
+      }
       
     } catch (error) {
       console.error('Failed to process voice input:', error);
-      await displayResponse(
-        'I apologize, but I\'m having trouble processing your voice input right now.',
-        true // Still provide voice feedback for errors
-      );
+      const errorMessage: UnifiedMessage = {
+        id: `error-${Date.now()}`,
+        content: 'I apologize, but I\'m having trouble processing your voice input right now.',
+        sender: 'eliza',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -441,17 +470,15 @@ How may I assist you in understanding our mission to transform users into builde
                 ))}
               </div>
 
-              {/* Voice Controls - show when voice mode is active */}
-              {voiceEnabled && inputMode === 'voice' && (
-                <Button
-                  onClick={toggleVoiceSynthesis}
-                  variant={isSpeaking ? "default" : "outline"}
-                  size="sm"
-                  disabled={!elevenLabsService}
-                >
-                  {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </Button>
-              )}
+              {/* Simple Mute/Unmute Button - Always visible when voice is available */}
+              <Button
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                variant={voiceEnabled ? "default" : "outline"}
+                size="sm"
+                title={voiceEnabled ? "Mute Eliza" : "Unmute Eliza"}
+              >
+                {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
         </div>
