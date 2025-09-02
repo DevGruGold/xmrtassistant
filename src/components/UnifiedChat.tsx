@@ -238,7 +238,7 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Unified response display with smart TTS control
+  // Unified response display with intelligent TTS control
   const displayResponse = async (responseText: string, shouldSpeak: boolean = false) => {
     const elizaMessage: UnifiedMessage = {
       id: `eliza-${Date.now()}`,
@@ -252,11 +252,17 @@ How may I assist you in understanding our mission to transform users into builde
     setMessages(prev => [...prev, elizaMessage]);
     setLastElizaMessage(responseText);
 
-    // Only use TTS if explicitly requested, voice is enabled, and we're in text mode
-    // This prevents voice duplication when already in voice chat
-    if (shouldSpeak && elevenLabsService && voiceEnabled && inputMode === 'text') {
+    // Use TTS if requested and voice service is available
+    // Add a small delay in voice mode to reduce overlap with speech recognition
+    if (shouldSpeak && elevenLabsService && voiceEnabled) {
       try {
         setIsSpeaking(true);
+        
+        // Add small delay in voice mode to let speech recognition settle
+        if (inputMode === 'voice') {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
         await elevenLabsService.speakText(responseText);
       } catch (error) {
         console.error('ElevenLabs TTS error:', error);
@@ -266,7 +272,7 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Voice input handler - NO TTS to prevent duplication
+  // Voice input handler - WITH smart TTS timing
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript?.trim() || isProcessing) return;
 
@@ -288,17 +294,17 @@ How may I assist you in understanding our mission to transform users into builde
         miningStats,
         userContext,
         inputMode: 'voice',
-        shouldSpeak: false // Prevent TTS duplication in voice mode
+        shouldSpeak: true // Enable TTS with smart timing
       });
       
-      // Display WITHOUT voice synthesis to prevent ghosting
-      await displayResponse(response, false);
+      // Display WITH voice synthesis - the delay is handled in displayResponse
+      await displayResponse(response, true);
       
     } catch (error) {
       console.error('Failed to process voice input:', error);
       await displayResponse(
         'I apologize, but I\'m having trouble processing your voice input right now.',
-        false
+        true // Still provide voice feedback for errors
       );
     } finally {
       setIsProcessing(false);
@@ -328,7 +334,7 @@ How may I assist you in understanding our mission to transform users into builde
         shouldSpeak: voiceEnabled // Allow TTS in text mode if voice is enabled
       });
       
-      // Use unified display function with optional TTS for text mode
+      // Use unified display function with TTS for text mode if voice is enabled
       await displayResponse(response, voiceEnabled);
       
     } catch (error) {
