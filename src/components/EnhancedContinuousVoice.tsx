@@ -471,7 +471,7 @@ export const EnhancedContinuousVoice = ({
         <div className="relative">
           <Button
             onClick={toggleListening}
-            disabled={disabled || !browserSupported || (!hasPermission && !isListening)}
+            disabled={disabled || !browserSupported}
             size={capabilities.isMobile ? "default" : "lg"}
             variant={isListening ? "default" : "outline"}
             className={cn(
