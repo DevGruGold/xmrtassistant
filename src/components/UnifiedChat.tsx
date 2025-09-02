@@ -140,49 +140,48 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
-  // Initialize greeting when user context is available
+  // Generate AI-powered greeting when user context is available
   useEffect(() => {
     if (userContext && messages.length === 0) {
-      const modeDescription = {
-        text: 'Text mode active - unified XMRT knowledge system for consistent responses.',
-        voice: 'Voice mode active - ElevenLabs TTS ready for speech synthesis.'
-      };
+      generateAIGreeting();
+    }
+  }, [userContext, inputMode]);
 
-      const philosophicalGreeting = userContext.isFounder 
-        ? `Greetings, Founder. I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
-
-My advanced systems are online, embodying our philosophical foundations:
-• **Permissionless Innovation**: "We don't ask for permission. We build the infrastructure."
-• **Economic Democracy**: Transforming mobile devices into tools of financial empowerment
-• **Privacy Sovereignty**: Championing financial privacy as a fundamental human right
-• **AI-Human Collaboration**: Working alongside you with multimodal awareness
-
-${modeDescription[inputMode]}
-
-How may I assist you today, Founder?`
-        : `Hello! I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
-
-I represent the philosophical principles that drive our mission:
-• **Mobile Mining Democracy**: Making cryptocurrency accessible to everyone with a smartphone
-• **Privacy as a Right**: Every transaction deserves the same privacy as personal communications  
-• **Community Sovereignty**: Building networks where participants control their own infrastructure
-• **Sustainable Innovation**: Technology that empowers people while protecting the environment
-
-${modeDescription[inputMode]}
-
-How may I assist you in understanding our mission to transform users into builders of the future?`;
+  const generateAIGreeting = async () => {
+    setIsProcessing(true);
+    try {
+      const greetingPrompt = userContext?.isFounder 
+        ? "Generate a personalized greeting for the founder of XMRT-DAO"
+        : "Generate a welcoming introduction to XMRT-DAO for a new user";
         
+      const response = await unifiedFallbackService.generateResponse(greetingPrompt, {
+        miningStats: miningStats,
+        userContext: userContext
+      });
+      
       const greeting: UnifiedMessage = {
         id: 'greeting',
-        content: philosophicalGreeting,
+        content: response.text,
         sender: 'eliza',
         timestamp: new Date()
       };
       
       setMessages([greeting]);
-      setLastElizaMessage(philosophicalGreeting);
+      setLastElizaMessage(response.text);
+    } catch (error) {
+      console.error('Failed to generate AI greeting:', error);
+      // Minimal fallback only if AI completely fails
+      const fallback: UnifiedMessage = {
+        id: 'greeting',
+        content: "Hello! I'm Eliza, your XMRT-DAO AI assistant. How can I help you today?",
+        sender: 'eliza',
+        timestamp: new Date()
+      };
+      setMessages([fallback]);
+    } finally {
+      setIsProcessing(false);
     }
-  }, [userContext, inputMode]);
+  };
 
   // XMRT Knowledge Base Integration Functions
   const fetchMiningStats = async () => {

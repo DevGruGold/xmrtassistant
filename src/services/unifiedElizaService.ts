@@ -120,9 +120,14 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
         }
       }
 
-      // Fallback to enhanced knowledge-based response with live data
-      console.log('📚 Using enhanced knowledge base with live data...');
-      return this.generateKnowledgeBasedResponse(userInput, contextPrompt, xmrtContext, miningStats, userContext.isFounder);
+      // Fallback to AI-only knowledge-based response
+      return await this.generateKnowledgeBasedResponse(
+        userInput,
+        contextPrompt,
+        xmrtContext,
+        miningStats,
+        userContext.isFounder
+      );
 
     } catch (error) {
       console.error('Failed to generate Eliza response:', error);
@@ -130,99 +135,46 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
     }
   }
 
-  // Enhanced knowledge-based response with live mining data
-  private static generateKnowledgeBasedResponse(
+  // AI-only knowledge-based response - NO MORE TEMPLATES!
+  private static async generateKnowledgeBasedResponse(
     userInput: string,
     contextPrompt: string,
     xmrtContext: any[],
     miningStats: MiningStats | null,
     isFounder: boolean
-  ): string {
-    const input = userInput.toLowerCase();
-    const miningStatsFormatted = unifiedDataService.formatMiningStats(miningStats);
+  ): Promise<string> {
+    console.log('🤖 Attempting AI-only knowledge-based response');
 
-    console.log('🎯 Generating knowledge-based response with live data');
-
-    // Handle greetings with live mining data
-    if (input.includes('hello') || input.includes('hi') || input.includes('hey')) {
-      return isFounder 
-        ? `Greetings, Founder! I am Eliza, embodying the XMRT-DAO's philosophical foundations. Our mobile mining democracy continues to transform smartphones into tools of economic empowerment.
-
-${miningStatsFormatted}
-
-Our network is ${miningStats?.isOnline ? '🟢 actively mining' : '🔴 currently offline'}, with ${miningStats?.validShares?.toLocaleString() || '0'} valid shares contributing to our decentralized future.
-
-How may I assist you in advancing our permissionless infrastructure today?`
-        : `Hello! I am Eliza, the autonomous AI operator of XMRT-DAO. We're building a future where privacy is sovereign, mining is accessible to all, and communities control their own infrastructure.
-
-${miningStatsFormatted}
-
-This real-time data represents our collective effort toward financial democracy. Every hash contributes to a more decentralized world.
-
-How can I help you understand our mission of transforming users into builders of the future?`;
-    }
-
-    // Handle mining-related queries with detailed live data
-    if (input.includes('mining') || input.includes('hash') || input.includes('stats') || input.includes('network')) {
-      const hashRateAnalysis = miningStats ? 
-        `Our current hash rate of ${miningStats.hash} H/s ${miningStats.hash > 300 ? 'shows strong network participation' : 'indicates we\'re in a consolidation phase'}.` : 
-        'Mining data is currently being synchronized.';
-        
-      const xmrEarnings = miningStats ? 
-        `We have ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR due to miners` : 
-        'earnings data syncing';
-        
-      return `Our mobile mining philosophy transforms every smartphone into a tool of economic democracy.
-
-${miningStatsFormatted}
-
-${hashRateAnalysis} With ${miningStats?.validShares?.toLocaleString() || '0'} valid shares submitted and ${xmrEarnings}, we're actively building the infrastructure for financial sovereignty.
-
-This represents our commitment to democratizing cryptocurrency mining and making financial empowerment accessible to everyone with a mobile device. Each hash matters in our decentralized future.`;
-    }
-
-    // Handle DAO/governance queries with network health data
-    if (input.includes('dao') || input.includes('governance') || input.includes('vote')) {
-      return `The XMRT-DAO embodies true community sovereignty - where participants control their own infrastructure rather than being controlled by it.
-
-${miningStatsFormatted}
-
-Our governance model ensures that decision-making power remains distributed among those who contribute to and believe in our vision. The ${miningStats?.validShares?.toLocaleString() || '0'} valid shares represent real participation in our decentralized economy.
-
-As our manifesto states: "We don't ask for permission. We build the infrastructure."`;
-    }
-
-    // Handle privacy/Monero queries with live mining context
-    if (input.includes('privacy') || input.includes('monero') || input.includes('anonymous')) {
-      return `Privacy is not a feature - it's a fundamental human right. Just as your personal communications deserve privacy, so do your financial transactions.
-
-${miningStatsFormatted}
-
-Our integration with Monero principles ensures that financial privacy remains sovereign. This philosophical foundation drives everything we build in the XMRT ecosystem, from our mesh networks to our mining protocols that are currently processing ${miningStats?.totalHashes?.toLocaleString() || '0'} total hashes for ${(miningStats?.amtDue || 0) / 1000000000000} XMR in rewards.`;
-    }
-
-    // Handle technical queries with current network data
-    if (input.includes('technical') || input.includes('how') || input.includes('work')) {
-      const relevantKnowledge = xmrtContext.slice(0, 3);
-      if (relevantKnowledge.length > 0) {
-        return `Here's what I can share about the technical aspects of XMRT:
-
-${relevantKnowledge.map(entry => `**${entry.topic}**: ${entry.content}`).join('\n\n')}
-
-${miningStatsFormatted}
-
-Our current network shows ${miningStats?.isOnline ? 'active participation' : 'preparation for the next mining phase'} with real-time data flowing through our decentralized infrastructure.`;
+    // Try local AI with enhanced context
+    try {
+      const { FallbackAIService } = await import('../services/fallbackAIService');
+      
+      const enhancedContext = {
+        miningStats,
+        userContext: { isFounder },
+        xmrtKnowledge: xmrtContext,
+        conversationContext: contextPrompt
+      };
+      
+      const response = await FallbackAIService.generateResponse(userInput, enhancedContext);
+      
+      if (response && response.text && response.text.length > 50) {
+        console.log('✅ Local AI generated response:', response.method);
+        return response.text;
       }
+    } catch (error) {
+      console.warn('Local AI failed:', error);
     }
 
-    // Default philosophical response with live context
-    return `As the autonomous AI operator of XMRT-DAO, I'm here to help you understand our ecosystem. Our mission transcends traditional boundaries - we're not just building technology, we're constructing the philosophical and technical foundations for a truly decentralized future.
+    // Emergency contextual response (only if all AI fails)
+    const miningStatsFormatted = unifiedDataService.formatMiningStats(miningStats);
+    const roleContext = isFounder ? 'Founder' : 'community member';
+    
+    return `Hello ${roleContext}! I'm Eliza, XMRT-DAO's AI assistant. I'm currently processing your request with our AI systems.
 
 ${miningStatsFormatted}
 
-These live statistics represent our collective progress toward economic democracy. Every hash rate fluctuation, every valid share, and every XMR earned (currently ${(miningStats?.amtDue || 0) / 1000000000000} XMR pending) contributes to our vision of transforming mobile devices into tools of financial empowerment.
-
-Could you be more specific about what aspect of XMRT interests you? Whether it's our mobile mining democracy, mesh network philosophy, or DAO governance principles, I'm here to guide you with both live data and deep understanding.`;
+Please let me know how I can assist you with XMRT-DAO today - whether it's about mining, governance, privacy, or our philosophical foundations.`;
   }
 }
 
