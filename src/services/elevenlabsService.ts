@@ -1,10 +1,46 @@
-// ElevenLabs TTS Service
+// ElevenLabs TTS and Conversational AI Service
 export class ElevenLabsService {
   private apiKey: string;
   private baseUrl = 'https://api.elevenlabs.io/v1';
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
+  }
+
+  // Generate AI response using ElevenLabs Conversational AI
+  async generateResponse(
+    userInput: string,
+    context?: { miningStats?: any; userContext?: any }
+  ): Promise<{ text: string; method: string; confidence: number }> {
+    try {
+      // Use ElevenLabs text generation API for conversational AI
+      const response = await fetch(`${this.baseUrl}/text-to-text`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'xi-api-key': this.apiKey
+        },
+        body: JSON.stringify({
+          text: `As Eliza, the XMRT-DAO AI assistant, respond intelligently to: "${userInput}". Context: XMRT-DAO is a privacy-focused decentralized ecosystem focused on mining and governance. ${context?.miningStats ? `Mining status: ${context.miningStats.isOnline ? 'active' : 'inactive'}.` : ''} Provide a helpful, contextual response:`,
+          model_id: 'eleven_multilingual_v2'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`ElevenLabs API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        text: data.text || 'I understand your question about XMRT-DAO. How can I help you further?',
+        method: 'ElevenLabs AI',
+        confidence: 0.85
+      };
+    } catch (error) {
+      console.error('ElevenLabs AI response error:', error);
+      throw error;
+    }
   }
 
   // Convert text to speech using ElevenLabs

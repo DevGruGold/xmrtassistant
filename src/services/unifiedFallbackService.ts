@@ -157,7 +157,15 @@ export class UnifiedFallbackService {
       });
     }
 
-    // Secondary: Gemini AI via UnifiedElizaService
+    // Secondary: ElevenLabs Conversational AI
+    if (this.elevenLabsService && this.serviceStatus.elevenlabs === 'available') {
+      methods.push({
+        name: 'ElevenLabs AI',
+        fn: () => this.elevenLabsService!.generateResponse(userInput, context)
+      });
+    }
+
+    // Tertiary: Gemini AI via UnifiedElizaService
     if (this.serviceStatus.gemini === 'available') {
       methods.push({
         name: 'Gemini AI',
@@ -168,9 +176,9 @@ export class UnifiedFallbackService {
       });
     }
 
-    // Fallback: Local AI
+    // Final Fallback: Enhanced Local AI
     methods.push({
-      name: 'Fallback AI',
+      name: 'Enhanced Local AI',
       fn: () => FallbackAIService.generateResponse(userInput, context)
     });
 

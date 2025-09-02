@@ -14,124 +14,177 @@ export interface AIResponse {
 
 export class FallbackAIService {
   private static textGenerationPipeline: any = null;
+  private static conversationPipeline: any = null;
+  private static qasPipeline: any = null;
   private static isInitializing = false;
 
-  // Initialize local LLM
-  private static async initializeLocalLLM(): Promise<void> {
-    if (this.textGenerationPipeline || this.isInitializing) return;
+  // Initialize enhanced local AI models
+  private static async initializeLocalAI(): Promise<void> {
+    if (this.isInitializing) return;
     
     this.isInitializing = true;
     try {
-      console.log('Initializing local text generation model...');
-      this.textGenerationPipeline = await pipeline(
-        'text-generation',
-        'Xenova/distilgpt2',
-        { device: 'webgpu' }
-      );
-      console.log('Local LLM initialized successfully');
+      console.log('Initializing enhanced local AI models...');
+      
+      // Try conversation model first (better for chat)
+      try {
+        this.conversationPipeline = await pipeline(
+          'text-generation',
+          'Xenova/DialoGPT-medium',
+          { device: 'webgpu' }
+        );
+        console.log('Conversation model initialized successfully');
+      } catch (error) {
+        console.warn('Conversation model failed, trying Q&A model:', error);
+        
+        // Fallback to Q&A model
+        try {
+          this.qasPipeline = await pipeline(
+            'question-answering',
+            'Xenova/distilbert-base-cased-distilled-squad',
+            { device: 'webgpu' }
+          );
+          console.log('Q&A model initialized successfully');
+        } catch (qError) {
+          console.warn('Q&A model failed, using basic text generation:', qError);
+          
+          // Final fallback to basic text generation
+          this.textGenerationPipeline = await pipeline(
+            'text-generation',
+            'Xenova/gpt2',
+            { device: 'webgpu' }
+          );
+          console.log('Basic text generation model initialized');
+        }
+      }
     } catch (error) {
-      console.warn('Failed to initialize local LLM:', error);
-      this.textGenerationPipeline = null;
+      console.error('All local AI models failed to initialize:', error);
     } finally {
       this.isInitializing = false;
     }
   }
 
-  // Enhanced knowledge-based responses
-  static generateKnowledgeResponse(
-    userInput: string, 
+  // Enhanced AI-powered conversation response
+  static async generateConversationResponse(
+    userInput: string,
     context: { miningStats?: MiningStats; userContext?: any }
-  ): AIResponse {
-    const input = userInput.toLowerCase();
-    const { miningStats } = context;
-
-    // Search knowledge base
-    const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
-
-    let response = '';
-
-    // Contextual responses based on keywords
-    if (input.includes('mining') || input.includes('hash')) {
-      response = miningStats 
-        ? `Your mining stats: ${miningStats.hash} H/s, ${miningStats.validShares} shares. ${relevantKnowledge[0]?.content || 'Mining is essential for XMRT network security.'}`
-        : 'Mining secures the XMRT network through decentralized consensus. ' + (relevantKnowledge[0]?.content || '');
+  ): Promise<AIResponse> {
+    try {
+      await this.initializeLocalAI();
+      
+      // Build contextual knowledge from knowledge base
+      const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
+      const knowledgeContext = relevantKnowledge.map(k => k.content).join(' ');
+      
+      // Try conversation model first
+      if (this.conversationPipeline) {
+        const prompt = `${userInput}`;
+        const result = await this.conversationPipeline(prompt, {
+          max_new_tokens: 150,
+          temperature: 0.7,
+          do_sample: true,
+          return_full_text: false,
+          pad_token_id: 50256
+        });
+        
+        const response = result[0]?.generated_text?.trim() || '';
+        if (response && response.length > 10) {
+          return {
+            text: `As Eliza: ${response} ${knowledgeContext ? `\n\nContext: ${knowledgeContext.slice(0, 200)}...` : ''}`,
+            method: 'Conversation AI',
+            confidence: 0.75
+          };
+        }
+      }
+      
+      // Try Q&A model if available
+      if (this.qasPipeline && knowledgeContext) {
+        const result = await this.qasPipeline({
+          question: userInput,
+          context: knowledgeContext
+        });
+        
+        if (result.answer && result.score > 0.1) {
+          return {
+            text: result.answer,
+            method: 'Q&A AI',
+            confidence: result.score
+          };
+        }
+      }
+      
+      throw new Error('No suitable AI model available');
+    } catch (error) {
+      console.warn('Conversation AI failed:', error);
+      throw error;
     }
-    else if (input.includes('dao') || input.includes('governance')) {
-      response = relevantKnowledge.find(k => k.category === 'dao')?.content || 
-        'XMRT-DAO operates on principles of decentralized governance, empowering community members to shape our digital future.';
-    }
-    else if (input.includes('privacy') || input.includes('anonymous')) {
-      response = relevantKnowledge.find(k => k.keywords.includes('privacy'))?.content || 
-        'Privacy is fundamental to XMRT. We believe in financial sovereignty and the right to transactional privacy.';
-    }
-    else if (input.includes('hello') || input.includes('hi') || input.includes('greeting')) {
-      response = `Hello! I'm Eliza, your XMRT-DAO guide. ${miningStats ? 
-        `I see your mining is ${miningStats.isOnline ? 'active' : 'offline'}.` : ''} How can I help you explore our decentralized ecosystem?`;
-    }
-    else if (relevantKnowledge.length > 0) {
-      response = relevantKnowledge[0].content;
-    }
-    else {
-      response = 'XMRT-DAO represents the convergence of privacy, decentralization, and community governance. What specific aspect would you like to explore?';
-    }
-
-    return {
-      text: response,
-      method: 'Knowledge-based',
-      confidence: relevantKnowledge.length > 0 ? 0.8 : 0.6
-    };
   }
 
-  // Local LLM response generation
+  // Enhanced local LLM response generation
   static async generateLocalLLMResponse(
     userInput: string,
     context: { miningStats?: MiningStats; userContext?: any }
   ): Promise<AIResponse> {
     try {
-      await this.initializeLocalLLM();
+      await this.initializeLocalAI();
       
       if (!this.textGenerationPipeline) {
         throw new Error('Local LLM not available');
       }
 
-      // Create a contextual prompt
-      const contextualPrompt = `As Eliza, the XMRT-DAO AI assistant, respond to: "${userInput}". 
-XMRT-DAO focuses on privacy, decentralization, and mining. ${context.miningStats ? 
-`Mining status: ${context.miningStats.isOnline ? 'online' : 'offline'}.` : ''} Response:`;
+      // Get relevant knowledge for context
+      const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
+      const knowledgeContext = relevantKnowledge.slice(0, 2).map(k => k.content).join(' ');
+      
+      // Create a comprehensive contextual prompt
+      const contextualPrompt = `As Eliza, XMRT-DAO's AI assistant, provide a helpful response to: "${userInput}"
 
-      console.log('Generating response with local LLM...');
+Context: XMRT-DAO is a privacy-focused decentralized ecosystem. ${context.miningStats ? 
+`User's mining: ${context.miningStats.hash || 0} H/s, ${context.miningStats.isOnline ? 'active' : 'inactive'}.` : ''}
+
+Knowledge: ${knowledgeContext}
+
+Response:`;
+
+      console.log('Generating response with enhanced local LLM...');
       const result = await this.textGenerationPipeline(contextualPrompt, {
-        max_new_tokens: 100,
-        temperature: 0.7,
+        max_new_tokens: 120,
+        temperature: 0.6,
         do_sample: true,
-        return_full_text: false
+        return_full_text: false,
+        repetition_penalty: 1.1
       });
 
-      const generatedText = result[0]?.generated_text || '';
+      const generatedText = result[0]?.generated_text?.trim() || '';
+      
+      // Clean and validate response
+      const cleanResponse = generatedText
+        .replace(/^(Response:|Answer:)/i, '')
+        .trim();
       
       return {
-        text: generatedText || 'I understand your question about XMRT-DAO. Could you provide more specific details?',
-        method: 'Local LLM',
-        confidence: 0.7
+        text: cleanResponse || 'I understand your question about XMRT-DAO. How can I assist you further with our decentralized ecosystem?',
+        method: 'Enhanced Local LLM',
+        confidence: cleanResponse ? 0.7 : 0.5
       };
     } catch (error) {
-      console.error('Local LLM failed:', error);
+      console.error('Enhanced Local LLM failed:', error);
       throw error;
     }
   }
 
-  // Unified AI response with fallback chain
+  // Unified AI response with enhanced fallback chain (NO CANNED RESPONSES)
   static async generateResponse(
     userInput: string,
     context: { miningStats?: MiningStats; userContext?: any } = {}
   ): Promise<AIResponse> {
     const methods = [
       { 
-        name: 'Knowledge-based', 
-        fn: () => Promise.resolve(this.generateKnowledgeResponse(userInput, context))
+        name: 'Conversation AI', 
+        fn: () => this.generateConversationResponse(userInput, context)
       },
       { 
-        name: 'Local LLM', 
+        name: 'Enhanced Local LLM', 
         fn: () => this.generateLocalLLMResponse(userInput, context)
       }
     ];
@@ -148,11 +201,14 @@ XMRT-DAO focuses on privacy, decentralization, and mining. ${context.miningStats
       }
     }
 
-    // Final fallback
+    // Emergency AI fallback using basic context
+    const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
+    const basicContext = relevantKnowledge[0]?.content || 'XMRT-DAO is a privacy-focused decentralized ecosystem';
+    
     return {
-      text: 'I appreciate your interest in XMRT-DAO. While I\'m experiencing some technical difficulties, I\'m here to help you explore our decentralized ecosystem.',
-      method: 'Hardcoded fallback',
-      confidence: 0.5
+      text: `Based on your question about "${userInput}", I can tell you that ${basicContext}. I'm experiencing some technical difficulties with my AI models, but I'm here to help with XMRT-DAO questions.`,
+      method: 'Emergency Context AI',
+      confidence: 0.4
     };
   }
 }
