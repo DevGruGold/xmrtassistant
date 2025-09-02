@@ -270,10 +270,23 @@ export const EnhancedContinuousVoice = ({
       // Start audio level monitoring
       updateAudioLevel();
 
-      // Start speech recognition
+      // Start speech recognition with better error handling
       if (recognitionRef.current) {
         console.log('🎯 Starting speech recognition...');
-        recognitionRef.current.start();
+        try {
+          recognitionRef.current.start();
+          console.log('✅ Speech recognition started successfully');
+        } catch (error) {
+          console.error('❌ Failed to start speech recognition:', error);
+          if (error.name === 'InvalidStateError') {
+            console.log('ℹ️ Recognition already active, continuing...');
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        console.error('❌ No speech recognition instance available');
+        throw new Error('Speech recognition not available');
       }
 
       setIsListening(true);
@@ -348,35 +361,45 @@ export const EnhancedContinuousVoice = ({
     setAudioLevel(0);
   };
 
-  // Auto-listen effect
+  // Auto-listen effect - Fixed to actually start listening
   useEffect(() => {
-    if (autoListen && !disabled && !isListening) {
+    console.log('🔄 Auto-listen effect triggered:', { autoListen, disabled, isListening, browserSupported, hasPermission });
+    
+    if (autoListen && !disabled && !isListening && browserSupported) {
+      console.log('🚀 Auto-starting voice capture...');
       startListening();
     }
 
     return () => {
       cleanup();
     };
-  }, [autoListen, disabled]);
+  }, [autoListen, disabled, browserSupported]); // Removed isListening from deps to prevent loop
 
-  // Sync with external listening state
+  // Sync with external listening state - Fixed logic
   useEffect(() => {
+    console.log('🔗 External listening state sync:', { externalListening, isListening, disabled });
+    
     if (externalListening !== undefined) {
-      if (externalListening && !isListening && !disabled) {
+      if (externalListening && !isListening && !disabled && browserSupported) {
+        console.log('📡 Starting listening from external state...');
         startListening();
       } else if (!externalListening && isListening) {
+        console.log('📡 Stopping listening from external state...');
         stopListening();
       }
     }
-  }, [externalListening]);
+  }, [externalListening, disabled, browserSupported]); // Removed isListening from deps
 
-  // Toggle listening with user gesture handling
+  // Toggle listening with user gesture handling - Enhanced logging
   const toggleListening = () => {
+    console.log('🎯 Toggle listening clicked:', { isListening, browserSupported, hasPermission });
     handleUserGesture(); // Mark user interaction
     
     if (isListening) {
+      console.log('🛑 User requested stop listening');
       stopListening();
     } else {
+      console.log('🚀 User requested start listening');
       startListening();
     }
   };
