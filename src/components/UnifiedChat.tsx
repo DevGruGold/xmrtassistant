@@ -5,8 +5,6 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
-import { HumeVoiceProvider } from './HumeVoiceProvider';
-import { useVoice } from '@humeai/voice-react';
 import { MultimodalInput, type MultimodalMessage } from './MultimodalInput';
 import { Send, Mic, MicOff, Volume2, VolumeX, Settings } from 'lucide-react';
 import { Switch } from './ui/switch';
@@ -20,11 +18,13 @@ import { multimodalGeminiService } from '@/services/multimodalGeminiService';
 import { contextManager } from '@/services/contextManager';
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
+import { ElevenLabsService } from '@/services/elevenlabsService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
   VITE_GEMINI_API_KEY_exists: !!import.meta.env.VITE_GEMINI_API_KEY,
   VITE_GEMINI_API_KEY_length: import.meta.env.VITE_GEMINI_API_KEY?.length || 0,
+  VITE_ELEVENLABS_API_KEY_exists: !!import.meta.env.VITE_ELEVENLABS_API_KEY,
   all_env_vars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
 });
 
@@ -65,7 +65,7 @@ interface UnifiedChatProps {
   miningStats?: MiningStats;
 }
 
-// Internal component that uses the useVoice hook
+// Internal component that uses ElevenLabs TTS instead of Hume
 const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
   className = '',
@@ -75,11 +75,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
 
-  // Voice synchronization state
+  // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [responseQueue, setResponseQueue] = useState<string[]>([]);
+  const [elevenLabsService, setElevenLabsService] = useState<ElevenLabsService | null>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   // Input mode state - simplified to single mode selector
   type InputMode = 'text' | 'voice' | 'rich';
@@ -100,16 +101,23 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-// Hume EVI integration - Full conversational AI
-  const {
-    status,
-    isMuted,
-    connect,
-    disconnect,
-    mute,
-    unmute,
-    messages: humeMessages,
-  } = useVoice();
+  // Initialize ElevenLabs service
+  useEffect(() => {
+    try {
+      const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+      if (apiKey) {
+        const service = new ElevenLabsService(apiKey);
+        setElevenLabsService(service);
+        setVoiceEnabled(true);
+        console.log('ElevenLabs service initialized successfully');
+      } else {
+        console.log('VITE_ELEVENLABS_API_KEY not found, voice synthesis disabled');
+      }
+    } catch (error) {
+      console.error('Failed to initialize ElevenLabs:', error);
+      setVoiceEnabled(false);
+    }
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -135,45 +143,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
-  // Auto-connect/disconnect voice based on input mode
-  useEffect(() => {
-    const handleVoiceConnection = async () => {
-      if (inputMode === 'voice' || inputMode === 'rich') {
-        if (status?.value !== 'connected') {
-          try {
-            // NOTE: Replace 'your-evi-config-id' with actual EVI configuration ID from Hume dashboard
-            // This is a placeholder - you need to create an EVI agent configuration in Hume dashboard
-            await connect({
-              configId: 'your-evi-config-id', // This needs to be created in Hume dashboard
-              auth: {
-                type: 'apiKey',
-                value: 'IFxseVy6DWSyPXXyA217HBG8ADY50DHRj0avVq5p0LDxSFaA'
-              }
-            });
-          } catch (error) {
-            console.error('Failed to connect to Hume EVI:', error);
-            console.warn('Connection timeout - you need to create an EVI configuration in the Hume dashboard and replace the placeholder configId');
-          }
-        }
-      } else if (inputMode === 'text' && status?.value === 'connected') {
-        try {
-          await disconnect();
-        } catch (error) {
-          console.error('Failed to disconnect from Hume EVI:', error);
-        }
-      }
-    };
-
-    handleVoiceConnection();
-  }, [inputMode, status, connect, disconnect]);
-
   // Initialize greeting when IP is available
   useEffect(() => {
-        if (userIP && messages.length === 0) {
+    if (userIP && messages.length === 0) {
       const modeDescription = {
         text: 'Text mode active - unified XMRT knowledge system for consistent responses.',
-        voice: 'Voice mode active - need to create EVI configuration in Hume dashboard.',
-        rich: 'Rich mode active - multimodal input with unified knowledge integration.'
+        voice: 'Voice mode active - ElevenLabs TTS ready for speech synthesis.',
+        rich: 'Rich mode active - multimodal input with voice synthesis available.'
       };
 
       const philosophicalGreeting = isFounder() 
@@ -209,69 +185,8 @@ How may I assist you in understanding our mission to transform users into builde
       
       setMessages([greeting]);
       setLastElizaMessage(philosophicalGreeting);
-      setIsConnected(true);
     }
   }, [userIP, inputMode]);
-
-  // Handle Hume voice connection status
-  useEffect(() => {
-    setIsConnected(status?.value === 'connected');
-  }, [status]);
-
-  // Process Hume messages for both transcripts and AI responses
-  useEffect(() => {
-    if (humeMessages.length > 0) {
-      const latestMessage = humeMessages[humeMessages.length - 1];
-      
-      // Handle user voice transcripts
-      if (latestMessage.type === 'user_message') {
-        // Handle emotion detection
-        if ((latestMessage as any).models?.prosody) {
-          const emotions = (latestMessage as any).models.prosody.scores;
-          if (emotions && Object.keys(emotions).length > 0) {
-            const topEmotion = Object.entries(emotions).reduce((a, b) => 
-              emotions[a[0]] > emotions[b[0]] ? a : b
-            );
-            
-            const [emotion, confidence] = topEmotion;
-            setCurrentEmotion(emotion);
-            setEmotionConfidence(confidence as number);
-          }
-        }
-
-        // Handle transcript updates - only from user messages
-        if ((latestMessage as any).message?.content) {
-          const transcript = (latestMessage as any).message.content;
-          if (transcript && transcript.trim() && !isProcessing) {
-            const userMessage: UnifiedMessage = {
-              id: `user-voice-${Date.now()}`,
-              content: transcript,
-              sender: 'user',
-              timestamp: new Date(),
-              emotion: currentEmotion,
-              confidence: emotionConfidence
-            };
-            setMessages(prev => [...prev, userMessage]);
-          }
-        }
-      }
-      
-      // Handle AI responses from Hume EVI
-      if (latestMessage.type === 'assistant_message') {
-        const response = (latestMessage as any).message?.content;
-        if (response && response.trim()) {
-          const elizaMessage: UnifiedMessage = {
-            id: `eliza-hume-${Date.now()}`,
-            content: response,
-            sender: 'eliza',
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, elizaMessage]);
-          setLastElizaMessage(response);
-        }
-      }
-    }
-  }, [humeMessages, isProcessing, currentEmotion, emotionConfidence]);
 
   // XMRT Knowledge Base Integration Functions
   const fetchMiningStats = async () => {
@@ -329,24 +244,6 @@ How may I assist you in understanding our mission to transform users into builde
     return `${hashrate.toFixed(2)} H/s`;
   };
 
-  // Enhanced AI response generation using unified service
-  const getElizaResponse = async (userInput: string, isVoice = false): Promise<string> => {
-    try {
-      // Use the unified Eliza service for consistent responses across all modes
-      const response = await UnifiedElizaService.generateResponse(userInput, {
-        miningStats,
-        userIP,
-        isFounder: isFounder(),
-        inputMode
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Unified Eliza service error:', error);
-      return `I apologize, but I'm experiencing technical difficulties. However, as the autonomous AI operator of XMRT-DAO, I remain committed to our philosophical principles of permissionless innovation and decentralized sovereignty. Please try your question again.`;
-    }
-  };
-
   // Simplified mode management
   const getModeIcon = (mode: InputMode) => {
     switch (mode) {
@@ -366,103 +263,36 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  const toggleMute = () => {
-    if (isMuted) {
-      unmute();
-    } else {
-      mute();
-    }
-  };
-
-  // Process response queue to prevent overlapping speech
-  useEffect(() => {
-    const processQueue = async () => {
-      if (responseQueue.length > 0 && !isSpeaking) {
-        const nextResponse = responseQueue[0];
-        setResponseQueue(prev => prev.slice(1));
-        await speakResponse(nextResponse);
-      }
-    };
-    
-    processQueue();
-  }, [responseQueue, isSpeaking]);
-
-  // TTS function using Web Speech API for Gemini responses
-  const speakResponse = async (text: string): Promise<void> => {
-    try {
-      if ('speechSynthesis' in window) {
-        // Set speaking state
-        setIsSpeaking(true);
-        
-        // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
-        
-        // Create new speech synthesis utterance
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Configure voice settings for optimal quality
-        utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        utterance.volume = 0.8;
-        
-        // Try to use a high-quality English voice
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(voice => 
-          voice.lang.includes('en') && 
-          (voice.name.includes('Google') || voice.name.includes('Microsoft') || voice.name.includes('Samantha'))
-        ) || voices.find(voice => voice.lang.includes('en'));
-        
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        }
-        
-        console.log('Speaking Gemini response via Web Speech API:', text.substring(0, 50) + '...');
-        
-        return new Promise<void>((resolve) => {
-          utterance.onend = () => {
-            setIsSpeaking(false);
-            resolve();
-          };
-          utterance.onerror = (error) => {
-            console.error('Speech synthesis error:', error);
-            setIsSpeaking(false);
-            resolve();
-          };
-          
-          // Speak the response
-          window.speechSynthesis.speak(utterance);
-        });
-      } else {
-        console.warn('Speech synthesis not supported in this browser');
-        setIsSpeaking(false);
-      }
-    } catch (error) {
-      console.error('Failed to synthesize speech:', error);
-      setIsSpeaking(false);
-    }
-  };
-
-  // Unified response display function
-  const displayResponse = async (response: string, isVoice: boolean = false) => {
+  // Unified response display with optional TTS
+  const displayResponse = async (responseText: string, shouldSpeak: boolean = false) => {
     const elizaMessage: UnifiedMessage = {
       id: `eliza-${Date.now()}`,
-      content: response,
+      content: responseText,
       sender: 'eliza',
-      timestamp: new Date()
+      timestamp: new Date(),
+      emotion: currentEmotion,
+      confidence: emotionConfidence
     };
 
-    // Display text immediately
     setMessages(prev => [...prev, elizaMessage]);
-    setLastElizaMessage(response);
-    
-    // Queue voice response if in voice mode
-    if (isVoice && (inputMode === 'voice' || inputMode === 'rich')) {
-      setResponseQueue(prev => [...prev, response]);
+    setLastElizaMessage(responseText);
+
+    // Use ElevenLabs TTS if voice synthesis is requested and available
+    if (shouldSpeak && elevenLabsService && voiceEnabled) {
+      try {
+        setIsSpeaking(true);
+        await elevenLabsService.speakText(responseText);
+      } catch (error) {
+        console.error('ElevenLabs TTS error:', error);
+      } finally {
+        setIsSpeaking(false);
+      }
     }
   };
 
-  const handleVoiceTranscript = async (transcript: string, confidence: number) => {
-    if (!transcript.trim() || isProcessing || isSpeaking) return;
+  // Voice input handler - simplified without Hume
+  const handleVoiceInput = async (transcript: string) => {
+    if (!transcript?.trim() || isProcessing) return;
 
     const userMessage: UnifiedMessage = {
       id: `voice-user-${Date.now()}`,
@@ -477,10 +307,15 @@ How may I assist you in understanding our mission to transform users into builde
     setIsProcessing(true);
 
     try {
-      // Get Gemini-powered response with all XMRT context
-      const response = await getElizaResponse(transcript, true);
+      // Get unified XMRT response
+      const response = await UnifiedElizaService.generateResponse(transcript, {
+        miningStats,
+        userIP,
+        isFounder: isFounder(),
+        inputMode: 'voice'
+      });
       
-      // Use unified display function for synchronized text and voice
+      // Display with voice synthesis
       await displayResponse(response, true);
       
     } catch (error) {
@@ -510,7 +345,12 @@ How may I assist you in understanding our mission to transform users into builde
     setIsProcessing(true);
 
     try {
-      const response = await getElizaResponse(userMessage.content);
+      const response = await UnifiedElizaService.generateResponse(userMessage.content, {
+        miningStats,
+        userIP,
+        isFounder: isFounder(),
+        inputMode: 'text'
+      });
       
       // Use unified display function - no voice for text mode
       await displayResponse(response, false);
@@ -567,8 +407,13 @@ How may I assist you in understanding our mission to transform users into builde
       
     } catch (error) {
       console.error('Multimodal chat error:', error);
-      // Fallback to text-only processing
-      const fallbackResponse = await getElizaResponse(multimodalMessage.text || '[Multimodal input]');
+      // Fallback to unified service
+      const fallbackResponse = await UnifiedElizaService.generateResponse(multimodalMessage.text || '[Multimodal input]', {
+        miningStats,
+        userIP,
+        isFounder: isFounder(),
+        inputMode: 'rich'
+      });
       await displayResponse(fallbackResponse, inputMode === 'rich');
     } finally {
       setIsProcessing(false);
@@ -582,7 +427,16 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  const statusValue = typeof status === 'object' ? status.value : status;
+  // Toggle voice synthesis
+  const toggleVoiceSynthesis = () => {
+    if (isSpeaking) {
+      // Stop current speech if speaking
+      setIsSpeaking(false);
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    }
+  };
 
   return (
     <Card className={`bg-gradient-to-br from-card to-secondary border-border min-h-[24rem] max-h-[32rem] flex flex-col ${className}`}>
@@ -594,13 +448,13 @@ How may I assist you in understanding our mission to transform users into builde
                 apiKey={apiKey}
                 className="h-10 w-10"
                 size="sm"
-                enableVoice={inputMode !== 'text'}
+                enableVoice={voiceEnabled && (inputMode !== 'text')}
               />
               <div>
                 <h3 className="font-semibold text-foreground">Eliza</h3>
                 <div className="flex items-center gap-2">
                   <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
-                    {statusValue || 'offline'}
+                    {voiceEnabled ? 'ready' : 'text-only'}
                   </Badge>
                   {currentEmotion && emotionConfidence > 0.3 && (
                     <Badge variant="outline" className="text-xs">
@@ -628,14 +482,15 @@ How may I assist you in understanding our mission to transform users into builde
                 ))}
               </div>
 
-              {/* Voice Controls - only show when voice/rich mode is active and connected */}
-              {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
+              {/* Voice Controls - show when voice synthesis is available */}
+              {voiceEnabled && (inputMode === 'voice' || inputMode === 'rich') && (
                 <Button
-                  onClick={toggleMute}
-                  variant="outline"
+                  onClick={toggleVoiceSynthesis}
+                  variant={isSpeaking ? "default" : "outline"}
                   size="sm"
+                  disabled={!elevenLabsService}
                 >
-                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  {isSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 </Button>
               )}
             </div>
@@ -718,15 +573,15 @@ How may I assist you in understanding our mission to transform users into builde
           <div className="flex items-center justify-between mt-2">
             <div className="text-xs text-muted-foreground">
               {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
-              {(inputMode === 'voice' || inputMode === 'rich') && !isConnected && (
-                <span className="text-orange-500"> • Connecting...</span>
+              {!voiceEnabled && (inputMode === 'voice' || inputMode === 'rich') && (
+                <span className="text-orange-500"> • TTS unavailable</span>
               )}
             </div>
 
             {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className={`h-2 w-2 rounded-full ${isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                {isSpeaking ? 'AI Speaking' : 'Listening'}
+                {isSpeaking ? 'AI Speaking' : 'Ready'}
               </div>
             )}
           </div>
@@ -735,26 +590,9 @@ How may I assist you in understanding our mission to transform users into builde
   );
 };
 
-// Main component that wraps with HumeVoiceProvider
-const UnifiedChat: React.FC<UnifiedChatProps> = ({ 
-  apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
-  ...props 
-}) => {
-  // Ensure we always pass the API key explicitly
-  const finalApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY || "";
-  
-  console.log('UnifiedChat Main Component API Key Check:', {
-    propApiKey: !!apiKey,
-    envApiKey: !!import.meta.env.VITE_GEMINI_API_KEY,
-    finalApiKey: !!finalApiKey,
-    finalApiKeyLength: finalApiKey.length
-  });
-
-  return (
-    <HumeVoiceProvider>
-      <UnifiedChatInner {...props} apiKey={finalApiKey} />
-    </HumeVoiceProvider>
-  );
+// External wrapper - no longer needs Hume provider
+export const UnifiedChat: React.FC<UnifiedChatProps> = (props) => {
+  return <UnifiedChatInner {...props} />;
 };
 
 export default UnifiedChat;
