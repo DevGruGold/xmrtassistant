@@ -116,7 +116,7 @@ class UnifiedDataService {
     }
   }
 
-  // Format mining stats for display
+  // Format mining stats for display - matching dashboard format exactly
   formatMiningStats(stats: MiningStats | null): string {
     if (!stats) return 'Mining statistics are currently unavailable.';
 
@@ -129,14 +129,24 @@ class UnifiedDataService {
       return `${hashrate.toFixed(2)} H/s`;
     };
 
-    return `📊 **Current XMRT Mining Status:**
+    const formatTimeAgo = (timestamp: number): string => {
+      if (!timestamp) return "Never";
+      const seconds = Math.floor((Date.now() - timestamp * 1000) / 1000);
+      if (seconds < 60) return `${seconds}s ago`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    };
+
+    return `📊 **Live Mining Statistics (SupportXMR Pool):**
 • **Hash Rate**: ${formatHashrate(stats.hash)}
+• **Status**: ${stats.isOnline ? '🟢 Mining (Online)' : '🔴 Idle (Offline)'}
 • **Valid Shares**: ${stats.validShares.toLocaleString()}
 • **Invalid Shares**: ${stats.invalidShares.toLocaleString()}
 • **Total Hashes**: ${stats.totalHashes.toLocaleString()}
-• **Amount Due**: ${stats.amtDue.toFixed(8)} XMRT
-• **Amount Paid**: ${stats.amtPaid.toFixed(8)} XMRT
-• **Network Status**: ${stats.isOnline ? '🟢 Online' : '🔴 Offline'}`;
+• **Amount Due**: ${(stats.amtDue / 1000000000000).toFixed(6)} XMR
+• **Amount Paid**: ${(stats.amtPaid / 1000000000000).toFixed(6)} XMR
+• **Last Hash**: ${formatTimeAgo(stats.lastHash)}`;
   }
 
   // Clear all caches

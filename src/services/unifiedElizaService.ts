@@ -168,11 +168,15 @@ How can I help you understand our mission of transforming users into builders of
         `Our current hash rate of ${miningStats.hash} H/s ${miningStats.hash > 300 ? 'shows strong network participation' : 'indicates we\'re in a consolidation phase'}.` : 
         'Mining data is currently being synchronized.';
         
+      const xmrEarnings = miningStats ? 
+        `We have ${(miningStats.amtDue / 1000000000000).toFixed(6)} XMR due to miners` : 
+        'earnings data syncing';
+        
       return `Our mobile mining philosophy transforms every smartphone into a tool of economic democracy.
 
 ${miningStatsFormatted}
 
-${hashRateAnalysis} With ${miningStats?.validShares?.toLocaleString() || '0'} valid shares submitted and ${((miningStats?.amtDue || 0) / 1e8).toFixed(8)} XMRT due to miners, we're actively building the infrastructure for financial sovereignty.
+${hashRateAnalysis} With ${miningStats?.validShares?.toLocaleString() || '0'} valid shares submitted and ${xmrEarnings}, we're actively building the infrastructure for financial sovereignty.
 
 This represents our commitment to democratizing cryptocurrency mining and making financial empowerment accessible to everyone with a mobile device. Each hash matters in our decentralized future.`;
     }
@@ -188,13 +192,13 @@ Our governance model ensures that decision-making power remains distributed amon
 As our manifesto states: "We don't ask for permission. We build the infrastructure."`;
     }
 
-    // Handle privacy/Monero queries
+    // Handle privacy/Monero queries with live mining context
     if (input.includes('privacy') || input.includes('monero') || input.includes('anonymous')) {
       return `Privacy is not a feature - it's a fundamental human right. Just as your personal communications deserve privacy, so do your financial transactions.
 
 ${miningStatsFormatted}
 
-Our integration with Monero principles ensures that financial privacy remains sovereign. This philosophical foundation drives everything we build in the XMRT ecosystem, from our mesh networks to our mining protocols that are currently processing ${miningStats?.totalHashes?.toLocaleString() || '0'} total hashes.`;
+Our integration with Monero principles ensures that financial privacy remains sovereign. This philosophical foundation drives everything we build in the XMRT ecosystem, from our mesh networks to our mining protocols that are currently processing ${miningStats?.totalHashes?.toLocaleString() || '0'} total hashes for ${(miningStats?.amtDue || 0) / 1000000000000} XMR in rewards.`;
     }
 
     // Handle technical queries with current network data
@@ -216,7 +220,7 @@ Our current network shows ${miningStats?.isOnline ? 'active participation' : 'pr
 
 ${miningStatsFormatted}
 
-These live statistics represent our collective progress toward economic democracy. Every hash rate fluctuation, every valid share, and every XMRT earned contributes to our vision of transforming mobile devices into tools of financial empowerment.
+These live statistics represent our collective progress toward economic democracy. Every hash rate fluctuation, every valid share, and every XMR earned (currently ${(miningStats?.amtDue || 0) / 1000000000000} XMR pending) contributes to our vision of transforming mobile devices into tools of financial empowerment.
 
 Could you be more specific about what aspect of XMRT interests you? Whether it's our mobile mining democracy, mesh network philosophy, or DAO governance principles, I'm here to guide you with both live data and deep understanding.`;
   }
