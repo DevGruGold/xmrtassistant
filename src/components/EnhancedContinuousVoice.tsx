@@ -64,14 +64,20 @@ export const EnhancedContinuousVoice = ({
     console.groupEnd();
   }, []);
 
-  // Speech recognition setup
+  // Speech recognition setup - Fixed to prevent recreation loops
   useEffect(() => {
     if (!browserSupported) {
       console.warn('⚠️ Skipping speech recognition setup - not supported');
       return;
     }
 
-    console.log('🔧 Setting up Speech Recognition...');
+    // Only create recognition if it doesn't exist
+    if (recognitionRef.current) {
+      console.log('🔄 Speech recognition already exists, skipping setup');
+      return;
+    }
+
+    console.log('🔧 Setting up NEW Speech Recognition instance...');
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     
@@ -79,15 +85,20 @@ export const EnhancedContinuousVoice = ({
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition STARTED');
+      setIsListening(true);
+    };
+
     recognition.onresult = (event) => {
-      console.log('🎯 Speech recognition result:', event.results.length, 'results');
+      console.log('🎯 Speech recognition result received:', event.results.length, 'results');
       let interim = '';
       let final = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         const confidence = event.results[i][0].confidence;
-        console.log(`📝 Result ${i}:`, transcript, `(confidence: ${confidence})`);
+        console.log(`📝 Result ${i}:`, transcript, `(confidence: ${confidence || 'interim'})`);
         
         if (event.results[i].isFinal) {
           final += transcript;
@@ -98,13 +109,17 @@ export const EnhancedContinuousVoice = ({
 
       setInterimTranscript(interim);
 
-      if (final) {
-        console.log('✅ Final transcript:', final);
-        setFinalTranscript(prev => prev + final);
-        onTranscript(final, true);
+      if (final.trim()) {
+        console.log('✅ FINAL transcript captured:', final);
+        setFinalTranscript(prev => {
+          const newTranscript = prev + final;
+          console.log('📤 Sending final transcript to chat:', newTranscript);
+          onTranscript(final.trim(), true); // Send immediately
+          return newTranscript;
+        });
         resetSilenceTimer();
-        setRetryCount(0); // Reset retry count on success
-      } else if (interim) {
+        setRetryCount(0);
+      } else if (interim.trim()) {
         console.log('⏳ Interim transcript:', interim);
         resetSilenceTimer();
       }
@@ -117,51 +132,63 @@ export const EnhancedContinuousVoice = ({
         case 'not-allowed':
           setHasPermission(false);
           setErrorMessage('Microphone permission denied. Please allow access.');
+          setIsListening(false);
           break;
         case 'no-speech':
-          console.log('ℹ️ No speech detected');
+          console.log('ℹ️ No speech detected - this is normal');
           break;
         case 'audio-capture':
           setErrorMessage('Audio capture failed. Check microphone connection.');
+          setIsListening(false);
           break;
         case 'network':
           setErrorMessage('Network error. Check internet connection.');
           break;
+        case 'aborted':
+          console.log('ℹ️ Speech recognition aborted');
+          break;
         default:
           setErrorMessage(`Voice error: ${event.error}`);
+          setIsListening(false);
       }
     };
 
     recognition.onend = () => {
-      console.log('🔄 Speech recognition ended');
+      console.log('🔄 Speech recognition ENDED');
       
+      // Only restart if we should still be listening and haven't hit retry limit
       if (isListening && !isSpeaking && hasPermission && retryCount < 3) {
-        // Restart recognition if we're still supposed to be listening
-        try {
-          console.log('🔄 Restarting speech recognition...');
-          setTimeout(() => {
-            if (recognitionRef.current && isListening) {
+        console.log('🔄 Auto-restarting speech recognition...');
+        setTimeout(() => {
+          if (recognitionRef.current && isListening) {
+            try {
               recognition.start();
               setRetryCount(prev => prev + 1);
+            } catch (error) {
+              console.error('❌ Failed to restart recognition:', error);
             }
-          }, 100);
-        } catch (error) {
-          console.error('❌ Failed to restart recognition:', error);
-          setRetryCount(prev => prev + 1);
-          if (retryCount >= 2) {
-            setErrorMessage('Voice recognition failed multiple times. Try refreshing.');
           }
-        }
+        }, 100);
+      } else {
+        console.log('🛑 Not restarting recognition:', { isListening, isSpeaking, hasPermission, retryCount });
+        setIsListening(false);
       }
     };
 
     recognitionRef.current = recognition;
+    console.log('✅ Speech Recognition instance created and configured');
 
     return () => {
-      recognition.stop();
-      recognitionRef.current = null;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (error) {
+          console.warn('Error stopping recognition on cleanup:', error);
+        }
+        recognitionRef.current = null;
+      }
     };
-  }, [isListening, isSpeaking, hasPermission, retryCount, onTranscript]);
+  }, [browserSupported]); // Only depend on browserSupported
 
   // Silence detection
   const resetSilenceTimer = useCallback(() => {
@@ -210,13 +237,7 @@ export const EnhancedContinuousVoice = ({
     animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
   }, [isSpeaking, resetSilenceTimer]);
 
-  // User gesture handler
-  const handleUserGesture = useCallback(() => {
-    setUserInteracted(true);
-    console.log('👆 User interaction detected');
-  }, []);
-
-  // Start listening with enhanced logging and error handling
+  // Start listening with improved state management
   const startListening = async () => {
     if (!browserSupported) {
       console.warn('❌ Cannot start - browser not supported');
@@ -235,7 +256,7 @@ export const EnhancedContinuousVoice = ({
     try {
       setErrorMessage(''); // Clear previous errors
       
-      // Request microphone access
+      // Request microphone access first
       console.log('🎤 Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -252,7 +273,6 @@ export const EnhancedContinuousVoice = ({
       // Set up audio analysis
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       
-      // Handle suspended audio context (common on mobile)
       if (audioContext.state === 'suspended') {
         console.log('🔄 Resuming audio context...');
         await audioContext.resume();
@@ -270,10 +290,11 @@ export const EnhancedContinuousVoice = ({
       // Start audio level monitoring
       updateAudioLevel();
 
-      // Start speech recognition with better error handling
+      // Start speech recognition - This is the critical part
       if (recognitionRef.current) {
-        console.log('🎯 Starting speech recognition...');
+        console.log('🎯 Starting speech recognition NOW...');
         try {
+          // Simply try to start recognition
           recognitionRef.current.start();
           console.log('✅ Speech recognition started successfully');
         } catch (error) {
@@ -304,6 +325,7 @@ export const EnhancedContinuousVoice = ({
       } else {
         setErrorMessage(`Failed to start voice: ${error.message}`);
       }
+      setIsListening(false);
     }
   };
 
@@ -360,6 +382,12 @@ export const EnhancedContinuousVoice = ({
     analyserRef.current = null;
     setAudioLevel(0);
   };
+
+  // User gesture handler
+  const handleUserGesture = useCallback(() => {
+    setUserInteracted(true);
+    console.log('👆 User interaction detected');
+  }, []);
 
   // Auto-listen effect - Fixed to actually start listening
   useEffect(() => {
