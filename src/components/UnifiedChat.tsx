@@ -154,20 +154,21 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         ? "Generate a personalized greeting for the founder of XMRT-DAO"
         : "Generate a welcoming introduction to XMRT-DAO for a new user";
         
-      const response = await unifiedFallbackService.generateResponse(greetingPrompt, {
+        const responseText = await UnifiedElizaService.generateResponse(greetingPrompt, {
         miningStats: miningStats,
-        userContext: userContext
+        userContext: userContext,
+        inputMode: inputMode
       });
       
       const greeting: UnifiedMessage = {
         id: 'greeting',
-        content: response.text,
+        content: responseText,
         sender: 'eliza',
         timestamp: new Date()
       };
       
       setMessages([greeting]);
-      setLastElizaMessage(response.text);
+      setLastElizaMessage(responseText);
     } catch (error) {
       console.error('Failed to generate AI greeting:', error);
       // Minimal fallback only if AI completely fails
@@ -291,37 +292,38 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setIsProcessing(true);
 
     try {
-      // Use unified fallback service for AI response
-      const aiResponse = await unifiedFallbackService.generateResponse(transcript, {
+      // Use UnifiedElizaService directly for Gemini AI response
+      const aiResponseText = await UnifiedElizaService.generateResponse(transcript, {
         miningStats: miningStats || undefined,
-        userContext: userContext || undefined
+        userContext: userContext || undefined,
+        inputMode: inputMode
       });
 
-      setCurrentAIMethod(aiResponse.method);
+      setCurrentAIMethod('Gemini AI');
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: aiResponse.text,
+        content: aiResponseText,
         sender: 'eliza',
         timestamp: new Date(),
-        confidence: aiResponse.confidence
+        confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(aiResponse.text);
+      setLastElizaMessage(aiResponseText);
 
-      // Speak response using unified fallback service
-      if (voiceEnabled) {
+      // Speak response using ElevenLabs directly
+      if (voiceEnabled && elevenLabsService) {
         try {
           setIsSpeaking(true);
           
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const ttsResult = await unifiedFallbackService.speakText(aiResponse.text);
-          setCurrentTTSMethod(ttsResult.method);
+          await elevenLabsService.speakText(aiResponseText);
+          setCurrentTTSMethod('ElevenLabs');
         } catch (error) {
-          console.error('TTS failed:', error);
+          console.error('ElevenLabs TTS failed:', error);
           setCurrentTTSMethod('failed');
         } finally {
           setIsSpeaking(false);
@@ -358,33 +360,34 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setIsProcessing(true);
 
     try {
-      // Use unified fallback service for AI response
-      const aiResponse = await unifiedFallbackService.generateResponse(userMessage.content, {
+      // Use UnifiedElizaService directly for Gemini AI response
+      const aiResponseText = await UnifiedElizaService.generateResponse(userMessage.content, {
         miningStats: miningStats || undefined,
-        userContext: userContext || undefined
+        userContext: userContext || undefined,
+        inputMode: inputMode
       });
 
-      setCurrentAIMethod(aiResponse.method);
+      setCurrentAIMethod('Gemini AI');
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: aiResponse.text,
+        content: aiResponseText,
         sender: 'eliza',
         timestamp: new Date(),
-        confidence: aiResponse.confidence
+        confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(aiResponse.text);
+      setLastElizaMessage(aiResponseText);
 
-      // Speak response if voice is enabled using unified fallback service
-      if (voiceEnabled) {
+      // Speak response if voice is enabled using ElevenLabs directly
+      if (voiceEnabled && elevenLabsService) {
         try {
           setIsSpeaking(true);
-          const ttsResult = await unifiedFallbackService.speakText(aiResponse.text);
-          setCurrentTTSMethod(ttsResult.method);
+          await elevenLabsService.speakText(aiResponseText);
+          setCurrentTTSMethod('ElevenLabs');
         } catch (error) {
-          console.error('TTS failed:', error);
+          console.error('ElevenLabs TTS failed:', error);
           setCurrentTTSMethod('failed');
         } finally {
           setIsSpeaking(false);
