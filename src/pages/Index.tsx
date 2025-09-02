@@ -30,8 +30,8 @@ const Index = () => {
               Live Mining Dashboard
             </div>
             
-            <div className="space-y-4">
-              <h1 className="text-6xl sm:text-8xl lg:text-9xl font-black bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-[0.9] animate-slide-in drop-shadow-2xl">
+            <div className="space-y-2">
+              <h1 className="text-6xl sm:text-8xl lg:text-9xl font-oswald font-bold bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-[1.1] animate-slide-in drop-shadow-2xl">
                 XMRT Economy
               </h1>
               <h2 className="text-lg sm:text-xl lg:text-2xl font-medium text-muted-foreground/80 tracking-wide animate-fade-in">
