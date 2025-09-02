@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { MultimodalInput, type MultimodalMessage } from './MultimodalInput';
+import { ContinuousVoice } from './ContinuousVoice';
 import { Send, Mic, MicOff, Volume2, VolumeX, Settings } from 'lucide-react';
 import { Switch } from './ui/switch';
 
@@ -539,52 +540,56 @@ How may I assist you in understanding our mission to transform users into builde
         </ScrollArea>
 
         {/* Input Area */}
-        <div className="p-4 border-t border-border">
-          {inputMode === 'rich' ? (
-            <MultimodalInput
-              onSend={handleMultimodalMessage}
-              className="w-full"
+        <div className="border-t border-border">
+          {inputMode === 'voice' ? (
+            <ContinuousVoice
+              onTranscript={handleVoiceInput}
+              isProcessing={isProcessing}
+              isSpeaking={isSpeaking}
+              disabled={!voiceEnabled}
+              className="min-h-[300px]"
             />
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  inputMode === 'voice' ? "Speak or type your message..." :
-                  inputMode === 'text' ? "Type your message..." :
-                  "Use voice, camera, or type..."
-                }
-                disabled={isProcessing || isSpeaking}
-                className="flex-1"
+          ) : inputMode === 'rich' ? (
+            <div className="p-4">
+              <MultimodalInput
+                onSend={handleMultimodalMessage}
+                className="w-full"
+                disabled={isProcessing}
               />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!textInput.trim() || isProcessing || isSpeaking}
-                size="sm"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+            </div>
+          ) : (
+            <div className="p-4 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message..."
+                  disabled={isProcessing || isSpeaking}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!textInput.trim() || isProcessing || isSpeaking}
+                  size="sm"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Status indicator for text mode */}
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
+                </div>
+                {isProcessing && (
+                  <div className="text-xs text-muted-foreground">
+                    Processing...
+                  </div>
+                )}
+              </div>
             </div>
           )}
-
-          {/* Status indicator */}
-          <div className="flex items-center justify-between mt-2">
-            <div className="text-xs text-muted-foreground">
-              {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
-              {!voiceEnabled && (inputMode === 'voice' || inputMode === 'rich') && (
-                <span className="text-orange-500"> • TTS unavailable</span>
-              )}
-            </div>
-
-            {(inputMode === 'voice' || inputMode === 'rich') && isConnected && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className={`h-2 w-2 rounded-full ${isSpeaking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-                {isSpeaking ? 'AI Speaking' : 'Ready'}
-              </div>
-            )}
-          </div>
         </div>
       </Card>
   );

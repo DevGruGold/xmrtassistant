@@ -164,13 +164,13 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
             <Type className="h-4 w-4" />
             <span>Text</span>
           </TabsTrigger>
+          <TabsTrigger value="rich" className="flex items-center space-x-2">
+            <Camera className="h-4 w-4" />
+            <span>Rich</span>
+          </TabsTrigger>
           <TabsTrigger value="voice" className="flex items-center space-x-2">
             <Mic className="h-4 w-4" />
             <span>Voice</span>
-          </TabsTrigger>
-          <TabsTrigger value="camera" className="flex items-center space-x-2">
-            <Camera className="h-4 w-4" />
-            <span>Camera</span>
           </TabsTrigger>
         </TabsList>
 
@@ -212,34 +212,35 @@ export const MultimodalInput = ({ onSend, disabled, className }: MultimodalInput
           </div>
         </TabsContent>
 
-        <TabsContent value="voice" className="p-4">
-          <VoiceRecorder
-            onAudioCapture={handleAudioCapture}
-            className="min-h-[120px] max-h-[150px] flex items-center justify-center overflow-hidden"
-          />
+        <TabsContent value="rich" className="p-4">
+          <div className="space-y-4">
+            <VoiceRecorder
+              onAudioCapture={handleAudioCapture}
+              className="min-h-[120px] max-h-[150px] flex items-center justify-center overflow-hidden"
+            />
+            <CameraCapture
+              onImageCapture={handleImageCapture}
+              className="min-h-[150px] max-h-[200px] overflow-hidden"
+            />
+          </div>
           {(textInput || hasAttachments) && (
             <div className="mt-4 pt-3 border-t flex justify-end">
               <Button onClick={handleSend} disabled={disabled}>
                 <Send className="h-4 w-4 mr-2" />
-                Send with Voice
+                Send Rich Message
               </Button>
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="camera" className="p-4">
-          <CameraCapture
-            onImageCapture={handleImageCapture}
-            className="min-h-[150px] max-h-[200px] overflow-hidden"
-          />
-          {(textInput || hasAttachments) && (
-            <div className="mt-4 pt-3 border-t flex justify-end">
-              <Button onClick={handleSend} disabled={disabled}>
-                <Send className="h-4 w-4 mr-2" />
-                Send with Image
-              </Button>
+        <TabsContent value="voice" className="p-0">
+          {/* Voice tab content will be handled by UnifiedChat directly */}
+          <div className="min-h-[200px] flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <Mic className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Continuous voice mode handled by chat interface</p>
             </div>
-          )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
