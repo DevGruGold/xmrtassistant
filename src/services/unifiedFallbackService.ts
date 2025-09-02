@@ -1,4 +1,5 @@
 import { ElevenLabsService } from './elevenlabsService';
+import { HumeEVIService, createHumeEVIService } from './humeEVIService';
 import { UnifiedElizaService } from './unifiedElizaService';
 import { FallbackTTSService } from './fallbackTTSService';
 import { FallbackAIService } from './fallbackAIService';
@@ -9,10 +10,12 @@ import type { MiningStats } from './unifiedDataService';
 export interface UnifiedServiceOptions {
   elevenLabsApiKey?: string;
   geminiApiKey?: string;
+  humeApiKey?: string;
   enableLocalFallbacks?: boolean;
 }
 
 export interface ServiceStatus {
+  hume: 'available' | 'unavailable' | 'loading';
   elevenlabs: 'available' | 'unavailable' | 'loading';
   gemini: 'available' | 'unavailable' | 'loading';
   webSpeech: 'available' | 'unavailable' | 'loading';
@@ -20,10 +23,12 @@ export interface ServiceStatus {
 }
 
 export class UnifiedFallbackService {
+  private humeEVIService: HumeEVIService | null = null;
   private elevenLabsService: ElevenLabsService | null = null;
   private geminiTTSService: GeminiTTSService | null = null;
   private options: UnifiedServiceOptions;
   private serviceStatus: ServiceStatus = {
+    hume: 'loading',
     elevenlabs: 'loading',
     gemini: 'loading',
     webSpeech: 'loading',
@@ -36,6 +41,21 @@ export class UnifiedFallbackService {
   }
 
   private async initializeServices(): Promise<void> {
+    // Initialize Hume EVI if API key provided
+    if (this.options.humeApiKey) {
+      try {
+        this.humeEVIService = createHumeEVIService(this.options.humeApiKey);
+        const isConnected = await this.humeEVIService.initializeConversation();
+        this.serviceStatus.hume = isConnected ? 'available' : 'unavailable';
+        console.log('Hume EVI service initialized:', isConnected);
+      } catch (error) {
+        console.error('Hume EVI initialization failed:', error);
+        this.serviceStatus.hume = 'unavailable';
+      }
+    } else {
+      this.serviceStatus.hume = 'unavailable';
+    }
+
     // Initialize ElevenLabs if API key provided
     if (this.options.elevenLabsApiKey) {
       try {
@@ -74,7 +94,15 @@ export class UnifiedFallbackService {
   async speakText(text: string, voiceId?: string): Promise<{ success: boolean; method: string }> {
     const methods = [];
 
-    // Primary: ElevenLabs
+    // Primary: Hume EVI (most advanced with emotional context)
+    if (this.humeEVIService && this.serviceStatus.hume === 'available') {
+      methods.push({
+        name: 'Hume EVI',
+        fn: () => this.humeEVIService!.speakText(text, voiceId)
+      });
+    }
+
+    // Secondary: ElevenLabs (high quality)
     if (this.elevenLabsService && this.serviceStatus.elevenlabs === 'available') {
       methods.push({
         name: 'ElevenLabs',
@@ -121,7 +149,15 @@ export class UnifiedFallbackService {
   ): Promise<{ text: string; method: string; confidence: number }> {
     const methods = [];
 
-    // Primary: Gemini AI via UnifiedElizaService
+    // Primary: Hume EVI (emotionally intelligent AI)
+    if (this.humeEVIService && this.serviceStatus.hume === 'available') {
+      methods.push({
+        name: 'Hume EVI',
+        fn: () => this.humeEVIService!.generateResponse(userInput, context)
+      });
+    }
+
+    // Secondary: Gemini AI via UnifiedElizaService
     if (this.serviceStatus.gemini === 'available') {
       methods.push({
         name: 'Gemini AI',
@@ -210,6 +246,7 @@ export class UnifiedFallbackService {
 
 // Export singleton instance
 export const unifiedFallbackService = new UnifiedFallbackService({
+  humeApiKey: import.meta.env.VITE_HUME_API_KEY,
   elevenLabsApiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
   geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY,
   enableLocalFallbacks: true
