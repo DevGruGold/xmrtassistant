@@ -19,6 +19,8 @@ export default {
     },
     extend: {
       fontFamily: {
+        'inter': ['Inter', 'sans-serif'],
+        'source': ['Source Sans Pro', 'sans-serif'],
         'oswald': ['Oswald', 'sans-serif'],
       },
       borderRadius: {

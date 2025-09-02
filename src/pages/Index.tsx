@@ -20,59 +20,113 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <MobileNav />
       
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-secondary">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(271_81%_56%_/_0.1),transparent_50%),radial-gradient(circle_at_70%_80%,hsl(199_89%_48%_/_0.1),transparent_50%)]" />
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-24 relative">
-          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8 mb-12 sm:mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-4 animate-fade-in">
-              <Sparkles className="h-4 w-4" />
-              Live Mining Dashboard
+      {/* Hero Section - Corporate Design */}
+      <section className="relative bg-gradient-to-b from-background to-secondary/30 border-b border-border">
+        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-28 relative">
+          
+          {/* Corporate Header */}
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center space-y-8 mb-16">
+              
+              {/* Status Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/5 border border-primary/20 text-primary text-sm font-medium animate-fade-in">
+                <div className="w-2 h-2 bg-mining-active rounded-full animate-pulse" />
+                Live Mining Network Active
+              </div>
+              
+              {/* Main Corporate Title */}
+              <div className="space-y-4">
+                <h1 className="font-inter font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-foreground leading-tight tracking-tight animate-slide-in">
+                  <span className="block mb-2">XMRT</span>
+                  <span className="block bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent">
+                    Economy
+                  </span>
+                </h1>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-lg sm:text-xl font-source font-medium text-muted-foreground animate-fade-in">
+                  <span className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-mining-info rounded-full" />
+                    Mobile Mining DAO
+                  </span>
+                  <span className="hidden sm:block text-border">|</span>
+                  <span className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-primary rounded-full" />
+                    AI Assistant Eliza
+                  </span>
+                </div>
+              </div>
+              
+              {/* Corporate Description */}
+              <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+                <p className="text-lg sm:text-xl font-source text-muted-foreground leading-relaxed">
+                  Professional decentralized asset management platform leveraging blockchain technology, 
+                  mobile mining infrastructure, and AI-powered governance solutions.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4 text-sm font-medium text-muted-foreground/80">
+                  <span className="px-3 py-1 bg-muted/50 rounded-full">Enterprise-Grade Security</span>
+                  <span className="px-3 py-1 bg-muted/50 rounded-full">Real-Time Analytics</span>
+                  <span className="px-3 py-1 bg-muted/50 rounded-full">Decentralized Governance</span>
+                </div>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <h1 className="text-6xl sm:text-8xl lg:text-9xl font-oswald font-bold bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent leading-[1.1] animate-slide-in drop-shadow-2xl">
-                XMRT Economy
-              </h1>
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-medium text-muted-foreground/80 tracking-wide animate-fade-in">
-                Mobile Mining DAO • AI Assistant Eliza
-              </h2>
-            </div>
-            
-            <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in">
-              Revolutionizing decentralized asset management and governance through innovative blockchain solutions with real-time mining integration.
-            </p>
           </div>
           
-          {/* Live Mining Stats - Moved Higher */}
-          <div className="max-w-6xl mx-auto mb-8 sm:mb-12 animate-fade-in">
+          {/* Corporate Stats Dashboard */}
+          <div className="max-w-6xl mx-auto mb-12 animate-fade-in">
             <LiveMiningStats />
           </div>
           
-          {/* Start Mining CTA */}
-          <div className="max-w-4xl mx-auto text-center mb-8 sm:mb-12">
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-in">
-              <Button 
-                size="lg"
-                className="bg-gradient-to-r from-primary to-mining-info hover:from-primary/90 hover:to-mining-info/90 text-lg py-6 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
-                asChild
-              >
-                <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
-                  <Sparkles className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                  Start Mining
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </a>
-              </Button>
+          {/* Corporate CTA Section */}
+          <div className="max-w-5xl mx-auto text-center mb-12">
+            <div className="bg-card/50 border border-border rounded-2xl p-8 sm:p-12 shadow-lg animate-slide-in">
+              <div className="space-y-6">
+                <h3 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground">
+                  Join the Mining Network
+                </h3>
+                <p className="font-source text-muted-foreground max-w-2xl mx-auto">
+                  Start mining with professional-grade infrastructure and real-time monitoring capabilities.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                  <Button 
+                    size="lg"
+                    className="font-source font-semibold bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 group"
+                    asChild
+                  >
+                    <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
+                      <Sparkles className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+                      Launch Mining Dashboard
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </a>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
           
-          {/* Eliza Chat */}
-          <div className="max-w-4xl mx-auto mb-8 sm:mb-12 animate-fade-in">
+          {/* AI Assistant Section */}
+          <div className="max-w-6xl mx-auto mb-12 animate-fade-in">
+            <div className="text-center mb-8">
+              <h3 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground mb-4">
+                AI Assistant Eliza
+              </h3>
+              <p className="font-source text-muted-foreground max-w-2xl mx-auto">
+                Intelligent support for mining operations, governance decisions, and platform navigation.
+              </p>
+            </div>
             <UnifiedChat />
           </div>
           
-          {/* MobileMonero Calculator */}
-          <div className="mb-8 sm:mb-12 animate-fade-in relative z-0 mt-8">
+          {/* Mining Calculator */}
+          <div className="mb-12 animate-fade-in">
+            <div className="text-center mb-8">
+              <h3 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground mb-4">
+                Mining Calculator
+              </h3>
+              <p className="font-source text-muted-foreground max-w-2xl mx-auto">
+                Calculate potential returns and optimize your mining strategy with real-time data.
+              </p>
+            </div>
             <MobileMoneroCalculator />
           </div>
         </div>
