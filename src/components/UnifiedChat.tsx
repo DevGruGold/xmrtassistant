@@ -64,7 +64,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [elevenLabsService, setElevenLabsService] = useState<ElevenLabsService | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
 
   // Input mode state - streamlined to 2 modes
   type InputMode = 'text' | 'voice';
@@ -88,10 +88,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (apiKey) {
         const service = new ElevenLabsService(apiKey);
         setElevenLabsService(service);
-        setVoiceEnabled(true);
         console.log('ElevenLabs service initialized successfully');
       } else {
-        console.log('VITE_ELEVENLABS_API_KEY not found, voice synthesis disabled');
+        console.warn('VITE_ELEVENLABS_API_KEY not found - Eliza voice disabled');
+        setVoiceEnabled(false);
       }
     } catch (error) {
       console.error('Failed to initialize ElevenLabs:', error);
