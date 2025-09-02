@@ -81,7 +81,7 @@ class UnifiedDataService {
     try {
       // Use the working API endpoint
       const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
       );
       
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
