@@ -13,6 +13,7 @@ import { Send, Volume2, VolumeX } from 'lucide-react';
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
 import { ElevenLabsService } from '@/services/elevenlabsService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
+import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -65,6 +66,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [elevenLabsService, setElevenLabsService] = useState<ElevenLabsService | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
+  const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
+  const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
   // Input mode state - streamlined to 2 modes
   type InputMode = 'text' | 'voice';
@@ -327,22 +330,48 @@ How may I assist you in understanding our mission to transform users into builde
     setIsProcessing(true);
 
     try {
-      const response = await UnifiedElizaService.generateResponse(userMessage.content, {
-        miningStats,
-        userContext,
-        inputMode: 'text',
-        shouldSpeak: voiceEnabled // Allow TTS in text mode if voice is enabled
+      // Use unified fallback service for AI response
+      const aiResponse = await unifiedFallbackService.generateResponse(userMessage.content, {
+        miningStats: miningStats || undefined,
+        userContext: userContext || undefined
       });
-      
-      // Use unified display function with TTS for text mode if voice is enabled
-      await displayResponse(response, voiceEnabled);
+
+      setCurrentAIMethod(aiResponse.method);
+
+      const elizaMessage: UnifiedMessage = {
+        id: `eliza-${Date.now()}`,
+        content: aiResponse.text,
+        sender: 'eliza',
+        timestamp: new Date(),
+        confidence: aiResponse.confidence
+      };
+
+      setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(aiResponse.text);
+
+      // Speak response if voice is enabled using unified fallback service
+      if (voiceEnabled) {
+        try {
+          setIsSpeaking(true);
+          const ttsResult = await unifiedFallbackService.speakText(aiResponse.text);
+          setCurrentTTSMethod(ttsResult.method);
+        } catch (error) {
+          console.error('TTS failed:', error);
+          setCurrentTTSMethod('failed');
+        } finally {
+          setIsSpeaking(false);
+        }
+      }
       
     } catch (error) {
       console.error('Chat error:', error);
-      await displayResponse(
-        'I apologize, but I\'m having trouble processing your message right now.',
-        false
-      );
+      const errorMessage: UnifiedMessage = {
+        id: `error-${Date.now()}`,
+        content: 'I apologize, but I\'m having trouble processing your message right now.',
+        sender: 'eliza',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -509,11 +538,19 @@ How may I assist you in understanding our mission to transform users into builde
                 <div className="text-xs text-muted-foreground">
                   {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
                 </div>
-                {isProcessing && (
-                  <div className="text-xs text-muted-foreground">
-                    Processing...
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {currentAIMethod && (
+                    <span className="text-xs bg-muted px-2 py-1 rounded">AI: {currentAIMethod}</span>
+                  )}
+                  {currentTTSMethod && (
+                    <span className="text-xs bg-muted px-2 py-1 rounded">TTS: {currentTTSMethod}</span>
+                  )}
+                  {isProcessing && (
+                    <div className="text-xs text-muted-foreground">
+                      Processing...
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
