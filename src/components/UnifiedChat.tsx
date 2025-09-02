@@ -11,7 +11,7 @@ import { Send, Volume2, VolumeX } from 'lucide-react';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
-import { ElevenLabsService } from '@/services/elevenlabsService';
+import { GeminiTTSService } from '@/services/geminiTTSService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 
@@ -64,7 +64,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [elevenLabsService, setElevenLabsService] = useState<ElevenLabsService | null>(null);
+  const [geminiTTSService, setGeminiTTSService] = useState<GeminiTTSService | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
@@ -84,20 +84,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize ElevenLabs service
+  // Initialize Gemini TTS service
   useEffect(() => {
     try {
-      const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-      if (apiKey) {
-        const service = new ElevenLabsService(apiKey);
-        setElevenLabsService(service);
-        console.log('ElevenLabs service initialized successfully');
-      } else {
-        console.warn('VITE_ELEVENLABS_API_KEY not found - Eliza voice disabled');
-        setVoiceEnabled(false);
-      }
+      const service = new GeminiTTSService('AIzaSyB3jfxdMQzPpIb5MNfT8DtP5MOvT_Sp7qk');
+      setGeminiTTSService(service);
+      console.log('Gemini TTS service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize ElevenLabs:', error);
+      console.error('Failed to initialize Gemini TTS:', error);
       setVoiceEnabled(false);
     }
   }, []);
@@ -257,7 +251,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // Use TTS if requested and voice service is available
     // Add a small delay in voice mode to reduce overlap with speech recognition
-    if (shouldSpeak && elevenLabsService && voiceEnabled) {
+    if (shouldSpeak && geminiTTSService && voiceEnabled) {
       try {
         setIsSpeaking(true);
         
@@ -266,9 +260,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           await new Promise(resolve => setTimeout(resolve, 500));
         }
         
-        await elevenLabsService.speakText(responseText);
+        await geminiTTSService.speakText({ text: responseText });
       } catch (error) {
-        console.error('ElevenLabs TTS error:', error);
+        console.error('Gemini TTS error:', error);
       } finally {
         setIsSpeaking(false);
       }
@@ -312,18 +306,18 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(aiResponseText);
 
-      // Speak response using ElevenLabs directly
-      if (voiceEnabled && elevenLabsService) {
+      // Speak response using Gemini TTS directly
+      if (voiceEnabled && geminiTTSService) {
         try {
           setIsSpeaking(true);
           
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await elevenLabsService.speakText(aiResponseText);
-          setCurrentTTSMethod('ElevenLabs');
+          await geminiTTSService.speakText({ text: aiResponseText });
+          setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
-          console.error('ElevenLabs TTS failed:', error);
+          console.error('Gemini TTS failed:', error);
           setCurrentTTSMethod('failed');
         } finally {
           setIsSpeaking(false);
@@ -380,14 +374,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(aiResponseText);
 
-      // Speak response if voice is enabled using ElevenLabs directly
-      if (voiceEnabled && elevenLabsService) {
+      // Speak response if voice is enabled using Gemini TTS directly
+      if (voiceEnabled && geminiTTSService) {
         try {
           setIsSpeaking(true);
-          await elevenLabsService.speakText(aiResponseText);
-          setCurrentTTSMethod('ElevenLabs');
+          await geminiTTSService.speakText({ text: aiResponseText });
+          setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
-          console.error('ElevenLabs TTS failed:', error);
+          console.error('Gemini TTS failed:', error);
           setCurrentTTSMethod('failed');
         } finally {
           setIsSpeaking(false);

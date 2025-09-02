@@ -17,9 +17,9 @@ export class UnifiedElizaService {
   private static initializeGemini(): GoogleGenerativeAI | null {
     if (this.geminiAI) return this.geminiAI;
     
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const apiKey = 'AIzaSyB3jfxdMQzPpIb5MNfT8DtP5MOvT_Sp7qk';
     if (!apiKey) {
-      console.error('VITE_GEMINI_API_KEY not found - Eliza will use fallback responses');
+      console.error('Gemini API key not found - Eliza will use fallback responses');
       return null;
     }
     
