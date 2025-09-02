@@ -26,35 +26,39 @@ export class FallbackAIService {
     try {
       console.log('Initializing enhanced local AI models...');
       
-      // Try conversation model first (better for chat)
+      // Try reliable Q&A model first (publicly accessible)
       try {
-        this.conversationPipeline = await pipeline(
-          'text-generation',
-          'Xenova/DialoGPT-medium',
+        this.qasPipeline = await pipeline(
+          'question-answering',
+          'Xenova/distilbert-base-cased-distilled-squad',
           { device: 'webgpu' }
         );
-        console.log('Conversation model initialized successfully');
+        console.log('Q&A model initialized successfully');
       } catch (error) {
-        console.warn('Conversation model failed, trying Q&A model:', error);
+        console.warn('Q&A model failed, trying text generation:', error);
         
-        // Fallback to Q&A model
+        // Fallback to reliable text generation
         try {
-          this.qasPipeline = await pipeline(
-            'question-answering',
-            'Xenova/distilbert-base-cased-distilled-squad',
-            { device: 'webgpu' }
-          );
-          console.log('Q&A model initialized successfully');
-        } catch (qError) {
-          console.warn('Q&A model failed, using basic text generation:', qError);
-          
-          // Final fallback to basic text generation
           this.textGenerationPipeline = await pipeline(
             'text-generation',
             'Xenova/gpt2',
             { device: 'webgpu' }
           );
-          console.log('Basic text generation model initialized');
+          console.log('Text generation model initialized successfully');
+        } catch (tError) {
+          console.warn('WebGPU failed, trying CPU fallback:', tError);
+          
+          // Final fallback to CPU-based model
+          try {
+            this.textGenerationPipeline = await pipeline(
+              'text-generation',
+              'Xenova/distilgpt2',
+              { device: 'cpu' }
+            );
+            console.log('CPU text generation model initialized');
+          } catch (cpuError) {
+            console.error('All models failed:', cpuError);
+          }
         }
       }
     } catch (error) {
@@ -76,28 +80,7 @@ export class FallbackAIService {
       const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
       const knowledgeContext = relevantKnowledge.map(k => k.content).join(' ');
       
-      // Try conversation model first
-      if (this.conversationPipeline) {
-        const prompt = `${userInput}`;
-        const result = await this.conversationPipeline(prompt, {
-          max_new_tokens: 150,
-          temperature: 0.7,
-          do_sample: true,
-          return_full_text: false,
-          pad_token_id: 50256
-        });
-        
-        const response = result[0]?.generated_text?.trim() || '';
-        if (response && response.length > 10) {
-          return {
-            text: `As Eliza: ${response} ${knowledgeContext ? `\n\nContext: ${knowledgeContext.slice(0, 200)}...` : ''}`,
-            method: 'Conversation AI',
-            confidence: 0.75
-          };
-        }
-      }
-      
-      // Try Q&A model if available
+      // Try Q&A model first (more reliable)
       if (this.qasPipeline && knowledgeContext) {
         const result = await this.qasPipeline({
           question: userInput,
@@ -106,9 +89,30 @@ export class FallbackAIService {
         
         if (result.answer && result.score > 0.1) {
           return {
-            text: result.answer,
+            text: `Based on XMRT-DAO knowledge: ${result.answer}`,
             method: 'Q&A AI',
             confidence: result.score
+          };
+        }
+      }
+      
+      // Try text generation as fallback
+      if (this.textGenerationPipeline) {
+        const prompt = `XMRT-DAO context: ${knowledgeContext}\nUser question: ${userInput}\nEliza response:`;
+        const result = await this.textGenerationPipeline(prompt, {
+          max_new_tokens: 100,
+          temperature: 0.6,
+          do_sample: true,
+          return_full_text: false,
+          repetition_penalty: 1.1
+        });
+        
+        const response = result[0]?.generated_text?.trim() || '';
+        if (response && response.length > 5) {
+          return {
+            text: response,
+            method: 'Text Generation AI',
+            confidence: 0.65
           };
         }
       }

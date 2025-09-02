@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/card';
 import { Mic, MicOff, Volume2, Square, Play, AlertCircle, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BrowserCompatibilityService } from '@/utils/browserCompatibility';
+import { MobileVoiceFallback } from './MobileVoiceFallback';
+import { FallbackSpeechService } from '@/services/fallbackSpeechService';
 
 interface EnhancedContinuousVoiceProps {
   onTranscript: (transcript: string, isFinal?: boolean) => void;
@@ -682,6 +684,22 @@ export const EnhancedContinuousVoice = ({
           </div>
         )}
       </div>
+
+      {/* Mobile Fallback - Show text input when voice fails or is not supported */}
+      {capabilities.isMobile && (!browserSupported || errorMessage || !hasPermission) && (
+        <div className="mt-4">
+          <MobileVoiceFallback
+            onSubmit={(text) => {
+              console.log('📝 Mobile text fallback input:', text);
+              onTranscript(text, true);
+            }}
+            isProcessing={isProcessing}
+            disabled={disabled}
+            placeholder="Type your message to Eliza..."
+            className="w-full"
+          />
+        </div>
+      )}
     </div>
   );
 };

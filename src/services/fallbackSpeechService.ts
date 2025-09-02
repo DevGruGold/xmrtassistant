@@ -21,11 +21,20 @@ export class FallbackSpeechService {
     this.isInitializing = true;
     try {
       console.log('Initializing local Whisper model...');
-      this.whisperPipeline = await pipeline(
-        'automatic-speech-recognition',
-        'Xenova/whisper-tiny.en',
-        { device: 'webgpu' }
-      );
+      try {
+        this.whisperPipeline = await pipeline(
+          'automatic-speech-recognition',
+          'onnx-community/whisper-tiny.en',
+          { device: 'webgpu' }
+        );
+      } catch (webgpuError) {
+        console.warn('WebGPU Whisper failed, trying CPU:', webgpuError);
+        this.whisperPipeline = await pipeline(
+          'automatic-speech-recognition',
+          'onnx-community/whisper-tiny.en',
+          { device: 'cpu' }
+        );
+      }
       console.log('Local Whisper model initialized successfully');
     } catch (error) {
       console.warn('Failed to initialize local Whisper model:', error);
