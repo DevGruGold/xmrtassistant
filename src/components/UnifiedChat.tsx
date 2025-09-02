@@ -6,17 +6,13 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { EnhancedContinuousVoice } from './EnhancedContinuousVoice';
+import { MobileVoiceEnhancer } from './MobileVoiceEnhancer';
 import { Send, Volume2, VolumeX } from 'lucide-react';
 
 // Services
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { realTimeProcessingService } from '@/services/RealTimeProcessingService';
-import { contextAwarenessService } from '@/services/ContextAwarenessService';
-import { emotionalIntelligenceService } from '@/services/EmotionalIntelligenceService';
-import { contextManager } from '@/services/contextManager';
-import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
 import { ElevenLabsService } from '@/services/elevenlabsService';
+import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -45,17 +41,7 @@ interface UnifiedMessage {
   confidence?: number;
 }
 
-interface MiningStats {
-  hash: number;
-  validShares: number;
-  invalidShares: number;
-  lastHash: number;
-  totalHashes: number;
-  amtDue: number;
-  amtPaid: number;
-  txnCount: number;
-  isOnline: boolean;
-}
+// MiningStats imported from unifiedDataService
 
 interface UnifiedChatProps {
   apiKey?: string;
@@ -86,14 +72,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
 
-  // XMRT context state
+  // XMRT context state - using unified service
   const [miningStats, setMiningStats] = useState<MiningStats | null>(externalMiningStats || null);
-  const [userIP, setUserIP] = useState<string>("");
+  const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [lastElizaMessage, setLastElizaMessage] = useState<string>("");
-
-  // Real-time processing state
-  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
-  const [currentContext, setCurrentContext] = useState<any>({});
 
   // Refs
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -125,31 +107,45 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize mining stats and user IP
+  // Initialize unified data service
   useEffect(() => {
     const initialize = async () => {
-      if (!externalMiningStats) {
-        await fetchUserIP();
-        fetchMiningStats();
-        const interval = setInterval(fetchMiningStats, 30000);
-        return () => clearInterval(interval);
-      } else {
-        await fetchUserIP();
+      try {
+        const [userCtx, miningData] = await Promise.all([
+          unifiedDataService.getUserContext(),
+          externalMiningStats || unifiedDataService.getMiningStats()
+        ]);
+        
+        setUserContext(userCtx);
+        if (!externalMiningStats) {
+          setMiningStats(miningData);
+        }
+
+        // Set up periodic refresh for mining stats only if not provided externally
+        if (!externalMiningStats) {
+          const interval = setInterval(async () => {
+            const freshStats = await unifiedDataService.getMiningStats();
+            setMiningStats(freshStats);
+          }, 30000);
+          return () => clearInterval(interval);
+        }
+      } catch (error) {
+        console.error('Failed to initialize unified data:', error);
       }
     };
     
     initialize();
   }, []);
 
-  // Initialize greeting when IP is available
+  // Initialize greeting when user context is available
   useEffect(() => {
-    if (userIP && messages.length === 0) {
+    if (userContext && messages.length === 0) {
       const modeDescription = {
         text: 'Text mode active - unified XMRT knowledge system for consistent responses.',
         voice: 'Voice mode active - ElevenLabs TTS ready for speech synthesis.'
       };
 
-      const philosophicalGreeting = isFounder() 
+      const philosophicalGreeting = userContext.isFounder 
         ? `Greetings, Founder. I am Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem.
 
 My advanced systems are online, embodying our philosophical foundations:
@@ -183,7 +179,7 @@ How may I assist you in understanding our mission to transform users into builde
       setMessages([greeting]);
       setLastElizaMessage(philosophicalGreeting);
     }
-  }, [userIP, inputMode]);
+  }, [userContext, inputMode]);
 
   // XMRT Knowledge Base Integration Functions
   const fetchMiningStats = async () => {
@@ -209,36 +205,20 @@ How may I assist you in understanding our mission to transform users into builde
       });
     } catch (err) {
       console.error('Failed to fetch mining stats:', err);
+      // Keep using unified service for consistency
     }
   };
 
-  const fetchUserIP = async () => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      setUserIP(data.ip);
-      
-      const storedFounderIP = localStorage.getItem('founderIP');
-      if (!storedFounderIP) {
-        localStorage.setItem('founderIP', data.ip);
-      }
-    } catch (error) {
-      console.error('Failed to fetch IP:', error);
-    }
-  };
+  // Remove old IP function - using unified service
+  // const fetchUserIP = async () => { ... removed ... };
 
+  // Helper functions using unified service
   const isFounder = () => {
-    const founderIP = localStorage.getItem('founderIP');
-    return founderIP === userIP;
+    return userContext?.isFounder || false;
   };
 
   const formatHashrate = (hashrate: number): string => {
-    if (hashrate >= 1000000) {
-      return `${(hashrate / 1000000).toFixed(2)} MH/s`;
-    } else if (hashrate >= 1000) {
-      return `${(hashrate / 1000).toFixed(2)} KH/s`;
-    }
-    return `${hashrate.toFixed(2)} H/s`;
+    return unifiedDataService.formatMiningStats({ hash: hashrate } as MiningStats).split('\n')[1] || `${hashrate} H/s`;
   };
 
   // Streamlined mode management
@@ -258,7 +238,7 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Unified response display with optional TTS
+  // Unified response display with smart TTS control
   const displayResponse = async (responseText: string, shouldSpeak: boolean = false) => {
     const elizaMessage: UnifiedMessage = {
       id: `eliza-${Date.now()}`,
@@ -272,8 +252,9 @@ How may I assist you in understanding our mission to transform users into builde
     setMessages(prev => [...prev, elizaMessage]);
     setLastElizaMessage(responseText);
 
-    // Use ElevenLabs TTS if voice synthesis is requested and available
-    if (shouldSpeak && elevenLabsService && voiceEnabled) {
+    // Only use TTS if explicitly requested, voice is enabled, and we're in text mode
+    // This prevents voice duplication when already in voice chat
+    if (shouldSpeak && elevenLabsService && voiceEnabled && inputMode === 'text') {
       try {
         setIsSpeaking(true);
         await elevenLabsService.speakText(responseText);
@@ -285,7 +266,7 @@ How may I assist you in understanding our mission to transform users into builde
     }
   };
 
-  // Voice input handler - simplified without Hume
+  // Voice input handler - NO TTS to prevent duplication
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript?.trim() || isProcessing) return;
 
@@ -305,13 +286,13 @@ How may I assist you in understanding our mission to transform users into builde
       // Get unified XMRT response
       const response = await UnifiedElizaService.generateResponse(transcript, {
         miningStats,
-        userIP,
-        isFounder: isFounder(),
-        inputMode: 'voice'
+        userContext,
+        inputMode: 'voice',
+        shouldSpeak: false // Prevent TTS duplication in voice mode
       });
       
-      // Display with voice synthesis
-      await displayResponse(response, true);
+      // Display WITHOUT voice synthesis to prevent ghosting
+      await displayResponse(response, false);
       
     } catch (error) {
       console.error('Failed to process voice input:', error);
@@ -342,13 +323,13 @@ How may I assist you in understanding our mission to transform users into builde
     try {
       const response = await UnifiedElizaService.generateResponse(userMessage.content, {
         miningStats,
-        userIP,
-        isFounder: isFounder(),
-        inputMode: 'text'
+        userContext,
+        inputMode: 'text',
+        shouldSpeak: voiceEnabled // Allow TTS in text mode if voice is enabled
       });
       
-      // Use unified display function - no voice for text mode
-      await displayResponse(response, false);
+      // Use unified display function with optional TTS for text mode
+      await displayResponse(response, voiceEnabled);
       
     } catch (error) {
       console.error('Chat error:', error);
@@ -380,7 +361,9 @@ How may I assist you in understanding our mission to transform users into builde
   };
 
   return (
-    <Card className={`bg-gradient-to-br from-card to-secondary border-border flex flex-col h-[600px] sm:h-[700px] ${className}`}>
+    <>
+      <MobileVoiceEnhancer />
+      <Card className={`bg-gradient-to-br from-card to-secondary border-border flex flex-col h-[600px] sm:h-[700px] ${className}`}>
         {/* Header */}
         <div className="p-3 sm:p-4 border-b border-border">
           <div className="flex items-center justify-between">
@@ -529,6 +512,7 @@ How may I assist you in understanding our mission to transform users into builde
           )}
         </div>
       </Card>
+    </>
   );
 };
 

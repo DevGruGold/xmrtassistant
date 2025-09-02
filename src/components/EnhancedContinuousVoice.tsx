@@ -156,9 +156,17 @@ export const EnhancedContinuousVoice = ({
     recognition.onend = () => {
       console.log('🔄 Speech recognition ENDED');
       
-      // Only restart if we should still be listening and haven't hit retry limit
-      if (isListening && !isSpeaking && hasPermission && retryCount < 3) {
-        console.log('🔄 Auto-restarting speech recognition...');
+      // Enhanced restart logic with mobile-specific handling
+      const capabilities = BrowserCompatibilityService.detectCapabilities();
+      
+      // More aggressive restart on mobile to handle connectivity issues
+      const shouldRestart = isListening && !isSpeaking && hasPermission && 
+        (capabilities.isMobile ? retryCount < 5 : retryCount < 3);
+      
+      if (shouldRestart) {
+        console.log('🔄 Auto-restarting speech recognition...', { mobile: capabilities.isMobile, retryCount });
+        const restartDelay = capabilities.isMobile ? 300 : 100; // Longer delay on mobile
+        
         setTimeout(() => {
           if (recognitionRef.current && isListening) {
             try {
@@ -166,11 +174,17 @@ export const EnhancedContinuousVoice = ({
               setRetryCount(prev => prev + 1);
             } catch (error) {
               console.error('❌ Failed to restart recognition:', error);
+              if (capabilities.isMobile && error.name === 'InvalidStateError') {
+                // Mobile browsers sometimes need a hard reset
+                console.log('🔄 Attempting hard reset on mobile...');
+                recognitionRef.current = null;
+                window.location.reload();
+              }
             }
           }
-        }, 100);
+        }, restartDelay);
       } else {
-        console.log('🛑 Not restarting recognition:', { isListening, isSpeaking, hasPermission, retryCount });
+        console.log('🛑 Not restarting recognition:', { isListening, isSpeaking, hasPermission, retryCount, mobile: capabilities.isMobile });
         setIsListening(false);
       }
     };
@@ -256,14 +270,26 @@ export const EnhancedContinuousVoice = ({
     try {
       setErrorMessage(''); // Clear previous errors
       
-      // Request microphone access first
+      // Request microphone access with mobile-optimized settings
       console.log('🎤 Requesting microphone access...');
+      const capabilities = BrowserCompatibilityService.detectCapabilities();
+      
+      const audioConstraints = capabilities.isMobile ? {
+        // Mobile-optimized audio settings
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000, // Lower sample rate for mobile performance
+        channelCount: 1     // Mono for mobile efficiency
+      } : {
+        // Desktop settings
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      };
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
+        audio: audioConstraints
       });
       
       console.log('✅ Microphone access granted');

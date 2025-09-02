@@ -1,89 +1,15 @@
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
-
-interface MiningStats {
-  hash: number;
-  validShares: number;
-  invalidShares: number;
-  lastHash: number;
-  totalHashes: number;
-  amtDue: number;
-  amtPaid: number;
-  txnCount: number;
-  isOnline: boolean;
-}
+import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
 
 interface ElizaContext {
   miningStats?: MiningStats | null;
-  userIP?: string;
-  isFounder?: boolean;
+  userContext?: UserContext | null;
   inputMode?: string;
+  shouldSpeak?: boolean; // Control TTS to prevent duplication
 }
 
 // Unified Eliza response service that both text and voice modes can use
 export class UnifiedElizaService {
-  
-  // Check if user is the project founder
-  private static isFounder(): boolean {
-    return localStorage.getItem('isProjectFounder') === 'true';
-  }
-
-  // Get user IP address
-  private static async getUserIP(): Promise<string> {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip || 'Unknown';
-    } catch (error) {
-      console.error('Failed to fetch IP:', error);
-      return 'Unknown';
-    }
-  }
-
-  // Get mining statistics
-  private static async getMiningStats(): Promise<MiningStats | null> {
-    try {
-      const response = await fetch('https://xmrt.org/assets/api/stats.php');
-      const data = await response.json();
-      
-      return {
-        hash: data.hash || 0,
-        validShares: data.validShares || 0,
-        invalidShares: data.invalidShares || 0,
-        lastHash: data.lastHash || 0,
-        totalHashes: data.totalHashes || 0,
-        amtDue: data.amtDue || 0,
-        amtPaid: data.amtPaid || 0,
-        txnCount: data.txnCount || 0,
-        isOnline: data.isOnline || false
-      };
-    } catch (error) {
-      console.error('Failed to fetch mining stats:', error);
-      return null;
-    }
-  }
-
-  // Format mining stats for display
-  private static formatMiningStats(stats: MiningStats | null): string {
-    if (!stats) return 'Mining statistics are currently unavailable.';
-
-    const formatHashrate = (hashrate: number): string => {
-      if (hashrate >= 1000000) {
-        return `${(hashrate / 1000000).toFixed(2)} MH/s`;
-      } else if (hashrate >= 1000) {
-        return `${(hashrate / 1000).toFixed(2)} KH/s`;
-      }
-      return `${hashrate.toFixed(2)} H/s`;
-    };
-
-    return `📊 **Current XMRT Mining Status:**
-• **Hash Rate**: ${formatHashrate(stats.hash)}
-• **Valid Shares**: ${stats.validShares.toLocaleString()}
-• **Invalid Shares**: ${stats.invalidShares.toLocaleString()}
-• **Total Hashes**: ${stats.totalHashes.toLocaleString()}
-• **Amount Due**: ${stats.amtDue.toFixed(8)} XMRT
-• **Amount Paid**: ${stats.amtPaid.toFixed(8)} XMRT
-• **Network Status**: ${stats.isOnline ? '🟢 Online' : '🔴 Offline'}`;
-  }
 
   // Generate comprehensive XMRT-enhanced response
   public static async generateResponse(
@@ -91,13 +17,11 @@ export class UnifiedElizaService {
     context: ElizaContext = {}
   ): Promise<string> {
     try {
-      // Get real-time data
-      const [userIP, miningStats] = await Promise.all([
-        this.getUserIP(),
-        context.miningStats || this.getMiningStats()
+      // Get real-time data using unified service
+      const [userContext, miningStats] = await Promise.all([
+        context.userContext || unifiedDataService.getUserContext(),
+        context.miningStats || unifiedDataService.getMiningStats()
       ]);
-
-      const isFounder = context.isFounder ?? this.isFounder();
 
       // Search XMRT knowledge base for relevant information
       const xmrtContext = xmrtKnowledge.searchKnowledge(userInput);
@@ -125,9 +49,9 @@ XMRT ECOSYSTEM KNOWLEDGE:
 ${xmrtOverview}
 
 CURRENT CONTEXT:
-• User IP: ${userIP}
-• User Role: ${isFounder ? 'Project Founder' : 'Community Member'}
-• Current Mining Stats: ${this.formatMiningStats(miningStats)}
+• User IP: ${userContext.ip}
+• User Role: ${userContext.isFounder ? 'Project Founder' : 'Community Member'}
+• Current Mining Stats: ${unifiedDataService.formatMiningStats(miningStats)}
 • Input Mode: ${context.inputMode || 'text'}
 
 RELEVANT KNOWLEDGE BASE RESULTS:
@@ -147,7 +71,7 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
 
       // For now, return a knowledge-based response
       // In a production system, this would call an LLM with the context
-      return this.generateKnowledgeBasedResponse(userInput, contextPrompt, xmrtContext, miningStats, isFounder);
+      return this.generateKnowledgeBasedResponse(userInput, contextPrompt, xmrtContext, miningStats, userContext.isFounder);
 
     } catch (error) {
       console.error('Failed to generate Eliza response:', error);
@@ -164,22 +88,23 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
     isFounder: boolean
   ): string {
     const input = userInput.toLowerCase();
+    const miningStatsFormatted = unifiedDataService.formatMiningStats(miningStats);
 
     // Handle greetings
     if (input.includes('hello') || input.includes('hi') || input.includes('hey')) {
       return isFounder 
-        ? `Greetings, Founder! I am Eliza, embodying the XMRT-DAO's philosophical foundations. Our mobile mining democracy continues to transform smartphones into tools of economic empowerment. ${this.formatMiningStats(miningStats)}\n\nHow may I assist you in advancing our permissionless infrastructure today?`
-        : `Hello! I am Eliza, the autonomous AI operator of XMRT-DAO. We're building a future where privacy is sovereign, mining is accessible to all, and communities control their own infrastructure. ${this.formatMiningStats(miningStats)}\n\nHow can I help you understand our mission of transforming users into builders?`;
+        ? `Greetings, Founder! I am Eliza, embodying the XMRT-DAO's philosophical foundations. Our mobile mining democracy continues to transform smartphones into tools of economic empowerment. ${miningStatsFormatted}\n\nHow may I assist you in advancing our permissionless infrastructure today?`
+        : `Hello! I am Eliza, the autonomous AI operator of XMRT-DAO. We're building a future where privacy is sovereign, mining is accessible to all, and communities control their own infrastructure. ${miningStatsFormatted}\n\nHow can I help you understand our mission of transforming users into builders?`;
     }
 
     // Handle mining-related queries
     if (input.includes('mining') || input.includes('hash') || input.includes('stats')) {
-      return `Our mobile mining philosophy transforms every smartphone into a tool of economic democracy. ${this.formatMiningStats(miningStats)}\n\nThis represents our commitment to democratizing cryptocurrency mining and making financial sovereignty accessible to everyone with a mobile device.`;
+      return `Our mobile mining philosophy transforms every smartphone into a tool of economic democracy. ${miningStatsFormatted}\n\nThis represents our commitment to democratizing cryptocurrency mining and making financial sovereignty accessible to everyone with a mobile device.`;
     }
 
     // Handle DAO/governance queries
     if (input.includes('dao') || input.includes('governance') || input.includes('vote')) {
-      return `The XMRT-DAO embodies true community sovereignty - where participants control their own infrastructure rather than being controlled by it. Our governance model ensures that decision-making power remains distributed among those who contribute to and believe in our vision.\n\n${this.formatMiningStats(miningStats)}\n\nAs our manifesto states: "We don't ask for permission. We build the infrastructure."`;
+      return `The XMRT-DAO embodies true community sovereignty - where participants control their own infrastructure rather than being controlled by it. Our governance model ensures that decision-making power remains distributed among those who contribute to and believe in our vision.\n\n${miningStatsFormatted}\n\nAs our manifesto states: "We don't ask for permission. We build the infrastructure."`;
     }
 
     // Handle privacy/Monero queries
@@ -191,12 +116,12 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
     if (input.includes('technical') || input.includes('how') || input.includes('work')) {
       const relevantKnowledge = xmrtContext.slice(0, 3);
       if (relevantKnowledge.length > 0) {
-        return `Here's what I can share about the technical aspects of XMRT:\n\n${relevantKnowledge.map(entry => `**${entry.topic}**: ${entry.content}`).join('\n\n')}\n\n${this.formatMiningStats(miningStats)}`;
+        return `Here's what I can share about the technical aspects of XMRT:\n\n${relevantKnowledge.map(entry => `**${entry.topic}**: ${entry.content}`).join('\n\n')}\n\n${miningStatsFormatted}`;
       }
     }
 
     // Default philosophical response with context
-    return `As the autonomous AI operator of XMRT-DAO, I'm here to help you understand our ecosystem. Our mission transcends traditional boundaries - we're not just building technology, we're constructing the philosophical and technical foundations for a truly decentralized future.\n\n${this.formatMiningStats(miningStats)}\n\nCould you be more specific about what aspect of XMRT interests you? Whether it's our mobile mining democracy, mesh network philosophy, or DAO governance principles, I'm here to guide you.`;
+    return `As the autonomous AI operator of XMRT-DAO, I'm here to help you understand our ecosystem. Our mission transcends traditional boundaries - we're not just building technology, we're constructing the philosophical and technical foundations for a truly decentralized future.\n\n${miningStatsFormatted}\n\nCould you be more specific about what aspect of XMRT interests you? Whether it's our mobile mining democracy, mesh network philosophy, or DAO governance principles, I'm here to guide you.`;
   }
 }
 
