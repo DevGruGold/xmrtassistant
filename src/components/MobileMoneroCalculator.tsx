@@ -2,14 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Smartphone, TrendingUp, Users, Zap } from 'lucide-react';
+import { Smartphone, TrendingUp, Users, Zap, DollarSign } from 'lucide-react';
 
 const MobileMoneroCalculator = () => {
   const [hashrate, setHashrate] = useState([800]); // H/s - adjusted for modern devices
   const [users, setUsers] = useState([100]); // Number of users
+  const [moneroPrice, setMoneroPrice] = useState([300]); // USD price per XMR
 
   // Monero mining constants (approximate current values)
-  const moneroPrice = 300; // $300 per XMR
   const networkHashrate = 2.8e9; // ~2.8 GH/s network hashrate
   const blockReward = 0.6; // ~0.6 XMR per block
   const blockTime = 120; // 2 minutes per block
@@ -18,11 +18,11 @@ const MobileMoneroCalculator = () => {
     const totalHashrate = hashrate[0] * users[0];
     const shareOfNetwork = totalHashrate / networkHashrate;
     const xmrPerDay = (shareOfNetwork * blockReward * (24 * 60 * 60)) / blockTime;
-    const usdPerDay = xmrPerDay * moneroPrice;
+    const usdPerDay = xmrPerDay * moneroPrice[0];
     const xmrPerMonth = xmrPerDay * 30;
-    const usdPerMonth = xmrPerMonth * moneroPrice;
+    const usdPerMonth = xmrPerMonth * moneroPrice[0];
     const xmrPerYear = xmrPerDay * 365;
-    const usdPerYear = xmrPerYear * moneroPrice;
+    const usdPerYear = xmrPerYear * moneroPrice[0];
 
     return {
       totalHashrate,
@@ -34,7 +34,7 @@ const MobileMoneroCalculator = () => {
       xmrPerYear,
       usdPerYear,
     };
-  }, [hashrate, users]);
+  }, [hashrate, users, moneroPrice]);
 
   const formatNumber = (num: number, decimals = 2) => {
     if (num >= 1000000) {
@@ -97,7 +97,7 @@ const MobileMoneroCalculator = () => {
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
           {/* Controls */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
                   <Label className="text-gray-300 text-sm sm:text-base">Average Hashrate per Device</Label>
@@ -140,6 +140,28 @@ const MobileMoneroCalculator = () => {
                 <span>1M</span>
               </div>
             </div>
+
+            <div className="space-y-2 sm:space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
+                <Label className="text-gray-300 text-sm sm:text-base">Monero Price (XMR)</Label>
+                <span className="text-green-400 font-mono text-sm sm:text-base">${formatNumber(moneroPrice[0], 0)}</span>
+              </div>
+              <Slider
+                value={moneroPrice}
+                onValueChange={setMoneroPrice}
+                max={5000}
+                min={150}
+                step={moneroPrice[0] < 1000 ? 25 : 100}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>$150</span>
+                <span>$5,000</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                Privacy premium could drive XMR to $5K+ over 10 years
+              </div>
+            </div>
           </div>
 
           {/* Network Stats */}
@@ -160,7 +182,7 @@ const MobileMoneroCalculator = () => {
             </div>
             <div className="bg-gray-900/50 p-2 sm:p-3 rounded-lg text-center">
               <div className="text-green-400 font-mono text-sm sm:text-lg">
-                ${moneroPrice}
+                ${formatNumber(moneroPrice[0], 0)}
               </div>
               <div className="text-xs text-gray-400">XMR Price</div>
             </div>
