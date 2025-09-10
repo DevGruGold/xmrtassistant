@@ -32,7 +32,7 @@ const Index = () => {
               {/* Status Badge */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/5 border border-primary/20 text-primary text-sm font-medium animate-fade-in">
                 <div className="w-2 h-2 bg-mining-active rounded-full animate-pulse" />
-                Live Mining Network
+                We Don't Ask for Permission. We Build the Infrastructure.
               </div>
               
               {/* Compact Title */}
@@ -44,8 +44,15 @@ const Index = () => {
                 </h1>
                 
                 <p className="text-base sm:text-lg font-source text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in">
-                  Real-time mining data, AI insights, and instant engagement
+                  Mobile Mining Democracy • AI-Human Collaboration • Privacy as a Fundamental Right
                 </p>
+                
+                <div className="flex flex-wrap justify-center gap-2 text-xs font-medium text-muted-foreground/80 mt-3">
+                  <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">📱 Smartphone Mining</span>
+                  <span className="px-2 py-1 bg-mining-info/10 text-mining-info rounded-full">🤖 Autonomous AI</span>
+                  <span className="px-2 py-1 bg-mining-active/10 text-mining-active rounded-full">🔐 Privacy First</span>
+                  <span className="px-2 py-1 bg-secondary/20 text-secondary-foreground rounded-full">🕸️ Mesh Networks</span>
+                </div>
               </div>
             </div>
           </div>
@@ -54,23 +61,23 @@ const Index = () => {
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-4">
               <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                Live Mining Performance
+                Mobile Mining Democracy in Action
               </h2>
               <p className="font-source text-muted-foreground text-sm">
-                Real-time statistics • Updated every 30 seconds
+                Every smartphone becomes a tool of economic empowerment • Live data from the mesh network
               </p>
             </div>
             <LiveMiningStats />
           </div>
 
           {/* Integrated AI Chat Interface */}
-          <div className="max-w-6xl mx-auto mb-12 animate-fade-in">
-            <div className="text-center mb-6">
-              <h2 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground mb-2">
-                AI Assistant Eliza
+          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-4">
+              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                Eliza AI: Autonomous DAO Operator
               </h2>
-              <p className="font-source text-muted-foreground max-w-2xl mx-auto">
-                Ask questions about mining data, get insights, or explore XMRT features with voice or text
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                The philosophical AI guide embodying XMRT principles • Voice-enabled for mobile-first experience • 95%+ autonomous decision-making capabilities
               </p>
             </div>
             
@@ -81,34 +88,34 @@ const Index = () => {
           
           {/* Quick Actions */}
           <div className="max-w-5xl mx-auto text-center mb-8">
-            <div className="bg-card/30 border border-border rounded-2xl p-8 shadow-lg animate-slide-in">
-              <div className="space-y-6">
-                <h3 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground">
-                  Get Started
+            <div className="bg-card/30 border border-border rounded-2xl p-6 shadow-lg animate-slide-in">
+              <div className="space-y-4">
+                <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground">
+                  Join the Infrastructure Revolution
                 </h3>
-                <p className="font-source text-muted-foreground max-w-2xl mx-auto">
-                  Join the mining network or connect your wallet to access advanced features
+                <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                  Transform your smartphone into a mining node • Participate in true decentralized governance • Build the mesh network
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                   <Button 
                     size="lg"
-                    className="font-source font-semibold bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 group"
+                    className="font-source font-semibold bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 group text-sm"
                     asChild
                   >
                     <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
-                      <Sparkles className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                      Launch Mining Dashboard
-                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      <Sparkles className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+                      Start Mobile Mining
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </a>
                   </Button>
                   <Button 
                     size="lg"
                     variant="outline"
-                    className="font-source font-semibold px-8 py-4 rounded-lg transition-all duration-300"
+                    className="font-source font-semibold px-6 py-3 rounded-lg transition-all duration-300 text-sm"
                     onClick={() => setActiveTab('dashboard')}
                   >
-                    <Wallet2 className="mr-2 h-5 w-5" />
-                    Connect Wallet
+                    <Wallet2 className="mr-2 h-4 w-4" />
+                    Join DAO Governance
                   </Button>
                 </div>
               </div>
@@ -117,12 +124,12 @@ const Index = () => {
           
           {/* Mining Calculator */}
           <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
-            <div className="text-center mb-6">
-              <h3 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground mb-2">
-                Mining Calculator
+            <div className="text-center mb-4">
+              <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                Smartphone Mining Calculator
               </h3>
-              <p className="font-source text-muted-foreground max-w-2xl mx-auto">
-                Calculate potential returns and optimize your mining strategy
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                Calculate your mobile mining potential • ARM processor optimization • Thermal management included
               </p>
             </div>
             <MobileMoneroCalculator />
@@ -151,17 +158,17 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <Layers className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">Multi-Chain Support</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">Mobile Mining Democracy</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Manage assets across different blockchains seamlessly
+                  Transform smartphones into tools of economic empowerment
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 flex-wrap">
-                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">Ethereum</div>
-                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">Polygon</div>
-                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">BSC</div>
+                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">📱 ARM Optimized</div>
+                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">🔋 Battery Safe</div>
+                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">🌡️ Thermal Managed</div>
                 </div>
               </CardContent>
             </Card>
@@ -172,21 +179,21 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
                     <Users className="h-6 w-6 text-mining-active" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">DAO Governance</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">Autonomous DAO Governance</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Participate in XMRT governance and mining decisions
+                  95%+ autonomous AI with verifiable compute and community oversight
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Proposals</span>
+                    <span className="text-foreground font-medium">AI Executives</span>
                     <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">Active</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Members</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Growing</span>
+                    <span className="text-foreground font-medium">Verifiable Compute</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Certified</span>
                   </div>
                 </div>
               </CardContent>
@@ -198,21 +205,21 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
                     <Shield className="h-6 w-6 text-mining-info" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">Asset Management</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">Privacy-First Infrastructure</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Secure and efficient asset handling with mining rewards
+                  Mesh networks, private transactions, and censorship-resistant communication
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Security</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Enhanced</span>
+                    <span className="text-foreground font-medium">Mesh Network</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Building</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Mining</span>
-                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">Optimized</span>
+                    <span className="text-foreground font-medium">Privacy</span>
+                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">Fundamental</span>
                   </div>
                 </div>
               </CardContent>

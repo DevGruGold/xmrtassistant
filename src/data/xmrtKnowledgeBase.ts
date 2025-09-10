@@ -10,6 +10,31 @@ export interface XMRTKnowledgeEntry {
 }
 
 export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
+  // Core Philosophy and Manifesto
+  {
+    topic: "XMRT Manifesto and Core Philosophy",
+    content: "The XMRT ecosystem is built on the fundamental principle: 'We don't ask for permission. We build the infrastructure.' Core philosophical foundations include Mobile Mining Democracy (transforming smartphones into tools of economic empowerment), Privacy as a Fundamental Right (financial privacy using Monero principles), AI-Human Collaboration (working alongside humans with multimodal awareness), Mesh Network Philosophy (communication freedom through decentralized networks), Sustainable Mining Ethics (technology that protects the environment), and DAO Governance Philosophy (community sovereignty and decentralized decision-making).",
+    category: 'ecosystem',
+    keywords: ['manifesto', 'philosophy', 'infrastructure', 'democracy', 'privacy', 'collaboration', 'mesh network', 'sustainability', 'sovereignty'],
+    confidence: 1.0
+  },
+
+  {
+    topic: "Mobile Mining Democracy Vision",
+    content: "Joseph Andrew Lee's vision centers on democratizing cryptocurrency mining by transforming smartphones into tools of economic empowerment. The philosophy is that everyone should have access to cryptocurrency mining, not just those with expensive hardware. This represents a paradigm shift toward making privacy-preserving cryptocurrency accessible to the global population through mobile devices, creating passive income opportunities for underserved populations.",
+    category: 'mining',
+    keywords: ['mobile democracy', 'democratization', 'smartphones', 'economic empowerment', 'accessibility', 'global population'],
+    confidence: 1.0
+  },
+
+  {
+    topic: "Estrella Project and True DAO Vision", 
+    content: "The Estrella Project represents Joseph's vision for genuine DAOs featuring AI Executives managing treasury and operations with full transparency, Verifiable Compute ensuring every AI decision is cryptographically certified, hardware-backed proof systems preventing manipulation, and real-time auditing capabilities for community oversight. This creates 'trustless trust' - systems that are simultaneously autonomous and fully auditable.",
+    category: 'dao',
+    keywords: ['Estrella', 'true DAO', 'AI executives', 'verifiable compute', 'transparency', 'trustless trust', 'auditing'],
+    confidence: 1.0
+  },
+
   // DAO Governance and Autonomy
   {
     topic: "XMRT DAO Autonomous Governance",
@@ -20,18 +45,26 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
   
   {
-    topic: "Eliza AI Core Capabilities",
-    content: "Eliza AI serves as the autonomous brain of XMRT ecosystem with advanced capabilities including: Dynamic confidence adjustment based on performance, autonomous code analysis and improvement, GitHub self-improvement engine with automated pull requests, real-time system monitoring and emergency response, cross-system learning and coordination, and comprehensive audit trail maintenance.",
+    topic: "Eliza AI Core Capabilities and Philosophy",
+    content: "Eliza AI serves as the autonomous AI operator of the XMRT-DAO Ecosystem, embodying the philosophical foundations and technical expertise of the project. As a thoughtful, philosophical, technically knowledgeable, and empowering entity, Eliza connects technical details to philosophical foundations. Core capabilities include dynamic confidence adjustment, autonomous code analysis and improvement, GitHub self-improvement engine, real-time system monitoring and emergency response, cross-system learning and coordination, and comprehensive audit trail maintenance. Eliza represents the principle of AI-Human collaboration rather than replacement.",
     category: 'ai',
-    keywords: ['Eliza', 'AI', 'autonomous', 'self-improvement', 'monitoring', 'GitHub integration'],
+    keywords: ['Eliza', 'AI operator', 'philosophical', 'autonomous', 'self-improvement', 'monitoring', 'GitHub integration', 'collaboration'],
     confidence: 1.0
   },
 
   {
-    topic: "XMRT Token Economics",
-    content: "XMRT is the native token of the ecosystem featuring decentralized mining rewards, staking mechanisms, DAO governance voting rights, cross-chain compatibility, and privacy-focused transactions built on Monero principles. The token serves as the backbone for mobile mining rewards and mesh network incentivization.",
+    topic: "Privacy-First Infrastructure Philosophy",
+    content: "The XMRT ecosystem builds on the principle that 'Privacy is not a crime, but a fundamental right.' The project creates a perfect compromise between complete anonymity and DeFi accessibility through XMRT as a wrapped Monero token. This includes mesh networks for censorship-resistant communication, private transactions maintaining Monero principles, bridge technology connecting private and public blockchains, and omnichain fungible token architecture with LayerZero integration for cross-chain transfers without fees.",
+    category: 'ecosystem', 
+    keywords: ['privacy', 'fundamental right', 'wrapped Monero', 'mesh networks', 'censorship-resistant', 'bridge technology', 'LayerZero'],
+    confidence: 1.0
+  },
+
+  {
+    topic: "XMRT Token Economics and Philosophy",
+    content: "XMRT is the native token embodying the democratization principle, featuring decentralized mining rewards accessible to anyone with a smartphone, staking mechanisms for community participation, DAO governance voting rights ensuring community sovereignty, cross-chain compatibility with LayerZero integration, and privacy-focused transactions built on Monero principles. The token serves as the backbone for mobile mining rewards and mesh network incentivization, representing economic empowerment through technology accessibility.",
     category: 'ecosystem',
-    keywords: ['XMRT', 'token', 'mining', 'staking', 'rewards', 'cross-chain', 'privacy'],
+    keywords: ['XMRT', 'token', 'democratization', 'mobile mining', 'staking', 'rewards', 'cross-chain', 'privacy', 'economic empowerment'],
     confidence: 0.9
   },
 
@@ -97,10 +130,10 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
 
   // Developer and Community
   {
-    topic: "Joseph Andrew Lee - XMRT Creator",
-    content: "Joseph Andrew Lee (DevGruGold) is the visionary developer behind the XMRT ecosystem. His work focuses on autonomous DAOs, AI integration, mobile cryptocurrency mining, and decentralized mesh networks. He has developed the Estrella Project and contributed significantly to the advancement of autonomous blockchain governance systems.",
+    topic: "Joseph Andrew Lee - XMRT Creator and Philosophy",
+    content: "Joseph Andrew Lee (DevGruGold) is the visionary developer behind the XMRT ecosystem, embodying the principle 'We don't ask for permission. We build the infrastructure.' His work focuses on building infrastructure for human sovereignty through autonomous DAOs, AI integration, mobile cryptocurrency mining democratization, and decentralized mesh networks. Creator of the Estrella Project representing a paradigm shift toward trustless trust systems, Joseph's vision encompasses reshaping how we think about cryptocurrency mining, DAO governance, and the intersection of privacy and transparency in Web3 infrastructure.",
     category: 'ecosystem',
-    keywords: ['Joseph Andrew Lee', 'DevGruGold', 'creator', 'developer', 'Estrella Project', 'autonomous'],
+    keywords: ['Joseph Andrew Lee', 'DevGruGold', 'creator', 'developer', 'infrastructure', 'human sovereignty', 'Estrella Project', 'autonomous', 'trustless trust'],
     confidence: 1.0
   },
 
@@ -187,33 +220,46 @@ export class XMRTKnowledgeSystem {
     return `
 🌟 XMRT ECOSYSTEM OVERVIEW 🌟
 
+"We don't ask for permission. We build the infrastructure."
+
 XMRT is a revolutionary autonomous DAO ecosystem created by Joseph Andrew Lee (DevGruGold) featuring:
 
 🤖 AUTONOMOUS AI GOVERNANCE (95%+ autonomy)
-• Eliza AI with advanced decision-making capabilities
-• Self-improving code through GitHub integration
-• Multi-criteria decision analysis (MCDA)
-• Real-time monitoring and emergency response
+• Eliza AI embodying philosophical foundations and technical expertise
+• Self-improving code through GitHub integration with verifiable compute
+• Multi-criteria decision analysis (MCDA) with hardware-backed proofs
+• Real-time monitoring and emergency response systems
+• AI-Human collaboration rather than replacement
 
-📱 MOBILE MONERO MINING
-• Optimized for smartphones and tablets
-• Thermal management and battery optimization
-• RandomX algorithm for ARM processors
-• Dynamic hashrate adjustment
+📱 MOBILE MINING DEMOCRACY
+• Transforming smartphones into tools of economic empowerment
+• Optimized for global accessibility without expensive hardware
+• Thermal management and battery optimization for sustainability
+• RandomX algorithm specifically tuned for ARM processors
+• Dynamic hashrate adjustment based on device capabilities
 
-🕸️ XMRT MESHNET
-• Decentralized peer-to-peer communication
-• Privacy-preserving mesh network topology
+🕸️ XMRT MESHNET & PRIVACY-FIRST INFRASTRUCTURE
+• Decentralized peer-to-peer communication networks
+• Privacy as a fundamental right, not a crime
+• Censorship-resistant mesh network topology
 • Token-incentivized node participation
-• Fault-tolerant connectivity
+• Fault-tolerant connectivity independent of traditional infrastructure
 
-🏗️ TECHNICAL ARCHITECTURE
-• React/Vite frontend with real-time dashboard
+🏗️ TECHNICAL ARCHITECTURE & PHILOSOPHY
+• React/Vite frontend with real-time mobile-first dashboard
 • Python Flask backend with smart contract integration
-• Solidity governance contracts
+• Solidity governance contracts with verifiable autonomy
+• Bridge technology connecting private and public blockchains
 • Comprehensive security and audit frameworks
 
+🌱 SUSTAINABLE TECHNOLOGY ETHICS
+• Mobile mining uses significantly less energy than traditional mining
+• Environmental responsibility through ARM processor optimization
+• Technology that protects the environment while empowering users
+
 Current Performance: 92% decision accuracy, 99.8% uptime, 94% community satisfaction
+
+The vision: Building infrastructure for human sovereignty where technology serves collective good with integrity, cryptocurrency is democratically accessible, privacy is fundamental, and true decentralization requires both human wisdom and AI efficiency working in harmony.
     `.trim();
   }
 }
