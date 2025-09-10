@@ -80,19 +80,19 @@ const LiveMiningStats = () => {
 
   if (loading) {
     return (
-      <Card className="bg-gradient-to-br from-card to-secondary border-border animate-pulse">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Live Mining Stats
+      <Card className="bg-gradient-to-br from-card to-secondary border-border">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Activity className="h-4 w-4 animate-pulse text-primary" />
+            Connecting to Mining Network...
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="space-y-2">
-                <div className="h-4 bg-muted rounded animate-pulse" />
-                <div className="h-6 bg-muted rounded animate-pulse" />
+                <div className="h-3 bg-muted/50 rounded animate-pulse" />
+                <div className="h-5 bg-muted/30 rounded animate-pulse" />
               </div>
             ))}
           </div>
@@ -102,22 +102,103 @@ const LiveMiningStats = () => {
   }
 
   if (error) {
+    // Show demo data when offline instead of error
+    const demoStats = {
+      hash: 0,
+      validShares: 0,
+      invalidShares: 0,
+      lastHash: 0,
+      totalHashes: 0,
+      amtDue: 0,
+      amtPaid: 0,
+      txnCount: 0,
+      isOnline: false
+    };
+
     return (
-      <Card className="bg-gradient-to-br from-card to-secondary border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <Activity className="h-5 w-5" />
-            Mining Stats Error
+      <Card className="bg-gradient-to-br from-card to-secondary border-border relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-mining-info/5 opacity-50" />
+        <CardHeader className="relative pb-4">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Live Mining Stats</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                Offline
+              </Badge>
+              <button 
+                onClick={fetchMiningStats}
+                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">{error}</p>
-          <button 
-            onClick={fetchMiningStats}
-            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Retry
-          </button>
+        <CardContent className="relative">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Hash className="h-3 w-3" />
+                Current Hashrate
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                0 H/s
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <TrendingUp className="h-3 w-3" />
+                Valid Shares
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                0
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Coins className="h-3 w-3" />
+                Amount Due
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                0 XMR
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Clock className="h-3 w-3" />
+                Status
+              </div>
+              <div className="text-sm font-medium text-mining-inactive">
+                Connecting...
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Zap className="h-3 w-3" />
+                Network
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                Offline
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Activity className="h-3 w-3" />
+                Connection
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                Retry Available
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     );
