@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Smartphone, TrendingUp, Users, Zap } from 'lucide-react';
 
 const MobileMoneroCalculator = () => {
-  const [hashrate, setHashrate] = useState([600]); // H/s
+  const [hashrate, setHashrate] = useState([800]); // H/s - adjusted for modern devices
   const [users, setUsers] = useState([100]); // Number of users
 
   // Monero mining constants (approximate current values)
@@ -64,10 +64,11 @@ const MobileMoneroCalculator = () => {
             <div className="space-y-2 sm:space-y-3">
               <h4 className="text-base sm:text-lg font-semibold text-purple-400">How It Works</h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-300">
-                <li>• Mobile devices mine Monero using optimized algorithms</li>
+                <li>• Advanced mobile processors mine Monero optimally</li>
+                <li>• SSB (Solid State Battery) enables sustained 3-5+ KH/s</li>
                 <li>• Mining rewards fund XMRT DAO operations</li>
-                <li>• Decentralized network of mobile miners worldwide</li>
-                <li>• Sustainable and accessible cryptocurrency mining</li>
+                <li>• Decentralized network of high-performance mobile miners</li>
+                <li>• ARM optimization for maximum efficiency</li>
               </ul>
             </div>
             <div className="space-y-2 sm:space-y-3">
@@ -91,30 +92,35 @@ const MobileMoneroCalculator = () => {
             <span className="text-base sm:text-xl">MobileMonero Mining Calculator</span>
           </CardTitle>
           <CardDescription className="text-gray-400 text-sm sm:text-base">
-            Calculate potential earnings from mobile Monero mining
+            Calculate potential earnings from mobile Monero mining • Advanced processors & SSB support up to 5+ KH/s
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
           {/* Controls */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
-                <Label className="text-gray-300 text-sm sm:text-base">Average Hashrate per Device</Label>
-                <span className="text-purple-400 font-mono text-sm sm:text-base">{hashrate[0]} H/s</span>
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
+                  <Label className="text-gray-300 text-sm sm:text-base">Average Hashrate per Device</Label>
+                  <span className="text-purple-400 font-mono text-sm sm:text-base">
+                    {hashrate[0] >= 1000 ? `${(hashrate[0] / 1000).toFixed(1)} KH/s` : `${hashrate[0]} H/s`}
+                  </span>
+                </div>
+                <Slider
+                  value={hashrate}
+                  onValueChange={setHashrate}
+                  max={5000}
+                  min={200}
+                  step={100}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>200 H/s</span>
+                  <span>5.0 KH/s</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Modern processors with SSB can achieve 3-5+ KH/s
+                </div>
               </div>
-              <Slider
-                value={hashrate}
-                onValueChange={setHashrate}
-                max={1200}
-                min={200}
-                step={50}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>200 H/s</span>
-                <span>1,200 H/s</span>
-              </div>
-            </div>
 
             <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
@@ -140,7 +146,9 @@ const MobileMoneroCalculator = () => {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="bg-gray-900/50 p-2 sm:p-3 rounded-lg text-center">
               <div className="text-purple-400 font-mono text-sm sm:text-lg">
-                {formatNumber(calculations.totalHashrate)} H/s
+                {calculations.totalHashrate >= 1000 ? 
+                  `${formatNumber(calculations.totalHashrate / 1000)} KH/s` : 
+                  `${formatNumber(calculations.totalHashrate)} H/s`}
               </div>
               <div className="text-xs text-gray-400">Total Hashrate</div>
             </div>
