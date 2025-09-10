@@ -130,14 +130,17 @@ const MobileMoneroCalculator = () => {
               <Slider
                 value={users}
                 onValueChange={setUsers}
-                max={1000000}
+                max={2000000000}
                 min={1}
-                step={users[0] < 1000 ? 1 : users[0] < 10000 ? 10 : users[0] < 100000 ? 100 : 1000}
+                step={users[0] <= 100 ? 1 : users[0] <= 1000 ? 5 : users[0] <= 10000 ? 50 : users[0] <= 100000 ? 500 : users[0] <= 1000000 ? 5000 : users[0] <= 10000000 ? 50000 : 500000}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-gray-500">
                 <span>1</span>
-                <span>1M</span>
+                <span>2B</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                2B Android users worldwide - each could mine XMR
               </div>
             </div>
 
