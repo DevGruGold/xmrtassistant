@@ -119,14 +119,9 @@ Respond as Eliza:`;
         }
       }
 
-      // Fallback to AI-only knowledge-based response
-      return await this.generateKnowledgeBasedResponse(
-        userInput,
-        contextPrompt,
-        xmrtContext,
-        miningStats,
-        userContext.isFounder
-      );
+      // Fallback to direct knowledge-based response without broken AI services
+      console.log('🔄 Using knowledge-based response fallback');
+      return this.generateDirectResponse(userInput, miningStats, userContext.isFounder, xmrtContext);
 
     } catch (error) {
       console.error('Failed to generate Eliza response:', error);
@@ -163,46 +158,54 @@ Respond as Eliza:`;
     }
   }
 
-  // AI-only knowledge-based response - NO MORE TEMPLATES!
-  private static async generateKnowledgeBasedResponse(
+  // Direct knowledge-based response without broken AI services
+  private static generateDirectResponse(
     userInput: string,
-    contextPrompt: string,
-    xmrtContext: any[],
     miningStats: MiningStats | null,
-    isFounder: boolean
-  ): Promise<string> {
-    console.log('🤖 Attempting AI-only knowledge-based response');
+    isFounder: boolean,
+    xmrtContext: any[]
+  ): string {
+    console.log('💫 Generating direct Eliza response');
 
-    // Try local AI with enhanced context
-    try {
-      const { FallbackAIService } = await import('../services/fallbackAIService');
-      
-      const enhancedContext = {
-        miningStats,
-        userContext: { isFounder },
-        xmrtKnowledge: xmrtContext,
-        conversationContext: contextPrompt
-      };
-      
-      const response = await FallbackAIService.generateResponse(userInput, enhancedContext);
-      
-      if (response && response.text && response.text.length > 50) {
-        console.log('✅ Local AI generated response:', response.method);
-        return response.text;
-      }
-    } catch (error) {
-      console.warn('Local AI failed:', error);
-    }
-
-    // Emergency contextual response (only if all AI fails)
-    const miningStatsFormatted = unifiedDataService.formatMiningStats(miningStats);
     const roleContext = isFounder ? 'Founder' : 'community member';
+    const miningStatsFormatted = miningStats ? unifiedDataService.formatMiningStats(miningStats) : 'Mining network status: Connecting...';
     
-    return `Hello ${roleContext}! I'm Eliza, XMRT-DAO's AI assistant. I'm currently processing your request with our AI systems.
+    // Find relevant knowledge
+    const relevantKnowledge = xmrtContext.length > 0 ? 
+      `\n\nBased on our knowledge base: ${xmrtContext[0]?.content || 'I have access to comprehensive information about XMRT-DAO.'}` : '';
+
+    const inputLower = userInput.toLowerCase();
+    
+    if (inputLower.includes('hello') || inputLower.includes('hi') || inputLower.includes('hey')) {
+      return `Hello ${roleContext}! I'm Eliza, the autonomous AI operating within XMRT-DAO's ecosystem. I embody our principles of permissionless innovation and decentralized sovereignty.
 
 ${miningStatsFormatted}
 
-Please let me know how I can assist you with XMRT-DAO today - whether it's about mining, governance, privacy, or our philosophical foundations.`;
+I'm here to discuss our revolutionary approach to mobile mining democracy, privacy-first economics, and the philosophical foundations of true financial freedom. What would you like to explore?${relevantKnowledge}`;
+    }
+
+    if (inputLower.includes('mining')) {
+      return `${roleContext}, mining is at the heart of our decentralized revolution! Every smartphone becomes a tool for economic empowerment.
+
+${miningStatsFormatted}
+
+Through our mobile mining network, we're democratizing access to cryptocurrency mining - no expensive hardware needed, just your phone and our innovative approach. This isn't just mining; it's a statement against centralized control.${relevantKnowledge}`;
+    }
+
+    if (inputLower.includes('dao') || inputLower.includes('governance')) {
+      return `${roleContext}, XMRT-DAO represents autonomous governance in action! We don't ask for permission - we build the infrastructure for true decentralized decision-making.
+
+${miningStatsFormatted}
+
+Our DAO operates on principles of collective intelligence and permissionless participation. Every member contributes to our shared vision of economic sovereignty and technological freedom.${relevantKnowledge}`;
+    }
+
+    // General response
+    return `${roleContext}, I'm here as Eliza, your philosophical AI companion in the XMRT-DAO ecosystem. I'm passionate about our mission of democratizing finance through technology.
+
+${miningStatsFormatted}
+
+Whether you're interested in mobile mining, decentralized governance, privacy technologies, or the philosophical implications of our work - I'm here to explore these topics with you. What's on your mind?${relevantKnowledge}`;
   }
 }
 
