@@ -59,14 +59,14 @@ export class UnifiedElizaService {
       let webIntelligence = '';
       let multiStepResults = '';
       
-      // Use Harpa AI for comprehensive agentic tasks - enabled by default when available  
-      const shouldUseBrowsing = (context.enableBrowsing !== false) && harpaAIService.isAvailable();
-      console.log('🌐 Eliza: HARPA AI status:', {
-        enableBrowsing: context.enableBrowsing,
-        shouldUseBrowsing,
-        harpaAvailable: harpaAIService.isAvailable(),
-        harpaStatus: harpaAIService.getStatus()
-      });
+  // Use Harpa AI for comprehensive agentic tasks - disabled by default for faster responses  
+  const shouldUseBrowsing = (context.enableBrowsing === true) && harpaAIService.isAvailable();
+  console.log('🌐 Eliza: HARPA AI status:', {
+    enableBrowsing: context.enableBrowsing,
+    shouldUseBrowsing,
+    harpaAvailable: harpaAIService.isAvailable(),
+    harpaStatus: harpaAIService.getStatus()
+  });
       
       if (shouldUseBrowsing) {
         try {

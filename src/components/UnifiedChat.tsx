@@ -423,19 +423,26 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
-      // Store messages
+      console.log('💬 Starting message processing:', textInput.trim());
+      console.log('🔧 Context:', { miningStats: !!miningStats, userContext: !!userContext });
+      
+      // Store user message
       await conversationPersistence.storeMessage(
         textInput.trim(),
         'user'
       );
+      
+      console.log('💾 User message stored, generating response...');
       
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
         inputMode: 'text',
         shouldSpeak: false,
-        enableBrowsing: true
+        enableBrowsing: false  // Disable browsing for faster responses
       });
+      
+      console.log('✅ Response generated:', response.substring(0, 100) + '...');
       
       await conversationPersistence.storeMessage(
         response,
@@ -479,15 +486,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       }
       
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error('❌ Chat error:', error);
+      console.error('Error details:', error.message, error.stack);
       const errorMessage: UnifiedMessage = {
         id: `error-${Date.now()}`,
-        content: 'I apologize, but I\'m having trouble processing your message right now.',
+        content: 'I apologize, but I\'m having trouble processing your message right now. Please try again.',
         sender: 'assistant',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
+      console.log('🏁 Message processing complete, setting isProcessing to false');
       setIsProcessing(false);
     }
   };
