@@ -3,12 +3,13 @@ import { unifiedDataService, type MiningStats, type UserContext } from './unifie
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-interface ElizaContext {
+export interface ElizaContext {
   miningStats?: MiningStats | null;
   userContext?: UserContext | null;
   inputMode?: string;
   shouldSpeak?: boolean; // Control TTS to prevent duplication
   enableBrowsing?: boolean; // Enable Harpa AI agentic browsing
+  conversationSummary?: string; // Previous conversation context
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -146,6 +147,7 @@ Key Context:
 - Input Mode: ${context.inputMode || 'text'}
 - Web Intelligence: ${webIntelligence || 'No additional web data'}
 ${multiStepResults ? `- Agentic Analysis: ${multiStepResults}` : ''}
+${context.conversationSummary ? `- Previous Conversation Context: ${context.conversationSummary}` : ''}
 
 XMRT Knowledge Context:
 ${xmrtContext.map(item => `- ${item.topic}: ${item.content.substring(0, 200)}...`).join('\n')}

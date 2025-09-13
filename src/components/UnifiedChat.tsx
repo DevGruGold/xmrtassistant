@@ -126,24 +126,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         try {
           await conversationPersistence.initializeSession();
           
-          // Load conversation context (summaries + recent messages only)
-          const context = await conversationPersistence.getConversationContext(10);
+          // Load conversation context (summaries only, no messages for return users)
+          const context = await conversationPersistence.getConversationContext(0); // 0 messages = summaries only
           
-          if (context.recentMessages.length > 0 || context.summaries.length > 0) {
-            const convertedMessages: UnifiedMessage[] = context.recentMessages.map(msg => ({
-              id: msg.id,
-              content: msg.content,
-              sender: msg.sender,
-              timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
-              ...msg.metadata
-            }));
-            
-            setMessages(convertedMessages);
+          if (context.summaries.length > 0 || context.totalMessageCount > 0) {
+            // Set context but don't load messages - let AI greeting handle the context
             setConversationSummaries(context.summaries);
-            setHasMoreMessages(context.hasMoreMessages);
+            setHasMoreMessages(context.totalMessageCount > 0);
             setTotalMessageCount(context.totalMessageCount);
             
-            console.log(`Loaded ${convertedMessages.length} recent messages, ${context.summaries.length} summaries. Total: ${context.totalMessageCount} messages.`);
+            console.log(`Found ${context.summaries.length} summaries for ${context.totalMessageCount} total messages. Starting with summary-aware greeting.`);
           }
         } catch (error) {
           console.log('Conversation persistence temporarily disabled:', error);
@@ -165,23 +157,34 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
-  // Generate AI-powered greeting when user context is available (only if no history)
+  // Generate AI-powered greeting when user context is available
   useEffect(() => {
-    if (userContext && messages.length === 0 && conversationSummaries.length === 0) {
+    if (userContext && messages.length === 0) {
       generateAIGreeting();
     }
-  }, [userContext, messages.length, conversationSummaries.length]);
+  }, [userContext, conversationSummaries]);
 
   const generateAIGreeting = async () => {
     setIsProcessing(true);
     try {
-      const greetingPrompt = userContext?.isFounder 
-        ? "Generate a personalized greeting for the founder of XMRT-DAO"
-        : "Generate a welcoming introduction to XMRT-DAO for a new user";
+      let greetingPrompt: string;
+      
+      if (conversationSummaries.length > 0 && totalMessageCount > 0) {
+        // Return user with conversation history
+        const latestSummary = conversationSummaries[conversationSummaries.length - 1];
+        greetingPrompt = `Generate a warm return greeting for a user coming back to XMRT-DAO. Reference our previous conversation where we discussed: "${latestSummary.summaryText}". Ask how you can help continue the conversation or discuss something new. Keep it friendly and contextual.`;
+      } else if (userContext?.isFounder) {
+        // New founder greeting
+        greetingPrompt = "Generate a personalized greeting for the founder of XMRT-DAO";
+      } else {
+        // New user greeting
+        greetingPrompt = "Generate a welcoming introduction to XMRT-DAO for a new user";
+      }
         
-        const responseText = await UnifiedElizaService.generateResponse(greetingPrompt, {
+      const responseText = await UnifiedElizaService.generateResponse(greetingPrompt, {
         miningStats: miningStats,
-        userContext: userContext
+        userContext: userContext,
+        conversationSummary: conversationSummaries.length > 0 ? conversationSummaries[conversationSummaries.length - 1].summaryText : undefined
       });
       
       const greeting: UnifiedMessage = {
@@ -194,20 +197,29 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages([greeting]);
       setLastElizaMessage(responseText);
       
-        // Store greeting in persistent storage
-        try {
-          await conversationPersistence.storeMessage(responseText, 'assistant', {
-            type: 'greeting'
-          });
-        } catch (error) {
-          console.log('Conversation persistence error:', error);
-        }
+      // Store greeting in persistent storage
+      try {
+        await conversationPersistence.storeMessage(responseText, 'assistant', {
+          type: 'greeting',
+          isReturnUser: conversationSummaries.length > 0,
+          totalPreviousMessages: totalMessageCount
+        });
+      } catch (error) {
+        console.log('Conversation persistence error:', error);
+      }
     } catch (error) {
       console.error('Failed to generate AI greeting:', error);
-      // Minimal fallback only if AI completely fails
+      // Contextual fallback based on user status
+      let fallbackContent: string;
+      if (conversationSummaries.length > 0) {
+        fallbackContent = `Welcome back! I remember our previous conversation. How can I help you continue where we left off, or would you like to discuss something new about XMRT-DAO?`;
+      } else {
+        fallbackContent = "Hello! I'm Eliza, your XMRT-DAO AI assistant. How can I help you today?";
+      }
+      
       const fallback: UnifiedMessage = {
         id: 'greeting',
-        content: "Hello! I'm Eliza, your XMRT-DAO AI assistant. How can I help you today?",
+        content: fallbackContent,
         sender: 'assistant',
         timestamp: new Date()
       };
@@ -223,9 +235,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     
     setLoadingMoreMessages(true);
     try {
-      const moreMessages = await conversationPersistence.loadMoreMessages(messages.length, 20);
-      if (moreMessages.length > 0) {
-        const convertedMessages: UnifiedMessage[] = moreMessages.map(msg => ({
+      // Load recent messages from the database (this replaces the current empty state)
+      const recentMessages = await conversationPersistence.getRecentConversationHistory(20);
+      if (recentMessages.length > 0) {
+        const convertedMessages: UnifiedMessage[] = recentMessages.map(msg => ({
           id: msg.id,
           content: msg.content,
           sender: msg.sender,
@@ -233,13 +246,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           ...msg.metadata
         }));
         
-        // Prepend older messages to the beginning
-        setMessages(prev => [...convertedMessages, ...prev]);
+        // Replace the greeting with actual conversation history
+        setMessages(prev => {
+          // Keep the greeting if it exists, then add the history
+          const greeting = prev.find(msg => msg.id === 'greeting');
+          return greeting ? [greeting, ...convertedMessages] : convertedMessages;
+        });
       }
       
-      // Check if there are more messages
-      const currentTotal = messages.length + moreMessages.length;
-      setHasMoreMessages(currentTotal < totalMessageCount);
+      // After loading first batch, enable normal pagination
+      setHasMoreMessages(recentMessages.length >= 20 && recentMessages.length < totalMessageCount);
     } catch (error) {
       console.error('Failed to load more messages:', error);
     } finally {
@@ -563,8 +579,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4 space-y-4">
-            {/* Load More Messages Button */}
-            {hasMoreMessages && (
+            {/* Load Previous Conversation Button */}
+            {hasMoreMessages && totalMessageCount > 0 && (
               <div className="flex justify-center">
                 <Button
                   onClick={loadMoreMessages}
@@ -573,16 +589,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                   size="sm"
                   className="text-xs"
                 >
-                  {loadingMoreMessages ? 'Loading...' : `Load More (${totalMessageCount - messages.length} older messages)`}
+                  {loadingMoreMessages ? 'Loading...' : `View Previous Conversation (${totalMessageCount} messages)`}
                 </Button>
               </div>
             )}
             
-            {/* Conversation Summary Display */}
-            {conversationSummaries.length > 0 && messages.length > 0 && (
-              <div className="bg-muted/30 border border-border/30 rounded-lg p-3 mb-4">
-                <div className="text-xs text-muted-foreground mb-2">Previous conversation summary:</div>
-                <div className="text-xs leading-relaxed">
+            {/* Conversation Summary Context (only show if user hasn't loaded messages) */}
+            {conversationSummaries.length > 0 && !messages.some(m => m.id !== 'greeting') && (
+              <div className="bg-muted/30 border border-border/30 rounded-lg p-3 mb-2">
+                <div className="text-xs text-muted-foreground mb-1">Last conversation context:</div>
+                <div className="text-xs leading-relaxed opacity-75">
                   {conversationSummaries[conversationSummaries.length - 1]?.summaryText}
                 </div>
               </div>
