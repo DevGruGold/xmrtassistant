@@ -5,7 +5,6 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
-import { MobileVoiceInterface } from './MobileVoiceInterface';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX } from 'lucide-react';
 
@@ -70,9 +69,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
-  // Input mode state - streamlined to 2 modes
-  type InputMode = 'text' | 'voice';
-  const [inputMode, setInputMode] = useState<InputMode>('voice'); // Default to voice for fluid experience
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
 
@@ -159,7 +155,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (userContext && messages.length === 0) {
       generateAIGreeting();
     }
-  }, [userContext, inputMode]);
+  }, [userContext]);
 
   const generateAIGreeting = async () => {
     setIsProcessing(true);
@@ -170,8 +166,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         
         const responseText = await UnifiedElizaService.generateResponse(greetingPrompt, {
         miningStats: miningStats,
-        userContext: userContext,
-        inputMode: inputMode
+        userContext: userContext
       });
       
       const greeting: UnifiedMessage = {
@@ -186,8 +181,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       // Store greeting in persistent storage
       await conversationPersistence.storeMessage(responseText, 'eliza', {
-        type: 'greeting',
-        inputMode: inputMode
+        type: 'greeting'
       });
     } catch (error) {
       console.error('Failed to generate AI greeting:', error);
@@ -244,23 +238,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     return unifiedDataService.formatMiningStats({ hash: hashrate } as MiningStats).split('\n')[1] || `${hashrate} H/s`;
   };
 
-  // Streamlined mode management
-  const getModeIcon = (mode: InputMode) => {
-    switch (mode) {
-      case 'text': return '💬';
-      case 'voice': return '🎤';
-      default: return '💬';
-    }
-  };
-
-  const getModeLabel = (mode: InputMode) => {
-    switch (mode) {
-      case 'text': return 'Text';
-      case 'voice': return 'Voice';
-      default: return 'Text';
-    }
-  };
-
   // Unified response display with intelligent TTS control
   const displayResponse = async (responseText: string, shouldSpeak: boolean = false) => {
     const elizaMessage: UnifiedMessage = {
@@ -280,11 +257,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (shouldSpeak && geminiTTSService && voiceEnabled) {
       try {
         setIsSpeaking(true);
-        
-        // Add small delay in voice mode to let speech recognition settle
-        if (inputMode === 'voice') {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
         
         await geminiTTSService.speakText({ text: responseText });
       } catch (error) {
@@ -322,8 +294,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Use UnifiedElizaService directly for Gemini AI response
       const aiResponseText = await UnifiedElizaService.generateResponse(transcript, {
         miningStats: miningStats || undefined,
-        userContext: userContext || undefined,
-        inputMode: inputMode
+        userContext: userContext || undefined
       });
 
       setCurrentAIMethod('Gemini AI');
@@ -402,8 +373,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Use UnifiedElizaService directly for Gemini AI response
       const aiResponseText = await UnifiedElizaService.generateResponse(userMessage.content, {
         miningStats: miningStats || undefined,
-        userContext: userContext || undefined,
-        inputMode: inputMode
+        userContext: userContext || undefined
       });
 
       setCurrentAIMethod('Gemini AI');
@@ -491,17 +461,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Simplified Mode Toggle */}
-            <Button
-              onClick={() => setInputMode(inputMode === 'text' ? 'voice' : 'text')}
-              variant="ghost"
-              size="sm"
-              className="text-xs gap-2"
-            >
-              {inputMode === 'text' ? '🎤' : '💬'}
-              {inputMode === 'text' ? 'Voice' : 'Text'}
-            </Button>
-
             {/* Voice Toggle */}
             <Button
               onClick={() => setVoiceEnabled(!voiceEnabled)}
@@ -558,38 +517,28 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         </ScrollArea>
       </div>
 
-      {/* Streamlined Input Area */}
+      {/* Text Input Area */}
       <div className="border-t border-border/50 bg-background/50">
-        {inputMode === 'voice' ? (
-          <div className="p-4">
-            <MobileVoiceInterface
-              onTranscript={handleVoiceInput}
-              isProcessing={isProcessing}
-              disabled={!voiceEnabled}
+        <div className="p-4">
+          <div className="flex gap-3">
+            <Input
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask Eliza anything..."
+              className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
+              disabled={isProcessing || isSpeaking}
             />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!textInput.trim() || isProcessing || isSpeaking}
+              size="sm"
+              className="rounded-full min-h-[48px] min-w-[48px] hover-scale"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
-        ) : (
-          <div className="p-4">
-            <div className="flex gap-3">
-              <Input
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask Eliza anything..."
-                className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
-                disabled={isProcessing || isSpeaking}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!textInput.trim() || isProcessing || isSpeaking}
-                size="sm"
-                className="rounded-full min-h-[48px] min-w-[48px] hover-scale"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </Card>
   );
