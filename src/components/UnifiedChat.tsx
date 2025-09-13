@@ -14,6 +14,7 @@ import { GeminiTTSService } from '@/services/geminiTTSService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 import { conversationPersistence } from '@/services/conversationPersistenceService';
+import { quickGreetingService } from '@/services/quickGreetingService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -157,76 +158,42 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
-  // Generate AI-powered greeting when user context is available
+  // Generate immediate greeting when user context is available
   useEffect(() => {
     if (userContext && messages.length === 0) {
-      generateAIGreeting();
+      generateQuickGreeting();
     }
   }, [userContext, conversationSummaries]);
 
-  const generateAIGreeting = async () => {
-    setIsProcessing(true);
-    try {
-      let greetingPrompt: string;
-      
-      if (conversationSummaries.length > 0 && totalMessageCount > 0) {
-        // Return user with conversation history
-        const latestSummary = conversationSummaries[conversationSummaries.length - 1];
-        greetingPrompt = `Generate a warm return greeting for a user coming back to XMRT-DAO. Reference our previous conversation where we discussed: "${latestSummary.summaryText}". Ask how you can help continue the conversation or discuss something new. Keep it friendly and contextual.`;
-      } else if (userContext?.isFounder) {
-        // New founder greeting
-        greetingPrompt = "Generate a personalized greeting for the founder of XMRT-DAO";
-      } else {
-        // New user greeting
-        greetingPrompt = "Generate a welcoming introduction to XMRT-DAO for a new user";
-      }
-        
-      const responseText = await UnifiedElizaService.generateResponse(greetingPrompt, {
-        miningStats: miningStats,
-        userContext: userContext,
-        conversationSummary: conversationSummaries.length > 0 ? conversationSummaries[conversationSummaries.length - 1].summaryText : undefined
-      });
-      
-      const greeting: UnifiedMessage = {
-        id: 'greeting',
-        content: responseText,
-        sender: 'assistant',
-        timestamp: new Date()
-      };
-      
-      setMessages([greeting]);
-      setLastElizaMessage(responseText);
-      
-      // Store greeting in persistent storage
-      try {
-        await conversationPersistence.storeMessage(responseText, 'assistant', {
-          type: 'greeting',
-          isReturnUser: conversationSummaries.length > 0,
-          totalPreviousMessages: totalMessageCount
-        });
-      } catch (error) {
-        console.log('Conversation persistence error:', error);
-      }
-    } catch (error) {
-      console.error('Failed to generate AI greeting:', error);
-      // Contextual fallback based on user status
-      let fallbackContent: string;
-      if (conversationSummaries.length > 0) {
-        fallbackContent = `Welcome back! I remember our previous conversation. How can I help you continue where we left off, or would you like to discuss something new about XMRT-DAO?`;
-      } else {
-        fallbackContent = "Hello! I'm Eliza, your XMRT-DAO AI assistant. How can I help you today?";
-      }
-      
-      const fallback: UnifiedMessage = {
-        id: 'greeting',
-        content: fallbackContent,
-        sender: 'assistant',
-        timestamp: new Date()
-      };
-      setMessages([fallback]);
-    } finally {
-      setIsProcessing(false);
-    }
+  const generateQuickGreeting = () => {
+    // Show immediate greeting without waiting for AI
+    const cachedSummary = quickGreetingService.getCachedConversationSummary();
+    
+    const quickGreeting = quickGreetingService.generateQuickGreeting({
+      isFounder: userContext?.isFounder,
+      conversationSummary: cachedSummary?.summary || (conversationSummaries.length > 0 ? conversationSummaries[conversationSummaries.length - 1].summaryText : undefined),
+      totalMessageCount: cachedSummary?.messageCount || totalMessageCount,
+      miningStats
+    });
+    
+    const greeting: UnifiedMessage = {
+      id: 'quick-greeting',
+      content: quickGreeting,
+      sender: 'assistant',
+      timestamp: new Date()
+    };
+    
+    setMessages([greeting]);
+    setLastElizaMessage(quickGreeting);
+    
+    // Store greeting in persistent storage (non-blocking)
+    conversationPersistence.storeMessage(quickGreeting, 'assistant', {
+      type: 'quick-greeting',
+      isReturnUser: conversationSummaries.length > 0,
+      totalPreviousMessages: totalMessageCount
+    }).catch(error => {
+      console.log('Conversation persistence error:', error);
+    });
   };
 
   // Load more messages for pagination

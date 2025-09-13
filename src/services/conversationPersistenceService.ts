@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { quickGreetingService } from './quickGreetingService';
 
 export interface ConversationMessage {
   id: string;
