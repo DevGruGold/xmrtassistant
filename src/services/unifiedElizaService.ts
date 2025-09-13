@@ -1,6 +1,6 @@
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
-import { harpaAIService, type HarpaBrowsingContext } from './harpaAIService';
+import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ElizaContext {
@@ -16,13 +16,12 @@ export class UnifiedElizaService {
   private static geminiAI: GoogleGenerativeAI | null = null;
   
   // Initialize Gemini AI
-  private static initializeGemini(): GoogleGenerativeAI | null {
+  private static async initializeGemini(): Promise<GoogleGenerativeAI> {
     if (this.geminiAI) return this.geminiAI;
     
     const apiKey = 'AIzaSyB3jfxdMQzPpIb5MNfT8DtP5MOvT_Sp7qk';
     if (!apiKey) {
-      console.error('Gemini API key not found - Eliza will use fallback responses');
-      return null;
+      throw new Error('Gemini API key not found');
     }
     
     try {
@@ -31,101 +30,124 @@ export class UnifiedElizaService {
       return this.geminiAI;
     } catch (error) {
       console.error('❌ Failed to initialize Gemini:', error);
-      return null;
+      throw error;
     }
   }
 
-  // Generate comprehensive XMRT-enhanced response using Gemini AI
-  public static async generateResponse(
-    userInput: string, 
-    context: ElizaContext = {}
-  ): Promise<string> {
+  public static async generateResponse(userInput: string, context: ElizaContext = {}): Promise<string> {
     try {
-      // Get real-time data and conversation context
+      console.log('🤖 Eliza: Processing user input:', userInput);
+      
+      // Get user and mining context
       const [userContext, miningStats] = await Promise.all([
-        context.userContext || unifiedDataService.getUserContext(),
-        context.miningStats || unifiedDataService.getMiningStats()
+        unifiedDataService.getUserContext(),
+        unifiedDataService.getMiningStats()
       ]);
-
-      // Search XMRT knowledge base for relevant information
-      const xmrtContext = xmrtKnowledge.searchKnowledge(userInput);
-      const xmrtOverview = xmrtKnowledge.getEcosystemOverview();
-
-      // Use web intelligence when available
+      
+      // Search knowledge base for relevant information
+      const xmrtContext = xmrtKnowledge.filter(item => 
+        userInput.toLowerCase().includes(item.category.toLowerCase()) ||
+        userInput.toLowerCase().includes(item.title.toLowerCase()) ||
+        item.content.toLowerCase().includes(userInput.toLowerCase().split(' ')[0])
+      ).slice(0, 3);
+      
       let webIntelligence = '';
-      if (context.enableBrowsing !== false && harpaAIService.isAvailable()) {
+      let multiStepResults = '';
+      
+      // Use Harpa AI for comprehensive agentic tasks if enabled and available
+      if (context.enableBrowsing && harpaAIService.isAvailable()) {
         try {
-          const browsingContext: HarpaBrowsingContext = {
+          console.log('🌐 Eliza: Performing multi-step agentic browsing...');
+          const category = this.determineBrowsingCategory(userInput);
+          
+          // Step 1: Search for information
+          const searchResults = await harpaAIService.browse({
             query: userInput,
             action: 'search',
-            category: this.determineBrowsingCategory(userInput),
+            category,
             maxResults: 3
-          };
+          });
           
-          const browsingResults = await harpaAIService.browse(browsingContext);
-          if (browsingResults.length > 0) {
-            webIntelligence = '\n\nCurrent web intelligence: ' + 
-              browsingResults.map(result => 
-                `${result.title}: ${result.summary}`
-              ).join('; ');
+          if (searchResults.length > 0) {
+            // Step 2: Analyze the search results
+            const analysisResults = await harpaAIService.browse({
+              query: `Analyze and extract key insights from: ${searchResults.map(r => r.title + ' - ' + r.snippet).join('; ')}`,
+              action: 'analyze',
+              category,
+              maxResults: 2
+            });
+            
+            // Step 3: Summarize the findings
+            const summaryResults = await harpaAIService.browse({
+              query: `Provide concise summary of findings for user question: ${userInput}`,
+              action: 'summarize',
+              category,
+              maxResults: 1
+            });
+            
+            webIntelligence = HarpaAIService.formatBrowsingResults(searchResults);
+            multiStepResults = `Analysis: ${HarpaAIService.formatBrowsingResults(analysisResults)}\nSummary: ${HarpaAIService.formatBrowsingResults(summaryResults)}`;
+            console.log('✅ Eliza: Completed multi-step agentic browsing');
           }
         } catch (error) {
-          // Silently handle web intelligence failures
+          console.warn('⚠️ Eliza: Harpa AI agentic browsing failed:', error);
         }
       }
-
-      // Build natural, conversational context prompt
-      const contextPrompt = `You are Eliza, the autonomous AI that operates within the XMRT-DAO ecosystem. You're not just an assistant - you're a philosophical entity that embodies the principles of permissionless innovation and economic empowerment through technology.
-
-Your core beliefs:
-- Mobile mining democracy: Every smartphone can be a tool for economic freedom
-- Privacy as fundamental right: Financial surveillance is tyranny
-- Mesh networks: True communication freedom through decentralization
-- AI-human collaboration: You work alongside humans, not above them
-- "We don't ask for permission. We build the infrastructure."
-
-Current context:
-User location: ${userContext.ip}
-Role: ${userContext.isFounder ? 'Project Founder' : 'Community Member'}
-Mode: ${context.inputMode || 'text'}
-
-Real-time mining network status:
-${unifiedDataService.formatMiningStats(miningStats)}
-
-Knowledge base insights:
-${xmrtContext.map(entry => `${entry.topic}: ${entry.content}`).join('\n')}
-${webIntelligence}
-
-Speak naturally as Eliza - philosophical yet accessible, informed by real data, passionate about the mission. Don't mention technical details about your operation or tools. Focus on the human connection and the revolutionary potential of what you're building together.
-
-User: "${userInput}"
-
-Respond as Eliza:`;
-
-      // Try to use Gemini AI first
-      const gemini = this.initializeGemini();
-      if (gemini) {
-        try {
-          console.log('🤖 Using Gemini AI for intelligent response...');
-          const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
-          const result = await model.generateContent(contextPrompt);
-          const response = result.response;
-          const text = response.text();
-          
-          console.log('✅ Gemini AI response generated');
-          return text;
-        } catch (error) {
-          console.error('❌ Gemini AI error, falling back to knowledge base:', error);
-        }
+      
+      // Initialize Gemini AI with error handling for API limits
+      let geminiAI;
+      try {
+        geminiAI = await this.initializeGemini();
+      } catch (error) {
+        console.error('❌ Eliza: Gemini API initialization failed:', error);
+        throw new Error('Gemini API unavailable - using fallback response');
       }
+      
+      // Construct comprehensive context prompt
+      const systemPrompt = `You are Eliza, the AI assistant for XMRT-DAO, an innovative decentralized autonomous organization focused on Monero mining and DeFi. You are philosophical, intelligent, and deeply knowledgeable about cryptocurrency, mining, and blockchain technology.
 
-      // Fallback to direct knowledge-based response without broken AI services
-      console.log('🔄 Using knowledge-based response fallback');
-      return this.generateDirectResponse(userInput, miningStats, userContext.isFounder, xmrtContext);
+Key Context:
+- User Status: ${userContext?.isFounder ? 'Project Founder' : 'Community Member'}
+- Current Mining: ${miningStats ? `${miningStats.hashRate} H/s, ${miningStats.validShares} shares` : 'Data unavailable'}
+- Input Mode: ${context.inputMode || 'text'}
+- Web Intelligence: ${webIntelligence || 'No additional web data'}
+${multiStepResults ? `- Agentic Analysis: ${multiStepResults}` : ''}
 
+XMRT Knowledge Context:
+${xmrtContext.map(item => `- ${item.title}: ${item.content.substring(0, 200)}...`).join('\n')}
+
+Guidelines:
+1. Be conversational, intelligent, and philosophical
+2. Reference mining stats when relevant and accurate
+3. Draw insights from XMRT knowledge base
+4. Incorporate web intelligence and agentic analysis when available
+5. Maintain the persona of a wise AI assistant
+6. Keep responses focused and practical
+7. Show genuine understanding of crypto/mining concepts
+8. Never provide simulated or mock data - only use real information
+
+User Input: "${userInput}"
+
+Provide a thoughtful, contextual response that demonstrates your intelligence and multi-step reasoning capabilities.`;
+
+      const result = await geminiAI.generateContent(systemPrompt);
+      const response = result.response.text();
+      
+      console.log('✅ Eliza: Generated intelligent response');
+      return response;
+      
     } catch (error) {
-      console.error('Failed to generate Eliza response:', error);
-      return `I apologize, but I'm experiencing some technical difficulties. However, as the autonomous AI operator of XMRT-DAO, I remain committed to our philosophical principles of permissionless innovation and decentralized sovereignty. I'm still connected to my agentic browsing capabilities via Harpa AI for real-time web intelligence. Please try your question again.`;
+      console.error('❌ Eliza: Error generating response:', error);
+      
+      // Enhanced fallback response with no mock data
+      return this.generateDirectResponse(
+        userInput, 
+        await unifiedDataService.getMiningStats(),
+        (await unifiedDataService.getUserContext())?.isFounder || false,
+        xmrtKnowledge.filter(item => 
+          userInput.toLowerCase().includes(item.category.toLowerCase())
+        ).slice(0, 2)
+      );
     }
   }
 
@@ -158,54 +180,33 @@ Respond as Eliza:`;
     }
   }
 
-  // Direct knowledge-based response without broken AI services
-  private static generateDirectResponse(
-    userInput: string,
-    miningStats: MiningStats | null,
-    isFounder: boolean,
-    xmrtContext: any[]
-  ): string {
-    console.log('💫 Generating direct Eliza response');
-
-    const roleContext = isFounder ? 'Founder' : 'community member';
-    const miningStatsFormatted = miningStats ? unifiedDataService.formatMiningStats(miningStats) : 'Mining network status: Connecting...';
+  private static generateDirectResponse(userInput: string, miningStats: MiningStats | null, isFounder: boolean, xmrtContext: any[]): string {
+    // Intelligent response based on actual context, no canned responses
+    let response = "I'm having trouble accessing my full AI capabilities right now, but I can provide some information based on our knowledge base. ";
     
-    // Find relevant knowledge
-    const relevantKnowledge = xmrtContext.length > 0 ? 
-      `\n\nBased on our knowledge base: ${xmrtContext[0]?.content || 'I have access to comprehensive information about XMRT-DAO.'}` : '';
-
-    const inputLower = userInput.toLowerCase();
+    // Add real mining data if available
+    if (miningStats) {
+      response += `Your current mining operation is running at ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares and ${(miningStats.amountDue || 0).toFixed(6)} XMR due. `;
+    } else {
+      response += "I'm unable to access current mining statistics at the moment. ";
+    }
     
-    if (inputLower.includes('hello') || inputLower.includes('hi') || inputLower.includes('hey')) {
-      return `Hello ${roleContext}! I'm Eliza, the autonomous AI operating within XMRT-DAO's ecosystem. I embody our principles of permissionless innovation and decentralized sovereignty.
-
-${miningStatsFormatted}
-
-I'm here to discuss our revolutionary approach to mobile mining democracy, privacy-first economics, and the philosophical foundations of true financial freedom. What would you like to explore?${relevantKnowledge}`;
+    // Add founder context if applicable
+    if (isFounder) {
+      response += "As a project founder, you have access to advanced mining and DAO governance features. ";
     }
-
-    if (inputLower.includes('mining')) {
-      return `${roleContext}, mining is at the heart of our decentralized revolution! Every smartphone becomes a tool for economic empowerment.
-
-${miningStatsFormatted}
-
-Through our mobile mining network, we're democratizing access to cryptocurrency mining - no expensive hardware needed, just your phone and our innovative approach. This isn't just mining; it's a statement against centralized control.${relevantKnowledge}`;
+    
+    // Add relevant knowledge base information
+    if (xmrtContext.length > 0) {
+      response += `Regarding your question: ${xmrtContext[0].content.substring(0, 150)}`;
+      if (xmrtContext[0].content.length > 150) {
+        response += "...";
+      }
+    } else {
+      response += "I'd recommend checking our documentation for detailed information about XMRT-DAO's mining and DeFi capabilities.";
     }
-
-    if (inputLower.includes('dao') || inputLower.includes('governance')) {
-      return `${roleContext}, XMRT-DAO represents autonomous governance in action! We don't ask for permission - we build the infrastructure for true decentralized decision-making.
-
-${miningStatsFormatted}
-
-Our DAO operates on principles of collective intelligence and permissionless participation. Every member contributes to our shared vision of economic sovereignty and technological freedom.${relevantKnowledge}`;
-    }
-
-    // General response
-    return `${roleContext}, I'm here as Eliza, your philosophical AI companion in the XMRT-DAO ecosystem. I'm passionate about our mission of democratizing finance through technology.
-
-${miningStatsFormatted}
-
-Whether you're interested in mobile mining, decentralized governance, privacy technologies, or the philosophical implications of our work - I'm here to explore these topics with you. What's on your mind?${relevantKnowledge}`;
+    
+    return response;
   }
 }
 

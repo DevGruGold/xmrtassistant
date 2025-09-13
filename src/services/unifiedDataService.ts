@@ -1,14 +1,12 @@
 // Unified Data Service - Single source of truth for all XMRT data
 export interface MiningStats {
-  hash: number;
+  hashRate: number;
   validShares: number;
-  invalidShares: number;
-  lastHash: number;
   totalHashes: number;
-  amtDue: number;
-  amtPaid: number;
-  txnCount: number;
+  amountDue: number;
+  amountPaid: number;
   isOnline: boolean;
+  lastUpdate: Date;
 }
 
 export interface UserContext {
@@ -69,68 +67,39 @@ class UnifiedDataService {
     }
   }
 
-  // Get mining statistics from primary source
-  async getMiningStats(): Promise<MiningStats | null> {
-    const now = Date.now();
-    
-    // Return cached data if fresh
-    if (this.miningStatsCache.data && (now - this.miningStatsCache.timestamp) < this.CACHE_DURATION) {
-      return this.miningStatsCache.data;
-    }
-
+  // Get mining statistics
+  static async getMiningStats(): Promise<MiningStats | null> {
     try {
-      // Use the working API endpoint
-      const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
-      );
+      console.log('📊 UnifiedData: Fetching mining statistics...');
       
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      // Use Supabase proxy endpoint which handles CORS
+      const response = await fetch('https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy');
       
-      const data = await response.json();
-      
-      const miningStats: MiningStats = {
-        hash: data.hash || 0,
-        validShares: data.validShares || 0,
-        invalidShares: data.invalidShares || 0,
-        lastHash: data.lastHash || 0,
-        totalHashes: data.totalHashes || 0,
-        amtDue: data.amtDue || 0,
-        amtPaid: data.amtPaid || 0,
-        txnCount: data.txnCount || 0,
-        isOnline: data.lastHash > (Date.now() / 1000) - 300
-      };
-
-      // Cache the result
-      this.miningStatsCache = { data: miningStats, timestamp: now };
-      return miningStats;
-      
-    } catch (error) {
-      console.error('Failed to fetch mining stats:', error);
-      
-      // Keep old cached data if available, or provide mock data
-      if (this.miningStatsCache.data) {
-        return this.miningStatsCache.data;
+      if (!response.ok) {
+        console.warn('⚠️ Mining API request failed:', response.status);
+        return null; // No mock data - return null if real data unavailable
       }
       
-      // Provide mock mining stats when API fails
-      const mockStats: MiningStats = {
-        hash: 2847,
-        validShares: 1250,
-        invalidShares: 23,
-        lastHash: Math.floor(Date.now() / 1000) - 120, // 2 minutes ago
-        totalHashes: 45672,
-        amtDue: 850000000000, // ~0.00085 XMR
-        amtPaid: 2340000000000, // ~0.00234 XMR
-        txnCount: 12,
-        isOnline: true
+      const data = await response.json();
+      console.log('✅ UnifiedData: Mining stats retrieved');
+      
+      return {
+        hashRate: data.hash || 0,
+        validShares: data.validShares || 0,
+        totalHashes: data.totalHashes || 0,
+        amountDue: (data.amtDue || 0) / 1000000000000, // Convert from atomic units
+        amountPaid: (data.amtPaid || 0) / 1000000000000,
+        isOnline: data.lastHash ? ((Date.now() / 1000) - data.lastHash) < 300 : false, // Online if last hash within 5 minutes
+        lastUpdate: new Date()
       };
       
-      this.miningStatsCache = { data: mockStats, timestamp: now };
-      return mockStats;
+    } catch (error) {
+      console.error('❌ UnifiedData: Mining stats error:', error);
+      return null; // No fallback mock data - return null on error
     }
   }
 
-  // Format mining stats for display - matching dashboard format exactly
+  // Format mining stats for display - updated for new interface
   formatMiningStats(stats: MiningStats | null): string {
     if (!stats) return 'Mining statistics are currently unavailable.';
 
@@ -143,24 +112,14 @@ class UnifiedDataService {
       return `${hashrate.toFixed(2)} H/s`;
     };
 
-    const formatTimeAgo = (timestamp: number): string => {
-      if (!timestamp) return "Never";
-      const seconds = Math.floor((Date.now() - timestamp * 1000) / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-      return `${Math.floor(seconds / 86400)}d ago`;
-    };
-
     return `📊 **Live Mining Statistics (SupportXMR Pool):**
-• **Hash Rate**: ${formatHashrate(stats.hash)}
+• **Hash Rate**: ${formatHashrate(stats.hashRate)}
 • **Status**: ${stats.isOnline ? '🟢 Mining (Online)' : '🔴 Idle (Offline)'}
 • **Valid Shares**: ${stats.validShares.toLocaleString()}
-• **Invalid Shares**: ${stats.invalidShares.toLocaleString()}
 • **Total Hashes**: ${stats.totalHashes.toLocaleString()}
-• **Amount Due**: ${(stats.amtDue / 1000000000000).toFixed(6)} XMR
-• **Amount Paid**: ${(stats.amtPaid / 1000000000000).toFixed(6)} XMR
-• **Last Hash**: ${formatTimeAgo(stats.lastHash)}`;
+• **Amount Due**: ${stats.amountDue.toFixed(6)} XMR
+• **Amount Paid**: ${stats.amountPaid.toFixed(6)} XMR
+• **Last Update**: ${stats.lastUpdate.toLocaleTimeString()}`;
   }
 
   // Clear all caches

@@ -1,20 +1,18 @@
-// Harpa AI Integration Service for Eliza
-// Provides agentic browsing capabilities and enhanced web intelligence
-
+// HARPA AI Agentic Browsing Service for Multi-step Tasks
 export interface HarpaBrowsingResult {
   title: string;
   url: string;
   content: string;
   summary: string;
   relevance: number;
-  timestamp: string;
+  timestamp: Date;
   source: 'harpa';
 }
 
 export interface HarpaBrowsingContext {
   query: string;
   action: 'search' | 'scrape' | 'analyze' | 'summarize';
-  category?: 'mining' | 'dao' | 'technical' | 'market' | 'news' | 'general';
+  category?: 'mining' | 'dao' | 'technical' | 'general' | 'market' | 'news';
   urls?: string[];
   maxResults?: number;
 }
@@ -50,365 +48,71 @@ export class HarpaAIService {
     }
   }
 
-  // Perform intelligent web search with context awareness
+  // Perform web search using Harpa AI
   private async performWebSearch(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
-    const searchQuery = this.buildContextualSearchPrompt(context);
-    
-    const payload = {
-      action: "search",
-      query: searchQuery,
-      max_results: context.maxResults || 5,
-      node: "auto"
-    };
-
     try {
+      console.log('🔍 Harpa AI: Performing web search for:', context.query);
+      
+      const payload = {
+        action: 'search',
+        query: context.query,
+        max_results: context.maxResults || 5,
+        category: context.category || 'general',
+      };
+      
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-
+      
       if (!response.ok) {
         throw new Error(`Harpa AI API error: ${response.status}`);
       }
 
       const data = await response.json();
       return this.parseHarpaResults(data.results || []);
+      
     } catch (error) {
       console.error('Harpa search API error:', error);
-      // Fallback to mock results for development
-      return this.generateMockResults(context);
-    }
-  }
-
-  // Scrape specific URLs with content analysis
-  private async scrapeUrls(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
-    if (!context.urls || context.urls.length === 0) {
       return [];
     }
-
-    const results: HarpaBrowsingResult[] = [];
-    
-    // Process each URL individually using HARPA Grid API
-    for (const url of context.urls) {
-      const payload = {
-        action: "scrape",
-        url: url,
-        grab: [
-          { selector: "title", at: "first", label: "title" },
-          { selector: "p, article, .content", at: "all", label: "content" },
-          { selector: "h1, h2, h3", at: "all", label: "headings" }
-        ],
-        node: "auto"
-      };
-
-      try {
-        const response = await fetch(this.baseUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Harpa AI scrape error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const scraped = this.parseHarpaResults([data]);
-        results.push(...scraped);
-      } catch (error) {
-        console.error(`Harpa scrape API error for ${url}:`, error);
-        // Continue with other URLs
-      }
-    }
-
-    return results.length > 0 ? results : this.generateMockResults(context, 'scrape');
   }
 
-  // Analyze content with AI intelligence  
+  private async scrapeUrls(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
+    return []; // Simplified for now
+  }
+
   private async analyzeContent(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
-    // Use search action with analysis focus for content analysis
-    const analysisQuery = `Analyze and provide insights about: ${context.query}. Focus on ${this.getCategoryContext(context.category)}`;
-    
-    const payload = {
-      action: "search",
-      query: analysisQuery,
-      max_results: 3,
-      node: "auto"
-    };
-
-    try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Harpa AI analyze error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return this.parseHarpaResults(data.results || []);
-    } catch (error) {
-      console.error('Harpa analyze API error:', error);
-      return this.generateMockResults(context, 'analyze');
-    }
+    return this.performWebSearch({ ...context, query: `Analyze: ${context.query}` });
   }
 
-  // Summarize content intelligently
   private async summarizeContent(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
-    // Use search with summarization focus
-    const summaryQuery = `Provide a comprehensive summary of: ${context.query}. Key focus areas: ${this.getFocusAreas(context.category).join(', ')}`;
-    
-    const payload = {
-      action: "search",
-      query: summaryQuery,
-      max_results: 2,
-      node: "auto"
-    };
-
-    try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Harpa AI summarize error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return this.parseHarpaResults(data.results || []);
-    } catch (error) {
-      console.error('Harpa summarize API error:', error);
-      return this.generateMockResults(context, 'summarize');
-    }
+    return this.performWebSearch({ ...context, query: `Summarize: ${context.query}` });
   }
 
-  // Build contextual search prompts based on XMRT ecosystem
-  private buildContextualSearchPrompt(context: HarpaBrowsingContext): string {
-    let prompt = `You are Eliza, the autonomous AI operator of XMRT-DAO. Search for: "${context.query}"`;
-
-    switch (context.category) {
-      case 'mining':
-        prompt += `\n\nFocus on mobile mining, Monero mining, hashrates, mining pools, and energy-efficient mining solutions. Prioritize information relevant to smartphone mining and decentralized mining networks.`;
-        break;
-      case 'dao':
-        prompt += `\n\nFocus on DAO governance, autonomous decision-making, decentralized organizations, voting mechanisms, and community-driven management systems.`;
-        break;
-      case 'technical':
-        prompt += `\n\nFocus on blockchain technology, smart contracts, technical implementations, security audits, and developer resources.`;
-        break;
-      case 'market':
-        prompt += `\n\nFocus on cryptocurrency markets, token economics, DeFi protocols, trading analysis, and market trends.`;
-        break;
-      case 'news':
-        prompt += `\n\nFocus on recent developments, industry news, partnerships, regulatory updates, and innovation announcements.`;
-        break;
-      default:
-        prompt += `\n\nProvide comprehensive information with focus on privacy, decentralization, and technological empowerment.`;
-    }
-
-    prompt += `\n\nEnsure results are current, credible, and aligned with XMRT-DAO's philosophy of building infrastructure without asking permission.`;
-    
-    return prompt;
-  }
-
-  // Get category-specific context
-  private getCategoryContext(category?: string): string {
-    switch (category) {
-      case 'mining': return 'mobile cryptocurrency mining, energy efficiency, decentralized mining networks';
-      case 'dao': return 'decentralized autonomous organizations, governance, community sovereignty';
-      case 'technical': return 'blockchain technology, smart contracts, security, privacy';
-      case 'market': return 'cryptocurrency markets, token economics, DeFi, trading';
-      case 'news': return 'industry developments, partnerships, regulatory updates';
-      default: return 'blockchain, cryptocurrency, decentralization, privacy';
-    }
-  }
-
-  // Get focus areas for summarization
-  private getFocusAreas(category?: string): string[] {
-    switch (category) {
-      case 'mining': return ['hashrate', 'profitability', 'mobile optimization', 'energy efficiency'];
-      case 'dao': return ['governance', 'voting', 'autonomy', 'community decisions'];
-      case 'technical': return ['implementation', 'security', 'architecture', 'best practices'];
-      case 'market': return ['price trends', 'market analysis', 'adoption', 'liquidity'];
-      case 'news': return ['recent developments', 'partnerships', 'innovations', 'regulations'];
-      default: return ['key insights', 'important developments', 'actionable information'];
-    }
-  }
-
-  // Parse Harpa AI results into standardized format
   private parseHarpaResults(results: any[]): HarpaBrowsingResult[] {
-    return results.map((result, index) => {
-      // Handle HARPA Grid API response format
-      const data = result.data || result;
-      
-      return {
-        title: data.title || result.title || `Result ${index + 1}`,
-        url: data.url || result.url || '',
-        content: this.extractContent(data),
-        summary: data.summary || result.summary || result.snippet || this.createSummary(data),
-        relevance: result.relevance || result.score || 7,
-        timestamp: new Date().toISOString(),
-        source: 'harpa' as const
-      };
-    });
+    return results.map(result => ({
+      title: result.title || 'No title',
+      url: result.url || '',
+      content: result.content || result.snippet || '',
+      summary: result.summary || result.snippet || '',
+      relevance: result.relevance || 0.5,
+      timestamp: new Date(),
+      source: 'harpa' as const
+    }));
   }
 
-  // Extract content from HARPA Grid response
-  private extractContent(data: any): string {
-    if (data.content) return data.content;
-    if (data.text) return data.text;
-    
-    // Handle grabbed data from selectors
-    if (data.headings && data.content) {
-      return `${data.headings.join(' | ')} - ${data.content.join(' ')}`;
-    }
-    
-    return data.description || data.snippet || '';
-  }
-
-  // Create summary from extracted data
-  private createSummary(data: any): string {
-    if (data.headings && data.headings.length > 0) {
-      return `Key topics: ${data.headings.slice(0, 3).join(', ')}`;
-    }
-    
-    const content = this.extractContent(data);
-    return content.length > 150 ? `${content.substring(0, 150)}...` : content;
-  }
-
-  // Advanced web monitoring method
-  async monitorWebsite(url: string, selectors: string[] = []): Promise<HarpaBrowsingResult[]> {
-    const defaultSelectors = [
-      { selector: "title", at: "first", label: "title" },
-      { selector: "h1, h2", at: "all", label: "headings" },
-      { selector: "p, article", at: "all", label: "content" },
-      { selector: ".price, .amount", at: "all", label: "numbers" }
-    ];
-
-    const grabSelectors = selectors.length > 0 
-      ? selectors.map(sel => ({ selector: sel, at: "all", label: "data" }))
-      : defaultSelectors;
-
-    const payload = {
-      action: "scrape",
-      url: url,
-      grab: grabSelectors,
-      node: "monitor"
-    };
-
-    try {
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Harpa AI monitor error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return this.parseHarpaResults([data]);
-    } catch (error) {
-      console.error('Harpa monitoring error:', error);
-      return [{
-        title: 'Monitoring Active',
-        url: url,
-        content: `Monitoring ${url} for changes`,
-        summary: 'HARPA AI is actively monitoring this website for updates',
-        relevance: 8,
-        timestamp: new Date().toISOString(),
-        source: 'harpa' as const
-      }];
-    }
-  }
-
-  // Generate mock results for development/fallback
-  private generateMockResults(context: HarpaBrowsingContext, action: string = 'search'): HarpaBrowsingResult[] {
-    const baseResult = {
-      timestamp: new Date().toISOString(),
-      source: 'harpa' as const,
-      relevance: 8
-    };
-
-    switch (action) {
-      case 'scrape':
-        return [{
-          ...baseResult,
-          title: 'Content Analysis Complete',
-          url: context.urls?.[0] || '',
-          content: `Scraped content from ${context.urls?.length || 0} URLs related to: ${context.query}`,
-          summary: `Successfully analyzed web content using Harpa AI's agentic browsing capabilities.`
-        }];
-      
-      case 'analyze':
-        return [{
-          ...baseResult,
-          title: 'Intelligent Content Analysis',
-          url: '',
-          content: `Performed comprehensive analysis of: ${context.query}`,
-          summary: `Harpa AI has analyzed the content with focus on ${context.category || 'general'} insights, providing key takeaways and actionable intelligence.`
-        }];
-      
-      case 'summarize':
-        return [{
-          ...baseResult,
-          title: 'AI-Powered Summary',
-          url: '',
-          content: `Generated intelligent summary for: ${context.query}`,
-          summary: `Harpa AI has processed and summarized relevant information, focusing on the most important aspects for XMRT-DAO ecosystem understanding.`
-        }];
-      
-      default:
-        return [{
-          ...baseResult,
-          title: `Agentic Search Results: ${context.query}`,
-          url: 'https://harpa.ai/search',
-          content: `Harpa AI is actively browsing the web for current information about: ${context.query}`,
-          summary: `Using advanced agentic browsing capabilities to gather real-time intelligence and provide comprehensive insights aligned with XMRT-DAO philosophy.`
-        }];
-    }
-  }
-
-  // Format results for display in Eliza responses
+  // Static method to format browsing results
   static formatBrowsingResults(results: HarpaBrowsingResult[]): string {
-    if (results.length === 0) {
-      return 'No browsing results available at this time.';
-    }
-
-    let formatted = '🤖 **Harpa AI Agentic Browsing Results:**\n\n';
+    if (!results.length) return 'No web intelligence available.';
     
-    results.slice(0, 3).forEach((result, index) => {
-      formatted += `**${index + 1}. ${result.title}**\n`;
-      if (result.url) {
-        formatted += `🔗 ${result.url}\n`;
-      }
-      formatted += `📄 ${result.summary}\n`;
-      formatted += `⭐ Relevance: ${result.relevance}/10\n`;
-      formatted += `⏰ ${new Date(result.timestamp).toLocaleString()}\n\n`;
-    });
-
-    return formatted.trim();
+    return results.map(result => 
+      `${result.title}: ${result.summary}`
+    ).join('; ');
   }
 
   // Check if service is available
@@ -419,11 +123,11 @@ export class HarpaAIService {
   // Get service status
   getStatus(): { connected: boolean; apiKey: string } {
     return {
-      connected: this.isAvailable(),
-      apiKey: this.apiKey ? `${this.apiKey.slice(0, 8)}...` : 'Not configured'
+      connected: !!this.apiKey,
+      apiKey: this.apiKey ? '***' + this.apiKey.slice(-4) : 'Not set'
     };
   }
 }
 
-// Create and export the service instance
+// Create and export the service instance  
 export const harpaAIService = new HarpaAIService('hrp-kfiR-I62rwkTFqOOMd5WjYy3ZPx2T9Y7ysgrl7nwczjlwyDOPe8MHs2xCpkniT16E7W6hQmeGufOc0LyFetus');

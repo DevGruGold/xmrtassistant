@@ -26,7 +26,7 @@ console.log('UnifiedChat Environment Check:', {
 interface UnifiedMessage {
   id: string;
   content: string;
-  sender: 'user' | 'eliza';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   attachments?: {
     images?: string[];
@@ -176,20 +176,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const greeting: UnifiedMessage = {
         id: 'greeting',
         content: responseText,
-        sender: 'eliza',
+        sender: 'assistant',
         timestamp: new Date()
       };
       
       setMessages([greeting]);
       setLastElizaMessage(responseText);
       
-        // Store greeting in persistent storage (temporarily disabled due to DB constraints)
+        // Store greeting in persistent storage
         try {
-          await conversationPersistence.storeMessage(responseText, 'eliza', {
+          await conversationPersistence.storeMessage(responseText, 'assistant', {
             type: 'greeting'
           });
         } catch (error) {
-          console.log('Conversation persistence temporarily disabled:', error);
+          console.log('Conversation persistence error:', error);
         }
     } catch (error) {
       console.error('Failed to generate AI greeting:', error);
@@ -197,7 +197,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const fallback: UnifiedMessage = {
         id: 'greeting',
         content: "Hello! I'm Eliza, your XMRT-DAO AI assistant. How can I help you today?",
-        sender: 'eliza',
+        sender: 'assistant',
         timestamp: new Date()
       };
       setMessages([fallback]);
@@ -251,7 +251,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     const elizaMessage: UnifiedMessage = {
       id: `eliza-${Date.now()}`,
       content: responseText,
-      sender: 'eliza',
+      sender: 'assistant',
       timestamp: new Date(),
       emotion: currentEmotion,
       confidence: emotionConfidence
@@ -291,7 +291,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
 
-    // Store user message (temporarily disabled due to DB constraints)
+    // Store user message
     try {
       await conversationPersistence.storeMessage(transcript, 'user', {
         emotion: currentEmotion,
@@ -299,38 +299,49 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputType: 'voice'
       });
     } catch (error) {
-      console.log('Conversation persistence temporarily disabled:', error);
+      console.log('Conversation persistence error:', error);
     }
 
     try {
-      // Use UnifiedElizaService directly for Gemini AI response
-      const aiResponseText = await UnifiedElizaService.generateResponse(transcript, {
-        miningStats: miningStats || undefined,
-        userContext: userContext || undefined
+      // Store voice messages
+      await conversationPersistence.storeMessage(
+        transcript,
+        'user'
+      );
+      
+      const response = await UnifiedElizaService.generateResponse(transcript, {
+        miningStats,
+        userContext,
+        inputMode: 'voice',
+        shouldSpeak: true,
+        enableBrowsing: true
       });
-
-      setCurrentAIMethod('Gemini AI');
+      
+      await conversationPersistence.storeMessage(
+        response,
+        'assistant'
+      );
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: aiResponseText,
-        sender: 'eliza',
+        content: response,
+        sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(aiResponseText);
+      setLastElizaMessage(response);
       
-      // Store Eliza's response (temporarily disabled due to DB constraints)
+      // Store Eliza's response
       try {
-        await conversationPersistence.storeMessage(aiResponseText, 'eliza', {
+        await conversationPersistence.storeMessage(response, 'assistant', {
           confidence: 0.95,
           method: 'Gemini AI',
           inputType: 'voice'
         });
       } catch (error) {
-        console.log('Conversation persistence temporarily disabled:', error);
+        console.log('Conversation persistence error:', error);
       }
 
       // Speak response using Gemini TTS directly
@@ -356,7 +367,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const errorMessage: UnifiedMessage = {
         id: `error-${Date.now()}`,
         content: 'I apologize, but I\'m having trouble processing your voice input right now.',
-        sender: 'eliza',
+        sender: 'assistant',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -380,44 +391,55 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setTextInput('');
     setIsProcessing(true);
 
-    // Store user message (temporarily disabled due to DB constraints)
+    // Store user message
     try {
       await conversationPersistence.storeMessage(userMessage.content, 'user', {
         inputType: 'text'
       });
     } catch (error) {
-      console.log('Conversation persistence temporarily disabled:', error);
+      console.log('Conversation persistence error:', error);
     }
 
     try {
-      // Use UnifiedElizaService directly for Gemini AI response
-      const aiResponseText = await UnifiedElizaService.generateResponse(userMessage.content, {
-        miningStats: miningStats || undefined,
-        userContext: userContext || undefined
+      // Store messages
+      await conversationPersistence.storeMessage(
+        textInput.trim(),
+        'user'
+      );
+      
+      const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
+        miningStats,
+        userContext,
+        inputMode: 'text',
+        shouldSpeak: false,
+        enableBrowsing: true
       });
-
-      setCurrentAIMethod('Gemini AI');
+      
+      await conversationPersistence.storeMessage(
+        response,
+        'assistant'
+      );
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: aiResponseText,
-        sender: 'eliza',
+        content: response,
+        sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(aiResponseText);
+      setLastElizaMessage(response);
       
-      // Store Eliza's response (temporarily disabled due to DB constraints)
+      // Store Eliza's response
       try {
-        await conversationPersistence.storeMessage(aiResponseText, 'eliza', {
+        await conversationPersistence.storeMessage(response, 'assistant', {
           confidence: 0.95,
           method: 'Gemini AI',
           inputType: 'text'
         });
       } catch (error) {
-        console.log('Conversation persistence temporarily disabled:', error);
+        console.log('Conversation persistence error:', error);
       }
 
       // Speak response if voice is enabled using Gemini TTS directly
@@ -439,7 +461,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const errorMessage: UnifiedMessage = {
         id: `error-${Date.now()}`,
         content: 'I apologize, but I\'m having trouble processing your message right now.',
-        sender: 'eliza',
+        sender: 'assistant',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

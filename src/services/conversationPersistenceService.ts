@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface ConversationMessage {
   id: string;
   content: string;
-  sender: 'user' | 'eliza';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   metadata?: Record<string, any>;
 }
@@ -109,7 +109,7 @@ export class ConversationPersistenceService {
   // Store a message in the conversation
   public async storeMessage(
     content: string,
-    sender: 'user' | 'eliza',
+    sender: 'user' | 'assistant',
     metadata?: Record<string, any>
   ): Promise<void> {
     if (!this.currentSessionId) {
@@ -174,7 +174,7 @@ export class ConversationPersistenceService {
       return messages?.map(msg => ({
         id: msg.id,
         content: msg.content,
-        sender: msg.message_type as 'user' | 'eliza',
+        sender: msg.message_type as 'user' | 'assistant',
         timestamp: new Date(msg.timestamp),
         metadata: (msg.metadata as Record<string, any>) || {}
       })) || [];
