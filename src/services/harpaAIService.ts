@@ -131,5 +131,12 @@ export class HarpaAIService {
   }
 }
 
-// Create and export the service instance  
-export const harpaAIService = new HarpaAIService('hrp-kfiR-I62rwkTFqOOMd5WjYy3ZPx2T9Y7ysgrl7nwczjlwyDOPe8MHs2xCpkniT16E7W6hQmeGufOc0LyFetus');
+// Create and export the service instance using environment variable
+const harpaApiKey = import.meta.env.VITE_HARPA_API_KEY || '';
+export const harpaAIService = new HarpaAIService(harpaApiKey);
+
+// Log HARPA AI status on initialization
+console.log('🔧 HARPA AI Service Status:', {
+  hasApiKey: !!harpaApiKey,
+  keyPreview: harpaApiKey ? `***${harpaApiKey.slice(-4)}` : 'Not set'
+});

@@ -58,8 +58,9 @@ export class UnifiedElizaService {
       let webIntelligence = '';
       let multiStepResults = '';
       
-      // Use Harpa AI for comprehensive agentic tasks if enabled and available
-      if (context.enableBrowsing && harpaAIService.isAvailable()) {
+      // Use Harpa AI for comprehensive agentic tasks - enabled by default when available
+      const shouldUseBrowsing = (context.enableBrowsing !== false) && harpaAIService.isAvailable();
+      if (shouldUseBrowsing) {
         try {
           console.log('🌐 Eliza: Performing multi-step agentic browsing...');
           const category = this.determineBrowsingCategory(userInput);
