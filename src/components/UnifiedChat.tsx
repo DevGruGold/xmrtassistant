@@ -128,7 +128,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             id: msg.id,
             content: msg.content,
             sender: msg.sender,
-            timestamp: msg.timestamp,
+            timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
             ...msg.metadata
           }));
           setMessages(convertedMessages);
