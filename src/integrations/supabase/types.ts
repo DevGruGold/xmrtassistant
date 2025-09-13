@@ -82,6 +82,42 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_summaries: {
+        Row: {
+          created_at: string
+          end_message_id: string | null
+          id: string
+          message_count: number
+          metadata: Json | null
+          session_id: string
+          start_message_id: string | null
+          summary_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_message_id?: string | null
+          id?: string
+          message_count?: number
+          metadata?: Json | null
+          session_id: string
+          start_message_id?: string | null
+          summary_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_message_id?: string | null
+          id?: string
+          message_count?: number
+          metadata?: Json | null
+          session_id?: string
+          start_message_id?: string | null
+          summary_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       entity_relationships: {
         Row: {
           created_at: string
