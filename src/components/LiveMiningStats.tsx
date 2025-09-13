@@ -24,7 +24,7 @@ const LiveMiningStats = () => {
   const fetchMiningStats = async () => {
     try {
       const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
+        "https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy"
       );
       
       if (!response.ok) {

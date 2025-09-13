@@ -1,1 +1,4 @@
 project_id = "vawouugtzwmejxqkeqqj"
+
+[functions.mining-proxy]
+verify_jwt = false
