@@ -1,4 +1,4 @@
-import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
+import { XMRT_KNOWLEDGE_BASE } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -45,9 +45,9 @@ export class UnifiedElizaService {
       ]);
       
       // Search knowledge base for relevant information
-      const xmrtContext = xmrtKnowledge.filter(item => 
+      const xmrtContext = XMRT_KNOWLEDGE_BASE.filter(item => 
         userInput.toLowerCase().includes(item.category.toLowerCase()) ||
-        userInput.toLowerCase().includes(item.title.toLowerCase()) ||
+        userInput.toLowerCase().includes(item.topic.toLowerCase()) ||
         item.content.toLowerCase().includes(userInput.toLowerCase().split(' ')[0])
       ).slice(0, 3);
       
@@ -114,7 +114,7 @@ Key Context:
 ${multiStepResults ? `- Agentic Analysis: ${multiStepResults}` : ''}
 
 XMRT Knowledge Context:
-${xmrtContext.map(item => `- ${item.title}: ${item.content.substring(0, 200)}...`).join('\n')}
+${xmrtContext.map(item => `- ${item.topic}: ${item.content.substring(0, 200)}...`).join('\n')}
 
 Guidelines:
 1. Be conversational, intelligent, and philosophical
@@ -144,7 +144,7 @@ Provide a thoughtful, contextual response that demonstrates your intelligence an
         userInput, 
         await unifiedDataService.getMiningStats(),
         (await unifiedDataService.getUserContext())?.isFounder || false,
-        xmrtKnowledge.filter(item => 
+        XMRT_KNOWLEDGE_BASE.filter(item => 
           userInput.toLowerCase().includes(item.category.toLowerCase())
         ).slice(0, 2)
       );

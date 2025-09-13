@@ -4,6 +4,7 @@ export interface HarpaBrowsingResult {
   url: string;
   content: string;
   summary: string;
+  snippet?: string; // Add snippet property
   relevance: number;
   timestamp: Date;
   source: 'harpa';
@@ -100,6 +101,7 @@ export class HarpaAIService {
       url: result.url || '',
       content: result.content || result.snippet || '',
       summary: result.summary || result.snippet || '',
+      snippet: result.snippet || result.content || '',
       relevance: result.relevance || 0.5,
       timestamp: new Date(),
       source: 'harpa' as const

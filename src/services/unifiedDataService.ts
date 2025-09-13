@@ -67,8 +67,15 @@ class UnifiedDataService {
     }
   }
 
-  // Get mining statistics
-  static async getMiningStats(): Promise<MiningStats | null> {
+// Make getMiningStats an instance method instead of static
+  async getMiningStats(): Promise<MiningStats | null> {
+    const now = Date.now();
+    
+    // Return cached data if fresh
+    if (this.miningStatsCache.data && (now - this.miningStatsCache.timestamp) < this.CACHE_DURATION) {
+      return this.miningStatsCache.data;
+    }
+
     try {
       console.log('📊 UnifiedData: Fetching mining statistics...');
       
@@ -83,7 +90,7 @@ class UnifiedDataService {
       const data = await response.json();
       console.log('✅ UnifiedData: Mining stats retrieved');
       
-      return {
+      const miningStats: MiningStats = {
         hashRate: data.hash || 0,
         validShares: data.validShares || 0,
         totalHashes: data.totalHashes || 0,
@@ -92,6 +99,10 @@ class UnifiedDataService {
         isOnline: data.lastHash ? ((Date.now() / 1000) - data.lastHash) < 300 : false, // Online if last hash within 5 minutes
         lastUpdate: new Date()
       };
+
+      // Cache the result
+      this.miningStatsCache = { data: miningStats, timestamp: now };
+      return miningStats;
       
     } catch (error) {
       console.error('❌ UnifiedData: Mining stats error:', error);

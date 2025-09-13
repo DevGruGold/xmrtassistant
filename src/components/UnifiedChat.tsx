@@ -218,15 +218,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const data = await response.json();
       
       setMiningStats({
-        hash: data.hash || 0,
+        hashRate: data.hash || 0,
         validShares: data.validShares || 0,
-        invalidShares: data.invalidShares || 0,
-        lastHash: data.lastHash || 0,
         totalHashes: data.totalHashes || 0,
-        amtDue: data.amtDue || 0,
-        amtPaid: data.amtPaid || 0,
-        txnCount: data.txnCount || 0,
-        isOnline: data.lastHash > (Date.now() / 1000) - 300
+        amountDue: (data.amtDue || 0) / 1000000000000,
+        amountPaid: (data.amtPaid || 0) / 1000000000000,
+        isOnline: data.lastHash > (Date.now() / 1000) - 300,
+        lastUpdate: new Date()
       });
     } catch (err) {
       console.error('Failed to fetch mining stats:', err);
@@ -243,7 +241,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   };
 
   const formatHashrate = (hashrate: number): string => {
-    return unifiedDataService.formatMiningStats({ hash: hashrate } as MiningStats).split('\n')[1] || `${hashrate} H/s`;
+    return unifiedDataService.formatMiningStats({ hashRate: hashrate } as MiningStats).split('\n')[1] || `${hashrate} H/s`;
   };
 
   // Unified response display with intelligent TTS control
@@ -352,7 +350,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await geminiTTSService.speakText({ text: aiResponseText });
+          await geminiTTSService.speakText({ text: response });
           setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
           console.error('Gemini TTS failed:', error);
@@ -446,7 +444,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (voiceEnabled && geminiTTSService) {
         try {
           setIsSpeaking(true);
-          await geminiTTSService.speakText({ text: aiResponseText });
+          await geminiTTSService.speakText({ text: response });
           setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
           console.error('Gemini TTS failed:', error);
