@@ -97,13 +97,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom only when messages are actually added
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    // Only scroll if there are messages and not just loading
+    if (messages.length > 0 && !isProcessing) {
+      if (scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isProcessing]);
 
   // Initialize unified data service and conversation persistence
   useEffect(() => {
