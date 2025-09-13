@@ -58,47 +58,65 @@ export class UnifiedElizaService {
       let webIntelligence = '';
       let multiStepResults = '';
       
-      // Use Harpa AI for comprehensive agentic tasks - enabled by default when available
+      // Use Harpa AI for comprehensive agentic tasks - enabled by default when available  
       const shouldUseBrowsing = (context.enableBrowsing !== false) && harpaAIService.isAvailable();
+      console.log('🌐 Eliza: HARPA AI status:', {
+        enableBrowsing: context.enableBrowsing,
+        shouldUseBrowsing,
+        harpaAvailable: harpaAIService.isAvailable(),
+        harpaStatus: harpaAIService.getStatus()
+      });
+      
       if (shouldUseBrowsing) {
         try {
-          console.log('🌐 Eliza: Performing multi-step agentic browsing...');
+          console.log('🌐 Eliza: Performing multi-step agentic browsing with HARPA AI...');
           const category = this.determineBrowsingCategory(userInput);
+          console.log('📂 Eliza: Browse category determined:', category);
           
           // Step 1: Search for information
+          console.log('🔍 Eliza: Step 1 - Searching...');
           const searchResults = await harpaAIService.browse({
             query: userInput,
             action: 'search',
             category,
             maxResults: 3
           });
-          console.log('🔍 Search results:', searchResults.length);
+          console.log('✅ Eliza: Search results:', searchResults.length, 'items');
           
           if (searchResults.length > 0) {
             // Step 2: Analyze the search results
+            console.log('🔬 Eliza: Step 2 - Analyzing...');
             const analysisResults = await harpaAIService.browse({
               query: `Analyze and extract key insights from: ${searchResults.map(r => r.title + ' - ' + r.summary).join('; ')}`,
               action: 'analyze',
               category,
               maxResults: 2
             });
-            console.log('🔬 Analysis results:', analysisResults.length);
+            console.log('✅ Eliza: Analysis results:', analysisResults.length, 'items');
             
             // Step 3: Summarize the findings
+            console.log('📝 Eliza: Step 3 - Summarizing...');
             const summaryResults = await harpaAIService.browse({
               query: `Provide concise summary of findings for user question: ${userInput}`,
               action: 'summarize',
               category,
               maxResults: 1
             });
-            console.log('📝 Summary results:', summaryResults.length);
+            console.log('✅ Eliza: Summary results:', summaryResults.length, 'items');
             
             webIntelligence = HarpaAIService.formatBrowsingResults(searchResults);
             multiStepResults = `Analysis: ${HarpaAIService.formatBrowsingResults(analysisResults)}\nSummary: ${HarpaAIService.formatBrowsingResults(summaryResults)}`;
-            console.log('✅ Eliza: Completed multi-step agentic browsing');
+            console.log('🎯 Eliza: Completed multi-step agentic browsing - Web intelligence available');
+          } else {
+            console.warn('⚠️ Eliza: No search results from HARPA AI');
           }
         } catch (error) {
-          console.warn('⚠️ Eliza: Harpa AI agentic browsing failed:', error);
+          console.error('❌ Eliza: HARPA AI agentic browsing failed:', error);
+          console.error('🔍 Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          });
         }
       }
       

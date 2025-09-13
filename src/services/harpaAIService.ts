@@ -52,14 +52,26 @@ export class HarpaAIService {
   // Perform web search using Harpa AI
   private async performWebSearch(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
     try {
-      console.log('🔍 Harpa AI: Performing web search for:', context.query);
+      console.log('🔍 HARPA AI: Performing web search for:', context.query);
+      
+      if (!this.apiKey) {
+        console.warn('⚠️ HARPA AI: No API key available');
+        return [];
+      }
       
       const payload = {
-        action: 'search',
-        query: context.query,
-        max_results: context.maxResults || 5,
-        category: context.category || 'general',
+        action: 'scrape',
+        url: `https://www.google.com/search?q=${encodeURIComponent(context.query)}`,
+        grab: [
+          {"selector": "h3", "at": "all", "label": "titles"},
+          {"selector": ".VwiC3b", "at": "all", "label": "snippets"},
+          {"selector": "cite", "at": "all", "label": "urls"}
+        ],
+        node: "search"
       };
+      
+      console.log('🌐 HARPA AI: Making request to:', this.baseUrl);
+      console.log('📝 HARPA AI: Payload:', JSON.stringify(payload, null, 2));
       
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -70,21 +82,68 @@ export class HarpaAIService {
         body: JSON.stringify(payload),
       });
       
+      console.log('📡 HARPA AI: Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`Harpa AI API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ HARPA AI API error:', response.status, errorText);
+        throw new Error(`HARPA AI API error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      return this.parseHarpaResults(data.results || []);
+      console.log('✅ HARPA AI: Response data:', data);
+      
+      return this.parseHarpaResults(data.data || data.results || []);
       
     } catch (error) {
-      console.error('Harpa search API error:', error);
+      console.error('❌ HARPA AI search error:', error);
       return [];
     }
   }
 
   private async scrapeUrls(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
-    return []; // Simplified for now
+    if (!context.urls || context.urls.length === 0) return [];
+    
+    try {
+      console.log('🕷️ HARPA AI: Scraping URLs:', context.urls);
+      
+      const results: HarpaBrowsingResult[] = [];
+      
+      for (const url of context.urls.slice(0, 3)) { // Limit to 3 URLs
+        const payload = {
+          action: 'scrape',
+          url: url,
+          grab: [
+            {"selector": "h1, h2, h3", "at": "all", "label": "headings"},
+            {"selector": "p", "at": "first-10", "label": "paragraphs"},
+            {"selector": "title", "at": "first", "label": "title"}
+          ],
+          node: "content"
+        };
+        
+        const response = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const parsed = this.parseHarpaScrapeData(data.data || {}, url);
+          if (parsed) results.push(parsed);
+        }
+      }
+      
+      console.log('✅ HARPA AI: Scraped', results.length, 'URLs');
+      return results;
+      
+    } catch (error) {
+      console.error('❌ HARPA AI scrape error:', error);
+      return [];
+    }
   }
 
   private async analyzeContent(context: HarpaBrowsingContext): Promise<HarpaBrowsingResult[]> {
@@ -96,16 +155,49 @@ export class HarpaAIService {
   }
 
   private parseHarpaResults(results: any[]): HarpaBrowsingResult[] {
-    return results.map(result => ({
-      title: result.title || 'No title',
-      url: result.url || '',
-      content: result.content || result.snippet || '',
-      summary: result.summary || result.snippet || '',
-      snippet: result.snippet || result.content || '',
-      relevance: result.relevance || 0.5,
+    console.log('🔍 HARPA AI: Parsing results:', results);
+    
+    if (!Array.isArray(results)) {
+      console.warn('⚠️ HARPA AI: Results is not an array:', results);
+      return [];
+    }
+    
+    return results.map((result, index) => ({
+      title: result.titles?.[0] || result.title || `Result ${index + 1}`,
+      url: result.urls?.[0] || result.url || 'https://example.com',
+      content: result.snippets?.[0] || result.content || result.snippet || 'No content available',
+      summary: result.snippets?.[0] || result.summary || result.snippet || 'No summary available',
+      snippet: result.snippets?.[0] || result.snippet || result.content || 'No snippet available',
+      relevance: result.relevance || 0.8,
       timestamp: new Date(),
       source: 'harpa' as const
-    }));
+    })).filter(result => result.title && result.content);
+  }
+
+  private parseHarpaScrapeData(data: any, url: string): HarpaBrowsingResult | null {
+    try {
+      const title = data.title?.[0] || 'Scraped Content';
+      const headings = data.headings || [];
+      const paragraphs = data.paragraphs || [];
+      
+      const content = [...headings, ...paragraphs].join(' ').substring(0, 1000);
+      
+      if (!content) return null;
+      
+      return {
+        title,
+        url,
+        content,
+        summary: content.substring(0, 200) + '...',
+        snippet: content.substring(0, 150) + '...',
+        relevance: 0.9,
+        timestamp: new Date(),
+        source: 'harpa' as const
+      };
+    } catch (error) {
+      console.error('❌ HARPA AI: Parse error:', error);
+      return null;
+    }
   }
 
   // Static method to format browsing results
