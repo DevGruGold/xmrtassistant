@@ -439,7 +439,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         userContext,
         inputMode: 'text',
         shouldSpeak: false,
-        enableBrowsing: false  // Disable browsing for faster responses
+        enableBrowsing: true  // Let the service decide when to browse
       });
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');

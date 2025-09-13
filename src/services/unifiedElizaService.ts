@@ -59,9 +59,11 @@ export class UnifiedElizaService {
       let webIntelligence = '';
       let multiStepResults = '';
       
-  // Use Harpa AI for comprehensive agentic tasks - disabled by default for faster responses  
-  const shouldUseBrowsing = (context.enableBrowsing === true) && harpaAIService.isAvailable();
+  // Intelligently determine if browsing is needed
+  const needsBrowsing = this.shouldUseBrowsing(userInput);
+  const shouldUseBrowsing = needsBrowsing && (context.enableBrowsing !== false) && harpaAIService.isAvailable();
   console.log('🌐 Eliza: HARPA AI status:', {
+    needsBrowsing,
     enableBrowsing: context.enableBrowsing,
     shouldUseBrowsing,
     harpaAvailable: harpaAIService.isAvailable(),
@@ -235,6 +237,58 @@ Provide a thoughtful, comprehensive, and detailed response that demonstrates you
     } else {
       return 'general';
     }
+  }
+
+  /**
+   * Determine if user input requires web browsing
+   */
+  private static shouldUseBrowsing(userInput: string): boolean {
+    const input = userInput.toLowerCase();
+    
+    // Keywords that indicate need for web browsing/current information
+    const browsingKeywords = [
+      'latest', 'recent', 'current', 'today', 'news', 'update', 'new',
+      'price', 'market', 'stock', 'crypto', 'exchange rate',
+      'weather', 'forecast', 'temperature',
+      'search for', 'find', 'look up', 'research',
+      'what happened', 'breaking', 'trending',
+      'compare', 'vs', 'versus', 'difference between',
+      'review', 'rating', 'opinion',
+      'status', 'availability', 'schedule',
+      'directions', 'location', 'address',
+      'buy', 'purchase', 'shop', 'store'
+    ];
+    
+    // Question words that often require current information
+    const questionIndicators = [
+      'when will', 'how much', 'where can', 'what is the current',
+      'how to buy', 'where to find', 'what are the latest'
+    ];
+    
+    // Check for browsing keywords
+    const hasKeywords = browsingKeywords.some(keyword => input.includes(keyword));
+    
+    // Check for question patterns
+    const hasQuestionPatterns = questionIndicators.some(pattern => input.includes(pattern));
+    
+    // Check for URLs - if user mentions a specific website
+    const hasUrl = /https?:\/\/|www\.|\.com|\.org|\.net/.test(input);
+    
+    // Don't browse for basic XMRT-DAO questions that can be answered from knowledge base
+    const isBasicXMRTQuestion = input.includes('xmrt') || input.includes('dao') || input.includes('mining');
+    
+    const shouldBrowse = (hasKeywords || hasQuestionPatterns || hasUrl) && !isBasicXMRTQuestion;
+    
+    console.log('🧠 Browsing decision:', {
+      input: input.substring(0, 50) + '...',
+      hasKeywords,
+      hasQuestionPatterns,
+      hasUrl,
+      isBasicXMRTQuestion,
+      shouldBrowse
+    });
+    
+    return shouldBrowse;
   }
 
   private static generateDirectResponse(userInput: string, miningStats: MiningStats | null, isFounder: boolean, xmrtContext: any[]): string {
