@@ -29,11 +29,6 @@ const Index = () => {
           <div className="max-w-6xl mx-auto">
             <div className="text-center space-y-4 mb-8">
               
-              {/* Status Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-primary/5 border border-primary/20 text-primary text-sm font-medium animate-fade-in">
-                <div className="w-2 h-2 bg-mining-active rounded-full animate-pulse" />
-                We Don't Ask for Permission. We Build the Infrastructure.
-              </div>
               
               {/* Compact Title */}
               <div className="space-y-2">
