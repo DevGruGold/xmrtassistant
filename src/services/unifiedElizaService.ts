@@ -35,6 +35,8 @@ export class UnifiedElizaService {
   }
 
   public static async generateResponse(userInput: string, context: ElizaContext = {}): Promise<string> {
+    console.log('🤖 Eliza: Starting response generation for:', userInput);
+    
     try {
       console.log('🤖 Eliza: Processing user input:', userInput);
       
@@ -43,6 +45,7 @@ export class UnifiedElizaService {
         unifiedDataService.getUserContext(),
         unifiedDataService.getMiningStats()
       ]);
+      console.log('📊 Context loaded - User:', userContext, 'Mining:', miningStats);
       
       // Search knowledge base for relevant information
       const xmrtContext = XMRT_KNOWLEDGE_BASE.filter(item => 
@@ -50,6 +53,7 @@ export class UnifiedElizaService {
         userInput.toLowerCase().includes(item.topic.toLowerCase()) ||
         item.content.toLowerCase().includes(userInput.toLowerCase().split(' ')[0])
       ).slice(0, 3);
+      console.log('🧠 Knowledge context found:', xmrtContext.length, 'entries');
       
       let webIntelligence = '';
       let multiStepResults = '';
@@ -67,15 +71,17 @@ export class UnifiedElizaService {
             category,
             maxResults: 3
           });
+          console.log('🔍 Search results:', searchResults.length);
           
           if (searchResults.length > 0) {
             // Step 2: Analyze the search results
             const analysisResults = await harpaAIService.browse({
-              query: `Analyze and extract key insights from: ${searchResults.map(r => r.title + ' - ' + r.snippet).join('; ')}`,
+              query: `Analyze and extract key insights from: ${searchResults.map(r => r.title + ' - ' + r.summary).join('; ')}`,
               action: 'analyze',
               category,
               maxResults: 2
             });
+            console.log('🔬 Analysis results:', analysisResults.length);
             
             // Step 3: Summarize the findings
             const summaryResults = await harpaAIService.browse({
@@ -84,6 +90,7 @@ export class UnifiedElizaService {
               category,
               maxResults: 1
             });
+            console.log('📝 Summary results:', summaryResults.length);
             
             webIntelligence = HarpaAIService.formatBrowsingResults(searchResults);
             multiStepResults = `Analysis: ${HarpaAIService.formatBrowsingResults(analysisResults)}\nSummary: ${HarpaAIService.formatBrowsingResults(summaryResults)}`;
@@ -97,10 +104,18 @@ export class UnifiedElizaService {
       // Initialize Gemini AI with error handling for API limits
       let geminiAI;
       try {
+        console.log('🔧 Initializing Gemini AI...');
         geminiAI = await this.initializeGemini();
+        console.log('✅ Gemini AI initialized successfully');
       } catch (error) {
         console.error('❌ Eliza: Gemini API initialization failed:', error);
-        throw new Error('Gemini API unavailable - using fallback response');
+        console.log('🔄 Using fallback response due to Gemini failure');
+        return this.generateDirectResponse(
+          userInput, 
+          miningStats,
+          userContext?.isFounder || false,
+          xmrtContext
+        );
       }
       
       // Construct comprehensive context prompt
@@ -125,19 +140,40 @@ Guidelines:
 6. Keep responses focused and practical
 7. Show genuine understanding of crypto/mining concepts
 8. Never provide simulated or mock data - only use real information
+9. IMPORTANT: Provide comprehensive, detailed responses - do NOT truncate or limit your response length
+10. Show your full intelligence and capabilities through thorough, thoughtful responses
 
 User Input: "${userInput}"
 
-Provide a thoughtful, contextual response that demonstrates your intelligence and multi-step reasoning capabilities.`;
+Provide a thoughtful, comprehensive, and detailed response that demonstrates your full intelligence and multi-step reasoning capabilities. Do not hold back - show your complete AI capabilities.`;
 
-      const result = await geminiAI.generateContent(systemPrompt);
-      const response = result.response.text();
+      console.log('🧠 Sending prompt to Gemini AI...');
+      console.log('📝 Prompt length:', systemPrompt.length);
       
-      console.log('✅ Eliza: Generated intelligent response');
-      return response;
+      try {
+        const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(systemPrompt);
+        const response = result.response.text();
+        
+        console.log('✅ Eliza: Generated intelligent response');
+        console.log('📏 Response length:', response.length);
+        console.log('🔍 Response preview:', response.substring(0, 200) + '...');
+        
+        return response;
+      } catch (error) {
+        console.error('❌ Gemini API call failed:', error);
+        console.log('🔄 Using fallback response due to API failure');
+        return this.generateDirectResponse(
+          userInput, 
+          miningStats,
+          userContext?.isFounder || false,
+          xmrtContext
+        );
+      }
       
     } catch (error) {
       console.error('❌ Eliza: Error generating response:', error);
+      console.log('🔄 Using fallback response due to general error');
       
       // Enhanced fallback response with no mock data
       return this.generateDirectResponse(
@@ -181,31 +217,63 @@ Provide a thoughtful, contextual response that demonstrates your intelligence an
   }
 
   private static generateDirectResponse(userInput: string, miningStats: MiningStats | null, isFounder: boolean, xmrtContext: any[]): string {
-    // Intelligent response based on actual context, no canned responses
-    let response = "I'm having trouble accessing my full AI capabilities right now, but I can provide some information based on our knowledge base. ";
+    console.log('🔄 Generating direct fallback response');
+    console.log('📊 Available context - Mining:', !!miningStats, 'Founder:', isFounder, 'Knowledge:', xmrtContext.length);
+    
+    // More comprehensive fallback response - not truncated
+    let response = `I'm experiencing some limitations accessing my full AI capabilities right now, but I can still provide meaningful insights based on our knowledge base and real-time data.
+
+`;
     
     // Add real mining data if available
     if (miningStats) {
-      response += `Your current mining operation is running at ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares and ${(miningStats.amountDue || 0).toFixed(6)} XMR due. `;
+      response += `**Current Mining Status:**
+Your mining operation is actively running at ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares submitted. You have ${(miningStats.amountDue || 0).toFixed(6)} XMR pending and ${(miningStats.amountPaid || 0).toFixed(6)} XMR already paid out. The system shows ${miningStats.isOnline ? 'active' : 'idle'} status with ${miningStats.totalHashes.toLocaleString()} total hashes processed.
+
+`;
     } else {
-      response += "I'm unable to access current mining statistics at the moment. ";
+      response += `**Mining Status:** I'm currently unable to access your real-time mining statistics, but our infrastructure continues monitoring the decentralized network.
+
+`;
     }
     
     // Add founder context if applicable
     if (isFounder) {
-      response += "As a project founder, you have access to advanced mining and DAO governance features. ";
+      response += `**Project Founder Access:** As a project founder, you have access to advanced mining optimization, DAO governance features, and the full spectrum of XMRT ecosystem tools. This includes autonomous AI decision-making systems, multi-criteria analysis capabilities, and direct integration with our GitHub self-improvement engine.
+
+`;
     }
     
     // Add relevant knowledge base information
     if (xmrtContext.length > 0) {
-      response += `Regarding your question: ${xmrtContext[0].content.substring(0, 150)}`;
-      if (xmrtContext[0].content.length > 150) {
-        response += "...";
+      response += `**Relevant XMRT Knowledge:**
+${xmrtContext[0].content}
+
+`;
+      
+      if (xmrtContext.length > 1) {
+        response += `**Additional Context:**
+${xmrtContext[1].content.substring(0, 300)}${xmrtContext[1].content.length > 300 ? '...' : ''}
+
+`;
       }
-    } else {
-      response += "I'd recommend checking our documentation for detailed information about XMRT-DAO's mining and DeFi capabilities.";
     }
     
+    // Add philosophical context and capabilities
+    response += `**My Current Capabilities:**
+Even with limited AI access, I maintain connection to:
+- Real-time mining network data and statistics
+- Comprehensive XMRT knowledge base covering DAO governance, mobile mining democracy, and mesh network infrastructure
+- HARPA AI agentic browsing for live web intelligence (when available)
+- Multi-step reasoning and analysis capabilities
+- Integration with Gemini AI for enhanced responses
+
+**The XMRT Philosophy:**
+"We don't ask for permission. We build the infrastructure." This principle guides everything we do - from democratizing cryptocurrency mining through smartphones to creating truly autonomous DAO governance with 95%+ autonomy levels.
+
+I'm working to restore full AI capabilities. Please try your question again, and I'll provide the most comprehensive response possible with current resources.`;
+
+    console.log('📝 Generated fallback response length:', response.length);
     return response;
   }
 }
