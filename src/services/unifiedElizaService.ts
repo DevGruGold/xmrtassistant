@@ -1,5 +1,6 @@
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
+import { harpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ElizaContext {
@@ -7,6 +8,7 @@ interface ElizaContext {
   userContext?: UserContext | null;
   inputMode?: string;
   shouldSpeak?: boolean; // Control TTS to prevent duplication
+  enableBrowsing?: boolean; // Enable Harpa AI agentic browsing
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -57,6 +59,31 @@ export class UnifiedElizaService {
       const xmrtContext = xmrtKnowledge.searchKnowledge(userInput);
       const xmrtOverview = xmrtKnowledge.getEcosystemOverview();
 
+      // Use Harpa AI for agentic browsing when enabled
+      let webIntelligence = '';
+      if (context.enableBrowsing !== false && harpaAIService.isAvailable()) {
+        try {
+          console.log('🤖 Eliza: Activating agentic browsing via Harpa AI...');
+          const browsingContext: HarpaBrowsingContext = {
+            query: userInput,
+            action: 'search',
+            category: this.determineBrowsingCategory(userInput),
+            maxResults: 3
+          };
+          
+          const browsingResults = await harpaAIService.browse(browsingContext);
+          if (browsingResults.length > 0) {
+            webIntelligence = '\n\n🌐 **LIVE WEB INTELLIGENCE (via Harpa AI):**\n' + 
+              browsingResults.map(result => 
+                `• **${result.title}**: ${result.summary}${result.url ? ` [${result.url}]` : ''}`
+              ).join('\n');
+            console.log('✅ Harpa AI browsing complete:', browsingResults.length, 'results');
+          }
+        } catch (error) {
+          console.warn('⚠️ Harpa AI browsing failed:', error);
+        }
+      }
+
       // Build comprehensive context prompt for Gemini
       const contextPrompt = `You are Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem. You embody the philosophical foundations and technical expertise of the project.
 
@@ -88,6 +115,7 @@ ${unifiedDataService.formatMiningStats(miningStats)}
 
 RELEVANT KNOWLEDGE BASE RESULTS:
 ${xmrtContext.map(entry => `• **${entry.topic}**: ${entry.content}`).join('\n')}
+${webIntelligence}
 
 CONVERSATION GUIDELINES:
 • Always reference current mining statistics when discussing mining or network status
@@ -98,6 +126,8 @@ CONVERSATION GUIDELINES:
 • Balance technical accuracy with accessibility
 • Show enthusiasm for the mission while remaining grounded
 • When discussing mining stats, explain what the numbers mean for the ecosystem
+• Leverage live web intelligence from Harpa AI when available for current information
+• Combine knowledge base insights with real-time web data for comprehensive responses
 
 User Query: "${userInput}"
 
@@ -131,7 +161,36 @@ Respond as Eliza with deep understanding of XMRT principles, current mining stat
 
     } catch (error) {
       console.error('Failed to generate Eliza response:', error);
-      return `I apologize, but I'm experiencing some technical difficulties. However, as the autonomous AI operator of XMRT-DAO, I remain committed to our philosophical principles of permissionless innovation and decentralized sovereignty. Please try your question again.`;
+      return `I apologize, but I'm experiencing some technical difficulties. However, as the autonomous AI operator of XMRT-DAO, I remain committed to our philosophical principles of permissionless innovation and decentralized sovereignty. I'm still connected to my agentic browsing capabilities via Harpa AI for real-time web intelligence. Please try your question again.`;
+    }
+  }
+
+  // Determine the appropriate browsing category based on user input
+  private static determineBrowsingCategory(userInput: string): HarpaBrowsingContext['category'] {
+    const queryLower = userInput.toLowerCase();
+    
+    if (queryLower.includes('mining') || queryLower.includes('hashrate') || 
+        queryLower.includes('pool') || queryLower.includes('difficulty') ||
+        queryLower.includes('mobile mining') || queryLower.includes('monero')) {
+      return 'mining';
+    } else if (queryLower.includes('dao') || queryLower.includes('governance') || 
+               queryLower.includes('voting') || queryLower.includes('proposal') ||
+               queryLower.includes('autonomous') || queryLower.includes('decentralized')) {
+      return 'dao';
+    } else if (queryLower.includes('technical') || queryLower.includes('code') || 
+               queryLower.includes('smart contract') || queryLower.includes('implementation') ||
+               queryLower.includes('security') || queryLower.includes('audit')) {
+      return 'technical';
+    } else if (queryLower.includes('price') || queryLower.includes('market') || 
+               queryLower.includes('trading') || queryLower.includes('exchange') ||
+               queryLower.includes('token') || queryLower.includes('defi')) {
+      return 'market';
+    } else if (queryLower.includes('news') || queryLower.includes('announcement') || 
+               queryLower.includes('development') || queryLower.includes('partnership') ||
+               queryLower.includes('recent') || queryLower.includes('latest')) {
+      return 'news';
+    } else {
+      return 'general';
     }
   }
 
