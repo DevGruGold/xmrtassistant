@@ -516,7 +516,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 >
                   <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
                   <div className="text-xs opacity-60 mt-2">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {message.timestamp instanceof Date 
+                      ? message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }
                   </div>
                 </div>
               </div>
