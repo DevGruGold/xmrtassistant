@@ -171,14 +171,21 @@ export const MobilePushToTalk: React.FC<MobilePushToTalkProps> = ({
   }
 
   return (
-    <Card className={cn("p-4 bg-card/50 border-primary/20", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Voice Input</span>
+    <Card className={cn("bg-gradient-to-br from-card via-card/50 to-secondary/30 border-primary/30 shadow-lg", className)}>
+      {/* Enhanced Header */}
+      <div className="p-4 border-b border-border bg-primary/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/20">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm text-foreground">🎤 Voice Dictation</h3>
+              <p className="text-xs text-muted-foreground">Tap & hold to speak</p>
+            </div>
+          </div>
+          {getStatusBadge()}
         </div>
-        {getStatusBadge()}
       </div>
 
       {/* Error display */}
@@ -200,43 +207,69 @@ export const MobilePushToTalk: React.FC<MobilePushToTalkProps> = ({
         </div>
       )}
 
-      {/* Main push-to-talk button */}
-      <div className="flex flex-col items-center gap-3">
-        <Button
-          onClick={handleButtonPress}
-          disabled={disabled || isProcessing || permissionStatus === 'requesting'}
-          size="lg"
-          className={cn(
-            "h-16 w-16 rounded-full transition-all duration-200",
-            isRecording 
-              ? "bg-destructive hover:bg-destructive/90 animate-pulse" 
-              : "bg-primary hover:bg-primary/90"
+      {/* Main push-to-talk button - Enhanced */}
+      <div className="p-6 flex flex-col items-center gap-4">
+        <div className="relative">
+          <Button
+            onClick={handleButtonPress}
+            disabled={disabled || isProcessing || permissionStatus === 'requesting'}
+            size="lg"
+            className={cn(
+              "h-20 w-20 rounded-full transition-all duration-300 shadow-lg border-2",
+              isRecording 
+                ? "bg-red-500 hover:bg-red-600 text-white animate-pulse scale-110 border-red-300 shadow-red-500/30" 
+                : "bg-primary hover:bg-primary/90 text-primary-foreground border-primary/50 hover:scale-105 shadow-primary/20"
+            )}
+          >
+            {getButtonIcon()}
+          </Button>
+          
+          {/* Recording indicator ring */}
+          {isRecording && (
+            <div className="absolute inset-0 rounded-full border-4 border-red-400 animate-ping opacity-75"></div>
           )}
-        >
-          {getButtonIcon()}
-        </Button>
+        </div>
         
-        <div className="text-center">
-          <div className="text-sm font-medium text-foreground">
+        <div className="text-center space-y-2">
+          <div className="text-sm font-semibold text-foreground">
             {getButtonText()}
           </div>
+          
+          {isRecording && (
+            <div className="text-xs text-red-600 font-medium animate-pulse bg-red-50 dark:bg-red-950/30 px-3 py-1 rounded-full border border-red-200 dark:border-red-800">
+              🔴 Listening... Tap again to stop
+            </div>
+          )}
+          
           {transcript && (
-            <div className="text-xs text-muted-foreground mt-1 max-w-[200px] truncate">
-              "{transcript}"
+            <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg text-sm max-w-[280px]">
+              <div className="font-medium text-xs text-primary mb-1 flex items-center gap-1">
+                <Mic className="h-3 w-3" />
+                Transcribed:
+              </div>
+              <div className="text-foreground italic">"{transcript}"</div>
+            </div>
+          )}
+          
+          {/* Instructions for mobile users */}
+          {!isRecording && permissionStatus === 'granted' && (
+            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg max-w-[280px]">
+              💡 Tap the microphone to start speaking. Your device will convert speech to text automatically.
             </div>
           )}
         </div>
       </div>
 
       {/* Fallback option */}
-      <div className="mt-4 pt-3 border-t border-border">
+      <div className="px-4 pb-4 pt-2 border-t border-border">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setShowFallback(true)}
-          className="w-full text-xs"
+          className="w-full text-xs text-muted-foreground hover:text-foreground gap-2"
         >
-          Use text input instead
+          <Type className="h-3 w-3" />
+          Switch to text input
         </Button>
       </div>
     </Card>

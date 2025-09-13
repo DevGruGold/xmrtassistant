@@ -146,12 +146,34 @@ export const MobileVoiceInterface: React.FC<MobileVoiceInterfaceProps> = ({
         </Card>
       )}
 
+      {/* Mobile Voice Tips - Prominent display */}
+      {voiceMode === 'push-to-talk' && permissionStatus.isMobile && (
+        <Card className="p-4 bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/30">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-full bg-primary/20">
+              <Mic className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm text-foreground mb-2">🎤 Voice Dictation Ready</h3>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Tap and hold the microphone button to speak</p>
+                <p>• Your device's voice recognition will convert speech to text</p>
+                <p>• Release when finished speaking</p>
+                {permissionStatus.browserType === 'safari' && (
+                  <p className="text-orange-600 font-medium">• Safari works best with short phrases</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Mode selector */}
-      <Card className="p-3 bg-card/50 border-primary/20">
+      <Card className="p-4 bg-card/50 border-primary/20">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Settings className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Input Method</span>
+            <span className="text-sm font-medium">Choose Input Method</span>
           </div>
           
           <div className="flex items-center gap-2">
@@ -159,27 +181,48 @@ export const MobileVoiceInterface: React.FC<MobileVoiceInterfaceProps> = ({
               {permissionStatus.browserType}
             </Badge>
             {permissionStatus.isMobile && (
-              <Badge variant="outline" className="text-xs">
-                Mobile
+              <Badge variant="secondary" className="text-xs">
+                📱 Mobile Ready
               </Badge>
             )}
           </div>
         </div>
 
-        <div className="flex gap-1 p-1 bg-muted rounded-lg">
-          {(['push-to-talk', 'text-only'] as const).map((mode) => (
-            <Button
-              key={mode}
-              onClick={() => setVoiceMode(mode)}
-              variant={voiceMode === mode ? "default" : "ghost"}
-              size="sm"
-              className="flex-1 text-xs gap-2"
-              disabled={mode === 'push-to-talk' && (!permissionStatus.isSupported || !SimplifiedVoiceService.isSupported())}
-            >
-              {getModeIcon(mode)}
-              {getModeLabel(mode)}
-            </Button>
-          ))}
+        <div className="flex gap-2 p-1 bg-muted rounded-lg">
+          <Button
+            onClick={() => setVoiceMode('push-to-talk')}
+            variant={voiceMode === 'push-to-talk' ? "default" : "ghost"}
+            size="sm"
+            className="flex-1 text-xs gap-2 h-10"
+            disabled={!permissionStatus.isSupported || !SimplifiedVoiceService.isSupported()}
+          >
+            <Mic className="h-4 w-4" />
+            <span className="hidden sm:inline">Voice</span>
+            <span className="sm:hidden">🎤</span>
+          </Button>
+          <Button
+            onClick={() => setVoiceMode('text-only')}
+            variant={voiceMode === 'text-only' ? "default" : "ghost"}
+            size="sm"
+            className="flex-1 text-xs gap-2 h-10"
+          >
+            <Type className="h-4 w-4" />
+            <span className="hidden sm:inline">Text</span>
+            <span className="sm:hidden">⌨️</span>
+          </Button>
+        </div>
+        
+        {/* Quick status indicator */}
+        <div className="mt-3 text-center">
+          <Badge 
+            variant={voiceMode === 'push-to-talk' ? "default" : "secondary"} 
+            className="text-xs"
+          >
+            {voiceMode === 'push-to-talk' ? 
+              `🎤 Voice Dictation ${SimplifiedVoiceService.isSupported() ? 'Available' : 'Unavailable'}` : 
+              '⌨️ Text Input Active'
+            }
+          </Badge>
         </div>
       </Card>
 
