@@ -421,163 +421,125 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   };
 
   return (
-    <>
-      <Card className={`bg-gradient-to-br from-card to-secondary border-border flex flex-col h-[600px] sm:h-[700px] ${className}`}>
-        {/* Header */}
-        <div className="p-3 sm:p-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AdaptiveAvatar
-                apiKey={apiKey}
-                className="h-10 w-10"
-                size="sm"
-                enableVoice={voiceEnabled && (inputMode !== 'text')}
-              />
-              <div>
-                <h3 className="font-semibold text-foreground">Eliza</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant={isConnected ? "default" : "secondary"} className="text-xs">
-                    {voiceEnabled ? 'ready' : 'text-only'}
-                  </Badge>
-                  {currentEmotion && emotionConfidence > 0.3 && (
-                    <Badge variant="outline" className="text-xs">
-                      {currentEmotion} ({Math.round(emotionConfidence * 100)}%)
-                    </Badge>
-                  )}
+    <Card className={`bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col h-[500px] sm:h-[600px] ${className}`}>
+      {/* Simplified Header */}
+      <div className="p-4 border-b border-border/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AdaptiveAvatar
+              apiKey={apiKey}
+              className="h-8 w-8 sm:h-10 sm:w-10"
+              size="sm"
+              enableVoice={voiceEnabled}
+            />
+            <div>
+              <h3 className="font-semibold text-foreground text-sm sm:text-base">Eliza AI</h3>
+              <p className="text-xs text-muted-foreground">Your XMRT Assistant</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Simplified Mode Toggle */}
+            <Button
+              onClick={() => setInputMode(inputMode === 'text' ? 'voice' : 'text')}
+              variant="ghost"
+              size="sm"
+              className="text-xs gap-2"
+            >
+              {inputMode === 'text' ? '🎤' : '💬'}
+              {inputMode === 'text' ? 'Voice' : 'Text'}
+            </Button>
+
+            {/* Voice Toggle */}
+            <Button
+              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              variant="ghost"
+              size="sm"
+              className={voiceEnabled ? 'text-primary' : 'text-muted-foreground'}
+            >
+              {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Clean Messages Area */}
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="p-4 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              >
+                <div
+                  className={`max-w-[80%] sm:max-w-[75%] p-3 rounded-2xl ${
+                    message.sender === 'user'
+                      ? 'bg-primary text-primary-foreground rounded-br-md'
+                      : 'bg-muted/50 text-foreground rounded-bl-md'
+                  }`}
+                >
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+                  <div className="text-xs opacity-60 mt-2">
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
 
-            <div className="flex items-center gap-3">
-              {/* Input Mode Selector - Streamlined to 2 modes */}
-              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-                {(['text', 'voice'] as const).map((mode) => (
-                  <Button
-                    key={mode}
-                    onClick={() => setInputMode(mode)}
-                    variant={inputMode === mode ? "default" : "ghost"}
-                    size="sm"
-                    className="text-xs gap-1 min-w-[70px]"
-                  >
-                    <span>{getModeIcon(mode)}</span>
-                    {getModeLabel(mode)}
-                  </Button>
-                ))}
+            {isProcessing && (
+              <div className="flex justify-start animate-fade-in">
+                <div className="bg-muted/50 text-foreground p-3 rounded-2xl rounded-bl-md">
+                  <div className="flex items-center gap-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                    <span className="text-sm text-muted-foreground">Thinking...</span>
+                  </div>
+                </div>
               </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+      </div>
 
-              {/* Simple Mute/Unmute Button - Always visible when voice is available */}
+      {/* Streamlined Input Area */}
+      <div className="border-t border-border/50 bg-background/50">
+        {inputMode === 'voice' ? (
+          <div className="p-4">
+            <MobileVoiceInterface
+              onTranscript={handleVoiceInput}
+              isProcessing={isProcessing}
+              disabled={!voiceEnabled}
+            />
+          </div>
+        ) : (
+          <div className="p-4">
+            <div className="flex gap-3">
+              <Input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask Eliza anything..."
+                className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
+                disabled={isProcessing || isSpeaking}
+              />
               <Button
-                onClick={() => setVoiceEnabled(!voiceEnabled)}
-                variant={voiceEnabled ? "default" : "outline"}
+                onClick={handleSendMessage}
+                disabled={!textInput.trim() || isProcessing || isSpeaking}
                 size="sm"
-                title={voiceEnabled ? "Mute Eliza" : "Unmute Eliza"}
+                className="rounded-full min-h-[48px] min-w-[48px] hover-scale"
               >
-                {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                <Send className="h-4 w-4" />
               </Button>
             </div>
           </div>
-        </div>
-
-        {/* Messages - Improved scrolling */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-3 sm:p-4">
-              <div className="space-y-3 sm:space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] sm:max-w-[70%] p-2 sm:p-3 rounded-lg ${
-                        message.sender === 'user'
-                          ? 'bg-primary text-primary-foreground ml-4 sm:ml-12'
-                          : 'bg-muted text-muted-foreground mr-4 sm:mr-12'
-                      }`}
-                    >
-                      <div className="text-xs sm:text-sm whitespace-pre-wrap">{message.content}</div>
-                      {message.emotion && (
-                        <div className="text-xs opacity-70 mt-1">
-                          Emotion: {message.emotion} ({Math.round((message.confidence || 0) * 100)}%)
-                        </div>
-                      )}
-                      <div className="text-xs opacity-50 mt-1">
-                        {message.timestamp.toLocaleTimeString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {isProcessing && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted text-muted-foreground p-2 sm:p-3 rounded-lg mr-4 sm:mr-12">
-                      <div className="flex items-center gap-2">
-                        <div className="animate-pulse text-xs sm:text-sm">Eliza is thinking...</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Input Area - Mobile optimized */}
-        <div className="border-t border-border">
-          {inputMode === 'voice' ? (
-            <div className="p-3 sm:p-4">
-              <MobileVoiceInterface
-                onTranscript={handleVoiceInput}
-                isProcessing={isProcessing}
-                disabled={!voiceEnabled}
-              />
-            </div>
-          ) : (
-            <div className="p-3 sm:p-4 space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  className="text-sm sm:text-base min-h-[44px] flex-1" // Larger touch target
-                  disabled={isProcessing || isSpeaking}
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!textInput.trim() || isProcessing || isSpeaking}
-                  size="sm"
-                  className="px-4 py-2 min-h-[44px] min-w-[44px]" // Larger touch target for mobile
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              {/* Status indicator for text mode */}
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-muted-foreground">
-                  {getModeIcon(inputMode)} {getModeLabel(inputMode)} active
-                </div>
-                <div className="flex items-center gap-2">
-                  {currentAIMethod && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded">AI: {currentAIMethod}</span>
-                  )}
-                  {currentTTSMethod && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded">TTS: {currentTTSMethod}</span>
-                  )}
-                  {isProcessing && (
-                    <div className="text-xs text-muted-foreground">
-                      Processing...
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </Card>
-    </>
+        )}
+      </div>
+    </Card>
   );
 };
 
