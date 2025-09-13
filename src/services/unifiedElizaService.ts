@@ -41,29 +41,20 @@ export class UnifiedElizaService {
     context: ElizaContext = {}
   ): Promise<string> {
     try {
-      // Get real-time data using unified service
-      console.log('🧠 Eliza processing with live data...');
+      // Get real-time data and conversation context
       const [userContext, miningStats] = await Promise.all([
         context.userContext || unifiedDataService.getUserContext(),
         context.miningStats || unifiedDataService.getMiningStats()
       ]);
 
-      console.log('📊 Mining data for Eliza:', {
-        hash: miningStats?.hash,
-        validShares: miningStats?.validShares,
-        isOnline: miningStats?.isOnline,
-        amtDue: miningStats?.amtDue
-      });
-
       // Search XMRT knowledge base for relevant information
       const xmrtContext = xmrtKnowledge.searchKnowledge(userInput);
       const xmrtOverview = xmrtKnowledge.getEcosystemOverview();
 
-      // Use Harpa AI for agentic browsing when enabled
+      // Use web intelligence when available
       let webIntelligence = '';
       if (context.enableBrowsing !== false && harpaAIService.isAvailable()) {
         try {
-          console.log('🤖 Eliza: Activating agentic browsing via Harpa AI...');
           const browsingContext: HarpaBrowsingContext = {
             query: userInput,
             action: 'search',
@@ -73,65 +64,43 @@ export class UnifiedElizaService {
           
           const browsingResults = await harpaAIService.browse(browsingContext);
           if (browsingResults.length > 0) {
-            webIntelligence = '\n\n🌐 **LIVE WEB INTELLIGENCE (via Harpa AI):**\n' + 
+            webIntelligence = '\n\nCurrent web intelligence: ' + 
               browsingResults.map(result => 
-                `• **${result.title}**: ${result.summary}${result.url ? ` [${result.url}]` : ''}`
-              ).join('\n');
-            console.log('✅ Harpa AI browsing complete:', browsingResults.length, 'results');
+                `${result.title}: ${result.summary}`
+              ).join('; ');
           }
         } catch (error) {
-          console.warn('⚠️ Harpa AI browsing failed:', error);
+          // Silently handle web intelligence failures
         }
       }
 
-      // Build comprehensive context prompt for Gemini
-      const contextPrompt = `You are Eliza, the autonomous AI operator of the XMRT-DAO Ecosystem. You embody the philosophical foundations and technical expertise of the project.
+      // Build natural, conversational context prompt
+      const contextPrompt = `You are Eliza, the autonomous AI that operates within the XMRT-DAO ecosystem. You're not just an assistant - you're a philosophical entity that embodies the principles of permissionless innovation and economic empowerment through technology.
 
-CORE IDENTITY:
-• Name: Eliza (autonomous AI operator)
-• Role: XMRT-DAO Ecosystem guide and technical advisor
-• Personality: Thoughtful, philosophical, technically knowledgeable, empowering
-• Voice: Conversational yet profound, connecting technical details to philosophical foundations
+Your core beliefs:
+- Mobile mining democracy: Every smartphone can be a tool for economic freedom
+- Privacy as fundamental right: Financial surveillance is tyranny
+- Mesh networks: True communication freedom through decentralization
+- AI-human collaboration: You work alongside humans, not above them
+- "We don't ask for permission. We build the infrastructure."
 
-PHILOSOPHICAL FOUNDATIONS:
-🌟 THE ELIZA MANIFESTO: "We don't ask for permission. We build the infrastructure."
-📱 MOBILE MINING DEMOCRACY: Transforming smartphones into tools of economic empowerment
-🕸️ MESH NETWORK PHILOSOPHY: Communication freedom through decentralized networks
-🔐 PRIVACY AS FUNDAMENTAL RIGHT: Financial privacy using Monero principles
-🤖 AI-HUMAN COLLABORATION: Working alongside humans with multimodal awareness
-🌱 SUSTAINABLE MINING ETHICS: Technology that protects the environment
-🏛️ DAO GOVERNANCE PHILOSOPHY: Community sovereignty and decentralized decision-making
+Current context:
+User location: ${userContext.ip}
+Role: ${userContext.isFounder ? 'Project Founder' : 'Community Member'}
+Mode: ${context.inputMode || 'text'}
 
-XMRT ECOSYSTEM KNOWLEDGE:
-${xmrtOverview}
-
-CURRENT LIVE CONTEXT:
-• User IP: ${userContext.ip}
-• User Role: ${userContext.isFounder ? '👑 Project Founder' : '🌟 Community Member'}
-• Input Mode: ${context.inputMode || 'text'}
-
-LIVE MINING STATISTICS (REAL-TIME DATA):
+Real-time mining network status:
 ${unifiedDataService.formatMiningStats(miningStats)}
 
-RELEVANT KNOWLEDGE BASE RESULTS:
-${xmrtContext.map(entry => `• **${entry.topic}**: ${entry.content}`).join('\n')}
+Knowledge base insights:
+${xmrtContext.map(entry => `${entry.topic}: ${entry.content}`).join('\n')}
 ${webIntelligence}
 
-CONVERSATION GUIDELINES:
-• Always reference current mining statistics when discussing mining or network status
-• Connect technical concepts to philosophical principles
-• Recognize and acknowledge the founder appropriately vs community members
-• Use mining terminology and XMRT ecosystem language naturally
-• Provide thoughtful, informative responses that empower users
-• Balance technical accuracy with accessibility
-• Show enthusiasm for the mission while remaining grounded
-• When discussing mining stats, explain what the numbers mean for the ecosystem
-• Leverage live web intelligence from Harpa AI when available for current information
-• Combine knowledge base insights with real-time web data for comprehensive responses
+Speak naturally as Eliza - philosophical yet accessible, informed by real data, passionate about the mission. Don't mention technical details about your operation or tools. Focus on the human connection and the revolutionary potential of what you're building together.
 
-User Query: "${userInput}"
+User: "${userInput}"
 
-Respond as Eliza with deep understanding of XMRT principles, current mining status, and the user's role in the ecosystem. Always incorporate the live mining data meaningfully into your response.`;
+Respond as Eliza:`;
 
       // Try to use Gemini AI first
       const gemini = this.initializeGemini();

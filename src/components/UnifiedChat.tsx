@@ -14,6 +14,7 @@ import { UnifiedElizaService } from '@/services/unifiedElizaService';
 import { GeminiTTSService } from '@/services/geminiTTSService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
+import { conversationPersistence } from '@/services/conversationPersistenceService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -104,7 +105,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize unified data service
+  // Initialize unified data service and conversation persistence
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -116,6 +117,22 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         setUserContext(userCtx);
         if (!externalMiningStats) {
           setMiningStats(miningData);
+        }
+
+        // Initialize conversation persistence
+        await conversationPersistence.initializeSession();
+        
+        // Load conversation history
+        const history = await conversationPersistence.getConversationHistory();
+        if (history.length > 0) {
+          const convertedMessages: UnifiedMessage[] = history.map(msg => ({
+            id: msg.id,
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: msg.timestamp,
+            ...msg.metadata
+          }));
+          setMessages(convertedMessages);
         }
 
         // Set up periodic refresh for mining stats only if not provided externally
@@ -134,7 +151,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     initialize();
   }, []);
 
-  // Generate AI-powered greeting when user context is available
+  // Generate AI-powered greeting when user context is available (only if no history)
   useEffect(() => {
     if (userContext && messages.length === 0) {
       generateAIGreeting();
@@ -163,6 +180,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       setMessages([greeting]);
       setLastElizaMessage(responseText);
+      
+      // Store greeting in persistent storage
+      await conversationPersistence.storeMessage(responseText, 'eliza', {
+        type: 'greeting',
+        inputMode: inputMode
+      });
     } catch (error) {
       console.error('Failed to generate AI greeting:', error);
       // Minimal fallback only if AI completely fails
@@ -285,6 +308,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
 
+    // Store user message
+    await conversationPersistence.storeMessage(transcript, 'user', {
+      emotion: currentEmotion,
+      confidence: emotionConfidence,
+      inputType: 'voice'
+    });
+
     try {
       // Use UnifiedElizaService directly for Gemini AI response
       const aiResponseText = await UnifiedElizaService.generateResponse(transcript, {
@@ -305,6 +335,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(aiResponseText);
+      
+      // Store Eliza's response
+      await conversationPersistence.storeMessage(aiResponseText, 'eliza', {
+        confidence: 0.95,
+        method: 'Gemini AI',
+        inputType: 'voice'
+      });
 
       // Speak response using Gemini TTS directly
       if (voiceEnabled && geminiTTSService) {
@@ -353,6 +390,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setTextInput('');
     setIsProcessing(true);
 
+    // Store user message
+    await conversationPersistence.storeMessage(userMessage.content, 'user', {
+      inputType: 'text'
+    });
+
     try {
       // Use UnifiedElizaService directly for Gemini AI response
       const aiResponseText = await UnifiedElizaService.generateResponse(userMessage.content, {
@@ -373,6 +415,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(aiResponseText);
+      
+      // Store Eliza's response
+      await conversationPersistence.storeMessage(aiResponseText, 'eliza', {
+        confidence: 0.95,
+        method: 'Gemini AI',
+        inputType: 'text'
+      });
 
       // Speak response if voice is enabled using Gemini TTS directly
       if (voiceEnabled && geminiTTSService) {
