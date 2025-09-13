@@ -58,6 +58,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 }) => {
   // Core state
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
+  const [conversationSummaries, setConversationSummaries] = useState<Array<{ summaryText: string; messageCount: number; createdAt: Date }>>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [totalMessageCount, setTotalMessageCount] = useState(0);
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
@@ -118,21 +122,28 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           setMiningStats(miningData);
         }
 
-        // Initialize conversation persistence (temporarily disabled due to DB constraints)
+        // Initialize conversation persistence with optimized loading
         try {
           await conversationPersistence.initializeSession();
           
-          // Load conversation history
-          const history = await conversationPersistence.getConversationHistory();
-          if (history.length > 0) {
-            const convertedMessages: UnifiedMessage[] = history.map(msg => ({
+          // Load conversation context (summaries + recent messages only)
+          const context = await conversationPersistence.getConversationContext(10);
+          
+          if (context.recentMessages.length > 0 || context.summaries.length > 0) {
+            const convertedMessages: UnifiedMessage[] = context.recentMessages.map(msg => ({
               id: msg.id,
               content: msg.content,
               sender: msg.sender,
               timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
               ...msg.metadata
             }));
+            
             setMessages(convertedMessages);
+            setConversationSummaries(context.summaries);
+            setHasMoreMessages(context.hasMoreMessages);
+            setTotalMessageCount(context.totalMessageCount);
+            
+            console.log(`Loaded ${convertedMessages.length} recent messages, ${context.summaries.length} summaries. Total: ${context.totalMessageCount} messages.`);
           }
         } catch (error) {
           console.log('Conversation persistence temporarily disabled:', error);
@@ -156,10 +167,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Generate AI-powered greeting when user context is available (only if no history)
   useEffect(() => {
-    if (userContext && messages.length === 0) {
+    if (userContext && messages.length === 0 && conversationSummaries.length === 0) {
       generateAIGreeting();
     }
-  }, [userContext]);
+  }, [userContext, messages.length, conversationSummaries.length]);
 
   const generateAIGreeting = async () => {
     setIsProcessing(true);
@@ -203,6 +214,36 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages([fallback]);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Load more messages for pagination
+  const loadMoreMessages = async () => {
+    if (loadingMoreMessages || !hasMoreMessages) return;
+    
+    setLoadingMoreMessages(true);
+    try {
+      const moreMessages = await conversationPersistence.loadMoreMessages(messages.length, 20);
+      if (moreMessages.length > 0) {
+        const convertedMessages: UnifiedMessage[] = moreMessages.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          sender: msg.sender,
+          timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp),
+          ...msg.metadata
+        }));
+        
+        // Prepend older messages to the beginning
+        setMessages(prev => [...convertedMessages, ...prev]);
+      }
+      
+      // Check if there are more messages
+      const currentTotal = messages.length + moreMessages.length;
+      setHasMoreMessages(currentTotal < totalMessageCount);
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+    } finally {
+      setLoadingMoreMessages(false);
     }
   };
 
@@ -522,6 +563,31 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4 space-y-4">
+            {/* Load More Messages Button */}
+            {hasMoreMessages && (
+              <div className="flex justify-center">
+                <Button
+                  onClick={loadMoreMessages}
+                  disabled={loadingMoreMessages}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  {loadingMoreMessages ? 'Loading...' : `Load More (${totalMessageCount - messages.length} older messages)`}
+                </Button>
+              </div>
+            )}
+            
+            {/* Conversation Summary Display */}
+            {conversationSummaries.length > 0 && messages.length > 0 && (
+              <div className="bg-muted/30 border border-border/30 rounded-lg p-3 mb-4">
+                <div className="text-xs text-muted-foreground mb-2">Previous conversation summary:</div>
+                <div className="text-xs leading-relaxed">
+                  {conversationSummaries[conversationSummaries.length - 1]?.summaryText}
+                </div>
+              </div>
+            )}
+            
             {messages.map((message) => (
               <div
                 key={message.id}

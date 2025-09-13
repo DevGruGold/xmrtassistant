@@ -135,6 +135,8 @@ export class ConversationPersistenceService {
         return;
       }
 
+      const currentMessageCount = await this.getMessageCount();
+
       // Update session timestamp
       await supabase
         .from('conversation_sessions')
@@ -142,18 +144,65 @@ export class ConversationPersistenceService {
           updated_at: new Date().toISOString(),
           metadata: {
             lastActivity: new Date().toISOString(),
-            messageCount: await this.getMessageCount()
+            messageCount: currentMessageCount
           }
         })
         .eq('id', this.currentSessionId);
+
+      // Check if summarization is needed (every 15 messages)
+      if (currentMessageCount > 0 && currentMessageCount % 15 === 0) {
+        try {
+          await this.createConversationSummary();
+        } catch (error) {
+          console.error('Failed to create conversation summary:', error);
+        }
+      }
 
     } catch (error) {
       console.error('Failed to store message:', error);
     }
   }
 
-  // Get conversation history for current session
-  public async getConversationHistory(limit: number = 50): Promise<ConversationMessage[]> {
+  // Create conversation summary for the current batch of messages
+  private async createConversationSummary(): Promise<void> {
+    if (!this.currentSessionId) return;
+
+    try {
+      // Import summarization service dynamically to avoid circular imports
+      const { conversationSummarization } = await import('./conversationSummarizationService');
+      
+      // Get the latest 15 messages for summarization
+      const recentMessages = await this.getRecentConversationHistory(15);
+      
+      if (recentMessages.length === 0) return;
+
+      // Generate summary
+      const summaryText = await conversationSummarization.generateSummary(recentMessages);
+      
+      // Store the summary
+      await conversationSummarization.storeSummary(
+        this.currentSessionId,
+        summaryText,
+        recentMessages.length,
+        recentMessages[0]?.id,
+        recentMessages[recentMessages.length - 1]?.id,
+        {
+          generatedAt: new Date().toISOString(),
+          messageRange: {
+            start: recentMessages[0]?.timestamp,
+            end: recentMessages[recentMessages.length - 1]?.timestamp
+          }
+        }
+      );
+
+      console.log(`Created conversation summary for ${recentMessages.length} messages`);
+    } catch (error) {
+      console.error('Failed to create conversation summary:', error);
+    }
+  }
+
+  // Get recent conversation history (lazy loading - only recent messages)
+  public async getRecentConversationHistory(limit: number = 10): Promise<ConversationMessage[]> {
     if (!this.currentSessionId) {
       return [];
     }
@@ -163,21 +212,60 @@ export class ConversationPersistenceService {
         .from('conversation_messages')
         .select('*')
         .eq('session_id', this.currentSessionId)
-        .order('timestamp', { ascending: true })
+        .order('timestamp', { ascending: false })
         .limit(limit);
+
+      if (error) {
+        console.error('Error fetching recent conversation history:', error);
+        return [];
+      }
+
+      // Reverse to maintain chronological order (oldest first)
+      const chronologicalMessages = messages?.reverse() || [];
+
+      return chronologicalMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.message_type as 'user' | 'assistant',
+        timestamp: new Date(msg.timestamp),
+        metadata: (msg.metadata as Record<string, any>) || {}
+      }));
+
+    } catch (error) {
+      console.error('Failed to get recent conversation history:', error);
+      return [];
+    }
+  }
+
+  // Get conversation history with pagination support
+  public async getConversationHistory(limit: number = 50, offset: number = 0): Promise<ConversationMessage[]> {
+    if (!this.currentSessionId) {
+      return [];
+    }
+
+    try {
+      const { data: messages, error } = await supabase
+        .from('conversation_messages')
+        .select('*')
+        .eq('session_id', this.currentSessionId)
+        .order('timestamp', { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) {
         console.error('Error fetching conversation history:', error);
         return [];
       }
 
-      return messages?.map(msg => ({
+      // Reverse to maintain chronological order (oldest first)
+      const chronologicalMessages = messages?.reverse() || [];
+
+      return chronologicalMessages.map(msg => ({
         id: msg.id,
         content: msg.content,
         sender: msg.message_type as 'user' | 'assistant',
         timestamp: new Date(msg.timestamp),
         metadata: (msg.metadata as Record<string, any>) || {}
-      })) || [];
+      }));
 
     } catch (error) {
       console.error('Failed to get conversation history:', error);
@@ -185,8 +273,70 @@ export class ConversationPersistenceService {
     }
   }
 
+  // Load more messages for pagination
+  public async loadMoreMessages(currentMessageCount: number, limit: number = 20): Promise<ConversationMessage[]> {
+    return this.getConversationHistory(limit, currentMessageCount);
+  }
+
+  // Get conversation context (summaries + recent messages) for optimized loading
+  public async getConversationContext(recentMessageLimit: number = 10): Promise<{
+    summaries: Array<{ summaryText: string; messageCount: number; createdAt: Date }>;
+    recentMessages: ConversationMessage[];
+    totalMessageCount: number;
+    hasMoreMessages: boolean;
+  }> {
+    if (!this.currentSessionId) {
+      return {
+        summaries: [],
+        recentMessages: [],
+        totalMessageCount: 0,
+        hasMoreMessages: false
+      };
+    }
+
+    try {
+      // Get conversation summaries
+      const { data: summaries, error: summariesError } = await supabase
+        .from('conversation_summaries')
+        .select('summary_text, message_count, created_at')
+        .eq('session_id', this.currentSessionId)
+        .order('created_at', { ascending: true });
+
+      if (summariesError) {
+        console.error('Error fetching summaries:', summariesError);
+      }
+
+      // Get recent messages
+      const recentMessages = await this.getRecentConversationHistory(recentMessageLimit);
+      
+      // Get total message count
+      const totalMessageCount = await this.getMessageCount();
+      
+      const hasMoreMessages = totalMessageCount > recentMessageLimit;
+
+      return {
+        summaries: summaries?.map(s => ({
+          summaryText: s.summary_text,
+          messageCount: s.message_count,
+          createdAt: new Date(s.created_at)
+        })) || [],
+        recentMessages,
+        totalMessageCount,
+        hasMoreMessages
+      };
+    } catch (error) {
+      console.error('Failed to get conversation context:', error);
+      return {
+        summaries: [],
+        recentMessages: [],
+        totalMessageCount: 0,
+        hasMoreMessages: false
+      };
+    }
+  }
+
   // Get message count for current session
-  private async getMessageCount(): Promise<number> {
+  public async getMessageCount(): Promise<number> {
     if (!this.currentSessionId) return 0;
 
     try {
