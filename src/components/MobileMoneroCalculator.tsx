@@ -6,8 +6,54 @@ import { Smartphone, TrendingUp, Users, Zap, DollarSign } from 'lucide-react';
 
 const MobileMoneroCalculator = () => {
   const [hashrate, setHashrate] = useState([800]); // H/s - adjusted for modern devices
-  const [users, setUsers] = useState([100]); // Number of users
+  const [usersSliderValue, setUsersSliderValue] = useState([25]); // Slider position (0-100)
   const [moneroPrice, setMoneroPrice] = useState([300]); // USD price per XMR
+
+  // Logarithmic scale conversion functions
+  const sliderToUsers = (sliderValue: number): number => {
+    // Map 0-100 slider to 1-2B users logarithmically
+    // 0-40: 1 to 100K (more granular for small numbers)
+    // 40-70: 100K to 10M 
+    // 70-90: 10M to 1B
+    // 90-100: 1B to 2B
+    
+    if (sliderValue <= 40) {
+      // 1 to 100,000 users (0-40% of slider)
+      const progress = sliderValue / 40;
+      return Math.round(1 * Math.pow(100000, progress));
+    } else if (sliderValue <= 70) {
+      // 100,000 to 10,000,000 users (40-70% of slider)
+      const progress = (sliderValue - 40) / 30;
+      return Math.round(100000 * Math.pow(100, progress));
+    } else if (sliderValue <= 90) {
+      // 10,000,000 to 1,000,000,000 users (70-90% of slider)
+      const progress = (sliderValue - 70) / 20;
+      return Math.round(10000000 * Math.pow(100, progress));
+    } else {
+      // 1,000,000,000 to 2,000,000,000 users (90-100% of slider)
+      const progress = (sliderValue - 90) / 10;
+      return Math.round(1000000000 * (1 + progress));
+    }
+  };
+
+  const usersToSlider = (userCount: number): number => {
+    // Convert user count back to slider position
+    if (userCount <= 100000) {
+      const progress = Math.log(userCount) / Math.log(100000);
+      return Math.round(progress * 40);
+    } else if (userCount <= 10000000) {
+      const progress = Math.log(userCount / 100000) / Math.log(100);
+      return Math.round(40 + progress * 30);
+    } else if (userCount <= 1000000000) {
+      const progress = Math.log(userCount / 10000000) / Math.log(100);
+      return Math.round(70 + progress * 20);
+    } else {
+      const progress = (userCount - 1000000000) / 1000000000;
+      return Math.round(90 + progress * 10);
+    }
+  };
+
+  const users = sliderToUsers(usersSliderValue[0]);
 
   // Monero mining constants (approximate current values)
   const networkHashrate = 2.8e9; // ~2.8 GH/s network hashrate
@@ -15,7 +61,7 @@ const MobileMoneroCalculator = () => {
   const blockTime = 120; // 2 minutes per block
 
   const calculations = useMemo(() => {
-    const totalHashrate = hashrate[0] * users[0];
+    const totalHashrate = hashrate[0] * users;
     const shareOfNetwork = totalHashrate / networkHashrate;
     const xmrPerDay = (shareOfNetwork * blockReward * (24 * 60 * 60)) / blockTime;
     const usdPerDay = xmrPerDay * moneroPrice[0];
@@ -125,14 +171,14 @@ const MobileMoneroCalculator = () => {
             <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
                 <Label className="text-gray-300 text-sm sm:text-base">Number of Mining Devices</Label>
-                <span className="text-blue-400 font-mono text-sm sm:text-base">{formatNumber(users[0], 0)}</span>
+                <span className="text-blue-400 font-mono text-sm sm:text-base">{formatNumber(users, 0)}</span>
               </div>
               <Slider
-                value={users}
-                onValueChange={setUsers}
-                max={2000000000}
-                min={1}
-                step={users[0] <= 100 ? 1 : users[0] <= 1000 ? 5 : users[0] <= 10000 ? 50 : users[0] <= 100000 ? 500 : users[0] <= 1000000 ? 5000 : users[0] <= 10000000 ? 50000 : 500000}
+                value={usersSliderValue}
+                onValueChange={setUsersSliderValue}
+                max={100}
+                min={0}
+                step={1}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-gray-500">
