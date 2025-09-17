@@ -10,6 +10,8 @@ export interface GeminiTTSOptions {
 
 export class GeminiTTSService {
   private genAI: GoogleGenerativeAI | null = null;
+  private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private onSpeechEnd: (() => void) | null = null;
 
   constructor(apiKey: string) {
     if (apiKey) {
@@ -18,7 +20,8 @@ export class GeminiTTSService {
   }
 
   // Gemini doesn't have native TTS, so we'll use it to enhance Web Speech API
-  async speakText(options: GeminiTTSOptions): Promise<void> {
+  async speakText(options: GeminiTTSOptions, onSpeechEnd?: () => void): Promise<void> {
+    this.onSpeechEnd = onSpeechEnd;
     if (!this.genAI) {
       throw new Error('Gemini API not initialized');
     }
@@ -58,6 +61,7 @@ export class GeminiTTSService {
 
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(options.text);
+      this.currentUtterance = utterance;
       
       // Configure voice settings
       utterance.rate = options.rate || 0.9;
@@ -79,13 +83,34 @@ export class GeminiTTSService {
         utterance.voice = preferredVoice;
       }
 
-      utterance.onend = () => resolve();
-      utterance.onerror = (event) => reject(new Error(`Speech synthesis error: ${event.error}`));
+      utterance.onend = () => {
+        this.currentUtterance = null;
+        this.onSpeechEnd?.();
+        resolve();
+      };
+      
+      utterance.onerror = (event) => {
+        this.currentUtterance = null;
+        this.onSpeechEnd?.();
+        reject(new Error(`Speech synthesis error: ${event.error}`));
+      };
       
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     });
+  }
+
+  stopSpeaking(): void {
+    if (this.currentUtterance) {
+      window.speechSynthesis.cancel();
+      this.currentUtterance = null;
+      this.onSpeechEnd?.();
+    }
+  }
+
+  isSpeaking(): boolean {
+    return this.currentUtterance !== null && window.speechSynthesis.speaking;
   }
 
   static async create(): Promise<GeminiTTSService | null> {

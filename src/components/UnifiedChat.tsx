@@ -349,6 +349,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript?.trim() || isProcessing) return;
 
+    // If Eliza is speaking, interrupt her
+    if (isSpeaking && geminiTTSService) {
+      geminiTTSService.stopSpeaking();
+      setIsSpeaking(false);
+    }
+
     const userMessage: UnifiedMessage = {
       id: `voice-user-${Date.now()}`,
       content: transcript,
@@ -423,7 +429,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await geminiTTSService.speakText({ text: response });
+          await geminiTTSService.speakText({ text: response }, () => {
+            setIsSpeaking(false);
+          });
           setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
           console.error('Gemini TTS failed:', error);
@@ -449,7 +457,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Text message handler
   const handleSendMessage = async () => {
-    if (!textInput.trim() || isProcessing || isSpeaking) return;
+    if (!textInput.trim() || isProcessing) return;
+
+    // If Eliza is speaking, interrupt her when user sends a message
+    if (isSpeaking && geminiTTSService) {
+      geminiTTSService.stopSpeaking();
+      setIsSpeaking(false);
+    }
 
     const userMessage: UnifiedMessage = {
       id: `user-${Date.now()}`,
@@ -528,12 +542,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       if (voiceEnabled && geminiTTSService) {
         try {
           setIsSpeaking(true);
-          await geminiTTSService.speakText({ text: response });
+          await geminiTTSService.speakText({ text: response }, () => {
+            setIsSpeaking(false);
+          });
           setCurrentTTSMethod('Gemini TTS');
         } catch (error) {
           console.error('Gemini TTS failed:', error);
           setCurrentTTSMethod('failed');
-        } finally {
           setIsSpeaking(false);
         }
       }
@@ -563,12 +578,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Toggle voice synthesis
   const toggleVoiceSynthesis = () => {
-    if (isSpeaking) {
-      // Stop current speech if speaking
+    const newVoiceState = !voiceEnabled;
+    setVoiceEnabled(newVoiceState);
+    
+    // If disabling voice (muting), stop any ongoing speech
+    if (!newVoiceState && geminiTTSService) {
+      geminiTTSService.stopSpeaking();
       setIsSpeaking(false);
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
     }
   };
 
@@ -606,7 +622,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             
             {/* Voice Toggle */}
             <Button
-              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              onClick={toggleVoiceSynthesis}
               variant="ghost"
               size="sm"
               className={voiceEnabled ? 'text-primary' : 'text-muted-foreground'}
@@ -694,15 +710,22 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           <div className="flex gap-3">
             <Input
               value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
+              onChange={(e) => {
+                setTextInput(e.target.value);
+                // If user starts typing while Eliza is speaking, interrupt her
+                if (isSpeaking && geminiTTSService && e.target.value.length > 0) {
+                  geminiTTSService.stopSpeaking();
+                  setIsSpeaking(false);
+                }
+              }}
               onKeyPress={handleKeyPress}
-              placeholder="Ask Eliza anything..."
+              placeholder={isSpeaking ? "Start typing to interrupt..." : "Ask Eliza anything..."}
               className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
-              disabled={isProcessing || isSpeaking}
+              disabled={isProcessing}
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!textInput.trim() || isProcessing || isSpeaking}
+              disabled={!textInput.trim() || isProcessing}
               size="sm"
               className="rounded-full min-h-[48px] min-w-[48px] hover-scale"
             >
