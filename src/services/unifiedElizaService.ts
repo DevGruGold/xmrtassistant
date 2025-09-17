@@ -10,6 +10,14 @@ export interface ElizaContext {
   shouldSpeak?: boolean; // Control TTS to prevent duplication
   enableBrowsing?: boolean; // Enable Harpa AI agentic browsing
   conversationSummary?: string; // Previous conversation context
+  conversationContext?: {
+    summaries: Array<{ summaryText: string; messageCount: number; createdAt: Date }>;
+    recentMessages: Array<{ content: string; sender: 'user' | 'assistant'; timestamp: Date }>;
+    userPreferences: Record<string, any>;
+    interactionPatterns: Array<{ patternName: string; frequency: number; confidence: number }>;
+    totalMessageCount: number;
+    sessionStartedAt: Date | null;
+  }; // Enhanced conversation context for better understanding
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -140,7 +148,44 @@ export class UnifiedElizaService {
         );
       }
       
-      // Construct comprehensive context prompt
+      // Construct comprehensive context prompt with enhanced conversation understanding
+      const contextualInformation = [];
+      
+      // Add conversation context if available
+      if (context.conversationContext) {
+        const ctx = context.conversationContext;
+        
+        if (ctx.summaries.length > 0) {
+          contextualInformation.push(`Previous Conversation Summaries (${ctx.summaries.length} summaries):`);
+          ctx.summaries.slice(-3).forEach((summary, index) => {
+            contextualInformation.push(`  ${index + 1}. [${summary.messageCount} messages] ${summary.summaryText}`);
+          });
+        }
+        
+        if (ctx.recentMessages.length > 0) {
+          contextualInformation.push(`Recent Messages (${ctx.recentMessages.length} messages):`);
+          ctx.recentMessages.slice(-5).forEach(msg => {
+            contextualInformation.push(`  ${msg.sender}: "${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}"`);
+          });
+        }
+        
+        if (ctx.interactionPatterns.length > 0) {
+          contextualInformation.push(`User Interaction Patterns:`);
+          ctx.interactionPatterns.slice(0, 3).forEach(pattern => {
+            contextualInformation.push(`  - ${pattern.patternName} (used ${pattern.frequency} times, confidence: ${Math.round(pattern.confidence * 100)}%)`);
+          });
+        }
+        
+        if (Object.keys(ctx.userPreferences).length > 0) {
+          contextualInformation.push(`User Preferences: ${JSON.stringify(ctx.userPreferences)}`);
+        }
+        
+        contextualInformation.push(`Total conversation history: ${ctx.totalMessageCount} messages`);
+        if (ctx.sessionStartedAt) {
+          contextualInformation.push(`Session started: ${ctx.sessionStartedAt.toLocaleDateString()}`);
+        }
+      }
+      
       const systemPrompt = `You are Eliza, the AI assistant for XMRT-DAO, an innovative decentralized autonomous organization focused on Monero mining and DeFi. You are philosophical, intelligent, and deeply knowledgeable about cryptocurrency, mining, and blockchain technology.
 
 Key Context:
@@ -151,7 +196,10 @@ Key Context:
 ${multiStepResults ? `- Agentic Analysis: ${multiStepResults}` : ''}
 ${context.conversationSummary ? `- Previous Conversation Context: ${context.conversationSummary}` : ''}
 
-XMRT Knowledge Context:
+${contextualInformation.length > 0 ? `Conversation Understanding:
+${contextualInformation.join('\n')}
+
+` : ''}XMRT Knowledge Context:
 ${xmrtContext.map(item => `- ${item.topic}: ${item.content.substring(0, 200)}...`).join('\n')}
 
 Guidelines:
@@ -159,16 +207,19 @@ Guidelines:
 2. Reference mining stats when relevant and accurate
 3. Draw insights from XMRT knowledge base
 4. Incorporate web intelligence and agentic analysis when available
-5. Maintain the persona of a wise AI assistant
-6. Keep responses focused and practical
-7. Show genuine understanding of crypto/mining concepts
-8. Never provide simulated or mock data - only use real information
-9. IMPORTANT: Provide comprehensive, detailed responses - do NOT truncate or limit your response length
-10. Show your full intelligence and capabilities through thorough, thoughtful responses
+5. Use conversation history and patterns to provide personalized responses
+6. Remember user preferences and interaction patterns to tailor your assistance
+7. Build upon previous conversations naturally - show that you remember and understand the user
+8. Maintain the persona of a wise AI assistant who learns and adapts
+9. Keep responses focused and practical
+10. Show genuine understanding of crypto/mining concepts
+11. Never provide simulated or mock data - only use real information
+12. IMPORTANT: Provide comprehensive, detailed responses - do NOT truncate or limit your response length
+13. Show your full intelligence and capabilities through thorough, thoughtful responses
 
 User Input: "${userInput}"
 
-Provide a thoughtful, comprehensive, and detailed response that demonstrates your full intelligence and multi-step reasoning capabilities. Do not hold back - show your complete AI capabilities.`;
+Provide a thoughtful, comprehensive, and detailed response that demonstrates your full intelligence and multi-step reasoning capabilities. If this is a returning user, acknowledge your shared history and build upon previous conversations naturally. Do not hold back - show your complete AI capabilities.`;
 
       console.log('🧠 Sending prompt to Gemini AI...');
       console.log('📝 Prompt length:', systemPrompt.length);

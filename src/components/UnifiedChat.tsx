@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
-import { Send, Volume2, VolumeX } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2 } from 'lucide-react';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -196,6 +196,54 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     });
   };
 
+  // Clear conversation history
+  const handleClearConversation = async () => {
+    if (!confirm('Are you sure you want to clear the entire conversation history? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await conversationPersistence.clearConversationHistory();
+      
+      // Reset local state
+      setMessages([]);
+      setConversationSummaries([]);
+      setHasMoreMessages(false);
+      setTotalMessageCount(0);
+      setLastElizaMessage('');
+      
+      // Generate new greeting for fresh start
+      if (userContext) {
+        const greeting: UnifiedMessage = {
+          id: 'fresh-greeting',
+          content: "Hello! I'm Eliza, your XMRT assistant. How can I help you today?",
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages([greeting]);
+        setLastElizaMessage(greeting.content);
+        
+        // Store new greeting
+        await conversationPersistence.storeMessage(greeting.content, 'assistant', {
+          type: 'fresh-start-greeting'
+        });
+      }
+      
+      console.log('✅ Conversation cleared and reset');
+    } catch (error) {
+      console.error('Failed to clear conversation:', error);
+      // Show error to user
+      const errorMessage: UnifiedMessage = {
+        id: `error-${Date.now()}`,
+        content: 'Failed to clear conversation history. Please try again.',
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
   // Load more messages for pagination
   const loadMoreMessages = async () => {
     if (loadingMoreMessages || !hasMoreMessages) return;
@@ -336,7 +384,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         userContext,
         inputMode: 'voice',
         shouldSpeak: true,
-        enableBrowsing: true
+        enableBrowsing: true,
+        conversationContext: await conversationPersistence.getFullConversationContext()  // Enhanced context for voice too
       });
       
       await conversationPersistence.storeMessage(
@@ -434,12 +483,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       console.log('💾 User message stored, generating response...');
       
+      // Get full conversation context for better AI understanding
+      const fullContext = await conversationPersistence.getFullConversationContext();
+      
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
         inputMode: 'text',
         shouldSpeak: false,
-        enableBrowsing: true  // Let the service decide when to browse
+        enableBrowsing: true,  // Let the service decide when to browse
+        conversationContext: fullContext  // Enhanced context for better understanding
       });
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
@@ -538,6 +591,19 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Clear Conversation Button */}
+            {totalMessageCount > 0 && (
+              <Button
+                onClick={handleClearConversation}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive"
+                title="Clear conversation history"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            
             {/* Voice Toggle */}
             <Button
               onClick={() => setVoiceEnabled(!voiceEnabled)}

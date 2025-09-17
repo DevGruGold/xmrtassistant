@@ -465,6 +465,116 @@ export class ConversationPersistenceService {
     }
   }
 
+  // Clear conversation history for current session
+  public async clearConversationHistory(): Promise<void> {
+    if (!this.currentSessionId) return;
+
+    try {
+      // Delete all messages for current session
+      await supabase
+        .from('conversation_messages')
+        .delete()
+        .eq('session_id', this.currentSessionId);
+
+      // Delete all summaries for current session
+      await supabase
+        .from('conversation_summaries')
+        .delete()
+        .eq('session_id', this.currentSessionId);
+
+      // Clear localStorage cache
+      localStorage.removeItem('xmrt-conversation-summary');
+      localStorage.removeItem('xmrt-last-summary-time');
+
+      console.log('✅ Conversation history cleared successfully');
+    } catch (error) {
+      console.error('Failed to clear conversation history:', error);
+      throw error;
+    }
+  }
+
+  // Get comprehensive conversation context for AI (better context recall)
+  public async getFullConversationContext(): Promise<{
+    summaries: Array<{ summaryText: string; messageCount: number; createdAt: Date }>;
+    recentMessages: ConversationMessage[];
+    userPreferences: Record<string, any>;
+    interactionPatterns: Array<{ patternName: string; frequency: number; confidence: number }>;
+    totalMessageCount: number;
+    sessionStartedAt: Date | null;
+  }> {
+    if (!this.currentSessionId) {
+      return {
+        summaries: [],
+        recentMessages: [],
+        userPreferences: {},
+        interactionPatterns: [],
+        totalMessageCount: 0,
+        sessionStartedAt: null
+      };
+    }
+
+    try {
+      const [summaries, recentMessages, userPreferences, interactionPatterns, sessionInfo] = await Promise.all([
+        // Get all conversation summaries
+        supabase
+          .from('conversation_summaries')
+          .select('summary_text, message_count, created_at')
+          .eq('session_id', this.currentSessionId)
+          .order('created_at', { ascending: true }),
+        
+        // Get recent 20 messages for immediate context
+        this.getRecentConversationHistory(20),
+        
+        // Get user preferences
+        this.getUserPreferences(),
+        
+        // Get interaction patterns
+        supabase
+          .from('interaction_patterns')
+          .select('pattern_name, frequency, confidence_score')
+          .eq('session_key', `ip-${await this.getUserIP()}`)
+          .order('last_occurrence', { ascending: false })
+          .limit(10),
+        
+        // Get session info
+        supabase
+          .from('conversation_sessions')
+          .select('created_at')
+          .eq('id', this.currentSessionId)
+          .single()
+      ]);
+
+      const totalMessageCount = await this.getMessageCount();
+
+      return {
+        summaries: summaries.data?.map(s => ({
+          summaryText: s.summary_text,
+          messageCount: s.message_count,
+          createdAt: new Date(s.created_at)
+        })) || [],
+        recentMessages,
+        userPreferences,
+        interactionPatterns: interactionPatterns.data?.map(p => ({
+          patternName: p.pattern_name,
+          frequency: p.frequency,
+          confidence: p.confidence_score
+        })) || [],
+        totalMessageCount,
+        sessionStartedAt: sessionInfo.data ? new Date(sessionInfo.data.created_at) : null
+      };
+    } catch (error) {
+      console.error('Failed to get full conversation context:', error);
+      return {
+        summaries: [],
+        recentMessages: [],
+        userPreferences: {},
+        interactionPatterns: [],
+        totalMessageCount: 0,
+        sessionStartedAt: null
+      };
+    }
+  }
+
   // Close current session
   public async closeSession(): Promise<void> {
     if (!this.currentSessionId) return;
