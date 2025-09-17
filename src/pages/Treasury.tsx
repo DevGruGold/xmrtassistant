@@ -1,23 +1,28 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Footer } from "@/components/Footer";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Treasury = () => {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+      <LanguageToggle />
       <div className="container mx-auto px-4 py-8">
         <header className="mb-12 text-center">
           <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">
-            XMRT Treasury
+            {t('treasury.title')}
           </h1>
-          <p className="text-gray-400">Contribute to the XMRT Master DAO</p>
+          <p className="text-gray-400">{t('treasury.description')}</p>
         </header>
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">OnRamper Integration</CardTitle>
+              <CardTitle className="text-white">{t('treasury.purchase.title')}</CardTitle>
               <CardDescription className="text-gray-400">
-                Purchase crypto to contribute to the treasury
+                {t('treasury.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -35,19 +40,19 @@ const Treasury = () => {
 
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader>
-              <CardTitle className="text-white">Treasury Stats</CardTitle>
+              <CardTitle className="text-white">{t('treasury.stats.title')}</CardTitle>
               <CardDescription className="text-gray-400">
-                Current treasury holdings and statistics
+                {t('treasury.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span>Total Value Locked</span>
+                  <span>{t('treasury.stats.tvl')}</span>
                   <span className="text-purple-400">$0.00</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span>Contributors</span>
+                  <span>{t('treasury.stats.contributors')}</span>
                   <span className="text-blue-400">0</span>
                 </div>
               </div>

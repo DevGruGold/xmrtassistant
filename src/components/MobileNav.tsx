@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
+  const { t } = useLanguage();
 
   const toggleMenu = () => setIsOpen(!isOpen);
 
@@ -29,14 +31,14 @@ export function MobileNav() {
               className="text-2xl font-bold text-white hover:text-purple-400 transition-colors"
               onClick={toggleMenu}
             >
-              Home
+              {t('nav.home')}
             </Link>
             <Link
               to="/treasury"
               className="text-2xl font-bold text-white hover:text-purple-400 transition-colors"
               onClick={toggleMenu}
             >
-              Treasury
+              {t('nav.treasury')}
             </Link>
           </nav>
         </div>

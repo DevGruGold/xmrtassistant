@@ -11,13 +11,17 @@ import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
   const [activeTab, setActiveTab] = useState("members");
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background">
+      <LanguageToggle />
       <MobileNav />
       
       {/* Hero Section - Data-First Design */}
@@ -34,19 +38,19 @@ const Index = () => {
               <div className="space-y-2">
                 <h1 className="font-inter font-bold text-3xl sm:text-4xl lg:text-5xl text-foreground leading-tight tracking-tight animate-slide-in">
                   <span className="bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent">
-                    XMRT Economy
+                    {t('hero.title')}
                   </span>
                 </h1>
                 
                 <p className="text-base sm:text-lg font-source text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in">
-                  Mobile Mining Democracy • AI-Human Collaboration • Privacy as a Fundamental Right
+                  {t('hero.subtitle')}
                 </p>
                 
                 <div className="flex flex-wrap justify-center gap-2 text-xs font-medium text-muted-foreground/80 mt-3">
-                  <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">📱 Smartphone Mining</span>
-                  <span className="px-2 py-1 bg-mining-info/10 text-mining-info rounded-full">🤖 Autonomous AI</span>
-                  <span className="px-2 py-1 bg-mining-active/10 text-mining-active rounded-full">🔐 Privacy First</span>
-                  <span className="px-2 py-1 bg-secondary/20 text-secondary-foreground rounded-full">🕸️ Mesh Networks</span>
+                  <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">{t('hero.tag.smartphone')}</span>
+                  <span className="px-2 py-1 bg-mining-info/10 text-mining-info rounded-full">{t('hero.tag.ai')}</span>
+                  <span className="px-2 py-1 bg-mining-active/10 text-mining-active rounded-full">{t('hero.tag.privacy')}</span>
+                  <span className="px-2 py-1 bg-secondary/20 text-secondary-foreground rounded-full">{t('hero.tag.mesh')}</span>
                 </div>
               </div>
             </div>
@@ -56,10 +60,10 @@ const Index = () => {
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-4">
               <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                Mobile Mining Democracy in Action
+                {t('mining.title')}
               </h2>
               <p className="font-source text-muted-foreground text-sm">
-                Every smartphone becomes a tool of economic empowerment • Live data from the mesh network
+                {t('mining.subtitle')}
               </p>
             </div>
             <LiveMiningStats />
@@ -69,10 +73,10 @@ const Index = () => {
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-4">
               <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                Eliza AI: Autonomous DAO Operator
+                {t('ai.title')}
               </h2>
               <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                The philosophical AI guide embodying XMRT principles • Voice-enabled for mobile-first experience • 95%+ autonomous decision-making capabilities
+                {t('ai.subtitle')}
               </p>
             </div>
             
@@ -86,10 +90,10 @@ const Index = () => {
             <div className="bg-card/30 border border-border rounded-2xl p-6 shadow-lg animate-slide-in">
               <div className="space-y-4">
                 <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground">
-                  Join the Infrastructure Revolution
+                  {t('actions.title')}
                 </h3>
                 <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                  Transform your smartphone into a mining node • Participate in true decentralized governance • Build the mesh network
+                  {t('actions.subtitle')}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                   <Button 
@@ -99,7 +103,7 @@ const Index = () => {
                   >
                     <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
                       <Sparkles className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
-                      Start Mobile Mining
+                      {t('actions.start.mining')}
                       <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </a>
                   </Button>
@@ -110,7 +114,7 @@ const Index = () => {
                     onClick={() => setActiveTab('dashboard')}
                   >
                     <Wallet2 className="mr-2 h-4 w-4" />
-                    Join DAO Governance
+                    {t('actions.join.dao')}
                   </Button>
                 </div>
               </div>
@@ -121,10 +125,10 @@ const Index = () => {
           <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
             <div className="text-center mb-4">
               <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                Smartphone Mining Calculator
+                {t('calculator.title')}
               </h3>
               <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                Calculate your mobile mining potential • ARM processor optimization • Thermal management included
+                {t('calculator.subtitle')}
               </p>
             </div>
             <MobileMoneroCalculator />
@@ -153,17 +157,17 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
                     <Layers className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">Mobile Mining Democracy</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.mobile.title')}</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Transform smartphones into tools of economic empowerment
+                  {t('feature.mobile.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 flex-wrap">
-                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">📱 ARM Optimized</div>
-                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">🔋 Battery Safe</div>
-                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">🌡️ Thermal Managed</div>
+                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">{t('feature.mobile.tag.arm')}</div>
+                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">{t('feature.mobile.tag.battery')}</div>
+                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">{t('feature.mobile.tag.thermal')}</div>
                 </div>
               </CardContent>
             </Card>
@@ -174,21 +178,21 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
                     <Users className="h-6 w-6 text-mining-active" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">Autonomous DAO Governance</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.dao.title')}</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  95%+ autonomous AI with verifiable compute and community oversight
+                  {t('feature.dao.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">AI Executives</span>
-                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">Active</span>
+                    <span className="text-foreground font-medium">{t('feature.dao.executives')}</span>
+                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.active')}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Verifiable Compute</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Certified</span>
+                    <span className="text-foreground font-medium">{t('feature.dao.compute')}</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.certified')}</span>
                   </div>
                 </div>
               </CardContent>
@@ -200,21 +204,21 @@ const Index = () => {
                   <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
                     <Shield className="h-6 w-6 text-mining-info" />
                   </div>
-                  <CardTitle className="text-foreground text-xl font-bold">Privacy-First Infrastructure</CardTitle>
+                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.privacy.title')}</CardTitle>
                 </div>
                 <CardDescription className="text-muted-foreground">
-                  Mesh networks, private transactions, and censorship-resistant communication
+                  {t('feature.privacy.description')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Mesh Network</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">Building</span>
+                    <span className="text-foreground font-medium">{t('feature.privacy.mesh')}</span>
+                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.building')}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">Privacy</span>
-                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">Fundamental</span>
+                    <span className="text-foreground font-medium">{t('feature.privacy.privacy')}</span>
+                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.fundamental')}</span>
                   </div>
                 </div>
               </CardContent>
