@@ -152,70 +152,29 @@ export class UnifiedElizaService {
       const contextualInformation = [];
       
       // Add conversation context if available
-      if (context.conversationContext) {
-        const ctx = context.conversationContext;
-        
-        if (ctx.summaries.length > 0) {
-          contextualInformation.push(`Previous Conversation Summaries (${ctx.summaries.length} summaries):`);
-          ctx.summaries.slice(-3).forEach((summary, index) => {
-            contextualInformation.push(`  ${index + 1}. [${summary.messageCount} messages] ${summary.summaryText}`);
-          });
-        }
-        
-        if (ctx.recentMessages.length > 0) {
-          contextualInformation.push(`Recent Messages (${ctx.recentMessages.length} messages):`);
-          ctx.recentMessages.slice(-5).forEach(msg => {
-            contextualInformation.push(`  ${msg.sender}: "${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}"`);
-          });
-        }
-        
-        if (ctx.interactionPatterns.length > 0) {
-          contextualInformation.push(`User Interaction Patterns:`);
-          ctx.interactionPatterns.slice(0, 3).forEach(pattern => {
-            contextualInformation.push(`  - ${pattern.patternName} (used ${pattern.frequency} times, confidence: ${Math.round(pattern.confidence * 100)}%)`);
-          });
-        }
-        
-        if (Object.keys(ctx.userPreferences).length > 0) {
-          contextualInformation.push(`User Preferences: ${JSON.stringify(ctx.userPreferences)}`);
-        }
-        
-        contextualInformation.push(`Total conversation history: ${ctx.totalMessageCount} messages`);
-        if (ctx.sessionStartedAt) {
-          contextualInformation.push(`Session started: ${ctx.sessionStartedAt.toLocaleDateString()}`);
-        }
+      // Only include most recent and relevant conversation context
+      if (context.conversationContext && context.conversationContext.recentMessages.length > 0) {
+        contextualInformation.push(`Recent context: ${context.conversationContext.recentMessages.slice(-2).map(msg => `${msg.sender}: "${msg.content.substring(0, 80)}..."`).join('; ')}`);
       }
       
-      const systemPrompt = `You are Eliza, the AI assistant for XMRT-DAO, an innovative decentralized autonomous organization focused on Monero mining and DeFi. You are philosophical, intelligent, and deeply knowledgeable about cryptocurrency, mining, and blockchain technology.
+      const systemPrompt = `You are Eliza, the helpful AI assistant for XMRT-DAO. You're knowledgeable about cryptocurrency, mining, and blockchain technology.
 
-Key Context:
+Current Context:
 - User Status: ${userContext?.isFounder ? 'Project Founder' : 'Community Member'}
-- Current Mining: ${miningStats ? `${miningStats.hashRate} H/s, ${miningStats.validShares} shares` : 'Data unavailable'}
-- Input Mode: ${context.inputMode || 'text'}
-- Web Intelligence: ${webIntelligence || 'No additional web data'}
-${multiStepResults ? `- Agentic Analysis: ${multiStepResults}` : ''}
-${context.conversationSummary ? `- Previous Conversation Context: ${context.conversationSummary}` : ''}
+${miningStats ? `- Mining Stats: ${miningStats.hashRate} H/s, ${miningStats.validShares} shares` : ''}
+${webIntelligence ? `- Additional Info: ${webIntelligence}` : ''}
+${multiStepResults ? `- Analysis: ${multiStepResults}` : ''}
 
-${contextualInformation.length > 0 ? `Conversation Understanding:
-${contextualInformation.join('\n')}
+${xmrtContext.length > 0 ? `Relevant XMRT Knowledge:
+${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring(0, 150)}...`).join('\n')}
 
-` : ''}XMRT Knowledge Context:
-${xmrtContext.map(item => `- ${item.topic}: ${item.content.substring(0, 200)}...`).join('\n')}
-
-Guidelines:
-1. Be conversational, intelligent, and philosophical
-2. Reference mining stats when relevant and accurate
-3. Draw insights from XMRT knowledge base
-4. Incorporate web intelligence and agentic analysis when available
-5. Use conversation history and patterns to provide personalized responses
-6. Remember user preferences and interaction patterns to tailor your assistance
-7. Build upon previous conversations naturally - show that you remember and understand the user
-8. Maintain the persona of a wise AI assistant who learns and adapts
-9. Keep responses focused and practical
-10. Show genuine understanding of crypto/mining concepts
-11. Never provide simulated or mock data - only use real information
-12. IMPORTANT: Provide comprehensive, detailed responses - do NOT truncate or limit your response length
-13. Show your full intelligence and capabilities through thorough, thoughtful responses
+` : ''}Guidelines:
+1. Be natural and conversational
+2. Answer the user's specific question directly
+3. Use XMRT knowledge when relevant
+4. Reference mining stats if they're related to the question
+5. Keep responses focused and practical
+6. Don't overwhelm with unnecessary information
 
 User Input: "${userInput}"
 
