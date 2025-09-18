@@ -104,14 +104,22 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   }, []);
 
-  // Auto-scroll to bottom only when messages are actually added
+  // Auto-scroll to bottom only when messages are actually added (within chat container only)
   useEffect(() => {
     // Only scroll if there are messages and not just loading
     if (messages.length > 0 && !isProcessing) {
-      if (scrollAreaRef.current) {
-        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-      }
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Use setTimeout to ensure DOM updates are complete
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+        }
+        // Use scrollIntoView with block: 'nearest' to prevent page-level scrolling
+        messagesEndRef.current?.scrollIntoView({ 
+          behavior: "smooth", 
+          block: "nearest",
+          inline: "nearest" 
+        });
+      }, 100);
     }
   }, [messages, isProcessing]);
 
