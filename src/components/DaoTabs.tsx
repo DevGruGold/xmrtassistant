@@ -1,5 +1,6 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Gavel, PiggyBank, FileText, MessageSquare, Coins } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface DaoTabsProps {
   activeTab: string;
