@@ -455,6 +455,56 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const handleSendMessage = async () => {
     if (!textInput.trim() || isProcessing) return;
 
+    // Check if user pasted a Gemini API key (starts with "AIza")
+    if (textInput.trim().startsWith('AIza') && textInput.trim().length > 30) {
+      setIsProcessing(true);
+      try {
+        const apiKey = textInput.trim();
+        const isValid = await apiKeyManager.setUserApiKey(apiKey);
+        
+        if (isValid) {
+          // Clear the API key from input and reset services
+          setTextInput('');
+          UnifiedElizaService.resetGeminiInstance();
+          setNeedsAPIKey(false);
+          
+          const successMessage: UnifiedMessage = {
+            id: `api-success-${Date.now()}`,
+            content: '🔑 Perfect! Your Gemini API key has been validated and saved securely. Full AI capabilities have been restored. What would you like to talk about?',
+            sender: 'assistant',
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, successMessage]);
+          setLastElizaMessage(successMessage.content);
+        } else {
+          const errorMessage: UnifiedMessage = {
+            id: `api-error-${Date.now()}`,
+            content: '❌ That doesn\'t appear to be a valid Gemini API key. Please check the key and try again, or use the 🔑 button above to access the API key setup form.',
+            sender: 'assistant',
+            timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, errorMessage]);
+          setTextInput('');
+        }
+      } catch (error) {
+        console.error('API key validation error:', error);
+        const errorMessage: UnifiedMessage = {
+          id: `api-error-${Date.now()}`,
+          content: '❌ Failed to validate the API key. Please try again or use the 🔑 button above for the setup form.',
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
+        setTextInput('');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
     // If Eliza is speaking, interrupt her when user sends a message
     if (isSpeaking && geminiTTSService) {
       geminiTTSService.stopSpeaking();
@@ -618,6 +668,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* API Key Button */}
+            <Button
+              onClick={() => setShowAPIKeyInput(true)}
+              variant="ghost"
+              size="sm"
+              className={needsAPIKey ? 'text-orange-500 animate-pulse' : 'text-muted-foreground'}
+              title="Add or update Gemini API key"
+            >
+              <Key className="h-4 w-4" />
+            </Button>
+            
             {/* Clear Conversation Button */}
             {totalMessageCount > 0 && (
               <Button
@@ -714,12 +775,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
         </ScrollArea>
 
-        {/* API Key Input Dialog */}
-        {showAPIKeyInput && (
+        {/* API Key Input Dialog - Show automatically when needed or manually requested */}
+        {(showAPIKeyInput || needsAPIKey) && (
           <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <GeminiAPIKeyInput 
               onKeyValidated={handleAPIKeyValidated}
-              onClose={() => setShowAPIKeyInput(false)}
+              onClose={() => {
+                setShowAPIKeyInput(false);
+                setNeedsAPIKey(false);
+              }}
               showAsDialog={true}
             />
           </div>
@@ -741,7 +805,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 }
               }}
               onKeyPress={handleKeyPress}
-              placeholder={isSpeaking ? "Start typing to interrupt..." : "Ask Eliza anything..."}
+              placeholder={
+                needsAPIKey 
+                  ? "Paste your Gemini API key here or use the 🔑 button above..." 
+                  : isSpeaking 
+                    ? "Start typing to interrupt..." 
+                    : "Ask Eliza anything..."
+              }
               className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
               disabled={isProcessing}
             />
