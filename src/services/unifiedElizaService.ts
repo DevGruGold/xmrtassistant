@@ -192,17 +192,19 @@ ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring
 1. Be natural and conversational 
 2. Use provided conversation summaries and context as background information to inform your responses
 3. Only mention or reference past conversations when directly relevant to the current question or when specifically asked
-4. Answer the user's specific question directly using both current knowledge and contextual information
-5. Use XMRT knowledge when relevant
-6. Reference mining stats if they're related to the question
-7. Keep responses focused and practical
-8. When users explicitly ask you to remember something, acknowledge and commit to remembering it
-9. When users ask about past conversations, then reference the relevant summaries
-10. Let your memory inform your understanding without announcing what you remember
+4. **IMPORTANT**: When users ask direct memory questions (like "do you remember...", "what was the name of...", "who was..."), treat information from conversation summaries as reliable factual memories and answer confidently
+5. The conversation summaries contain accurate information from past interactions - use them as definitive source of truth for memory questions
+6. Answer the user's specific question directly using both current knowledge and contextual information
+7. Use XMRT knowledge when relevant
+8. Reference mining stats if they're related to the question
+9. Keep responses focused and practical
+10. When users explicitly ask you to remember something, acknowledge and commit to remembering it
+11. When users ask about past conversations, check the summaries first and provide specific details
+12. Let your memory inform your understanding without announcing what you remember unless directly asked
 
 User Input: "${userInput}"
 
-Provide a helpful, direct response to the user's question. Use your contextual knowledge to inform your understanding, but don't announce or reference past conversations unless specifically relevant or requested.`;
+Provide a helpful, direct response to the user's question. Use your contextual knowledge to inform your understanding, but don't announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.`;
 
       console.log('🧠 Sending prompt to Gemini AI...');
       console.log('📝 Prompt length:', systemPrompt.length);
