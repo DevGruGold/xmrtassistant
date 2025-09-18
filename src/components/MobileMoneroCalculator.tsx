@@ -3,8 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Smartphone, TrendingUp, Users, Zap, DollarSign } from 'lucide-react';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const MobileMoneroCalculator = () => {
+  const { t } = useLanguage();
   const [hashrate, setHashrate] = useState([800]); // H/s - adjusted for modern devices
   const [usersSliderValue, setUsersSliderValue] = useState([25]); // Slider position (0-100)
   const [moneroPrice, setMoneroPrice] = useState([300]); // USD price per XMR
@@ -99,10 +101,10 @@ const MobileMoneroCalculator = () => {
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-white text-lg sm:text-xl">
             <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-purple-400 flex-shrink-0" />
-            <span className="text-base sm:text-xl">MobileMonero.com Powers XMRT DAO</span>
+            <span className="text-base sm:text-xl">{t('calculator.info.title')}</span>
           </CardTitle>
           <CardDescription className="text-gray-300 text-sm sm:text-base">
-            Revolutionary mobile mining technology fueling decentralized finance
+            {t('calculator.info.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4">
@@ -135,10 +137,10 @@ const MobileMoneroCalculator = () => {
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 text-white text-lg sm:text-xl">
             <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-green-400 flex-shrink-0" />
-            <span className="text-base sm:text-xl">MobileMonero Mining Calculator</span>
+            <span className="text-base sm:text-xl">{t('calculator.mining.title')}</span>
           </CardTitle>
           <CardDescription className="text-gray-400 text-sm sm:text-base">
-            Calculate potential earnings from mobile Monero mining • Advanced processors & SSB support up to 5+ KH/s
+            {t('calculator.info.empowering')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
@@ -146,7 +148,7 @@ const MobileMoneroCalculator = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
-                  <Label className="text-gray-300 text-sm sm:text-base">Average Hashrate per Device</Label>
+                  <Label className="text-gray-300 text-sm sm:text-base">{t('calculator.hashrate.label')}</Label>
                   <span className="text-purple-400 font-mono text-sm sm:text-base">
                     {hashrate[0] >= 1000 ? `${(hashrate[0] / 1000).toFixed(1)} KH/s` : `${hashrate[0]} H/s`}
                   </span>
@@ -170,7 +172,7 @@ const MobileMoneroCalculator = () => {
 
             <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
-                <Label className="text-gray-300 text-sm sm:text-base">Number of Mining Devices</Label>
+                <Label className="text-gray-300 text-sm sm:text-base">{t('calculator.devices.label')}</Label>
                 <span className="text-blue-400 font-mono text-sm sm:text-base">{formatNumber(users, 0)}</span>
               </div>
               <Slider
@@ -192,7 +194,7 @@ const MobileMoneroCalculator = () => {
 
             <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0">
-                <Label className="text-gray-300 text-sm sm:text-base">Monero Price (XMR)</Label>
+                <Label className="text-gray-300 text-sm sm:text-base">{t('calculator.price.label')}</Label>
                 <span className="text-green-400 font-mono text-sm sm:text-base">${formatNumber(moneroPrice[0], 0)}</span>
               </div>
               <Slider
@@ -247,7 +249,7 @@ const MobileMoneroCalculator = () => {
           <div className="space-y-3 sm:space-y-4">
             <h4 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
               <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
-              Projected Earnings
+              {t('calculator.earnings.title')}
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <Card className="bg-gradient-to-br from-green-900/20 to-green-800/20 border-green-700/50">
@@ -258,7 +260,7 @@ const MobileMoneroCalculator = () => {
                   <div className="text-green-300 font-mono text-sm sm:text-base">
                     ${calculations.usdPerDay.toFixed(2)}
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-400">Daily</div>
+                  <div className="text-xs sm:text-sm text-gray-400">{t('calculator.earnings.daily')}</div>
                 </CardContent>
               </Card>
 
@@ -270,7 +272,7 @@ const MobileMoneroCalculator = () => {
                   <div className="text-blue-300 font-mono text-sm sm:text-base">
                     ${formatNumber(calculations.usdPerMonth)}
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-400">Monthly</div>
+                  <div className="text-xs sm:text-sm text-gray-400">{t('calculator.earnings.monthly')}</div>
                 </CardContent>
               </Card>
 
@@ -282,7 +284,7 @@ const MobileMoneroCalculator = () => {
                   <div className="text-purple-300 font-mono text-sm sm:text-base">
                     ${formatNumber(calculations.usdPerYear)}
                   </div>
-                  <div className="text-xs sm:text-sm text-gray-400">Yearly</div>
+                  <div className="text-xs sm:text-sm text-gray-400">{t('calculator.earnings.yearly')}</div>
                 </CardContent>
               </Card>
             </div>
@@ -291,8 +293,7 @@ const MobileMoneroCalculator = () => {
           {/* Disclaimer */}
           <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-3 sm:p-4">
             <p className="text-yellow-400 text-xs sm:text-sm">
-              <strong>Disclaimer:</strong> These calculations are estimates based on current network conditions. 
-              Actual earnings may vary due to network difficulty changes, XMR price fluctuations, and device performance variations.
+              <strong>{t('calculator.disclaimer')}</strong>
             </p>
           </div>
         </CardContent>

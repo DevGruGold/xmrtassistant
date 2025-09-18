@@ -1,39 +1,42 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface WorkflowStepsProps {
   assetType: string;
 }
 
 const WorkflowSteps = ({ assetType }: WorkflowStepsProps) => {
+  const { t } = useLanguage();
+  
   const workflows = {
     image: [
-      "Create a base ERC-721 or ERC-1155 contract for optimal gas efficiency",
-      "Upload your image file (PNG, JPG, GIF)",
-      "Set image properties (dimensions, resolution)",
-      "Add metadata (title, description, attributes)",
-      "Preview your NFT",
+      t('workflow.image.step1'),
+      t('workflow.image.step2'),
+      t('workflow.image.step3'),
+      t('workflow.image.step4'),
+      t('workflow.image.step5'),
     ],
     code: [
-      "Deploy a factory contract for efficient contract deployment",
-      "Upload or paste your smart contract code",
-      "Configure contract parameters",
-      "Test contract functionality",
-      "Deploy and verify contract",
+      t('workflow.code.step1'),
+      t('workflow.code.step2'),
+      t('workflow.code.step3'),
+      t('workflow.code.step4'),
+      t('workflow.code.step5'),
     ],
     document: [
-      "Initialize an ERC-721 contract with document management features",
-      "Upload your document (PDF, DOC)",
-      "Set access permissions",
-      "Add version control settings",
-      "Configure sharing options",
+      t('workflow.document.step1'),
+      t('workflow.document.step2'),
+      t('workflow.document.step3'),
+      t('workflow.document.step4'),
+      t('workflow.document.step5'),
     ],
     audio: [
-      "Set up an ERC-721 contract optimized for audio NFTs",
-      "Upload your audio file (MP3, WAV)",
-      "Set audio properties (bitrate, duration)",
-      "Add track information",
-      "Configure playback settings",
+      t('workflow.audio.step1'),
+      t('workflow.audio.step2'),
+      t('workflow.audio.step3'),
+      t('workflow.audio.step4'),
+      t('workflow.audio.step5'),
     ],
   };
 
@@ -44,9 +47,9 @@ const WorkflowSteps = ({ assetType }: WorkflowStepsProps) => {
   return (
     <Card className="mt-6 bg-gray-800 border-gray-700">
       <CardHeader>
-        <CardTitle className="text-white">Asset Creation Steps</CardTitle>
+        <CardTitle className="text-white">{t('workflow.title')}</CardTitle>
         <CardDescription className="text-gray-400">
-          Follow these steps to create your {assetType} asset
+          {t('workflow.description').replace('{type}', assetType)}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -63,7 +66,7 @@ const WorkflowSteps = ({ assetType }: WorkflowStepsProps) => {
           ))}
           <div className="mt-6 flex justify-center">
             <button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-2 rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all">
-              Start Creating
+              {t('workflow.start')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

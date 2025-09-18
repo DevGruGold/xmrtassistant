@@ -7,6 +7,7 @@ interface DaoTabsProps {
 }
 
 const DaoTabs = ({ activeTab, onTabChange }: DaoTabsProps) => {
+  const { t } = useLanguage();
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full bg-gray-800 h-auto p-1">

@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { claimXMRTFaucet, canClaimFaucet } from "@/utils/contractUtils";
 import { WalletState } from "@/hooks/useWallet";
 import Web3 from "web3";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface XMRTFaucetProps {
   wallet: WalletState;
@@ -15,6 +16,7 @@ interface XMRTFaucetProps {
 const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const faucetStatus = canClaimFaucet(wallet.address);
 
@@ -36,7 +38,7 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
     if (wallet.chainId !== 11155111) {
       toast({
         title: "Wrong Network",
-        description: "Please switch to Sepolia testnet to use the faucet.",
+        description: t('faucet.error.network'),
         variant: "destructive",
       });
       return;
@@ -49,14 +51,14 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
       
       toast({
         title: "Success!",
-        description: "100 XMRT tokens have been sent to your wallet.",
+        description: t('faucet.success'),
       });
       
       onClaimed();
     } catch (error: any) {
       toast({
         title: "Claim Failed",
-        description: error.message || "Failed to claim XMRT tokens. Please try again.",
+        description: error.message || t('faucet.error'),
         variant: "destructive",
       });
     } finally {
@@ -72,43 +74,43 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2">
             <Droplets className="h-5 w-5 text-blue-400" />
-            XMRT Faucet
+            {t('faucet.title')}
             {faucetStatus.canClaim && isSepoliaNetwork && (
               <CheckCircle className="h-4 w-4 text-green-400" />
             )}
           </CardTitle>
         </div>
         <CardDescription className="text-gray-400">
-          Claim 100 XMRT tokens every 24 hours on Sepolia testnet
+          {t('faucet.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span>Network</span>
+            <span>{t('faucet.network.status')}</span>
             <span className={isSepoliaNetwork ? "text-green-400" : "text-yellow-400"}>
-              {isSepoliaNetwork ? "Sepolia ✓" : "Switch to Sepolia"}
+              {isSepoliaNetwork ? t('faucet.network.correct') : t('faucet.network.wrong')}
             </span>
           </div>
           
           <div className="flex justify-between items-center">
-            <span>Claim Amount</span>
+            <span>{t('faucet.claim.amount')}</span>
             <span className="text-blue-400">100 XMRT</span>
           </div>
 
           <div className="flex justify-between items-center">
-            <span>Status</span>
+            <span>{t('faucet.claim.status')}</span>
             <div className="flex items-center gap-2">
               {faucetStatus.canClaim ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span className="text-green-400">Ready to claim</span>
+                  <span className="text-green-400">{t('faucet.claim.available')}</span>
                 </>
               ) : (
                 <>
                   <Clock className="h-4 w-4 text-yellow-400" />
                   <span className="text-yellow-400">
-                    {formatTimeRemaining(faucetStatus.remainingTime!)} cooldown
+                    {formatTimeRemaining(faucetStatus.remainingTime!)} {t('faucet.claim.cooldown')}
                   </span>
                 </>
               )}
@@ -119,7 +121,7 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
               <div className="flex items-center gap-2 text-yellow-400">
                 <AlertCircle className="h-4 w-4" />
-                <span className="text-sm">Switch to Sepolia testnet to use the faucet</span>
+                <span className="text-sm">{t('faucet.network.wrong')}</span>
               </div>
             </div>
           )}
@@ -132,11 +134,11 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
             {isLoading ? (
               "Claiming..."
             ) : faucetStatus.canClaim && isSepoliaNetwork ? (
-              "Claim 100 XMRT"
+              t('faucet.claim.button')
             ) : !isSepoliaNetwork ? (
-              "Wrong Network"
+              t('faucet.network.wrong')
             ) : (
-              `Cooldown: ${formatTimeRemaining(faucetStatus.remainingTime!)}`
+              `${t('faucet.claim.cooldown')}: ${formatTimeRemaining(faucetStatus.remainingTime!)}`
             )}
           </Button>
         </div>

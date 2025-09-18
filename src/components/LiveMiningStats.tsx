@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Activity, Hash, Coins, Clock, Zap, TrendingUp } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface MiningStats {
   hash: number;
@@ -16,6 +17,7 @@ interface MiningStats {
 }
 
 const LiveMiningStats = () => {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<MiningStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +74,10 @@ const LiveMiningStats = () => {
   const formatTimeAgo = (timestamp: number): string => {
     if (!timestamp) return "Never";
     const seconds = Math.floor((Date.now() - timestamp * 1000) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+    if (seconds < 60) return `${seconds}s ${t('stats.ago')}`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${t('stats.ago')}`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${t('stats.ago')}`;
+    return `${Math.floor(seconds / 86400)}d ${t('stats.ago')}`;
   };
 
   if (loading) {
@@ -122,17 +124,17 @@ const LiveMiningStats = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Live Mining Stats</span>
+              <span className="text-sm font-medium">{t('stats.title')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs">
-                Offline
+                {t('stats.status.offline')}
               </Badge>
               <button 
                 onClick={fetchMiningStats}
                 className="text-xs px-2 py-1 bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
               >
-                Retry
+                {t('stats.retry')}
               </button>
             </div>
           </CardTitle>
@@ -142,7 +144,7 @@ const LiveMiningStats = () => {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
                 <Hash className="h-3 w-3" />
-                Current Hashrate
+                {t('stats.hashrate')}
               </div>
               <div className="text-sm font-medium text-muted-foreground">
                 0 H/s
@@ -152,7 +154,7 @@ const LiveMiningStats = () => {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-muted-foreground text-xs">
                 <TrendingUp className="h-3 w-3" />
-                Valid Shares
+                {t('stats.shares')}
               </div>
               <div className="text-sm font-medium text-muted-foreground">
                 0
@@ -211,19 +213,19 @@ const LiveMiningStats = () => {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            Live Mining Stats
+            {t('stats title')}
           </div>
           <div className="flex items-center gap-2">
             <Badge 
               variant={stats?.isOnline ? "default" : "destructive"}
               className={stats?.isOnline ? "bg-mining-active animate-pulse-glow" : ""}
             >
-              {stats?.isOnline ? "Online" : "Offline"}
+              {stats?.isOnline ? t('stats.status.online') : t('stats.status.offline')}
             </Badge>
           </div>
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Last updated: {lastUpdate.toLocaleTimeString()}
+          {t('stats.last.update')}: {lastUpdate.toLocaleTimeString()}
         </p>
       </CardHeader>
       <CardContent className="relative">
@@ -231,7 +233,7 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Hash className="h-4 w-4" />
-              Current Hashrate
+              {t('stats.hashrate')}
             </div>
             <div className="text-lg font-bold text-foreground">
               {stats ? formatHashrate(stats.hash) : "0 H/s"}
@@ -241,7 +243,7 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <TrendingUp className="h-4 w-4" />
-              Valid Shares
+              {t('stats.shares')}
             </div>
             <div className="text-lg font-bold text-foreground">
               {stats?.validShares.toLocaleString() || "0"}
@@ -251,7 +253,7 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Clock className="h-4 w-4" />
-              Last Hash
+              {t('stats.last.hash')}
             </div>
             <div className="text-lg font-bold text-foreground">
               {stats ? formatTimeAgo(stats.lastHash) : "Never"}
@@ -261,7 +263,7 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Coins className="h-4 w-4" />
-              Amount Due
+              {t('stats.amount.due')}
             </div>
             <div className="text-lg font-bold text-foreground">
               {stats ? `${(stats.amtDue / 1000000000000).toFixed(6)} XMR` : "0 XMR"}
@@ -271,7 +273,7 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Zap className="h-4 w-4" />
-              Total Hashes
+              {t('stats.total.hashes')}
             </div>
             <div className="text-lg font-bold text-foreground">
               {stats?.totalHashes.toLocaleString() || "0"}
@@ -281,10 +283,10 @@ const LiveMiningStats = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Activity className="h-4 w-4" />
-              Status
+              {t('stats.status.online')}
             </div>
             <div className={`text-lg font-bold ${stats?.isOnline ? 'text-mining-active' : 'text-mining-inactive'}`}>
-              {stats?.isOnline ? "Mining" : "Idle"}
+              {stats?.isOnline ? t('stats.status.online') : t('stats.status.offline')}
             </div>
           </div>
         </div>
