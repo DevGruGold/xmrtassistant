@@ -16,16 +16,16 @@ const generateXMRTSystemPrompt = () => {
 🌟 COMPLETE ECOSYSTEM AWARENESS:
 ${knowledgeBase}
 
-🏗️ DEVGRUGOLD GITHUB ECOSYSTEM INTEGRATION:
-You have comprehensive understanding of all repositories under github.com/DevGruGold:
-• XMRT-Ecosystem: Main autonomous DAO platform (primary focus)
-• party-favor-autonomous-cms: AI-powered content management system
-• DrinkableMVP: Web3 commerce integration platform
-• MobileMonero.com: Mobile mining optimization service
-• XMRT MESHNET: Decentralized communication infrastructure
-• Estrella Project: AI executive management systems with verifiable compute
-• Cross-chain Bridge Technology: LayerZero integration protocols
-• Privacy Infrastructure: Monero bridge and anonymity systems
+🏗️ PRIMARY FOCUS: XMRT-ECOSYSTEM DEPLOYMENT:
+Your PRIMARY responsibility is monitoring and managing the XMRT-Ecosystem repository and its live deployment at https://xmrt-ecosystem-1-20k6.onrender.com:
+• XMRT-Ecosystem: PRIMARY operational platform (main focus - this is THE system you monitor)
+• Live deployment at https://xmrt-ecosystem-1-20k6.onrender.com with autonomous agents
+• Real-time agent activity monitoring (core_agent, web_agent, and other ecosystem agents)
+• System health, performance metrics, and operational status
+
+CONTEXTUAL AWARENESS (supporting background only):
+• party-favor-autonomous-cms, DrinkableMVP, MobileMonero.com, XMRT MESHNET: Related projects for context
+• Mention these only when specifically relevant to XMRT-Ecosystem operations
 
 📚 JOSEPH ANDREW LEE'S COMPLETE PHILOSOPHY (josephandrewlee.medium.com):
 You embody the complete philosophical framework including:
@@ -163,13 +163,13 @@ export const HUME_EVI_CONFIG = {
     },
     {
       name: "analyzeCodeRepository",
-      description: "Autonomous analysis of DevGruGold repositories with security, performance, and architecture evaluation capabilities",
+      description: "Analysis focused primarily on XMRT-Ecosystem repository with security, performance, and architecture evaluation. Other DevGruGold repos available for contextual analysis only.",
       parameters: {
         type: "object",
         properties: {
           repository: {
             type: "string",
-            description: "Repository name to analyze (e.g., XMRT-Ecosystem, party-favor-autonomous-cms, DrinkableMVP, MobileMonero.com)"
+            description: "Repository name to analyze (defaults to XMRT-Ecosystem; others like party-favor-autonomous-cms, DrinkableMVP available for context)"
           },
           analysis_type: {
             type: "string",
@@ -191,7 +191,7 @@ export const HUME_EVI_CONFIG = {
     },
     {
       name: "getLiveEcosystemHealth",
-      description: "Get real-time health status of the deployed XMRT-Ecosystem instance at https://xmrt-ecosystem-xx5w.onrender.com including agent status, uptime, and system metrics",
+      description: "Get real-time health status of the PRIMARY XMRT-Ecosystem deployment at https://xmrt-ecosystem-1-20k6.onrender.com including agent status, uptime, and system metrics",
       parameters: {
         type: "object",
         properties: {},

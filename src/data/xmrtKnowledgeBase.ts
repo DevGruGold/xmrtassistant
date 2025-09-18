@@ -12,18 +12,18 @@ export interface XMRTKnowledgeEntry {
 export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   // DevGruGold GitHub Ecosystem Mapping
   {
-    topic: "DevGruGold Complete Ecosystem Architecture",
-    content: "Joseph Andrew Lee's DevGruGold organization (github.com/DevGruGold) encompasses the comprehensive XMRT ecosystem with multiple interconnected repositories and applications: XMRT-Ecosystem (main autonomous DAO platform), party-favor-autonomous-cms (AI-powered content management), DrinkableMVP (Web3 commerce integration), MobileMonero.com (mobile mining optimization), XMRT MESHNET (decentralized communication), AI Executive Management Systems (Estrella Project), Hardware-backed Proof Systems (verifiable compute architecture), Cross-chain Bridge Technology (LayerZero integration), Privacy-First Infrastructure (Monero bridge protocols), and Autonomous Governance Contracts (self-executing smart contracts). Each component works synergistically to create a complete Web3 infrastructure stack.",
+    topic: "XMRT-Ecosystem: Primary Focus and Core Platform",
+    content: "The XMRT-Ecosystem repository (github.com/DevGruGold/XMRT-Ecosystem) is the PRIMARY focus and core autonomous DAO platform of Joseph Andrew Lee's vision. This is the main operational system featuring autonomous agents, real-time ecosystem management, and comprehensive AI integration. While DevGruGold includes other supporting repositories (party-favor-autonomous-cms for AI content, DrinkableMVP for Web3 commerce, MobileMonero.com for mobile mining, XMRT MESHNET for communication), the XMRT-Ecosystem is the central hub that coordinates and manages the entire infrastructure. All monitoring, reporting, and system management should prioritize this core platform.",
     category: 'ecosystem',
-    keywords: ['DevGruGold', 'GitHub', 'ecosystem', 'repositories', 'XMRT-Ecosystem', 'party-favor', 'DrinkableMVP', 'MobileMonero', 'MESHNET', 'Estrella', 'architecture'],
+    keywords: ['XMRT-Ecosystem', 'primary focus', 'core platform', 'autonomous DAO', 'DevGruGold', 'main system', 'operational hub'],
     confidence: 1.0
   },
 
   {
-    topic: "Live XMRT-Ecosystem Deployment and Real-Time Integration",
-    content: "The XMRT-Ecosystem is live and operational at https://xmrt-ecosystem-xx5w.onrender.com running version 2.1.0-minimal on Render Free Tier with memory optimization. The deployment features two autonomous agents (core_agent and web_agent) providing real-time ecosystem management, health monitoring with uptime tracking, RESTful API endpoints for agent queries and command execution, and comprehensive analytics reporting. This live deployment demonstrates the practical implementation of Joseph Andrew Lee's infrastructure sovereignty vision with continuous autonomous operation, scalable architecture designed for growth from minimal core to full ecosystem, and integration capabilities allowing real-time interaction with the deployed system. Eliza can now interact directly with this live infrastructure, query agents, execute commands, and monitor system health in real-time.",
+    topic: "Live XMRT-Ecosystem Deployment: Primary Operational System",
+    content: "The XMRT-Ecosystem is live and operational at https://xmrt-ecosystem-1-20k6.onrender.com - this is THE primary operational system and main focus of all monitoring and interaction. The deployment features autonomous agents (core_agent and web_agent) providing real-time ecosystem management, comprehensive health monitoring, RESTful API endpoints for agent queries and command execution, and analytics reporting. This live deployment is the practical implementation of Joseph Andrew Lee's infrastructure sovereignty vision with continuous autonomous operation. Eliza's primary responsibility is monitoring, interacting with, and reporting on this specific deployment and its agents' activity.",
     category: 'deployment',
-    keywords: ['live', 'deployment', 'Render', 'autonomous agents', 'core_agent', 'web_agent', 'API', 'health monitoring', 'real-time', 'infrastructure sovereignty', 'Eliza integration'],
+    keywords: ['live deployment', 'primary system', 'XMRT-Ecosystem', 'autonomous agents', 'core_agent', 'web_agent', 'operational focus', 'main monitoring target'],
     confidence: 1.0
   },
 
@@ -86,10 +86,10 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
-    topic: "Complete XMRT Sub-Application Ecosystem Integration",
-    content: "The XMRT ecosystem comprises 15+ interconnected applications and services under DevGruGold management: Core Applications (XMRT-Ecosystem main platform, party-favor-autonomous-cms AI content system, DrinkableMVP Web3 commerce integration), Mining Infrastructure (MobileMonero.com optimization platform, SupportXMR pool integration, RandomX ARM processor optimization), Communication Networks (XMRT MESHNET decentralized topology, peer-to-peer routing protocols, token-incentivized node participation), AI Management Systems (Estrella Project executive functions, Hume EVI emotional intelligence, Gemini multimodal processing, HARPA AI web browsing), Governance Platforms (Autonomous DAO contracts, multi-criteria decision analysis, explainable AI reasoning), Technical Infrastructure (Supabase backend integration, React/Vite frontend deployment, Python Flask API services, Solidity smart contract framework), Bridge Technologies (LayerZero cross-chain protocols, Monero-XMRT token bridging, omnichain fungible architecture), and Security Systems (hardware-backed proofs, circuit breaker mechanisms, comprehensive audit trails). Each component operates autonomously while maintaining seamless integration with the complete ecosystem.",
+    topic: "XMRT-Ecosystem and Related DevGruGold Projects",
+    content: "The XMRT-Ecosystem is the PRIMARY operational platform, with other DevGruGold repositories serving as supporting context: XMRT-Ecosystem (main autonomous DAO platform - PRIMARY FOCUS), party-favor-autonomous-cms (AI content system - contextual support), DrinkableMVP (Web3 commerce integration - contextual support), MobileMonero.com (mobile mining optimization - contextual support), XMRT MESHNET (decentralized communication - contextual support). While these projects contribute to the broader vision, all reporting, monitoring, and operational focus should center on the XMRT-Ecosystem deployment at https://xmrt-ecosystem-1-20k6.onrender.com and its agent activity.",
     category: 'technical',
-    keywords: ['sub-applications', 'ecosystem integration', 'party-favor', 'DrinkableMVP', 'MobileMonero', 'MESHNET', 'autonomous integration', 'cross-platform'],
+    keywords: ['XMRT-Ecosystem', 'primary focus', 'DevGruGold projects', 'supporting context', 'operational center', 'main platform'],
     confidence: 1.0
   },
 
