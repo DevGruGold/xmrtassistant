@@ -39,106 +39,21 @@ export class HumeEVIService {
     }
   }
 
-  // Create Hume EVI chat session with emotional understanding
-  async createChatSession(customPrompt?: string): Promise<string | null> {
+  // Voice-only initialization - no chat session needed for speech processing
+  async initializeVoiceProcessing(): Promise<boolean> {
     try {
       if (!this.isConnected) {
         await this.initializeConversation();
       }
-
-      const sessionResponse = await fetch(`${this.baseUrl}/chat_groups`, {
-        method: 'POST',
-        headers: {
-          'X-Hume-Api-Key': this.apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          config_id: this.configId,
-          name: 'XMRT-DAO Chat Session',
-          system_prompt: customPrompt || `You are Eliza, the emotionally intelligent AI assistant for XMRT-DAO. 
-          You understand emotions, respond with empathy, and help users with:
-          - Mobile Monero mining guidance
-          - Privacy and decentralization education  
-          - DAO governance participation
-          - Technical support with emotional awareness
-          
-          Pay attention to user emotions and respond appropriately with warmth, understanding, and helpfulness.`
-        })
-      });
-
-      if (!sessionResponse.ok) {
-        throw new Error(`Session creation failed: ${sessionResponse.status}`);
-      }
-
-      const sessionData = await sessionResponse.json();
-      console.log('✅ Hume EVI chat session created with emotional intelligence');
-      return sessionData.id;
-
+      return this.isConnected;
     } catch (error) {
-      console.error('❌ Hume EVI session creation failed:', error);
-      return null;
+      console.error('❌ Hume voice processing initialization failed:', error);
+      return false;
     }
   }
 
-  // Generate emotionally intelligent response
-  async generateResponse(
-    userInput: string,
-    context: { miningStats?: any; userContext?: any; sessionId?: string } = {}
-  ): Promise<{ text: string; method: string; confidence: number; emotions?: any }> {
-    try {
-      if (!this.isConnected) {
-        await this.initializeConversation();
-        if (!this.isConnected) {
-          throw new Error('Hume EVI not available');
-        }
-      }
-
-      // Create session if not provided
-      let sessionId = context.sessionId;
-      if (!sessionId) {
-        sessionId = await this.createChatSession();
-        if (!sessionId) {
-          throw new Error('Failed to create chat session');
-        }
-      }
-
-      // Send message with context for emotional understanding
-      const response = await fetch(`${this.baseUrl}/chat_groups/${sessionId}/chats`, {
-        method: 'POST',
-        headers: {
-          'X-Hume-Api-Key': this.apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          text: `${userInput}${context.miningStats ? `\n\nCurrent mining context: ${JSON.stringify(context.miningStats)}` : ''}`,
-          return_emotions: true,
-          return_expression_measurements: true
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Hume EVI API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      // Extract emotional understanding from response
-      const emotions = result.emotions || {};
-      const responseText = result.response?.text || result.content || 'I understand how you\'re feeling. How can I help you with XMRT-DAO?';
-      
-      console.log('🧠 Hume EVI emotional analysis:', emotions);
-      
-      return {
-        text: responseText,
-        method: 'Hume EVI (Emotional AI)',
-        confidence: 0.95,
-        emotions: emotions
-      };
-    } catch (error) {
-      console.error('❌ Hume EVI response generation failed:', error);
-      throw error;
-    }
-  }
+  // Voice-only service - AI responses handled by UnifiedElizaService
+  // This service focuses purely on emotional voice processing
 
   // Enhanced TTS with emotional expressiveness and better context
   async speakText(text: string, emotionalContext?: any): Promise<void> {

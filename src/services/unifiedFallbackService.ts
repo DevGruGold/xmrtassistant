@@ -1,6 +1,7 @@
 import { ElevenLabsService } from './elevenlabsService';
 import { HumeEVIService, createHumeEVIService } from './humeEVIService';
 import { UnifiedElizaService } from './unifiedElizaService';
+import { apiKeyManager } from './apiKeyManager';
 import { FallbackTTSService } from './fallbackTTSService';
 import { FallbackAIService } from './fallbackAIService';
 import { FallbackSpeechService } from './fallbackSpeechService';
@@ -84,8 +85,13 @@ export class UnifiedFallbackService {
     this.serviceStatus.webSpeech = ('speechSynthesis' in window && 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window) 
       ? 'available' : 'unavailable';
 
-    // Test Gemini availability (simplified check)
-    this.serviceStatus.gemini = this.options.geminiApiKey ? 'available' : 'unavailable';
+    // Test Gemini availability through API key manager
+    try {
+      const geminiInstance = await apiKeyManager.createGeminiInstance();
+      this.serviceStatus.gemini = geminiInstance ? 'available' : 'unavailable';
+    } catch (error) {
+      this.serviceStatus.gemini = 'unavailable';
+    }
 
     console.log('Service status:', this.serviceStatus);
   }
@@ -149,29 +155,13 @@ export class UnifiedFallbackService {
   ): Promise<{ text: string; method: string; confidence: number }> {
     const methods = [];
 
-    // Primary: Hume EVI (emotionally intelligent AI)
-    if (this.humeEVIService && this.serviceStatus.hume === 'available') {
-      methods.push({
-        name: 'Hume EVI',
-        fn: () => this.humeEVIService!.generateResponse(userInput, context)
-      });
-    }
-
-    // Secondary: ElevenLabs Conversational AI
-    if (this.elevenLabsService && this.serviceStatus.elevenlabs === 'available') {
-      methods.push({
-        name: 'ElevenLabs AI',
-        fn: () => this.elevenLabsService!.generateResponse(userInput, context)
-      });
-    }
-
-    // Tertiary: Gemini AI via UnifiedElizaService
+    // Use Gemini AI as primary response generator (through UnifiedElizaService)
     if (this.serviceStatus.gemini === 'available') {
       methods.push({
-        name: 'Gemini AI',
+        name: 'Gemini AI (Unified)',
         fn: async () => {
           const response = await UnifiedElizaService.generateResponse(userInput, context);
-          return { text: response, method: 'Gemini AI', confidence: 0.9 };
+          return { text: response, method: 'Gemini AI (Unified)', confidence: 0.95 };
         }
       });
     }
