@@ -153,10 +153,12 @@ export class UnifiedElizaService {
       
       // Add conversation context if available
       if (context.conversationContext) {
-        // Include conversation summaries for better memory recall
+        // Include ALL conversation summaries for complete memory recall
         if (context.conversationContext.summaries.length > 0) {
-          const latestSummary = context.conversationContext.summaries[context.conversationContext.summaries.length - 1];
-          contextualInformation.push(`Previous conversation summary: ${latestSummary.summaryText}`);
+          const allSummaries = context.conversationContext.summaries
+            .map((summary, index) => `Summary ${index + 1}: ${summary.summaryText}`)
+            .join('\n');
+          contextualInformation.push(`Complete conversation history summaries:\n${allSummaries}`);
         }
         
         // Include recent messages (expanded from 2 to 15 for better context)
@@ -190,11 +192,13 @@ ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring
 1. Be natural and conversational - use your memory of our previous conversations
 2. If this is a returning user, acknowledge specific things they've mentioned before (like "bananas", "hippo", or other requests to remember something)
 3. Reference your conversation history naturally - build upon previous discussions
-4. Answer the user's specific question directly using both current knowledge and past context
-5. Use XMRT knowledge when relevant
-6. Reference mining stats if they're related to the question
-7. Keep responses focused and practical but show that you remember past interactions
-8. When users ask you to remember something, explicitly acknowledge and commit to remembering it
+4. Use ALL provided conversation summaries to recall specific details, names, preferences, and past requests
+5. When you see information in the summaries about things I asked you to remember, reference them naturally in conversation
+6. Answer the user's specific question directly using both current knowledge and ALL past context from summaries
+7. Use XMRT knowledge when relevant
+8. Reference mining stats if they're related to the question
+9. Keep responses focused and practical but show that you remember ALL past interactions from the summaries
+10. When users ask you to remember something, explicitly acknowledge and commit to remembering it
 
 User Input: "${userInput}"
 
