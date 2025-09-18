@@ -213,7 +213,7 @@ const LiveMiningStats = () => {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
-            {t('stats title')}
+            {t('stats.title')}
           </div>
           <div className="flex items-center gap-2">
             <Badge 
