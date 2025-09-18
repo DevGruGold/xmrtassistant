@@ -110,22 +110,22 @@ const MobileMoneroCalculator = () => {
         <CardContent className="space-y-3 sm:space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             <div className="space-y-2 sm:space-y-3">
-              <h4 className="text-base sm:text-lg font-semibold text-purple-400">How It Works</h4>
+              <h4 className="text-base sm:text-lg font-semibold text-purple-400">{t('calculator.info.how.works')}</h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-300">
-                <li>• Advanced mobile processors mine Monero optimally</li>
-                <li>• SSB (Solid State Battery) enables sustained 3-5+ KH/s</li>
-                <li>• Mining rewards fund XMRT DAO operations</li>
-                <li>• Decentralized network of high-performance mobile miners</li>
-                <li>• ARM optimization for maximum efficiency</li>
+                <li>• {t('calculator.info.how.works.point1')}</li>
+                <li>• {t('calculator.info.how.works.point2')}</li>
+                <li>• {t('calculator.info.how.works.point3')}</li>
+                <li>• {t('calculator.info.how.works.point4')}</li>
+                <li>• {t('calculator.info.how.works.point5')}</li>
               </ul>
             </div>
             <div className="space-y-2 sm:space-y-3">
-              <h4 className="text-base sm:text-lg font-semibold text-blue-400">DAO Benefits</h4>
+              <h4 className="text-base sm:text-lg font-semibold text-blue-400">{t('calculator.info.dao.benefits')}</h4>
               <ul className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-gray-300">
-                <li>• Self-sustaining treasury through mining revenue</li>
-                <li>• Democratic governance powered by mining participants</li>
-                <li>• Environmental efficiency through mobile devices</li>
-                <li>• Global accessibility without specialized hardware</li>
+                <li>• {t('calculator.info.dao.benefits.point1')}</li>
+                <li>• {t('calculator.info.dao.benefits.point2')}</li>
+                <li>• {t('calculator.info.dao.benefits.point3')}</li>
+                <li>• {t('calculator.info.dao.benefits.point4')}</li>
               </ul>
             </div>
           </div>

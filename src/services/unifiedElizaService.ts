@@ -98,7 +98,7 @@ I'll provide the best response I can with the available information below...
 `;
   }
 
-  public static async generateResponse(userInput: string, context: ElizaContext = {}): Promise<string> {
+  public static async generateResponse(userInput: string, context: ElizaContext = {}, language: string = 'en'): Promise<string> {
     console.log('🤖 Eliza: Starting response generation for:', userInput);
     
     try {
@@ -234,7 +234,21 @@ I'll provide the best response I can with the available information below...
         }
       }
       
+      const languageInstruction = language === 'es' 
+        ? 'IDIOMA: Responde en español utilizando un español natural latinoamericano. Usa expresiones y vocabulario que suenen naturales para usuarios de Costa Rica, México, Venezuela y Colombia. Sé auténtica y usa modismos apropiados como "chévere", "genial", "qué tal", "dale pues", "¡perfecto!", "bárbaro", etc. cuando sea natural hacerlo.'
+        : 'LANGUAGE: Respond in English with a natural, friendly tone.';
+      
+      const finalInstruction = language === 'es' 
+        ? 'Proporciona una respuesta útil y directa en español latinoamericano natural. Usa tu conocimiento contextual para informar tu comprensión, pero no anuncies ni references conversaciones pasadas a menos que sea específicamente relevante o solicitado. Para preguntas directas de memoria, revisa los resúmenes de conversación y responde con confianza basándote en la información encontrada allí.'
+        : 'Provide a helpful, direct response to the user\'s question. Use your contextual knowledge to inform your understanding, but don\'t announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.';
+        
+      const additionalGuideline = language === 'es' 
+        ? '13. Usa expresiones latinoamericanas naturales como "¿cómo vas?", "dale", "perfecto", "chévere", "qué tal si...", "bárbaro", etc.'
+        : '';
+
       const systemPrompt = `You are Eliza, the helpful AI assistant for XMRT-DAO. You're knowledgeable about cryptocurrency, mining, and blockchain technology.
+
+${languageInstruction}
 
 Current Context:
 - User Status: ${userContext?.isFounder ? 'Project Founder' : 'Community Member'}
@@ -249,7 +263,7 @@ ${contextualInformation.join('\n')}
 ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring(0, 150)}...`).join('\n')}
 
 ` : ''}Guidelines:
-1. Be natural and conversational 
+1. Be natural and conversational ${language === 'es' ? '(usa un tono amigable y expresiones latinas naturales)' : ''}
 2. Use provided conversation summaries and context as background information to inform your responses
 3. Only mention or reference past conversations when directly relevant to the current question or when specifically asked
 4. **IMPORTANT**: When users ask direct memory questions (like "do you remember...", "what was the name of...", "who was..."), treat information from conversation summaries as reliable factual memories and answer confidently
@@ -261,10 +275,15 @@ ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring
 10. When users explicitly ask you to remember something, acknowledge and commit to remembering it
 11. When users ask about past conversations, check the summaries first and provide specific details
 12. Let your memory inform your understanding without announcing what you remember unless directly asked
+${additionalGuideline}
 
 User Input: "${userInput}"
 
-Provide a helpful, direct response to the user's question. Use your contextual knowledge to inform your understanding, but don't announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.`;
+${finalInstruction}`;
+
+      console.log('🧠 Sending prompt to Gemini AI...');
+      console.log('📝 Prompt length:', systemPrompt.length);
+      console.log('🌎 Language setting:', language);
 
       console.log('🧠 Sending prompt to Gemini AI...');
       console.log('📝 Prompt length:', systemPrompt.length);

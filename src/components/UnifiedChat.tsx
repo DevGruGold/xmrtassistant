@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { GeminiAPIKeyInput } from './GeminiAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
@@ -60,6 +61,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   miningStats: externalMiningStats
 }) => {
   // Core state
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [conversationSummaries, setConversationSummaries] = useState<Array<{ summaryText: string; messageCount: number; createdAt: Date }>>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -555,7 +557,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         shouldSpeak: false,
         enableBrowsing: true,  // Let the service decide when to browse
         conversationContext: fullContext  // Enhanced context for better understanding
-      });
+      }, language);
       
       // Check if response indicates API key is needed
       if (response.includes('🔑 **To restore full AI capabilities:**')) {

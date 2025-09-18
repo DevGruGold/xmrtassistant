@@ -144,6 +144,20 @@ const translations = {
     'faucet.error': 'Failed to claim tokens. Please try again.',
     'faucet.error.network': 'Please connect to Sepolia testnet first.',
     
+    // Mobile Monero Calculator Info Sections
+    'calculator.info.how.works': 'How It Works',
+    'calculator.info.how.works.point1': 'Advanced mobile processors mine Monero optimally',
+    'calculator.info.how.works.point2': 'SSB (Solid State Battery) enables sustained 3-5+ KH/s',
+    'calculator.info.how.works.point3': 'Mining rewards fund XMRT DAO operations',
+    'calculator.info.how.works.point4': 'Decentralized network of high-performance mobile miners',
+    'calculator.info.how.works.point5': 'ARM optimization for maximum efficiency',
+    
+    'calculator.info.dao.benefits': 'DAO Benefits',
+    'calculator.info.dao.benefits.point1': 'Self-sustaining treasury through mining revenue',
+    'calculator.info.dao.benefits.point2': 'Democratic governance powered by mining participants',
+    'calculator.info.dao.benefits.point3': 'Environmental efficiency through mobile devices',
+    'calculator.info.dao.benefits.point4': 'Global accessibility without specialized hardware',
+    
     // Workflow Steps
     'workflow.title': 'Asset Creation Steps',
     'workflow.description': 'Follow these steps to create your {type} asset',
@@ -301,6 +315,20 @@ const translations = {
     'faucet.success': '¡Tokens XMRT reclamados exitosamente!',
     'faucet.error': 'Error al reclamar tokens. Intenta de nuevo.',
     'faucet.error.network': 'Por favor conecta primero a la testnet Sepolia.',
+    
+    // Mobile Monero Calculator Info Sections
+    'calculator.info.how.works': 'Cómo Funciona',
+    'calculator.info.how.works.point1': 'Procesadores móviles avanzados minan Monero de manera óptima',
+    'calculator.info.how.works.point2': 'SSB (Batería de Estado Sólido) permite sostener 3-5+ KH/s',
+    'calculator.info.how.works.point3': 'Recompensas de minería financian operaciones del DAO XMRT',
+    'calculator.info.how.works.point4': 'Red descentralizada de mineros móviles de alto rendimiento',
+    'calculator.info.how.works.point5': 'Optimización ARM para máxima eficiencia',
+    
+    'calculator.info.dao.benefits': 'Beneficios del DAO',
+    'calculator.info.dao.benefits.point1': 'Tesorería auto-sostenible a través de ingresos de minería',
+    'calculator.info.dao.benefits.point2': 'Gobernanza democrática impulsada por participantes de minería',
+    'calculator.info.dao.benefits.point3': 'Eficiencia ambiental a través de dispositivos móviles',
+    'calculator.info.dao.benefits.point4': 'Accesibilidad global sin hardware especializado',
     
     // Workflow Steps
     'workflow.title': 'Pasos de Creación de Activos',
