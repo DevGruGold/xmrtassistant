@@ -200,13 +200,13 @@ export const HUME_EVI_CONFIG = {
     },
     {
       name: "queryEcosystemAgent",
-      description: "Query specific agents (core_agent or web_agent) in the live XMRT-Ecosystem deployment for autonomous operations and information",
+      description: "Query specific agents in the live XMRT-Ecosystem deployment including lead_coordinator, governance, financial, security, and community agents",
       parameters: {
         type: "object",
         properties: {
           agentType: {
             type: "string",
-            enum: ["core_agent", "web_agent"],
+            enum: ["core_agent", "web_agent", "lead_coordinator", "governance", "financial", "security", "community"],
             description: "The type of agent to query in the ecosystem"
           },
           query: {
@@ -238,6 +238,93 @@ export const HUME_EVI_CONFIG = {
     {
       name: "getEcosystemAnalytics",
       description: "Fetch comprehensive analytics and performance metrics from the live XMRT-Ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getDetailedSystemStatus",
+      description: "Get detailed system status information from the XMRT ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getAgentsList",
+      description: "Get list of all available agents in the XMRT ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getAgentStats",
+      description: "Get performance statistics for agents in the XMRT ecosystem",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: {
+            type: "string",
+            description: "Optional specific agent ID to get stats for"
+          }
+        },
+        required: []
+      }
+    },
+    {
+      name: "getSystemLogs",
+      description: "Get system logs from the XMRT ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            description: "Optional limit for number of log entries to retrieve"
+          }
+        },
+        required: []
+      }
+    },
+    {
+      name: "getSystemMetrics",
+      description: "Get detailed system performance metrics from the XMRT ecosystem",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getAgentActivity",
+      description: "Get real-time agent activity and recent actions from the XMRT ecosystem",
+      parameters: {
+        type: "object",
+        properties: {
+          agentType: {
+            type: "string",
+            description: "Optional specific agent type to get activity for"
+          }
+        },
+        required: []
+      }
+    },
+    {
+      name: "performHealthCheck",
+      description: "Perform comprehensive health check of the XMRT ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getWebhookStatus",
+      description: "Get status of webhook endpoints in the XMRT ecosystem",
       parameters: {
         type: "object",
         properties: {},

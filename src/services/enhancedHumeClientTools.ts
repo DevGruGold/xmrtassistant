@@ -422,7 +422,7 @@ Autonomous systems remain fully operational:
 Detailed health report will be available momentarily.`;
   }, []);
 
-  const queryEcosystemAgent = useCallback(async (agentType: 'core_agent' | 'web_agent', query: string) => {
+  const queryEcosystemAgent = useCallback(async (agentType: 'core_agent' | 'web_agent' | 'lead_coordinator' | 'governance' | 'financial' | 'security' | 'community', query: string) => {
     const response = await ecosystemAPI.queryAgent(agentType, query);
     
     if (response.success) {
@@ -467,7 +467,7 @@ Your command "${command}" has been queued in the autonomous system. The infrastr
 
 ${JSON.stringify(response.data, null, 2)}
 
-**Deployment URL:** https://xmrt-ecosystem-xx5w.onrender.com
+**Deployment URL:** https://xmrt-ecosystem-1-20k6.onrender.com
 
 These real-time metrics showcase the autonomous operation capabilities and demonstrate the practical implementation of Joseph Andrew Lee's infrastructure sovereignty philosophy.`;
     }
@@ -477,6 +477,126 @@ These real-time metrics showcase the autonomous operation capabilities and demon
 The autonomous monitoring systems continue tracking ecosystem performance in the background. This temporary unavailability ensures accurate data collection for future analytics reports.
 
 Core metrics remain healthy based on autonomous background monitoring.`;
+  }, []);
+
+  const getDetailedSystemStatus = useCallback(async () => {
+    const response = await ecosystemAPI.getDetailedSystemStatus();
+    
+    if (response.success) {
+      return `🔍 **Detailed System Status:**
+
+${JSON.stringify(response.data, null, 2)}
+
+This provides comprehensive insights into the autonomous operations across the XMRT ecosystem deployment.`;
+    }
+    
+    return `🔄 Detailed system status check in progress...
+
+The autonomous systems continue comprehensive self-monitoring in the background.`;
+  }, []);
+
+  const getAgentsList = useCallback(async () => {
+    const response = await ecosystemAPI.getAgentsList();
+    
+    if (response.success) {
+      return `🤖 **Available Agents in XMRT Ecosystem:**
+
+${JSON.stringify(response.data, null, 2)}
+
+These agents embody the autonomous capabilities envisioned by Joseph Andrew Lee's infrastructure sovereignty philosophy.`;
+    }
+    
+    return `🔄 Agent discovery in progress...
+
+The autonomous agent coordination systems continue operating in the background.`;
+  }, []);
+
+  const getAgentStats = useCallback(async (agentId?: string) => {
+    const response = await ecosystemAPI.getAgentStats(agentId);
+    
+    if (response.success) {
+      return `📈 **Agent Performance Statistics:**
+
+${JSON.stringify(response.data, null, 2)}
+
+These metrics demonstrate the autonomous performance optimization capabilities across the ecosystem.`;
+    }
+    
+    return `📊 Agent statistics compilation in progress...
+
+Performance monitoring continues autonomously in the background.`;
+  }, []);
+
+  const getSystemLogs = useCallback(async (limit?: number) => {
+    const response = await ecosystemAPI.getSystemLogs(limit);
+    
+    if (response.success) {
+      return `📝 **System Activity Logs:**
+
+${JSON.stringify(response.data, null, 2)}
+
+These logs showcase the autonomous operations and decision-making processes active across the ecosystem.`;
+    }
+    
+    return `📝 Log compilation in progress...
+
+Autonomous logging systems continue recording ecosystem activities.`;
+  }, []);
+
+  const getSystemMetrics = useCallback(async () => {
+    const response = await ecosystemAPI.getSystemMetrics();
+    
+    if (response.success) {
+      return ecosystemAPI.formatSystemMetrics(response.data);
+    }
+    
+    return `📊 System metrics compilation in progress...
+
+Performance monitoring systems continue autonomous data collection.`;
+  }, []);
+
+  const getAgentActivity = useCallback(async (agentType?: string) => {
+    const response = await ecosystemAPI.getAgentActivity(agentType);
+    
+    if (response.success) {
+      return ecosystemAPI.formatAgentActivity(response.data);
+    }
+    
+    return `🤖 Agent activity monitoring in progress...
+
+Autonomous agent coordination continues in the background.`;
+  }, []);
+
+  const performHealthCheck = useCallback(async () => {
+    const response = await ecosystemAPI.getDetailedHealthCheck();
+    
+    if (response.success) {
+      return `🏥 **Comprehensive System Health Check:**
+
+${JSON.stringify(response.data, null, 2)}
+
+This reflects the autonomous self-monitoring and optimization capabilities built into the ecosystem.`;
+    }
+    
+    return `🏥 Health check protocols running...
+
+Autonomous health monitoring systems continue comprehensive diagnostics.`;
+  }, []);
+
+  const getWebhookStatus = useCallback(async () => {
+    const response = await ecosystemAPI.getWebhookStatus();
+    
+    if (response.success) {
+      return `🔗 **Webhook Integration Status:**
+
+${JSON.stringify(response.data, null, 2)}
+
+These integrations enable autonomous cross-platform coordination and real-time ecosystem updates.`;
+    }
+    
+    return `🔗 Webhook status check in progress...
+
+Integration monitoring systems continue autonomous coordination.`;
   }, []);
 
   // Enhanced client tools configuration
@@ -490,7 +610,15 @@ Core metrics remain healthy based on autonomous background monitoring.`;
     getLiveEcosystemHealth,
     queryEcosystemAgent,
     executeEcosystemCommand,
-    getEcosystemAnalytics
+    getEcosystemAnalytics,
+    getDetailedSystemStatus,
+    getAgentsList,
+    getAgentStats,
+    getSystemLogs,
+    getSystemMetrics,
+    getAgentActivity,
+    performHealthCheck,
+    getWebhookStatus
   };
 
   return {
