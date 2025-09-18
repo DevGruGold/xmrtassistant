@@ -188,6 +188,61 @@ export const HUME_EVI_CONFIG = {
         properties: {},
         required: []
       }
+    },
+    {
+      name: "getLiveEcosystemHealth",
+      description: "Get real-time health status of the deployed XMRT-Ecosystem instance at https://xmrt-ecosystem-xx5w.onrender.com including agent status, uptime, and system metrics",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "queryEcosystemAgent",
+      description: "Query specific agents (core_agent or web_agent) in the live XMRT-Ecosystem deployment for autonomous operations and information",
+      parameters: {
+        type: "object",
+        properties: {
+          agentType: {
+            type: "string",
+            enum: ["core_agent", "web_agent"],
+            description: "The type of agent to query in the ecosystem"
+          },
+          query: {
+            type: "string",
+            description: "The query or command to send to the agent"
+          }
+        },
+        required: ["agentType", "query"]
+      }
+    },
+    {
+      name: "executeEcosystemCommand",
+      description: "Execute commands on the live XMRT-Ecosystem deployment for autonomous system management and operations",
+      parameters: {
+        type: "object",
+        properties: {
+          command: {
+            type: "string",
+            description: "The command to execute on the ecosystem"
+          },
+          parameters: {
+            type: "object",
+            description: "Optional parameters for the command"
+          }
+        },
+        required: ["command"]
+      }
+    },
+    {
+      name: "getEcosystemAnalytics",
+      description: "Fetch comprehensive analytics and performance metrics from the live XMRT-Ecosystem deployment",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
     }
   ]
 };
