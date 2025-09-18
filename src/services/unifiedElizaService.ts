@@ -46,6 +46,8 @@ export class UnifiedElizaService {
       await model.generateContent("Test");
       
       this.geminiAI = geminiInstance;
+      // Update API key status to reflect successful initialization
+      apiKeyManager.markKeyAsWorking();
       console.log('✅ Gemini AI initialized successfully for Eliza');
       return { success: true, geminiAI: this.geminiAI };
       
@@ -271,6 +273,9 @@ Provide a helpful, direct response to the user's question. Use your contextual k
         const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(systemPrompt);
         const response = result.response.text();
+        
+        // Update API key status to reflect successful response generation
+        apiKeyManager.markKeyAsWorking();
         
         console.log('✅ Eliza: Generated intelligent response');
         console.log('📏 Response length:', response.length);

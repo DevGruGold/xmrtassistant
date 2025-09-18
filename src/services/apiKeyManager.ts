@@ -205,6 +205,19 @@ export class APIKeyManager {
 
     return this.keyStatus;
   }
+
+  // Mark the current API key as working without doing another test call
+  public markKeyAsWorking(): void {
+    const apiKey = this.getCurrentApiKey();
+    if (apiKey) {
+      this.keyStatus = {
+        isValid: true,
+        keyType: this.userApiKey ? 'user' : 'default',
+        lastChecked: new Date()
+      };
+      console.log('✅ API key marked as working');
+    }
+  }
 }
 
 // Singleton instance
