@@ -31,7 +31,7 @@ interface EcosystemResponse<T = any> {
 }
 
 class EcosystemAPIService {
-  private baseUrl = 'https://xmrt-ecosystem-xx5w.onrender.com';
+  private baseUrl = 'https://xmrt-ecosystem-1-20k6.onrender.com';
 
   async getSystemHealth(): Promise<EcosystemResponse<EcosystemHealth>> {
     try {
