@@ -468,9 +468,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setIsProcessing(true);
       try {
         const apiKey = textInput.trim();
-        const isValid = await apiKeyManager.setUserApiKey(apiKey);
+        const result = await apiKeyManager.setUserApiKey(apiKey);
         
-        if (isValid) {
+        if (result.success) {
           // Clear the API key from input and reset services
           setTextInput('');
           UnifiedElizaService.resetGeminiInstance();
@@ -488,7 +488,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         } else {
           const errorMessage: UnifiedMessage = {
             id: `api-error-${Date.now()}`,
-            content: '❌ That doesn\'t appear to be a valid Gemini API key. Please check the key and try again, or use the 🔑 button above to access the API key setup form.',
+            content: `❌ ${result.message}`,
             sender: 'assistant',
             timestamp: new Date()
           };
