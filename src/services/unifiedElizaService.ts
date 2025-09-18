@@ -2,6 +2,7 @@ import { XMRT_KNOWLEDGE_BASE } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { apiKeyManager } from './apiKeyManager';
 
 export interface ElizaContext {
   miningStats?: MiningStats | null;
@@ -24,23 +25,75 @@ export interface ElizaContext {
 export class UnifiedElizaService {
   private static geminiAI: GoogleGenerativeAI | null = null;
   
-  // Initialize Gemini AI
-  private static async initializeGemini(): Promise<GoogleGenerativeAI> {
-    if (this.geminiAI) return this.geminiAI;
-    
-    const apiKey = 'AIzaSyB3jfxdMQzPpIb5MNfT8DtP5MOvT_Sp7qk';
-    if (!apiKey) {
-      throw new Error('Gemini API key not found');
+  // Initialize Gemini AI with enhanced API key management
+  private static async initializeGemini(): Promise<{ success: boolean; geminiAI?: GoogleGenerativeAI; error?: string; errorType?: string }> {
+    if (this.geminiAI) {
+      return { success: true, geminiAI: this.geminiAI };
     }
     
     try {
-      this.geminiAI = new GoogleGenerativeAI(apiKey);
-      console.log('✅ Gemini AI initialized for Eliza');
-      return this.geminiAI;
-    } catch (error) {
+      console.log('🔑 Attempting to initialize Gemini AI with API key manager...');
+      
+      // Use the API key manager to get the best available key
+      const geminiInstance = await apiKeyManager.createGeminiInstance();
+      
+      if (!geminiInstance) {
+        throw new Error('No valid API key available');
+      }
+      
+      // Test the instance with a simple request
+      const model = geminiInstance.getGenerativeModel({ model: "gemini-1.5-flash" });
+      await model.generateContent("Test");
+      
+      this.geminiAI = geminiInstance;
+      console.log('✅ Gemini AI initialized successfully for Eliza');
+      return { success: true, geminiAI: this.geminiAI };
+      
+    } catch (error: any) {
       console.error('❌ Failed to initialize Gemini:', error);
-      throw error;
+      
+      // Clear the cached instance on failure
+      this.geminiAI = null;
+      
+      // Determine the type of error for better user experience
+      let errorType = 'general';
+      if (error.message?.includes('quota')) {
+        errorType = 'quota_exceeded';
+      } else if (error.message?.includes('invalid') || error.message?.includes('API key')) {
+        errorType = 'invalid_key';
+      } else if (error.message?.includes('permission')) {
+        errorType = 'permission_denied';
+      }
+      
+      return { 
+        success: false, 
+        error: error.message || 'Failed to initialize Gemini AI',
+        errorType
+      };
     }
+  }
+
+  // Get API key input requirement message
+  private static getAPIKeyRequiredMessage(): string {
+    const keyStatus = apiKeyManager.getKeyStatus();
+    
+    return `I'm currently unable to access my full AI capabilities due to API limitations. However, I can still provide valuable information from our knowledge base and real-time mining data.
+
+🔑 **To restore full AI capabilities:**
+You can provide your own free Google Gemini API key to continue enjoying intelligent conversations, memory recall, and web browsing features.
+
+**What you'll get back:**
+• Advanced reasoning and contextual understanding
+• Complete conversation memory and recall
+• Live web browsing and research capabilities  
+• Personalized responses based on your history
+
+**Current API Status:** ${keyStatus.keyType === 'user' ? 'Using your API key' : keyStatus.keyType === 'default' ? 'Default key quota exceeded' : 'No valid key available'}
+${keyStatus.errorMessage ? `**Error:** ${keyStatus.errorMessage}` : ''}
+
+I'll provide the best response I can with the available information below...
+
+`;
   }
 
   public static async generateResponse(userInput: string, context: ElizaContext = {}): Promise<string> {
@@ -131,22 +184,27 @@ export class UnifiedElizaService {
         }
       }
       
-      // Initialize Gemini AI with error handling for API limits
-      let geminiAI;
-      try {
-        console.log('🔧 Initializing Gemini AI...');
-        geminiAI = await this.initializeGemini();
-        console.log('✅ Gemini AI initialized successfully');
-      } catch (error) {
-        console.error('❌ Eliza: Gemini API initialization failed:', error);
-        console.log('🔄 Using fallback response due to Gemini failure');
-        return this.generateDirectResponse(
+      // Initialize Gemini AI with enhanced error handling for API limits
+      console.log('🔧 Initializing Gemini AI...');
+      const initResult = await this.initializeGemini();
+      
+      if (!initResult.success) {
+        console.error('❌ Eliza: Gemini API initialization failed:', initResult.error);
+        console.log('🔄 Using enhanced fallback response with API key guidance');
+        
+        // Enhanced fallback that includes API key input guidance
+        const baseResponse = this.generateDirectResponse(
           userInput, 
           miningStats,
           userContext?.isFounder || false,
           xmrtContext
         );
+        
+        return this.getAPIKeyRequiredMessage() + baseResponse;
       }
+      
+      const geminiAI = initResult.geminiAI!;
+      console.log('✅ Gemini AI initialized successfully');
       
       // Construct comprehensive context prompt with enhanced conversation understanding
       const contextualInformation = [];
@@ -219,15 +277,28 @@ Provide a helpful, direct response to the user's question. Use your contextual k
         console.log('🔍 Response preview:', response.substring(0, 200) + '...');
         
         return response;
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Gemini API call failed:', error);
-        console.log('🔄 Using fallback response due to API failure');
-        return this.generateDirectResponse(
-          userInput, 
-          miningStats,
-          userContext?.isFounder || false,
-          xmrtContext
-        );
+        
+        // Enhanced error handling with API key guidance
+        if (error.message?.includes('quota') || error.message?.includes('limit')) {
+          console.log('🔄 Quota exceeded - suggesting user API key');
+          const baseResponse = this.generateDirectResponse(
+            userInput, 
+            miningStats,
+            userContext?.isFounder || false,
+            xmrtContext
+          );
+          return this.getAPIKeyRequiredMessage() + baseResponse;
+        } else {
+          console.log('🔄 Using standard fallback response due to API failure');
+          return this.generateDirectResponse(
+            userInput, 
+            miningStats,
+            userContext?.isFounder || false,
+            xmrtContext
+          );
+        }
       }
       
     } catch (error) {
@@ -244,6 +315,12 @@ Provide a helpful, direct response to the user's question. Use your contextual k
         ).slice(0, 2)
       );
     }
+  }
+
+  // Reset Gemini instance to force re-initialization with new API key
+  public static resetGeminiInstance(): void {
+    this.geminiAI = null;
+    console.log('🔄 Gemini instance reset - will re-initialize with current API key');
   }
 
   // Determine the appropriate browsing category based on user input

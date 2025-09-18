@@ -5,8 +5,9 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
+import { GeminiAPIKeyInput } from './GeminiAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
-import { Send, Volume2, VolumeX, Trash2 } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -15,6 +16,7 @@ import { unifiedDataService, type MiningStats, type UserContext } from '@/servic
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 import { conversationPersistence } from '@/services/conversationPersistenceService';
 import { quickGreetingService } from '@/services/quickGreetingService';
+import { apiKeyManager } from '@/services/apiKeyManager';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -73,6 +75,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
+
+  // API Key Management state
+  const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
+  const [needsAPIKey, setNeedsAPIKey] = useState(false);
 
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
@@ -493,6 +499,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         conversationContext: fullContext  // Enhanced context for better understanding
       });
       
+      // Check if response indicates API key is needed
+      if (response.includes('🔑 **To restore full AI capabilities:**')) {
+        setNeedsAPIKey(true);
+      }
+      
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 
       const elizaMessage: UnifiedMessage = {
@@ -565,6 +576,27 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       geminiTTSService.stopSpeaking();
       setIsSpeaking(false);
     }
+  };
+
+  const handleAPIKeyValidated = () => {
+    console.log('✅ API key validated, resetting Gemini and hiding input');
+    
+    // Reset Gemini instance to use new API key
+    UnifiedElizaService.resetGeminiInstance();
+    
+    // Hide the API key input
+    setShowAPIKeyInput(false);
+    setNeedsAPIKey(false);
+    
+    // Add a success message to chat
+    const successMessage: UnifiedMessage = {
+      id: `success-${Date.now()}`,
+      content: 'Great! Your API key has been validated and saved. Full AI capabilities have been restored. How can I help you?',
+      sender: 'assistant',
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, successMessage]);
   };
 
   return (
@@ -681,6 +713,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
+
+        {/* API Key Input Dialog */}
+        {showAPIKeyInput && (
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <GeminiAPIKeyInput 
+              onKeyValidated={handleAPIKeyValidated}
+              onClose={() => setShowAPIKeyInput(false)}
+              showAsDialog={true}
+            />
+          </div>
+        )}
       </div>
 
       {/* Text Input Area */}
