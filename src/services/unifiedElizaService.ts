@@ -152,9 +152,24 @@ export class UnifiedElizaService {
       const contextualInformation = [];
       
       // Add conversation context if available
-      // Only include most recent and relevant conversation context
-      if (context.conversationContext && context.conversationContext.recentMessages.length > 0) {
-        contextualInformation.push(`Recent context: ${context.conversationContext.recentMessages.slice(-2).map(msg => `${msg.sender}: "${msg.content.substring(0, 80)}..."`).join('; ')}`);
+      if (context.conversationContext) {
+        // Include conversation summaries for better memory recall
+        if (context.conversationContext.summaries.length > 0) {
+          const latestSummary = context.conversationContext.summaries[context.conversationContext.summaries.length - 1];
+          contextualInformation.push(`Previous conversation summary: ${latestSummary.summaryText}`);
+        }
+        
+        // Include recent messages (expanded from 2 to 15 for better context)
+        if (context.conversationContext.recentMessages.length > 0) {
+          const recentCount = Math.min(15, context.conversationContext.recentMessages.length);
+          const recentMessages = context.conversationContext.recentMessages.slice(-recentCount);
+          contextualInformation.push(`Recent conversation (${recentCount} messages): ${recentMessages.map(msg => `${msg.sender}: "${msg.content.substring(0, 100)}..."`).join('; ')}`);
+        }
+        
+        // Add session context for returning users
+        if (context.conversationContext.totalMessageCount > 0) {
+          contextualInformation.push(`Total conversation history: ${context.conversationContext.totalMessageCount} messages across this session`);
+        }
       }
       
       const systemPrompt = `You are Eliza, the helpful AI assistant for XMRT-DAO. You're knowledgeable about cryptocurrency, mining, and blockchain technology.
@@ -165,20 +180,25 @@ ${miningStats ? `- Mining Stats: ${miningStats.hashRate} H/s, ${miningStats.vali
 ${webIntelligence ? `- Additional Info: ${webIntelligence}` : ''}
 ${multiStepResults ? `- Analysis: ${multiStepResults}` : ''}
 
-${xmrtContext.length > 0 ? `Relevant XMRT Knowledge:
+${contextualInformation.length > 0 ? `Conversation Memory:
+${contextualInformation.join('\n')}
+
+` : ''}${xmrtContext.length > 0 ? `Relevant XMRT Knowledge:
 ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring(0, 150)}...`).join('\n')}
 
 ` : ''}Guidelines:
-1. Be natural and conversational
-2. Answer the user's specific question directly
-3. Use XMRT knowledge when relevant
-4. Reference mining stats if they're related to the question
-5. Keep responses focused and practical
-6. Don't overwhelm with unnecessary information
+1. Be natural and conversational - use your memory of our previous conversations
+2. If this is a returning user, acknowledge specific things they've mentioned before (like "bananas", "hippo", or other requests to remember something)
+3. Reference your conversation history naturally - build upon previous discussions
+4. Answer the user's specific question directly using both current knowledge and past context
+5. Use XMRT knowledge when relevant
+6. Reference mining stats if they're related to the question
+7. Keep responses focused and practical but show that you remember past interactions
+8. When users ask you to remember something, explicitly acknowledge and commit to remembering it
 
 User Input: "${userInput}"
 
-Provide a thoughtful, comprehensive, and detailed response that demonstrates your full intelligence and multi-step reasoning capabilities. If this is a returning user, acknowledge your shared history and build upon previous conversations naturally. Do not hold back - show your complete AI capabilities.`;
+Provide a thoughtful, comprehensive response that demonstrates your memory of our conversations and full AI capabilities. Show that you remember and build upon our shared history naturally.`;
 
       console.log('🧠 Sending prompt to Gemini AI...');
       console.log('📝 Prompt length:', systemPrompt.length);

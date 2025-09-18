@@ -379,11 +379,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
-      // Store voice messages
-      await conversationPersistence.storeMessage(
-        transcript,
-        'user'
-      );
       
       const response = await UnifiedElizaService.generateResponse(transcript, {
         miningStats,
@@ -393,11 +388,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         enableBrowsing: true,
         conversationContext: await conversationPersistence.getFullConversationContext()  // Enhanced context for voice too
       });
-      
-      await conversationPersistence.storeMessage(
-        response,
-        'assistant'
-      );
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
@@ -489,12 +479,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       console.log('💬 Starting message processing:', textInput.trim());
       console.log('🔧 Context:', { miningStats: !!miningStats, userContext: !!userContext });
       
-      // Store user message
-      await conversationPersistence.storeMessage(
-        textInput.trim(),
-        'user'
-      );
-      
       console.log('💾 User message stored, generating response...');
       
       // Get full conversation context for better AI understanding
@@ -510,11 +494,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       });
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
-      
-      await conversationPersistence.storeMessage(
-        response,
-        'assistant'
-      );
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
