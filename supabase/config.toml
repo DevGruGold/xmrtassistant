@@ -1,4 +1,4 @@
 project_id = "vawouugtzwmejxqkeqqj"
 
-[functions.mining-proxy]
+[functions.github-autonomous]
 verify_jwt = false

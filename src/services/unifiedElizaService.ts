@@ -3,6 +3,7 @@ import { unifiedDataService, type MiningStats, type UserContext } from './unifie
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { apiKeyManager } from './apiKeyManager';
+import { autonomousTaskService } from './autonomousTaskService';
 
 export interface ElizaContext {
   miningStats?: MiningStats | null;
@@ -19,6 +20,7 @@ export interface ElizaContext {
     totalMessageCount: number;
     sessionStartedAt: Date | null;
   }; // Enhanced conversation context for better understanding
+  sessionKey?: string; // Session identifier for task tracking
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -102,6 +104,34 @@ I'll provide the best response I can with the available information below...
     console.log('🤖 Eliza: Starting response generation for:', userInput);
     
     try {
+      // Check if user is requesting autonomous task execution first
+      const sessionKey = context.sessionKey || 'default';
+      const taskRequest = await autonomousTaskService.requestTask(userInput, sessionKey);
+      
+      if (taskRequest.confidence > 0.6) {
+        console.log('🎯 Eliza: Task detected with confidence:', taskRequest.confidence);
+        let responseText = `I've identified a task: ${taskRequest.description}\n\nConfidence: ${Math.round(taskRequest.confidence * 100)}%`;
+        
+        if (taskRequest.requiresApproval && taskRequest.taskId) {
+          responseText += `\n\nThis task requires approval. Would you like me to proceed? Reply with "yes" to approve or provide more details.`;
+          return responseText;
+        } else if (taskRequest.taskId) {
+          // Execute task immediately for low-risk operations
+          console.log('⚡ Eliza: Executing task immediately...');
+          const result = await autonomousTaskService.approveAndExecuteTask(taskRequest.taskId);
+          if (result.success) {
+            responseText += `\n\n✅ Task completed successfully!`;
+            if (result.result) {
+              const resultStr = typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2);
+              responseText += `\n\nResult: ${resultStr}`;
+            }
+          } else {
+            responseText += `\n\n❌ Task failed: ${result.error}`;
+          }
+          return responseText;
+        }
+      }
+      
       console.log('🤖 Eliza: Processing user input:', userInput);
       
       // Get user and mining context

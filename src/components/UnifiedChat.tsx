@@ -7,6 +7,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GeminiAPIKeyInput } from './GeminiAPIKeyInput';
+import { TaskApprovalInterface } from './TaskApprovalInterface';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
 
@@ -18,6 +19,7 @@ import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 import { conversationPersistence } from '@/services/conversationPersistenceService';
 import { quickGreetingService } from '@/services/quickGreetingService';
 import { apiKeyManager } from '@/services/apiKeyManager';
+import { autonomousTaskService } from '@/services/autonomousTaskService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -44,6 +46,14 @@ interface UnifiedMessage {
   };
   emotion?: string;
   confidence?: number;
+  taskRequest?: {
+    taskId: string;
+    requiresApproval: boolean;
+    description: string;
+    confidence: number;
+    type?: string;
+    parameters?: any;
+  };
 }
 
 // MiningStats imported from unifiedDataService
@@ -81,6 +91,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
   const [needsAPIKey, setNeedsAPIKey] = useState(false);
+
+  // Task handling state
+  const [pendingTaskApproval, setPendingTaskApproval] = useState<{
+    taskId: string;
+    requiresApproval: boolean;
+    description: string;
+    confidence: number;
+  } | null>(null);
+  const [executingTask, setExecutingTask] = useState<string | null>(null);
 
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
@@ -556,7 +575,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputMode: 'text',
         shouldSpeak: false,
         enableBrowsing: true,  // Let the service decide when to browse
-        conversationContext: fullContext  // Enhanced context for better understanding
+        conversationContext: fullContext,  // Enhanced context for better understanding
+        sessionKey: 'unified-chat-session'  // Add session key for task tracking
       }, language);
       
       // Check if response indicates API key is needed
