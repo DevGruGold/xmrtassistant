@@ -25,15 +25,12 @@ const LiveMiningStats = () => {
 
   const fetchMiningStats = async () => {
     try {
-      const response = await fetch(
-        "https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy"
-      );
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data, error } = await supabase.functions.invoke('mining-proxy');
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        throw new Error(`Supabase function error: ${error.message}`);
       }
-      
-      const data = await response.json();
       
       setStats({
         hash: data.hash || 0,

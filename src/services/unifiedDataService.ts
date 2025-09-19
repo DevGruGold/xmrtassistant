@@ -79,15 +79,14 @@ class UnifiedDataService {
     try {
       console.log('📊 UnifiedData: Fetching mining statistics...');
       
-      // Use Supabase proxy endpoint which handles CORS
-      const response = await fetch('https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy');
+      // Import supabase client dynamically to avoid circular dependencies
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase.functions.invoke('mining-proxy');
       
-      if (!response.ok) {
-        console.warn('⚠️ Mining API request failed:', response.status);
+      if (error) {
+        console.warn('⚠️ Mining API request failed:', error);
         return null; // No mock data - return null if real data unavailable
       }
-      
-      const data = await response.json();
       console.log('✅ UnifiedData: Mining stats retrieved');
       
       const miningStats: MiningStats = {
