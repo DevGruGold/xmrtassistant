@@ -104,7 +104,30 @@ I'll provide the best response I can with the available information below...
     console.log('🤖 Eliza: Starting response generation for:', userInput);
     
     try {
-      // Check if user is requesting autonomous task execution first
+      // Check for system status inquiries first
+      if (userInput.toLowerCase().includes('system') && 
+          (userInput.toLowerCase().includes('status') || 
+           userInput.toLowerCase().includes('capabilities') ||
+           userInput.toLowerCase().includes('what can you'))) {
+        console.log('🔍 Eliza: System status inquiry detected');
+        const { systemStatusService } = await import('./systemStatusService');
+        const capabilities = await systemStatusService.getSystemCapabilities();
+        const report = systemStatusService.generateCapabilitiesReport();
+        
+        // If Gemini is available, provide enhanced response
+        const initResult = await this.initializeGemini();
+        if (initResult.success) {
+          const geminiAI = initResult.geminiAI!;
+          const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          const prompt = `Based on this system status report, provide a conversational summary of my current capabilities and status: ${report}`;
+          const result = await model.generateContent(prompt);
+          return result.response.text();
+        } else {
+          return report;
+        }
+      }
+      
+      // Check if user is requesting autonomous task execution
       const sessionKey = context.sessionKey || 'default';
       const taskRequest = await autonomousTaskService.requestTask(userInput, sessionKey);
       
