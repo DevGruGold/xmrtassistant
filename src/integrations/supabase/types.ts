@@ -461,6 +461,45 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: unknown
+          is_active: boolean
+          last_seen: string
+          metadata: Json | null
+          registration_date: string
+          session_key: string | null
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address: unknown
+          is_active?: boolean
+          last_seen?: string
+          metadata?: Json | null
+          registration_date?: string
+          session_key?: string | null
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean
+          last_seen?: string
+          metadata?: Json | null
+          registration_date?: string
+          session_key?: string | null
+          updated_at?: string
+          worker_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

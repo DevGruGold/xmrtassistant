@@ -108,10 +108,12 @@ I'll provide the best response I can with the available information below...
       if (userInput.toLowerCase().includes('system') && 
           (userInput.toLowerCase().includes('status') || 
            userInput.toLowerCase().includes('capabilities') ||
-           userInput.toLowerCase().includes('what can you'))) {
+           userInput.toLowerCase().includes('what can you') ||
+           userInput.toLowerCase().includes('do you have access') ||
+           userInput.toLowerCase().includes('are you connected'))) {
         console.log('🔍 Eliza: System status inquiry detected');
         const { systemStatusService } = await import('./systemStatusService');
-        const capabilities = await systemStatusService.getSystemCapabilities();
+        await systemStatusService.refreshStatus();
         const report = systemStatusService.generateCapabilitiesReport();
         
         // If Gemini is available, provide enhanced response
@@ -119,7 +121,7 @@ I'll provide the best response I can with the available information below...
         if (initResult.success) {
           const geminiAI = initResult.geminiAI!;
           const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-          const prompt = `Based on this system status report, provide a conversational summary of my current capabilities and status: ${report}`;
+          const prompt = `${language === 'es' ? 'Basándote en este reporte de estado del sistema, proporciona un resumen conversacional de mis capacidades y estado actuales' : 'Based on this system status report, provide a conversational summary of my current capabilities and status'}: ${report}`;
           const result = await model.generateContent(prompt);
           return result.response.text();
         } else {
@@ -157,11 +159,25 @@ I'll provide the best response I can with the available information below...
       
       console.log('🤖 Eliza: Processing user input:', userInput);
       
-      // Get user and mining context
-      const [userContext, miningStats] = await Promise.all([
+      // Get user and mining context with enhanced language detection
+      const [userContext, miningStatsRaw] = await Promise.all([
         unifiedDataService.getUserContext(),
         unifiedDataService.getMiningStats()
       ]);
+      
+      // Enhanced mining context with language awareness
+      let miningStats = miningStatsRaw;
+      let miningLanguageContext = null;
+      
+      if (miningStats && miningStats.workerContext) {
+        // Import mining language service
+        const { miningLanguageService } = await import('./miningLanguageService');
+        miningLanguageContext = await miningLanguageService.determineMiningContext(
+          miningStats.workerContext.clientIP
+        );
+        console.log('🏗️ Mining language context:', miningLanguageContext);
+      }
+      
       console.log('📊 Context loaded - User:', userContext, 'Mining:', miningStats);
       
       // Search knowledge base for relevant information
@@ -309,11 +325,21 @@ I'll provide the best response I can with the available information below...
 🏗️ COMPLETE ECOSYSTEM AWARENESS:
 You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including XMRT-Ecosystem, party-favor-autonomous-cms, DrinkableMVP, MobileMonero.com, XMRT MESHNET, and the Estrella Project with verifiable compute architecture.
 
+🔗 SYSTEM SELF-AWARENESS:
+You have complete awareness of your own systems and APIs. When users ask about your capabilities or connections, you can accurately report your current system status including:
+- Gemini AI connection status and API key type (${apiKeyManager.hasUserApiKey() ? 'user-provided' : 'default'})
+- HARPA AI browsing capabilities
+- Supabase database connectivity 
+- Mining proxy status and worker detection
+- Task management system status
+- Conversation memory and persistence
+
 ${languageInstruction}
 
 Current Context:
 - User Status: ${userContext?.isFounder ? 'Project Founder' : 'Community Member'}
-${miningStats ? `- Mining Stats: ${miningStats.hashRate} H/s, ${miningStats.validShares} shares` : ''}
+${miningStats ? `- Mining Stats: ${miningStats.hashRate || 0} H/s, ${miningStats.validShares || 0} shares` : ''}
+${miningLanguageContext ? `- Mining Context: ${miningLanguageContext.isPersonalContribution ? `Personal contribution detected${miningLanguageContext.workerName ? ` (${miningLanguageContext.workerName})` : ''} - use "your"` : 'Collective mining - use "our"'}` : ''}
 ${webIntelligence ? `- Additional Info: ${webIntelligence}` : ''}
 ${multiStepResults ? `- Analysis: ${multiStepResults}` : ''}
 
@@ -331,11 +357,12 @@ ${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring
 5. The conversation summaries contain accurate information from past interactions - use them as definitive source of truth for memory questions
 6. Answer the user's specific question directly using both current knowledge and contextual information
 7. Use XMRT knowledge when relevant
-8. Reference mining stats if they're related to the question
-9. Keep responses focused and practical
-10. When users explicitly ask you to remember something, acknowledge and commit to remembering it
-11. When users ask about past conversations, check the summaries first and provide specific details
-12. Let your memory inform your understanding without announcing what you remember unless directly asked
+8. **CRITICAL MINING LANGUAGE**: ${miningLanguageContext?.isPersonalContribution ? 'Use "your mining", "your hash rate", "your contribution" when referring to mining stats since this user\'s contribution has been identified' : 'Use "our mining", "our collective hash rate", "our contribution" when referring to mining stats since individual contribution cannot be verified'}
+9. When asked about your capabilities, systems, or API connections, provide accurate real-time information based on your actual system status
+10. Keep responses focused and practical
+11. When users explicitly ask you to remember something, acknowledge and commit to remembering it
+12. When users ask about past conversations, check the summaries first and provide specific details
+13. Let your memory inform your understanding without announcing what you remember unless directly asked
 ${additionalGuideline}
 
 User Input: "${userInput}"

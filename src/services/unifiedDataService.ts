@@ -7,6 +7,12 @@ export interface MiningStats {
   amountPaid: number;
   isOnline: boolean;
   lastUpdate: Date;
+  workerContext?: {
+    canIdentifyWorker: boolean;
+    detectedWorker: string | null;
+    registrationRequired: boolean;
+    clientIP?: string;
+  };
 }
 
 export interface UserContext {
