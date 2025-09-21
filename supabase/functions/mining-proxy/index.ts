@@ -75,14 +75,19 @@ serve(async (req) => {
       if (response.ok) {
         const data = await response.json();
 
-        // Check if we got meaningful data (not all zeros)
-        const hasActivity = data.hash > 0 || data.totalHashes > 0 || data.validShares > 0;
-
-        if (hasActivity) {
+        // Always use real data if we get a valid response from the API
+        // Even if the miner is currently offline, show historical data
+        if (data && typeof data === 'object') {
           minerData = data;
           console.log('Real mining data retrieved successfully');
+          
+          // Only use demo if the API returns completely empty or malformed data
+          if (!data.hasOwnProperty('hash') && !data.hasOwnProperty('totalHashes') && !data.hasOwnProperty('validShares')) {
+            console.log('API returned malformed data - using demo data');
+            useDemo = true;
+          }
         } else {
-          console.log('Miner appears inactive - using demo data');
+          console.log('Invalid API response format - using demo data');
           useDemo = true;
         }
       } else {
@@ -94,7 +99,7 @@ serve(async (req) => {
       useDemo = true;
     }
 
-    // Use demo data if real data unavailable or inactive
+    // Use demo data only if real data completely unavailable
     if (useDemo || !minerData) {
       minerData = getDemoMiningData();
     }
