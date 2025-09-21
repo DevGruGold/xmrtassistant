@@ -56,12 +56,12 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Live Data Dashboard - Featured Position */}
+          {/* Mining Intelligence Dashboard */}
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-4">
-              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+              <h3 className="font-inter font-semibold text-lg sm:text-xl text-foreground mb-1">
                 {t('mining.title')}
-              </h2>
+              </h3>
               <p className="font-source text-muted-foreground text-sm">
                 {t('mining.subtitle')}
               </p>
@@ -69,19 +69,22 @@ const Index = () => {
             <LiveMiningStats />
           </div>
 
-          {/* Integrated AI Chat Interface */}
-          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <div className="text-center mb-4">
-              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+          {/* Hero AI Assistant Interface */}
+          <div className="max-w-4xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-6">
+              <h2 className="font-inter font-semibold text-2xl sm:text-3xl text-foreground mb-2">
                 {t('ai.title')}
               </h2>
-              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+              <p className="font-source text-muted-foreground text-base max-w-3xl mx-auto">
                 {t('ai.subtitle')}
               </p>
             </div>
             
-            <div className="bg-card/50 border border-border rounded-2xl p-6 shadow-lg backdrop-blur-sm">
-              <UnifiedChat />
+            <div className="bg-gradient-to-br from-card via-card/95 to-secondary/20 border border-primary/20 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-sm relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-mining-info/5 rounded-3xl" />
+              <div className="relative">
+                <UnifiedChat />
+              </div>
             </div>
           </div>
           
@@ -227,14 +230,14 @@ const Index = () => {
         )}
       </main>
 
-      {/* Chat Section */}
+      {/* Community Chat Section */}
       <div className="w-full h-64 sm:h-80 lg:h-96 bg-secondary/50 border-t border-border backdrop-blur-sm">
         <iframe
           src="https://mobilemonero.chatango.com/"
           className="w-full h-full rounded-t-lg"
           style={{ border: "none" }}
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
-          title="XMRT Chat"
+          title="XMRT Community Chat"
         />
       </div>
       
