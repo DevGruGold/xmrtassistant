@@ -14,9 +14,12 @@ interface MiningStats {
   amtPaid: number;
   txnCount: number;
   isOnline: boolean;
-  isDemo?: boolean;
-  demoNote?: string;
-  status?: 'live' | 'demo' | 'fallback';
+  isActive?: boolean;
+  isHistorical?: boolean;
+  lastActiveTime?: number;
+  lastActiveTimestamp?: number;
+  noDataAvailable?: boolean;
+  status?: 'live' | 'historical' | 'inactive' | 'error';
   error?: string;
   poolContext?: {
     poolHashrate: number;
@@ -53,8 +56,11 @@ const LiveMiningStats = () => {
         amtPaid: parseFloat(data.amtPaid || 0),
         txnCount: data.txnCount || 0,
         isOnline: data.lastHash > (Date.now() / 1000) - 300, // 5 minutes
-        isDemo: data.isDemo || false,
-        demoNote: data.demoNote,
+        isActive: data.isActive || false,
+        isHistorical: data.isHistorical || false,
+        lastActiveTime: data.lastActiveTime,
+        lastActiveTimestamp: data.lastActiveTimestamp,
+        noDataAvailable: data.noDataAvailable || false,
         status: data.status || 'live',
         error: data.error,
         poolContext: data.poolContext
@@ -77,10 +83,9 @@ const LiveMiningStats = () => {
         amtDue: 0.003421,
         amtPaid: 0.089123,
         txnCount: 12,
-        isOnline: true,
-        isDemo: true,
-        status: 'fallback',
-        demoNote: "Demo data - Mining stats temporarily unavailable"
+        isOnline: false,
+        status: 'error',
+        error: "Service temporarily unavailable"
       });
     } finally {
       setLoading(false);
@@ -115,16 +120,18 @@ const LiveMiningStats = () => {
     return `${amount.toFixed(6)} XMR`;
   };
 
-  const getStatusColor = (status?: string, isOnline?: boolean) => {
-    if (status === 'demo' || status === 'fallback') return 'text-yellow-500';
-    return isOnline ? 'text-green-500' : 'text-red-500';
+  const getStatusColor = (status?: string, isActive?: boolean) => {
+    if (status === 'historical') return 'text-yellow-500';
+    if (status === 'error' || status === 'inactive') return 'text-red-500';
+    return isActive ? 'text-green-500' : 'text-red-500';
   };
 
   const getStatusText = (stats: MiningStats) => {
-    if (stats.isDemo) {
-      return stats.status === 'fallback' ? 'Demo Mode (Service Issue)' : 'Demo Mode';
-    }
-    return stats.isOnline ? 'Online' : 'Offline';
+    if (stats.noDataAvailable) return 'No Mining Data';
+    if (stats.isHistorical) return 'Offline - Historical Data';
+    if (stats.status === 'inactive') return 'No Active Miners';
+    if (stats.status === 'error') return 'Service Error';
+    return stats.isActive ? 'Mining Active' : 'Miner Offline';
   };
 
   if (loading) {
@@ -152,11 +159,16 @@ const LiveMiningStats = () => {
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center justify-between text-sm font-medium">
           <div className="flex items-center gap-2">
-            <Activity className={`h-4 w-4 ${stats?.isOnline ? 'animate-pulse text-green-500' : 'text-red-500'}`} />
+            <Activity className={`h-4 w-4 ${stats?.isActive ? 'animate-pulse text-green-500' : 'text-red-500'}`} />
             {t('stats.title') || 'Live Mining Stats'}
-            {stats?.isDemo && (
+            {stats?.isHistorical && (
               <Badge variant="outline" className="text-xs">
-                {stats.status === 'fallback' ? 'DEMO' : 'PREVIEW'}
+                HISTORICAL
+              </Badge>
+            )}
+            {stats?.noDataAvailable && (
+              <Badge variant="outline" className="text-xs text-red-500">
+                NO DATA
               </Badge>
             )}
           </div>
@@ -174,12 +186,21 @@ const LiveMiningStats = () => {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Status and Demo Notice */}
-        {stats?.demoNote && (
+        {/* Status and Historical Data Notice */}
+        {stats?.isHistorical && stats.lastActiveTime && (
           <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
             <AlertCircle className="h-4 w-4 text-yellow-500" />
             <span className="text-xs text-yellow-700 dark:text-yellow-400">
-              {stats.demoNote}
+              Showing last mining session data from {new Date(stats.lastActiveTime).toLocaleString()}
+            </span>
+          </div>
+        )}
+        
+        {stats?.noDataAvailable && (
+          <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-md">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span className="text-xs text-red-700 dark:text-red-400">
+              No mining data available. Connect your miner to pool.supportxmr.com:3333 with wallet: 46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg
             </span>
           </div>
         )}
@@ -192,7 +213,7 @@ const LiveMiningStats = () => {
               <Hash className="h-4 w-4" />
               Current Hashrate
             </div>
-            <div className={`text-lg font-bold ${getStatusColor(stats?.status, stats?.isOnline)}`}>
+            <div className={`text-lg font-bold ${getStatusColor(stats?.status, stats?.isActive)}`}>
               {stats ? formatHashrate(stats.hash) : "0 H/s"}
             </div>
           </div>
@@ -279,7 +300,7 @@ const LiveMiningStats = () => {
               <Activity className="h-4 w-4" />
               Status
             </div>
-            <div className={`text-lg font-bold ${getStatusColor(stats?.status, stats?.isOnline)}`}>
+            <div className={`text-lg font-bold ${getStatusColor(stats?.status, stats?.isActive)}`}>
               {stats ? getStatusText(stats) : 'Connecting...'}
             </div>
           </div>

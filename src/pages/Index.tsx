@@ -56,19 +56,6 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Mining Intelligence Dashboard */}
-          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <div className="text-center mb-4">
-              <h3 className="font-inter font-semibold text-lg sm:text-xl text-foreground mb-1">
-                {t('mining.title')}
-              </h3>
-              <p className="font-source text-muted-foreground text-sm">
-                {t('mining.subtitle')}
-              </p>
-            </div>
-            <LiveMiningStats />
-          </div>
-
           {/* Hero AI Assistant Interface */}
           <div className="max-w-4xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-6">
@@ -86,6 +73,19 @@ const Index = () => {
                 <UnifiedChat />
               </div>
             </div>
+          </div>
+
+          {/* Mining Intelligence Dashboard */}
+          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-4">
+              <h3 className="font-inter font-semibold text-lg sm:text-xl text-foreground mb-1">
+                {t('mining.title')}
+              </h3>
+              <p className="font-source text-muted-foreground text-sm">
+                {t('mining.subtitle')}
+              </p>
+            </div>
+            <LiveMiningStats />
           </div>
           
           {/* Quick Actions */}
