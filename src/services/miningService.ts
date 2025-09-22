@@ -94,7 +94,6 @@ class MiningService {
     if (cached && Date.now() - cached.timestamp < cached.ttl) {
       return cached.data as T;
     }
-    this.cache.delete(key);
     return null;
   }
 
@@ -114,8 +113,11 @@ class MiningService {
         timeout: this.TIMEOUT,
         headers: {
           'User-Agent': 'XMRT-Assistant/1.0',
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        // Add CORS support
+        withCredentials: false
       });
 
       clearTimeout(timeoutId);
@@ -125,11 +127,28 @@ class MiningService {
       }
 
       console.log(`✅ Request successful: ${url}`);
+      console.log(`📊 Response data:`, response.data);
       return response.data;
     } catch (error: any) {
       clearTimeout(timeoutId);
 
-      if (retries > 0 && !controller.signal.aborted) {
+      // Handle specific error types
+      if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+        console.warn(`⏱️  Request timeout: ${url}`);
+        throw new Error('Request timeout - please check your internet connection');
+      }
+
+      if (error.response) {
+        console.error(`❌ HTTP Error ${error.response.status}:`, error.response.data);
+        throw new Error(`Server error: ${error.response.status} ${error.response.statusText}`);
+      }
+
+      if (error.request) {
+        console.error(`❌ Network error:`, error.message);
+        throw new Error('Network error - unable to reach mining pool API');
+      }
+
+      if (retries > 0) {
         console.warn(`⚠️  Request failed, retrying (${retries} attempts left): ${error.message}`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         return this.makeRequest(url, retries - 1);
@@ -138,6 +157,31 @@ class MiningService {
       console.error(`❌ Request failed after all retries: ${url}`, error.message);
       throw new Error(`API request failed: ${error.message}`);
     }
+  }
+
+  // Determine miner status based on API data
+  private determineStatus(data: any): 'online' | 'offline' | 'error' {
+    if (!data) return 'offline';
+
+    // Check if there's recent activity (within last hour)
+    const lastHash = data.lastHash || 0;
+    const now = Math.floor(Date.now() / 1000);
+    const oneHourAgo = now - 3600;
+
+    if (lastHash > oneHourAgo) {
+      return 'online';
+    } else if (lastHash > 0) {
+      return 'offline'; // Has mined before but not recently
+    } else {
+      return 'offline'; // Never mined
+    }
+  }
+
+  // Calculate mining efficiency
+  private calculateEfficiency(validShares: number, invalidShares: number): number {
+    const totalShares = validShares + invalidShares;
+    if (totalShares === 0) return 0;
+    return (validShares / totalShares) * 100;
   }
 
   // Get mining statistics for the wallet
@@ -157,6 +201,11 @@ class MiningService {
 
       console.log('📊 Raw API response:', data);
 
+      // Handle empty or null response
+      if (!data) {
+        throw new Error('Empty response from mining API');
+      }
+
       // Transform API response to match our interface
       const stats: MiningStats = {
         hashrate: data.hash || 0, // API uses 'hash' field for hashrate
@@ -167,7 +216,7 @@ class MiningService {
         amtPaid: this.atomicToXMR(data.amtPaid || 0), // Convert atomic units to XMR
         txnCount: data.txnCount || 0,
         roundShares: data.validShares || 0, // Use validShares as roundShares
-        isOnline: this.isHashrateActive(data.hash || 0, data.lastHash),
+        isOnline: this.determineStatus(data) === 'online',
         efficiency: this.calculateEfficiency(data.validShares || 0, data.invalidShares || 0),
         lastSeen: data.lastHash ? new Date(data.lastHash * 1000) : undefined
       };
@@ -183,7 +232,7 @@ class MiningService {
       // Return offline stats instead of throwing
       return {
         hashrate: 0,
-        status: 'offline',
+        status: 'error',
         validShares: 0,
         invalidShares: 0,
         amtDue: 0,
@@ -213,18 +262,20 @@ class MiningService {
 
       console.log('🏊 Raw pool API response:', data);
 
-      const poolStats = data.pool_statistics || {};
+      if (!data || !data.pool_statistics) {
+        throw new Error('Invalid pool stats response');
+      }
+
+      const poolStats = data.pool_statistics;
 
       const stats: PoolStats = {
         poolHashrate: poolStats.hashRate || 0,
         poolMiners: poolStats.miners || 0,
         totalBlocksFound: poolStats.totalBlocksFound || 0,
-        networkDifficulty: poolStats.networkDifficulty || 0,
-        networkHashrate: poolStats.networkHashrate || 0,
-        lastBlockFound: poolStats.lastBlockFoundTime 
-          ? new Date(poolStats.lastBlockFoundTime * 1000) 
-          : new Date(),
-        effort: this.calculateEffort(poolStats.roundHashes, poolStats.networkDifficulty)
+        networkDifficulty: 0, // Not available in SupportXMR API
+        networkHashrate: 0, // Not available in SupportXMR API  
+        lastBlockFound: poolStats.lastBlockFoundTime ? new Date(poolStats.lastBlockFoundTime * 1000) : new Date(),
+        effort: 0 // Would need to calculate based on round hashes vs network difficulty
       };
 
       console.log('✅ Processed pool stats:', stats);
@@ -238,118 +289,56 @@ class MiningService {
     }
   }
 
-  // Determine miner status based on API data
-  private determineStatus(data: any): 'online' | 'offline' | 'error' {
-    if (!data) return 'error';
-
-    const hashrate = data.hash || 0;
-    const lastHash = data.lastHash || 0;
-
-    if (hashrate > 0 && this.isHashrateActive(hashrate, lastHash)) {
-      return 'online';
-    }
-
-    return 'offline';
-  }
-
-  // Check if hashrate indicates active mining
-  private isHashrateActive(hashrate: number, lastHash: number): boolean {
-    if (hashrate <= 0) return false;
-
-    if (!lastHash) return false;
-
-    // Consider active if last hash was within last 10 minutes
-    const tenMinutesAgo = (Date.now() / 1000) - 600;
-    return lastHash > tenMinutesAgo;
-  }
-
-  // Calculate mining efficiency
-  private calculateEfficiency(validShares: number, invalidShares: number): number {
-    const totalShares = validShares + invalidShares;
-    if (totalShares === 0) return 0;
-    return (validShares / totalShares) * 100;
-  }
-
-  // Calculate pool effort
-  private calculateEffort(roundHashes: number, networkDifficulty: number): number {
-    if (!networkDifficulty || networkDifficulty === 0) return 0;
-    return (roundHashes / networkDifficulty) * 100;
-  }
-
-  // Calculate estimated earnings
-  calculateEstimatedEarnings(minerHashrate: number, poolHashrate: number): EarningsEstimate {
-    if (minerHashrate <= 0 || poolHashrate <= 0) {
-      return { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
-    }
-
-    // Monero block reward (approximate)
-    const blockReward = 0.6; // XMR
-    const blocksPerDay = 720; // Approximately every 2 minutes
-    const poolShare = minerHashrate / poolHashrate;
-    const dailyEarnings = poolShare * blockReward * blocksPerDay;
-
-    return {
-      daily: dailyEarnings,
-      weekly: dailyEarnings * 7,
-      monthly: dailyEarnings * 30,
-      yearly: dailyEarnings * 365
-    };
-  }
-
-  // Get worker statistics
-  async getWorkerStats(): Promise<WorkerStats[]> {
+  // Get earnings estimates
+  async getEarningsEstimate(hashrate?: number): Promise<EarningsEstimate> {
     try {
-      console.log('🔄 Fetching worker stats...');
-      const url = `${this.API_BASE}/miner/${this.WALLET_ADDRESS}/stats`;
-      const data = await this.makeRequest(url);
+      const currentHashrate = hashrate || (await this.getMiningStats()).hashrate;
+      const poolStats = await this.getPoolStats();
 
-      // Since SupportXMR returns aggregated stats, we create a single worker entry
-      if (!data || !data.hash) {
-        return [];
+      if (currentHashrate === 0 || poolStats.poolHashrate === 0) {
+        return { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
       }
 
-      const worker: WorkerStats = {
-        identifier: data.identifier || 'main',
-        hashrate: data.hash || 0,
-        lastSeen: data.lastHash ? new Date(data.lastHash * 1000) : new Date(),
-        validShares: data.validShares || 0,
-        invalidShares: data.invalidShares || 0,
-        efficiency: this.calculateEfficiency(data.validShares || 0, data.invalidShares || 0)
+      // Simple estimation based on current pool performance
+      // This is a rough estimate and actual earnings may vary
+      const poolShare = currentHashrate / poolStats.poolHashrate;
+      const estimatedXMRPerDay = poolShare * 0.1; // Very rough estimate
+
+      return {
+        daily: estimatedXMRPerDay,
+        weekly: estimatedXMRPerDay * 7,
+        monthly: estimatedXMRPerDay * 30,
+        yearly: estimatedXMRPerDay * 365
       };
 
-      return [worker];
+    } catch (error) {
+      console.error('❌ Failed to calculate earnings estimate:', error);
+      return { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
+    }
+  }
 
+  // Get worker statistics (if available)
+  async getWorkerStats(): Promise<WorkerStats[]> {
+    try {
+      // SupportXMR API doesn't provide detailed worker stats for individual addresses
+      // This would need to be implemented if switching to a different pool
+      return [];
     } catch (error) {
       console.error('❌ Failed to fetch worker stats:', error);
       return [];
     }
   }
 
-  // Clear cache
-  clearCache(): void {
-    this.cache.clear();
-    console.log('🗑️  Mining service cache cleared');
-  }
-
-  // Get service health
-  async getServiceHealth(): Promise<{ status: string; latency: number; lastUpdate: Date }> {
-    const start = Date.now();
-
+  // Test connectivity to mining pool API
+  async testConnection(): Promise<boolean> {
     try {
-      await this.makeRequest(`${this.API_BASE}/pool/stats`);
-      const latency = Date.now() - start;
-
-      return {
-        status: 'healthy',
-        latency,
-        lastUpdate: new Date()
-      };
+      const url = `${this.API_BASE}/pool/stats`;
+      await this.makeRequest(url);
+      console.log('✅ Mining pool API connection successful');
+      return true;
     } catch (error) {
-      return {
-        status: 'unhealthy',
-        latency: Date.now() - start,
-        lastUpdate: new Date()
-      };
+      console.error('❌ Mining pool API connection failed:', error);
+      return false;
     }
   }
 }
