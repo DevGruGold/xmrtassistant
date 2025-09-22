@@ -24,7 +24,7 @@ export interface PoolStats {
   lastBlock: string;
 }
 
-const POOL_WALLET = import.meta.env.VITE_XMRT_POOL_WALLET || "46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg";
+const POOL_WALLET = import.meta.env.VITE_XMRT_POOL_WALLET;
 const API_BASE = import.meta.env.VITE_SUPPORTXMR_API || 'https://supportxmr.com/api';
 
 class MiningService {
@@ -130,16 +130,6 @@ class MiningService {
     const dailyElectricityCost = (powerConsumption * 24 * electricityCost) / 1000;
 
     return dailyRevenue - dailyElectricityCost;
-  }
-
-  formatHashRate(hashrate: number): string {
-    if (hashrate >= 1000000) return `${(hashrate / 1000000).toFixed(2)} MH/s`;
-    if (hashrate >= 1000) return `${(hashrate / 1000).toFixed(2)} KH/s`;
-    return `${hashrate.toFixed(2)} H/s`;
-  }
-
-  formatXMR(amount: number): string {
-    return `${(amount / 1e12).toFixed(6)} XMR`;
   }
 }
 
