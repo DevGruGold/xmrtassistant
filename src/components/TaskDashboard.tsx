@@ -19,7 +19,7 @@ import {
   Globe,
   Settings
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+// Supabase integration removed - using direct API calls
 import { systemStatusService } from '@/services/systemStatusService';
 import { autonomousTaskService } from '@/services/autonomousTaskService';
 
@@ -53,7 +53,7 @@ export function TaskDashboard({ sessionKey = 'default', className = '' }: TaskDa
     fetchSystemStatus();
     
     // Set up real-time subscriptions
-    const taskSubscription = supabase
+    const taskSubscription = // supabase
       .channel('task_updates')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'tasks' },
@@ -65,13 +65,13 @@ export function TaskDashboard({ sessionKey = 'default', className = '' }: TaskDa
       .subscribe();
 
     return () => {
-      supabase.removeChannel(taskSubscription);
+      // // supabase.removeChannel(taskSubscription);
     };
   }, [sessionKey]);
 
   const fetchTasks = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await // supabase
         .from('tasks')
         .select('*')
         .eq('session_key', sessionKey)

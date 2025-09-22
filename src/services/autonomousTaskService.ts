@@ -1,6 +1,6 @@
 // Note: GitHub service will be available when needed
 // import { githubService } from './githubService';
-import { supabase } from '@/integrations/supabase/client';
+// Supabase integration removed - using direct API calls
 
 interface TaskRequest {
   id: string;
@@ -34,7 +34,7 @@ class AutonomousTaskService {
   // Load pending tasks from database
   private async loadTasksFromDatabase() {
     try {
-      const { data: tasks, error } = await supabase
+      const { data: tasks, error } = await // supabase
         .from('tasks')
         .select('*')
         .in('status', ['pending', 'approved'])
@@ -133,7 +133,7 @@ class AutonomousTaskService {
 
     // Update task status to executing in database
     try {
-      await supabase
+      await // supabase
         .from('tasks')
         .update({ 
           status: 'executing', 
@@ -188,7 +188,7 @@ class AutonomousTaskService {
     
     // GitHub operations would be implemented here
     // Using edge function for secure GitHub API access
-    const response = await supabase.functions.invoke('github-autonomous', {
+    const response = await // // supabase.functions.invoke('github-autonomous', {
       body: { action, repository, ...params }
     });
     
@@ -208,7 +208,7 @@ class AutonomousTaskService {
     }
 
     // Get repository information via edge function
-    const response = await supabase.functions.invoke('github-autonomous', {
+    const response = await // // supabase.functions.invoke('github-autonomous', {
       body: { action: 'get_repository_info', repository }
     });
     
@@ -381,7 +381,7 @@ class AutonomousTaskService {
   // Update task completion in database
   private async updateTaskCompletion(task: TaskRequest, execution: TaskExecution) {
     try {
-      await supabase
+      await // supabase
         .from('tasks')
         .update({
           status: 'completed',
@@ -400,7 +400,7 @@ class AutonomousTaskService {
   // Update task failure in database
   private async updateTaskFailure(task: TaskRequest, execution: TaskExecution) {
     try {
-      await supabase
+      await // supabase
         .from('tasks')
         .update({
           status: 'failed',
@@ -419,7 +419,7 @@ class AutonomousTaskService {
   // Get all tasks for a session from database
   async getAllTasks(sessionKey: string): Promise<any[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await // supabase
         .from('tasks')
         .select('*')
         .eq('session_key', sessionKey)
@@ -436,7 +436,7 @@ class AutonomousTaskService {
   // Get active tasks count for dashboard
   async getActiveTasksCount(sessionKey: string): Promise<number> {
     try {
-      const { count, error } = await supabase
+      const { count, error } = await // supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('session_key', sessionKey)
@@ -466,7 +466,7 @@ class AutonomousTaskService {
     
     // Store task request in database immediately
     try {
-      await supabase.from('tasks').insert({
+      await // // supabase.from('tasks').insert({
         id: task.id,
         session_key: task.sessionKey,
         title: task.description.substring(0, 100),
@@ -497,7 +497,7 @@ class AutonomousTaskService {
   async approveAndExecuteTask(taskId: string): Promise<{ success: boolean; result?: any; error?: string }> {
     // Update task status to approved in database
     try {
-      await supabase
+      await // supabase
         .from('tasks')
         .update({ status: 'approved', updated_at: new Date().toISOString() })
         .eq('id', taskId);

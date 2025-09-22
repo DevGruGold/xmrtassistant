@@ -4,7 +4,7 @@ import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles } from "lucide-rea
 import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
 import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
-import LiveMiningStats from "@/components/LiveMiningStats";
+import DirectLiveMiningStats from "@/components/DirectLiveMiningStats";
 import UnifiedChat from "@/components/UnifiedChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
@@ -85,7 +85,7 @@ const Index = () => {
                 {t('mining.subtitle')}
               </p>
             </div>
-            <LiveMiningStats />
+            <DirectLiveMiningStats />
           </div>
           
           {/* Quick Actions */}
