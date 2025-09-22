@@ -1,285 +1,325 @@
+// Enhanced Mining Service with Real-time SupportXMR Integration
 import axios from 'axios';
 
 export interface MiningStats {
   hashrate: number;
-  totalHashes: number;
-  totalPayments: number;
-  lastShare: string;
-  balance: number;
-  workers: Worker[];
+  status: 'online' | 'offline' | 'error';
   validShares: number;
   invalidShares: number;
-  lastHash: number;
   amtDue: number;
   amtPaid: number;
   txnCount: number;
+  roundShares: number;
   isOnline: boolean;
-  status: 'live' | 'historical' | 'inactive' | 'error';
   efficiency?: number;
-  uptimePercentage?: number;
+  lastSeen?: Date;
+  workers?: WorkerStats[];
 }
 
-export interface Worker {
+export interface WorkerStats {
   identifier: string;
   hashrate: number;
-  lastShare: string;
-  totalHashes: number;
+  lastSeen: Date;
+  validShares: number;
+  invalidShares: number;
+  efficiency: number;
 }
 
 export interface PoolStats {
   poolHashrate: number;
   poolMiners: number;
-  networkDifficulty?: number;
-  networkHashrate?: number;
-  lastBlock: string;
   totalBlocksFound: number;
-  totalPayments: number;
-  roundHashes?: number;
-  lastBlockFoundTime?: number;
+  networkDifficulty: number;
+  networkHashrate: number;
+  lastBlockFound: Date;
+  effort: number;
 }
 
-export interface NetworkStats {
-  difficulty: number;
-  hashrate: number;
-  height: number;
-  reward: number;
+export interface EarningsEstimate {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  yearly: number;
 }
-
-const POOL_WALLET = import.meta.env.VITE_XMRT_POOL_WALLET || '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg';
-const API_BASE = import.meta.env.VITE_SUPPORTXMR_API || 'https://supportxmr.com/api';
 
 class MiningService {
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 30000; // 30 seconds cache
+  private readonly WALLET_ADDRESS = import.meta.env.VITE_XMRT_POOL_WALLET || 
+    '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg';
 
-  private getFromCache(key: string): any | null {
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
+  private readonly API_BASE = import.meta.env.VITE_SUPPORTXMR_API || 'https://supportxmr.com/api';
+  private readonly UPDATE_INTERVAL = parseInt(import.meta.env.VITE_MINING_UPDATE_INTERVAL || '30000');
+  private readonly TIMEOUT = parseInt(import.meta.env.VITE_MINING_TIMEOUT || '15000');
+  private readonly RETRY_ATTEMPTS = parseInt(import.meta.env.VITE_MINING_RETRY_ATTEMPTS || '3');
+
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+  constructor() {
+    console.log('🔧 Mining Service initialized');
+    console.log(`📧 Wallet: ${this.WALLET_ADDRESS.substring(0, 8)}...${this.WALLET_ADDRESS.substring(-8)}`);
+    console.log(`🌐 API Base: ${this.API_BASE}`);
+  }
+
+  // Validate Monero wallet address
+  isValidMoneroAddress(address: string): boolean {
+    const moneroRegex = /^[48][0-9AB][0-9A-Za-z]{93}$/;
+    return moneroRegex.test(address);
+  }
+
+  // Format hashrate with appropriate units
+  formatHashrate(hashrate: number): string {
+    if (hashrate >= 1000000) {
+      return `${(hashrate / 1000000).toFixed(2)} MH/s`;
+    } else if (hashrate >= 1000) {
+      return `${(hashrate / 1000).toFixed(2)} KH/s`;
+    } else {
+      return `${hashrate.toFixed(0)} H/s`;
     }
+  }
+
+  // Format XMR amounts with proper decimals
+  formatXMR(amount: number, decimals: number = 6): string {
+    return `${amount.toFixed(decimals)} XMR`;
+  }
+
+  // Cache management
+  private getCached<T>(key: string): T | null {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      return cached.data as T;
+    }
+    this.cache.delete(key);
     return null;
   }
 
-  private setCache(key: string, data: any): void {
-    this.cache.set(key, { data, timestamp: Date.now() });
+  private setCached(key: string, data: any, ttl: number = 30000): void {
+    this.cache.set(key, { data, timestamp: Date.now(), ttl });
   }
 
-  private async fetchWithRetry(url: string, retries = 3): Promise<any> {
-    // Check cache first
-    const cacheKey = url;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) {
-      console.log(`📦 Cache hit for: ${url}`);
-      return cached;
-    }
-
-    for (let i = 0; i < retries; i++) {
+  // Make HTTP request with retry logic
+  private async makeRequest(url: string, retries: number = this.RETRY_ATTEMPTS): Promise<any> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log(`🔄 Fetching: ${url} (attempt ${i + 1}/${retries})`);
+        console.log(`🔄 Request attempt ${attempt}/${retries}: ${url}`);
+
         const response = await axios.get(url, {
-          timeout: 15000,
+          timeout: this.TIMEOUT,
           headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'XMRT-Assistant/2.0.0',
-            'Cache-Control': 'no-cache'
+            'User-Agent': 'XMRT-Assistant/1.0',
+            'Accept': 'application/json'
           }
         });
 
-        console.log(`✅ Response received:`, response.status, response.data ? 'with data' : 'no data');
-
-        // Cache successful responses
-        this.setCache(cacheKey, response.data);
-
-        return response.data;
-      } catch (error: any) {
-        console.error(`❌ Attempt ${i + 1} failed:`, error.message || error);
-
-        if (i === retries - 1) {
-          // On final failure, try to return cached data if available (even if stale)
-          const staleCache = this.cache.get(cacheKey);
-          if (staleCache) {
-            console.log(`⚠️ Returning stale cache for: ${url}`);
-            return staleCache.data;
-          }
-          throw new Error(`Failed to fetch ${url} after ${retries} attempts: ${error.message}`);
+        if (response.status === 200) {
+          console.log(`✅ Request successful: ${url}`);
+          return response.data;
         }
 
-        // Wait before retry (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+      } catch (error: any) {
+        console.warn(`⚠️  Request attempt ${attempt} failed:`, error.message);
+
+        if (attempt === retries) {
+          throw new Error(`Failed after ${retries} attempts: ${error.message}`);
+        }
+
+        // Exponential backoff
+        const delay = Math.pow(2, attempt - 1) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
 
+  // Get mining statistics for the wallet
   async getMiningStats(): Promise<MiningStats> {
+    const cacheKey = `stats_${this.WALLET_ADDRESS}`;
+    const cached = this.getCached<MiningStats>(cacheKey);
+
+    if (cached) {
+      console.log('📊 Using cached mining stats');
+      return cached;
+    }
+
     try {
-      console.log('🎯 Fetching mining stats for wallet:', POOL_WALLET);
+      console.log('🔍 Fetching mining statistics...');
 
-      const url = `${API_BASE}/miner/${POOL_WALLET}/stats`;
-      const data = await this.fetchWithRetry(url);
+      if (!this.isValidMoneroAddress(this.WALLET_ADDRESS)) {
+        throw new Error('Invalid Monero wallet address');
+      }
 
-      console.log('📊 Raw API Response:', data);
+      const url = `${this.API_BASE}/miner/${this.WALLET_ADDRESS}/stats`;
+      const data = await this.makeRequest(url);
 
-      // Transform the API response to match our interface
-      const currentTime = Date.now() / 1000;
-      const lastHashTime = data.lastHash || 0;
-      const timeSinceLastHash = currentTime - lastHashTime;
-
-      // Determine if miner is online (last hash within 10 minutes)
-      const isOnline = timeSinceLastHash < 600;
-
-      // Calculate efficiency (valid shares / total shares)
-      const totalShares = (data.validShares || 0) + (data.invalidShares || 0);
-      const efficiency = totalShares > 0 ? ((data.validShares || 0) / totalShares) * 100 : 0;
-
+      // Transform API response to our interface
       const stats: MiningStats = {
-        hashrate: data.hash || 0,
-        totalHashes: data.totalHashes || 0,
-        totalPayments: data.txnCount || 0,
-        lastShare: lastHashTime > 0 ? new Date(lastHashTime * 1000).toISOString() : 'Never',
-        balance: (data.amtDue || 0) / 1e12, // Convert from atomic units to XMR
-        workers: [{
-          identifier: data.identifier || 'global',
-          hashrate: data.hash || 0,
-          lastShare: lastHashTime > 0 ? new Date(lastHashTime * 1000).toISOString() : 'Never',
-          totalHashes: data.totalHashes || 0
-        }],
+        hashrate: data.hash || data.hashrate || 0,
+        status: this.determineStatus(data),
         validShares: data.validShares || 0,
         invalidShares: data.invalidShares || 0,
-        lastHash: lastHashTime,
-        amtDue: (data.amtDue || 0) / 1e12, // Convert to XMR
-        amtPaid: (data.amtPaid || 0) / 1e12, // Convert to XMR
+        amtDue: (data.amtDue || 0) / 1e12, // Convert from atomic units
+        amtPaid: (data.amtPaid || 0) / 1e12,
         txnCount: data.txnCount || 0,
-        isOnline,
-        status: isOnline ? 'live' : (data.totalHashes > 0 ? 'historical' : 'inactive'),
-        efficiency: Math.round(efficiency * 100) / 100,
-        uptimePercentage: 85 // TODO: Calculate actual uptime
+        roundShares: data.roundShares || 0,
+        isOnline: (data.hash || data.hashrate || 0) > 0,
+        efficiency: this.calculateEfficiency(data.validShares || 0, data.invalidShares || 0),
+        lastSeen: data.lastHash ? new Date(data.lastHash * 1000) : new Date(),
+        workers: this.parseWorkers(data.workers || [])
       };
 
-      console.log('✅ Processed mining stats:', stats);
+      this.setCached(cacheKey, stats);
+      console.log('✅ Mining stats retrieved successfully');
+
       return stats;
 
-    } catch (error) {
-      console.error('❌ Failed to fetch mining stats:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch mining stats:', error.message);
 
-      // Return default/offline stats instead of throwing
+      // Return default stats on error
       return {
         hashrate: 0,
-        totalHashes: 0,
-        totalPayments: 0,
-        lastShare: 'Never',
-        balance: 0,
-        workers: [],
+        status: 'error',
         validShares: 0,
         invalidShares: 0,
-        lastHash: 0,
         amtDue: 0,
         amtPaid: 0,
         txnCount: 0,
+        roundShares: 0,
         isOnline: false,
-        status: 'error',
-        efficiency: 0,
-        uptimePercentage: 0
+        lastSeen: new Date()
       };
     }
   }
 
+  // Get pool statistics
   async getPoolStats(): Promise<PoolStats> {
+    const cacheKey = 'pool_stats';
+    const cached = this.getCached<PoolStats>(cacheKey);
+
+    if (cached) {
+      console.log('📊 Using cached pool stats');
+      return cached;
+    }
+
     try {
-      console.log('🏊 Fetching pool stats...');
+      console.log('🔍 Fetching pool statistics...');
 
-      const url = `${API_BASE}/pool/stats`;
-      const data = await this.fetchWithRetry(url);
-
-      console.log('🏊 Raw Pool Response:', data);
-
-      const poolData = data.pool_statistics || {};
+      const url = `${this.API_BASE}/pool/stats`;
+      const data = await this.makeRequest(url);
 
       const stats: PoolStats = {
-        poolHashrate: poolData.hashRate || 0,
-        poolMiners: poolData.miners || 0,
-        lastBlock: (poolData.lastBlockFound || 0).toString(),
-        totalBlocksFound: poolData.totalBlocksFound || 0,
-        totalPayments: poolData.totalPayments || 0,
-        roundHashes: poolData.roundHashes || 0,
-        lastBlockFoundTime: poolData.lastBlockFoundTime || 0
+        poolHashrate: data.pool_statistics?.hashrate || 0,
+        poolMiners: data.pool_statistics?.miners || 0,
+        totalBlocksFound: data.pool_statistics?.totalBlocks || 0,
+        networkDifficulty: data.network?.difficulty || 0,
+        networkHashrate: data.network?.hashrate || 0,
+        lastBlockFound: data.pool_statistics?.lastBlockFound ? 
+          new Date(data.pool_statistics.lastBlockFound * 1000) : new Date(),
+        effort: data.pool_statistics?.effort || 0
       };
 
-      console.log('✅ Processed pool stats:', stats);
+      this.setCached(cacheKey, stats, 60000); // Cache pool stats for 1 minute
+      console.log('✅ Pool stats retrieved successfully');
+
       return stats;
 
-    } catch (error) {
-      console.error('❌ Failed to fetch pool stats:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch pool stats:', error.message);
 
-      // Return default stats
+      // Return default stats on error
       return {
         poolHashrate: 0,
         poolMiners: 0,
-        lastBlock: '0',
         totalBlocksFound: 0,
-        totalPayments: 0,
-        roundHashes: 0,
-        lastBlockFoundTime: 0
+        networkDifficulty: 0,
+        networkHashrate: 0,
+        lastBlockFound: new Date(),
+        effort: 0
       };
     }
   }
 
-  async getNetworkStats(): Promise<NetworkStats> {
-    try {
-      console.log('🌐 Fetching network stats...');
+  // Calculate estimated earnings
+  calculateEstimatedEarnings(minerHashrate: number, poolHashrate: number): EarningsEstimate {
+    if (minerHashrate <= 0 || poolHashrate <= 0) {
+      return { daily: 0, weekly: 0, monthly: 0, yearly: 0 };
+    }
 
-      const url = `${API_BASE}/network/stats`;
-      const data = await this.fetchWithRetry(url);
+    // Approximate XMR per day based on hashrate ratio
+    // This is a rough estimate and actual earnings may vary
+    const networkRewardPerDay = 2160; // Approximate XMR rewards per day network-wide
+    const poolShare = 0.1; // Assume pool has ~10% of network hashrate
+    const minerShare = minerHashrate / poolHashrate;
 
-      console.log('🌐 Raw Network Response:', data);
+    const dailyEarnings = networkRewardPerDay * poolShare * minerShare;
 
-      const stats: NetworkStats = {
-        difficulty: data.difficulty || 0,
-        hashrate: 0, // Not directly available, would need calculation
-        height: data.height || 0,
-        reward: (data.value || 0) / 1e12 // Convert to XMR
-      };
+    return {
+      daily: dailyEarnings,
+      weekly: dailyEarnings * 7,
+      monthly: dailyEarnings * 30,
+      yearly: dailyEarnings * 365
+    };
+  }
 
-      console.log('✅ Processed network stats:', stats);
-      return stats;
+  // Helper methods
+  private determineStatus(data: any): 'online' | 'offline' | 'error' {
+    const hashrate = data.hash || data.hashrate || 0;
+    const lastSeen = data.lastHash || 0;
+    const timeSinceLastSeen = Date.now() / 1000 - lastSeen;
 
-    } catch (error) {
-      console.error('❌ Failed to fetch network stats:', error);
-
-      return {
-        difficulty: 0,
-        hashrate: 0,
-        height: 0,
-        reward: 0
-      };
+    if (hashrate > 0 && timeSinceLastSeen < 300) { // Online if hashrate > 0 and seen within 5 minutes
+      return 'online';
+    } else if (timeSinceLastSeen < 3600) { // Offline if seen within 1 hour
+      return 'offline';
+    } else {
+      return 'error';
     }
   }
 
-  // Add method to get all stats at once
-  async getAllStats(): Promise<{
-    mining: MiningStats;
-    pool: PoolStats;
-    network: NetworkStats;
-  }> {
-    try {
-      const [mining, pool, network] = await Promise.all([
-        this.getMiningStats(),
-        this.getPoolStats(),
-        this.getNetworkStats()
-      ]);
-
-      return { mining, pool, network };
-    } catch (error) {
-      console.error('❌ Failed to fetch all stats:', error);
-      throw error;
-    }
+  private calculateEfficiency(validShares: number, invalidShares: number): number {
+    const totalShares = validShares + invalidShares;
+    return totalShares > 0 ? (validShares / totalShares) * 100 : 0;
   }
 
-  // Clear cache method
+  private parseWorkers(workersData: any[]): WorkerStats[] {
+    return workersData.map(worker => ({
+      identifier: worker.id || worker.identifier || 'Unknown',
+      hashrate: worker.hash || worker.hashrate || 0,
+      lastSeen: worker.lastHash ? new Date(worker.lastHash * 1000) : new Date(),
+      validShares: worker.validShares || 0,
+      invalidShares: worker.invalidShares || 0,
+      efficiency: this.calculateEfficiency(worker.validShares || 0, worker.invalidShares || 0)
+    }));
+  }
+
+  // Clear cache
   clearCache(): void {
     this.cache.clear();
-    console.log('🧹 Cache cleared');
+    console.log('🗑️  Mining service cache cleared');
+  }
+
+  // Get service health
+  async getServiceHealth(): Promise<{ status: string; latency: number; lastUpdate: Date }> {
+    const start = Date.now();
+
+    try {
+      await this.makeRequest(`${this.API_BASE}/pool/stats`);
+      const latency = Date.now() - start;
+
+      return {
+        status: 'healthy',
+        latency,
+        lastUpdate: new Date()
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        latency: Date.now() - start,
+        lastUpdate: new Date()
+      };
+    }
   }
 }
 
+// Export singleton instance
 export const miningService = new MiningService();
 export default miningService;
