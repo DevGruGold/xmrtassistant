@@ -16,7 +16,6 @@ DECENTRALIZED AUTONOMOUS ORGANIZATION
 [![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://xmrtassistant.vercel.app/)
 [![XMRT Ecosystem](https://img.shields.io/badge/XMRT-Ecosystem-blue)](https://github.com/DevGruGold/XMRT-Ecosystem)
 [![Mining Active](https://img.shields.io/badge/Mining-Active-orange)](https://supportxmr.com/#/dashboard)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
 
@@ -170,6 +169,14 @@ src/
 - **Worker Monitoring** - Individual miner performance
 - **Profitability Calculator** - Real-time profit projections
 
+### API Endpoints
+```javascript
+GET /api/mining/stats          // Current mining statistics
+GET /api/mining/history        // Historical performance data  
+GET /api/mining/workers        // Worker performance metrics
+GET /api/mining/calculator     // Profitability calculations
+```
+
 ## 🤖 AI Assistant Features
 
 ### Conversational Interface
@@ -195,6 +202,12 @@ src/
 - **Offline Support** - Cached data for offline access
 - **Progressive Web App** - Installable mobile experience
 
+### Mobile Mining Features
+- **Device Detection** - Automatic hardware capability detection
+- **Power Management** - Battery optimization algorithms
+- **Performance Tuning** - Real-time optimization for mobile processors
+- **Background Mining** - Efficient background operation
+
 ## 🔒 Security & Privacy
 
 ### Security Features
@@ -203,6 +216,14 @@ src/
 - **Input Validation** - Comprehensive input sanitization
 - **Rate Limiting** - Protection against abuse
 - **Wallet Security** - Read-only mining wallet integration
+
+## 📊 Analytics & Monitoring
+
+### Performance Tracking
+- **User Analytics** - Engagement and usage statistics
+- **Mining Performance** - Detailed mining performance analytics
+- **System Health** - Real-time system monitoring
+- **Error Tracking** - Comprehensive error logging and analysis
 
 ## 🚢 Deployment
 
@@ -214,8 +235,8 @@ vercel --prod
 # Environment variables are configured in Vercel dashboard
 ```
 
-### Live Application
-The application is deployed at: **[https://xmrtassistant.vercel.app/](https://xmrtassistant.vercel.app/)**
+### Custom Domain Setup
+The application is deployed at: `https://xmrtassistant.vercel.app/`
 
 ## 📝 Contributing
 
@@ -237,7 +258,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Live Demo**: [https://xmrtassistant.vercel.app/](https://xmrtassistant.vercel.app/)
 - **XMRT Ecosystem**: [https://github.com/DevGruGold/XMRT-Ecosystem](https://github.com/DevGruGold/XMRT-Ecosystem)
 - **Mining Pool**: [https://supportxmr.com/](https://supportxmr.com/)
-- **Documentation**: [Wiki](https://github.com/DevGruGold/xmrtassistant/wiki)
+- **Documentation**: [https://docs.xmrt.io/](https://docs.xmrt.io/)
 
 ## 🙏 Acknowledgments
 
@@ -251,12 +272,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ by the XMRT DAO Community**
 
-For questions and support, join our community or open an issue on GitHub.
-
-## 📊 Statistics
-
-![Repository Stats](https://github-readme-stats.vercel.app/api?username=DevGruGold&repo=xmrtassistant&show_icons=true&theme=radical)
-
-## 🌟 Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=DevGruGold/xmrtassistant&type=Date)](https://star-history.com/#DevGruGold/xmrtassistant&Date)
+For questions and support, join our [Discord](https://discord.gg/xmrt) or open an issue on GitHub.
