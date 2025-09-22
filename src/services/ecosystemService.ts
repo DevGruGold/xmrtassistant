@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 export interface Agent {
   id: string;
   name: string;
-  type: 'eliza' | 'dao_governor' | 'defi_specialist' | 'security_guardian' | 'community_manager';
+  type: 'coordinator' | 'researcher' | 'analyst' | 'coder' | 'optimizer' | 'monitor' | 'dao-governor' | 'defi-specialist' | 'security-guardian' | 'community-manager';
   status: 'active' | 'idle' | 'busy';
   capabilities: string[];
 }
@@ -14,15 +14,21 @@ export interface AgentMessage {
   message: string;
   timestamp: string;
   type: 'query' | 'response' | 'notification';
+  metadata?: {
+    taskType?: string;
+    priority?: 'low' | 'medium' | 'high';
+    userId?: string;
+  };
 }
 
 export interface SystemStatus {
-  uptime: number;
   agents: Agent[];
-  performance: {
+  uptime: number;
+  health: 'healthy' | 'degraded' | 'critical';
+  metrics: {
+    requestsPerMinute: number;
     responseTime: number;
     successRate: number;
-    activeConnections: number;
   };
 }
 
@@ -32,11 +38,17 @@ const WEBSOCKET_URL = import.meta.env.VITE_WEBSOCKET_URL || 'wss://xmrt-ecosyste
 class EcosystemService {
   private socket: Socket | null = null;
   private messageHandlers: ((message: AgentMessage) => void)[] = [];
+  private statusHandlers: ((status: SystemStatus) => void)[] = [];
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
 
   async connectToEcosystem(): Promise<void> {
-    if (!this.socket) {
+    if (this.socket?.connected) {
+      console.log('Already connected to XMRT Ecosystem');
+      return;
+    }
+
+    try {
       this.socket = io(WEBSOCKET_URL, {
         transports: ['websocket'],
         autoConnect: true,
@@ -46,17 +58,23 @@ class EcosystemService {
       });
 
       this.socket.on('connect', () => {
-        console.log('Connected to XMRT Ecosystem');
+        console.log('🔗 Connected to XMRT Ecosystem');
         this.reconnectAttempts = 0;
-        this.sendWelcomeMessage();
+
+        // Send initial handshake
+        this.socket?.emit('client_connected', {
+          clientType: 'xmrt-assistant',
+          version: '2.0.0',
+          timestamp: new Date().toISOString()
+        });
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log('Disconnected from XMRT Ecosystem:', reason);
+        console.log('🔌 Disconnected from XMRT Ecosystem:', reason);
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
+        console.error('❌ Connection error:', error);
         this.reconnectAttempts++;
       });
 
@@ -64,17 +82,21 @@ class EcosystemService {
         this.messageHandlers.forEach(handler => handler(data));
       });
 
-      this.socket.on('system_status', (data: any) => {
-        console.log('System status update:', data);
+      this.socket.on('system_status', (data: SystemStatus) => {
+        this.statusHandlers.forEach(handler => handler(data));
       });
 
       this.socket.on('analytics_update', (data: any) => {
-        console.log('Analytics update:', data);
+        console.log('📊 Analytics update:', data);
       });
 
       this.socket.on('anomaly_detected', (data: any) => {
-        console.warn('System anomaly detected:', data);
+        console.warn('⚠️ System anomaly detected:', data);
       });
+
+    } catch (error) {
+      console.error('Failed to connect to XMRT Ecosystem:', error);
+      throw error;
     }
   }
 
@@ -82,15 +104,8 @@ class EcosystemService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      console.log('👋 Disconnected from XMRT Ecosystem');
     }
-  }
-
-  private sendWelcomeMessage(): void {
-    this.socket?.emit('client_connected', {
-      client_type: 'xmrt_assistant',
-      version: '2.0.0',
-      timestamp: new Date().toISOString()
-    });
   }
 
   async getActiveAgents(): Promise<Agent[]> {
@@ -98,6 +113,7 @@ class EcosystemService {
       const response = await axios.get(`${ECOSYSTEM_API}/agents`, {
         timeout: 10000,
         headers: {
+          'Accept': 'application/json',
           'User-Agent': 'XMRT-Assistant/2.0.0'
         }
       });
@@ -108,34 +124,36 @@ class EcosystemService {
     }
   }
 
-  async sendMessageToAgent(agentType: string, message: string): Promise<void> {
-    if (!this.socket) {
+  async sendMessageToAgent(agentType: string, message: string, metadata?: any): Promise<void> {
+    if (!this.socket?.connected) {
       await this.connectToEcosystem();
     }
 
-    this.socket?.emit('agent_task_request', {
+    const messageData = {
       agent_type: agentType,
       task: message,
       timestamp: new Date().toISOString(),
-      source: 'xmrt_assistant'
-    });
+      metadata: {
+        source: 'xmrt-assistant',
+        ...metadata
+      }
+    };
+
+    this.socket?.emit('agent_task_request', messageData);
   }
 
   onMessage(handler: (message: AgentMessage) => void): void {
     this.messageHandlers.push(handler);
   }
 
-  removeMessageHandler(handler: (message: AgentMessage) => void): void {
-    this.messageHandlers = this.messageHandlers.filter(h => h !== handler);
+  onStatusUpdate(handler: (status: SystemStatus) => void): void {
+    this.statusHandlers.push(handler);
   }
 
   async getSystemStatus(): Promise<SystemStatus | null> {
     try {
       const response = await axios.get(`${ECOSYSTEM_API}/status`, {
-        timeout: 10000,
-        headers: {
-          'User-Agent': 'XMRT-Assistant/2.0.0'
-        }
+        timeout: 10000
       });
       return response.data;
     } catch (error) {
@@ -144,18 +162,13 @@ class EcosystemService {
     }
   }
 
-  async queryMemory(query: string): Promise<any> {
+  async queryMemory(query: string, limit = 10): Promise<any> {
     try {
       const response = await axios.post(`${ECOSYSTEM_API}/memory/query`, {
         query,
-        limit: 10,
-        source: 'xmrt_assistant'
+        limit
       }, {
-        timeout: 15000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'XMRT-Assistant/2.0.0'
-        }
+        timeout: 15000
       });
       return response.data;
     } catch (error) {
@@ -164,34 +177,24 @@ class EcosystemService {
     }
   }
 
-  async triggerLearning(): Promise<void> {
+  async triggerLearning(): Promise<boolean> {
     try {
-      await axios.post(`${ECOSYSTEM_API}/learning/trigger`, {
-        source: 'xmrt_assistant',
-        timestamp: new Date().toISOString()
-      }, {
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'XMRT-Assistant/2.0.0'
-        }
+      await axios.post(`${ECOSYSTEM_API}/learning/trigger`, {}, {
+        timeout: 30000
       });
+      return true;
     } catch (error) {
       console.error('Failed to trigger learning:', error);
+      return false;
     }
   }
 
   async analyzeRepository(repoUrl: string): Promise<any> {
     try {
       const response = await axios.post(`${ECOSYSTEM_API}/github/analyze`, {
-        repo_url: repoUrl,
-        source: 'xmrt_assistant'
+        repo_url: repoUrl
       }, {
-        timeout: 30000,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'XMRT-Assistant/2.0.0'
-        }
+        timeout: 30000
       });
       return response.data;
     } catch (error) {
@@ -200,77 +203,93 @@ class EcosystemService {
     }
   }
 
+  async getMiningInsights(): Promise<any> {
+    try {
+      const response = await axios.get(`${ECOSYSTEM_API}/mining/insights`, {
+        timeout: 10000
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch mining insights:', error);
+      return null;
+    }
+  }
+
+  private getDefaultAgents(): Agent[] {
+    return [
+      {
+        id: 'eliza-001',
+        name: 'Eliza',
+        type: 'coordinator',
+        status: 'active',
+        capabilities: ['coordination', 'repository-management', 'task-delegation']
+      },
+      {
+        id: 'dao-gov-001',
+        name: 'DAO Governor',
+        type: 'dao-governor',
+        status: 'active',
+        capabilities: ['governance', 'proposal-management', 'voting-coordination']
+      },
+      {
+        id: 'defi-spec-001',
+        name: 'DeFi Specialist',
+        type: 'defi-specialist',
+        status: 'active',
+        capabilities: ['defi-analysis', 'financial-operations', 'yield-optimization']
+      },
+      {
+        id: 'security-001',
+        name: 'Security Guardian',
+        type: 'security-guardian',
+        status: 'active',
+        capabilities: ['security-monitoring', 'threat-detection', 'vulnerability-analysis']
+      },
+      {
+        id: 'community-001',
+        name: 'Community Manager',
+        type: 'community-manager',
+        status: 'active',
+        capabilities: ['community-engagement', 'content-creation', 'user-support']
+      }
+    ];
+  }
+
+  // Real-time communication methods
   async sendRealTimeQuery(query: string): Promise<void> {
-    if (!this.socket) {
+    if (!this.socket?.connected) {
       await this.connectToEcosystem();
     }
 
     this.socket?.emit('real_time_query', {
       query,
       timestamp: new Date().toISOString(),
-      source: 'xmrt_assistant'
+      source: 'xmrt-assistant'
     });
   }
 
   async provideLearningFeedback(feedback: any): Promise<void> {
-    if (!this.socket) {
+    if (!this.socket?.connected) {
       await this.connectToEcosystem();
     }
 
     this.socket?.emit('learning_feedback', {
-      feedback,
+      ...feedback,
       timestamp: new Date().toISOString(),
-      source: 'xmrt_assistant'
+      source: 'xmrt-assistant'
     });
   }
 
-  private getDefaultAgents(): Agent[] {
-    return [
-      {
-        id: 'eliza',
-        name: 'Eliza',
-        type: 'eliza',
-        status: 'active',
-        capabilities: ['coordination', 'repository_management', 'system_analysis']
-      },
-      {
-        id: 'dao_governor',
-        name: 'DAO Governor',
-        type: 'dao_governor',
-        status: 'active',
-        capabilities: ['governance', 'decision_making', 'policy_implementation']
-      },
-      {
-        id: 'defi_specialist',
-        name: 'DeFi Specialist',
-        type: 'defi_specialist',
-        status: 'active',
-        capabilities: ['financial_analysis', 'defi_protocols', 'investment_strategy']
-      },
-      {
-        id: 'security_guardian',
-        name: 'Security Guardian',
-        type: 'security_guardian',
-        status: 'active',
-        capabilities: ['security_monitoring', 'threat_detection', 'compliance']
-      },
-      {
-        id: 'community_manager',
-        name: 'Community Manager',
-        type: 'community_manager',
-        status: 'active',
-        capabilities: ['community_engagement', 'content_creation', 'user_support']
-      }
-    ];
-  }
-
-  isConnected(): boolean {
-    return this.socket?.connected || false;
-  }
-
-  getConnectionStatus(): string {
-    if (!this.socket) return 'disconnected';
-    return this.socket.connected ? 'connected' : 'connecting';
+  // Health check method
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await axios.get(`${ECOSYSTEM_API}/health`, {
+        timeout: 5000
+      });
+      return response.status === 200;
+    } catch (error) {
+      return false;
+    }
   }
 }
 
