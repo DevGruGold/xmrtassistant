@@ -27,7 +27,7 @@ export interface DirectPoolStats {
 
 class DirectMiningService {
   private readonly WALLET_ADDRESS = '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg';
-  private readonly SUPPORTXMR_API = 'https://www.supportxmr.com/api';
+  private readonly SUPPORTXMR_API = 'https://supportxmr.com/api';
   private readonly TIMEOUT = 10000; // 10 seconds
 
   constructor() {
