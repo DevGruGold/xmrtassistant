@@ -1,69 +1,262 @@
-# Welcome to your Lovable project
+# XMRT Assistant - AI-Powered Mining & DAO Management Platform
 
-## Project info
+<div align="center">
 
-**URL**: https://lovable.dev/projects/f8ee5f7c-b419-4699-b59c-d697f61b9a3b
+```
+██╗  ██╗███╗   ███╗██████╗ ████████╗
+╚██╗██╔╝████╗ ████║██╔══██╗╚══██╔══╝
+ ╚███╔╝ ██╔████╔██║██████╔╝   ██║   
+ ██╔██╗ ██║╚██╔╝██║██╔══██╗   ██║   
+██╔╝ ██╗██║ ╚═╝ ██║██║  ██║   ██║   
+╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝   
 
-## How can I edit this code?
+DECENTRALIZED AUTONOMOUS ORGANIZATION
+```
 
-There are several ways of editing your application.
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://xmrtassistant.vercel.app/)
+[![XMRT Ecosystem](https://img.shields.io/badge/XMRT-Ecosystem-blue)](https://github.com/DevGruGold/XMRT-Ecosystem)
+[![Mining Active](https://img.shields.io/badge/Mining-Active-orange)](https://supportxmr.com/#/dashboard)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Use Lovable**
+</div>
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f8ee5f7c-b419-4699-b59c-d697f61b9a3b) and start prompting.
+## 🎯 Overview
 
-Changes made via Lovable will be committed automatically to this repo.
+XMRT Assistant is an intelligent AI-powered platform that combines cryptocurrency mining management, DAO operations, and autonomous agent interactions. Built for the XMRT DAO ecosystem, it provides real-time mining statistics, portfolio management, and seamless integration with the broader XMRT autonomous system.
 
-**Use your preferred IDE**
+## ✨ Features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 🔥 Core Capabilities
+- **Real-time Mining Dashboard** - Live stats from SupportXMR pool
+- **AI-Powered Assistant** - Integrated chatbot with XMRT-Ecosystem agents
+- **DAO Management** - Governance proposals and voting interface
+- **Mobile Mining Calculator** - Optimized for ARM processors and SSB technology
+- **Multi-Agent Integration** - Direct connection to autonomous AI agents
+- **Wallet Integration** - Secure connection to XMRT DAO treasury
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 🤖 AI Agent Integration
+- **Eliza** - Lead Coordinator & Repository Manager
+- **DAO Governor** - Governance & Decision Making  
+- **DeFi Specialist** - Financial Operations
+- **Security Guardian** - Security Monitoring
+- **Community Manager** - Community Engagement
 
-Follow these steps:
+## 🏗️ Architecture
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```
+XMRT Assistant Frontend
+├── Mining Statistics API Integration
+├── XMRT-Ecosystem Agent Communication
+├── Real-time WebSocket Connections  
+├── SupportXMR Pool API Integration
+├── Supabase Database Integration
+└── Multi-Agent Coordination Interface
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🚀 Quick Start
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Prerequisites
+- Node.js 18+
+- TypeScript
+- React 18+
+- Vite
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/DevGruGold/xmrtassistant.git
+cd xmrtassistant
+```
+
+2. **Install dependencies**
+```bash
+npm install
+```
+
+3. **Configure environment**
+```bash
+cp .env.example .env
+# Add your API keys and configuration
+```
+
+4. **Start development server**
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 🔧 Configuration
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+```env
+# XMRT Configuration
+VITE_XMRT_POOL_WALLET=46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg
+VITE_SUPPORTXMR_API=https://supportxmr.com/api
+VITE_XMRT_ECOSYSTEM_API=https://xmrt-ecosystem-1-20k6.onrender.com/api
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Supabase Integration
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-key
 
-## What technologies are used for this project?
+# AI Agent Integration  
+VITE_WEBSOCKET_URL=wss://xmrt-ecosystem-1-20k6.onrender.com
+```
 
-This project is built with .
+## 📊 Mining Integration
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Pool Configuration
+- **Pool**: SupportXMR (pool.supportxmr.com:3333)
+- **Wallet**: `46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg`
+- **API**: Real-time statistics via SupportXMR API
+- **Features**: Live hashrate, earnings, pool stats, worker monitoring
 
-## How can I deploy this project?
+## 🤝 XMRT Ecosystem Integration
 
-Simply open [Lovable](https://lovable.dev/projects/f8ee5f7c-b419-4699-b59c-d697f61b9a3b) and click on Share -> Publish.
+This assistant is fully integrated with the [XMRT-Ecosystem](https://github.com/DevGruGold/XMRT-Ecosystem) providing:
 
-## I want to use a custom domain - is that possible?
+- **Multi-Agent Coordination** - Direct communication with 5 autonomous AI agents
+- **Real-time Analytics** - Live system performance and mining statistics  
+- **Automated Operations** - GitHub integration and repository management
+- **Learning Capabilities** - Adaptive AI that improves over time
+- **WebSocket Communication** - Real-time bidirectional data flow
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+## 🏛️ DAO Features
+
+### Governance Integration
+- **Proposal Management** - Create and vote on DAO proposals
+- **Treasury Oversight** - Monitor DAO treasury and mining revenues
+- **Member Dashboard** - Track individual and collective contributions
+- **Automated Execution** - AI-powered proposal implementation
+
+### Mobile Mining Initiative
+- **ARM Optimization** - Specialized for mobile processors
+- **SSB Technology** - Solid State Battery integration for 3-5+ KH/s
+- **Global Network** - Decentralized mobile mining infrastructure
+- **Environmental Efficiency** - Sustainable mining through mobile devices
+
+## 🛠️ Development
+
+### Tech Stack
+- **Frontend**: React 18, TypeScript, Vite
+- **Styling**: Tailwind CSS, shadcn/ui components
+- **State Management**: Zustand
+- **API Integration**: Axios, SWR
+- **Real-time**: WebSocket, Socket.IO
+- **Database**: Supabase
+- **Deployment**: Vercel
+
+### Project Structure
+```
+src/
+├── components/          # Reusable UI components
+│   ├── mining/         # Mining-specific components
+│   ├── agents/         # AI agent interfaces
+│   ├── dao/           # DAO governance components
+│   └── ui/            # shadcn/ui components
+├── hooks/             # Custom React hooks
+├── lib/               # Utility libraries
+├── pages/             # Page components
+├── services/          # API services
+└── types/             # TypeScript definitions
+```
+
+## 📈 Mining Statistics
+
+### Real-time Metrics
+- **Current Hashrate** - Live mining performance
+- **Daily/Weekly/Monthly Earnings** - Historical performance tracking
+- **Pool Statistics** - Network difficulty, pool hashrate
+- **Worker Monitoring** - Individual miner performance
+- **Profitability Calculator** - Real-time profit projections
+
+## 🤖 AI Assistant Features
+
+### Conversational Interface
+- **Natural Language Processing** - Understand mining and DAO queries
+- **Multi-Agent Routing** - Direct queries to specialized agents
+- **Context Awareness** - Maintain conversation context and history
+- **Proactive Insights** - Automated alerts and recommendations
+
+### Supported Commands
+```
+- "Show my mining performance"
+- "What are the current pool statistics?"
+- "Create a new DAO proposal"
+- "Analyze the market conditions"
+- "Optimize my mining setup"
+```
+
+## 📱 Mobile Optimization
+
+### Responsive Design
+- **Mobile-First** - Optimized for smartphone interfaces
+- **Touch Gestures** - Intuitive touch interactions
+- **Offline Support** - Cached data for offline access
+- **Progressive Web App** - Installable mobile experience
+
+## 🔒 Security & Privacy
+
+### Security Features
+- **Environment Variables** - Secure API key management
+- **HTTPS/WSS** - Encrypted communication protocols
+- **Input Validation** - Comprehensive input sanitization
+- **Rate Limiting** - Protection against abuse
+- **Wallet Security** - Read-only mining wallet integration
+
+## 🚢 Deployment
+
+### Vercel Deployment
+```bash
+# Deploy to Vercel
+vercel --prod
+
+# Environment variables are configured in Vercel dashboard
+```
+
+### Live Application
+The application is deployed at: **[https://xmrtassistant.vercel.app/](https://xmrtassistant.vercel.app/)**
+
+## 📝 Contributing
+
+We welcome contributions to the XMRT Assistant! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`  
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- **Live Demo**: [https://xmrtassistant.vercel.app/](https://xmrtassistant.vercel.app/)
+- **XMRT Ecosystem**: [https://github.com/DevGruGold/XMRT-Ecosystem](https://github.com/DevGruGold/XMRT-Ecosystem)
+- **Mining Pool**: [https://supportxmr.com/](https://supportxmr.com/)
+- **Documentation**: [Wiki](https://github.com/DevGruGold/xmrtassistant/wiki)
+
+## 🙏 Acknowledgments
+
+- **SupportXMR** - Mining pool infrastructure
+- **XMRT-Ecosystem** - Autonomous AI agent system
+- **Vercel** - Hosting and deployment platform
+- **Supabase** - Database and backend services
+- **Community** - All XMRT DAO contributors and miners
+
+---
+
+**Made with ❤️ by the XMRT DAO Community**
+
+For questions and support, join our community or open an issue on GitHub.
+
+## 📊 Statistics
+
+![Repository Stats](https://github-readme-stats.vercel.app/api?username=DevGruGold&repo=xmrtassistant&show_icons=true&theme=radical)
+
+## 🌟 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=DevGruGold/xmrtassistant&type=Date)](https://star-history.com/#DevGruGold/xmrtassistant&Date)
