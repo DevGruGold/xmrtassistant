@@ -85,7 +85,7 @@ class MiningService {
           }
         });
 
-        console.log(`✅ Response received:`, response.status);
+        console.log(`✅ Response received:`, response.status, response.data ? 'with data' : 'no data');
 
         // Cache successful responses
         this.setCache(cacheKey, response.data);
@@ -101,77 +101,72 @@ class MiningService {
             console.log(`⚠️ Returning stale cache for: ${url}`);
             return staleCache.data;
           }
-          throw new Error(`Failed to fetch ${url}: ${error.message || 'Network error'}`);
+          throw new Error(`Failed to fetch ${url} after ${retries} attempts: ${error.message}`);
         }
 
-        // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
       }
     }
   }
 
   async getMiningStats(): Promise<MiningStats> {
     try {
-      console.log('🔄 Fetching mining stats for wallet:', POOL_WALLET.substring(0, 10) + '...');
+      console.log('🎯 Fetching mining stats for wallet:', POOL_WALLET);
 
-      const data = await this.fetchWithRetry(`${API_BASE}/miner/${POOL_WALLET}/stats`);
+      const url = `${API_BASE}/miner/${POOL_WALLET}/stats`;
+      const data = await this.fetchWithRetry(url);
 
-      if (!data) {
-        throw new Error('No data received from mining API');
-      }
+      console.log('📊 Raw API Response:', data);
 
-      // Calculate if miner is online (last hash within 5 minutes)
-      const currentTime = Math.floor(Date.now() / 1000);
+      // Transform the API response to match our interface
+      const currentTime = Date.now() / 1000;
       const lastHashTime = data.lastHash || 0;
       const timeSinceLastHash = currentTime - lastHashTime;
-      const isOnline = lastHashTime > 0 && timeSinceLastHash < 300; // 5 minutes
 
-      // Calculate efficiency (valid shares / (valid + invalid))
+      // Determine if miner is online (last hash within 10 minutes)
+      const isOnline = timeSinceLastHash < 600;
+
+      // Calculate efficiency (valid shares / total shares)
       const totalShares = (data.validShares || 0) + (data.invalidShares || 0);
-      const efficiency = totalShares > 0 ? ((data.validShares || 0) / totalShares) * 100 : 100;
-
-      // Calculate uptime percentage (simplified - based on recent activity)
-      const uptimePercentage = isOnline ? 100 : (timeSinceLastHash < 3600 ? 75 : 0); // Rough estimate
+      const efficiency = totalShares > 0 ? ((data.validShares || 0) / totalShares) * 100 : 0;
 
       const stats: MiningStats = {
         hashrate: data.hash || 0,
         totalHashes: data.totalHashes || 0,
         totalPayments: data.txnCount || 0,
-        lastShare: lastHashTime > 0 
-          ? new Date(lastHashTime * 1000).toISOString() 
-          : 'Never',
-        balance: (data.amtDue || 0) / 1000000000000, // Convert from atomic units to XMR
-        workers: [], // SupportXMR API doesn't provide worker breakdown in this endpoint
+        lastShare: lastHashTime > 0 ? new Date(lastHashTime * 1000).toISOString() : 'Never',
+        balance: (data.amtDue || 0) / 1e12, // Convert from atomic units to XMR
+        workers: [{
+          identifier: data.identifier || 'global',
+          hashrate: data.hash || 0,
+          lastShare: lastHashTime > 0 ? new Date(lastHashTime * 1000).toISOString() : 'Never',
+          totalHashes: data.totalHashes || 0
+        }],
         validShares: data.validShares || 0,
         invalidShares: data.invalidShares || 0,
         lastHash: lastHashTime,
-        amtDue: (data.amtDue || 0) / 1000000000000, // Convert to XMR
-        amtPaid: (data.amtPaid || 0) / 1000000000000, // Convert to XMR
+        amtDue: (data.amtDue || 0) / 1e12, // Convert to XMR
+        amtPaid: (data.amtPaid || 0) / 1e12, // Convert to XMR
         txnCount: data.txnCount || 0,
         isOnline,
         status: isOnline ? 'live' : (data.totalHashes > 0 ? 'historical' : 'inactive'),
-        efficiency,
-        uptimePercentage
+        efficiency: Math.round(efficiency * 100) / 100,
+        uptimePercentage: 85 // TODO: Calculate actual uptime
       };
 
-      console.log('✅ Mining stats processed successfully:', {
-        hashrate: stats.hashrate,
-        isOnline,
-        timeSinceLastHash,
-        efficiency: efficiency.toFixed(2) + '%'
-      });
-
+      console.log('✅ Processed mining stats:', stats);
       return stats;
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Failed to fetch mining stats:', error);
 
-      // Return a default error state
+      // Return default/offline stats instead of throwing
       return {
         hashrate: 0,
         totalHashes: 0,
         totalPayments: 0,
-        lastShare: 'Error',
+        lastShare: 'Never',
         balance: 0,
         workers: [],
         validShares: 0,
@@ -190,116 +185,101 @@ class MiningService {
 
   async getPoolStats(): Promise<PoolStats> {
     try {
-      console.log('🔄 Fetching pool statistics...');
+      console.log('🏊 Fetching pool stats...');
 
-      const data = await this.fetchWithRetry(`${API_BASE}/pool/stats`);
+      const url = `${API_BASE}/pool/stats`;
+      const data = await this.fetchWithRetry(url);
 
-      if (!data || !data.pool_statistics) {
-        throw new Error('Invalid pool stats data received');
-      }
+      console.log('🏊 Raw Pool Response:', data);
 
-      const poolStats = data.pool_statistics;
+      const poolData = data.pool_statistics || {};
 
       const stats: PoolStats = {
-        poolHashrate: poolStats.hashRate || 0,
-        poolMiners: poolStats.miners || 0,
-        lastBlock: poolStats.lastBlockFound?.toString() || '0',
-        totalBlocksFound: poolStats.totalBlocksFound || 0,
-        totalPayments: poolStats.totalPayments || 0,
-        roundHashes: poolStats.roundHashes || 0,
-        lastBlockFoundTime: poolStats.lastBlockFoundTime || 0
+        poolHashrate: poolData.hashRate || 0,
+        poolMiners: poolData.miners || 0,
+        lastBlock: (poolData.lastBlockFound || 0).toString(),
+        totalBlocksFound: poolData.totalBlocksFound || 0,
+        totalPayments: poolData.totalPayments || 0,
+        roundHashes: poolData.roundHashes || 0,
+        lastBlockFoundTime: poolData.lastBlockFoundTime || 0
       };
 
-      console.log('✅ Pool stats processed successfully:', {
-        hashrate: (stats.poolHashrate / 1000000).toFixed(2) + ' MH/s',
-        miners: stats.poolMiners
-      });
-
+      console.log('✅ Processed pool stats:', stats);
       return stats;
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Failed to fetch pool stats:', error);
 
-      // Return default error state
+      // Return default stats
       return {
         poolHashrate: 0,
         poolMiners: 0,
-        lastBlock: 'Error',
+        lastBlock: '0',
         totalBlocksFound: 0,
-        totalPayments: 0
+        totalPayments: 0,
+        roundHashes: 0,
+        lastBlockFoundTime: 0
       };
     }
   }
 
-  // New method to get network statistics
-  async getNetworkStats(): Promise<NetworkStats | null> {
+  async getNetworkStats(): Promise<NetworkStats> {
     try {
-      console.log('🔄 Fetching network statistics...');
+      console.log('🌐 Fetching network stats...');
 
-      // Try to get network stats from a reliable source
-      // Note: This endpoint might not exist on SupportXMR, so we handle gracefully
-      const data = await this.fetchWithRetry(`${API_BASE}/network/stats`);
+      const url = `${API_BASE}/network/stats`;
+      const data = await this.fetchWithRetry(url);
 
-      return {
+      console.log('🌐 Raw Network Response:', data);
+
+      const stats: NetworkStats = {
         difficulty: data.difficulty || 0,
-        hashrate: data.hashrate || 0,
+        hashrate: 0, // Not directly available, would need calculation
         height: data.height || 0,
-        reward: data.reward || 0
+        reward: (data.value || 0) / 1e12 // Convert to XMR
       };
+
+      console.log('✅ Processed network stats:', stats);
+      return stats;
 
     } catch (error) {
-      console.warn('⚠️ Network stats not available:', error);
-      return null;
+      console.error('❌ Failed to fetch network stats:', error);
+
+      return {
+        difficulty: 0,
+        hashrate: 0,
+        height: 0,
+        reward: 0
+      };
     }
   }
 
-  // Method to validate wallet address format
-  isValidMoneroAddress(address: string): boolean {
-    // Basic Monero address validation
-    const regex = /^[48][0-9AB][1-9A-HJ-NP-Za-km-z]{93}$/;
-    return regex.test(address);
-  }
+  // Add method to get all stats at once
+  async getAllStats(): Promise<{
+    mining: MiningStats;
+    pool: PoolStats;
+    network: NetworkStats;
+  }> {
+    try {
+      const [mining, pool, network] = await Promise.all([
+        this.getMiningStats(),
+        this.getPoolStats(),
+        this.getNetworkStats()
+      ]);
 
-  // Method to format hashrate with appropriate units
-  formatHashrate(hashrate: number): string {
-    if (hashrate >= 1000000000) {
-      return `${(hashrate / 1000000000).toFixed(2)} GH/s`;
-    } else if (hashrate >= 1000000) {
-      return `${(hashrate / 1000000).toFixed(2)} MH/s`;
-    } else if (hashrate >= 1000) {
-      return `${(hashrate / 1000).toFixed(2)} KH/s`;
-    } else {
-      return `${hashrate.toFixed(2)} H/s`;
+      return { mining, pool, network };
+    } catch (error) {
+      console.error('❌ Failed to fetch all stats:', error);
+      throw error;
     }
   }
 
-  // Method to format XMR amounts
-  formatXMR(amount: number): string {
-    return `${amount.toFixed(6)} XMR`;
-  }
-
-  // Method to calculate estimated earnings
-  calculateEstimatedEarnings(hashrate: number, poolHashrate: number, blockReward: number = 0.6): {
-    hourly: number;
-    daily: number;
-    weekly: number;
-    monthly: number;
-  } {
-    if (hashrate === 0 || poolHashrate === 0) {
-      return { hourly: 0, daily: 0, weekly: 0, monthly: 0 };
-    }
-
-    const share = hashrate / poolHashrate;
-    const blocksPerHour = 2; // Monero block time is ~2 minutes, so ~30 blocks per hour
-    const hourlyEarnings = share * blocksPerHour * blockReward;
-
-    return {
-      hourly: hourlyEarnings,
-      daily: hourlyEarnings * 24,
-      weekly: hourlyEarnings * 24 * 7,
-      monthly: hourlyEarnings * 24 * 30
-    };
+  // Clear cache method
+  clearCache(): void {
+    this.cache.clear();
+    console.log('🧹 Cache cleared');
   }
 }
 
 export const miningService = new MiningService();
+export default miningService;
