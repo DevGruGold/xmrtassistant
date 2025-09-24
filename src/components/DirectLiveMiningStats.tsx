@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, Hash, Coins, Clock, Zap, TrendingUp, AlertCircle, RefreshCw, Users, Target, Gauge } from "lucide-react";
+import { Activity, Hash, Coins, Clock, Zap, TrendingUp, AlertCircle, RefreshCw, Users, Target, Gauge, Wifi, WifiOff } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { directMiningService, DirectMiningStats, DirectPoolStats } from "@/services/directMiningService";
 
@@ -14,14 +14,16 @@ const DirectLiveMiningStats = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [retryCount, setRetryCount] = useState(0);
+  const [corsProxyStatus, setCorsProxyStatus] = useState<string>("checking");
 
   const fetchMiningData = async (showLoading: boolean = false) => {
     try {
       if (showLoading) {
         setLoading(true);
       }
-      console.log("🔄 Fetching live mining data...");
+      console.log("🔄 Fetching live mining data with CORS proxy...");
       setError(null);
+      setCorsProxyStatus("connecting");
 
       // Fetch both mining stats and pool stats in parallel
       const [miningData, poolData] = await Promise.allSettled([
@@ -29,8 +31,8 @@ const DirectLiveMiningStats = () => {
         directMiningService.getPoolStats()
       ]);
 
-      console.log("📊 Live mining data result:", miningData);
-      console.log("🏊 Live pool data result:", poolData);
+      console.log("🟢 Live mining data result:", miningData);
+      console.log("🟢 Live pool data result:", poolData);
 
       let finalMiningData: DirectMiningStats;
       let finalPoolData: DirectPoolStats | null = null;
@@ -39,9 +41,11 @@ const DirectLiveMiningStats = () => {
       if (miningData.status === 'fulfilled') {
         finalMiningData = miningData.value;
         console.log("✅ Live mining stats successful:", finalMiningData);
+        setCorsProxyStatus("connected");
       } else {
-        console.warn("⚠️ Mining stats failed, using fallback:", miningData.reason);
-        // Provide fallback data for miner (this is normal for wallets not actively mining)
+        console.log("❌ Mining stats failed, using fallback:", miningData.reason);
+        setCorsProxyStatus("failed");
+        // Provide fallback data for miners not actively mining
         finalMiningData = {
           hashrate: 0,
           status: 'offline',
@@ -49,7 +53,7 @@ const DirectLiveMiningStats = () => {
           invalidShares: 0,
           amountDue: 0,
           amountPaid: 0,
-          txnCount: 0,
+          balance: 0,
           lastHash: null,
           totalHashes: 0,
           isOnline: false
@@ -61,203 +65,329 @@ const DirectLiveMiningStats = () => {
         finalPoolData = poolData.value;
         console.log("✅ Live pool stats successful:", finalPoolData);
       } else {
-        console.warn("⚠️ Pool stats failed:", poolData.reason);
+        console.log("❌ Pool stats failed:", poolData.reason);
+        finalPoolData = null;
       }
 
       setStats(finalMiningData);
       setPoolStats(finalPoolData);
       setLastUpdate(new Date());
       setRetryCount(0);
-      console.log("🎯 Live mining data updated successfully");
-
-    } catch (error) {
-      console.error("❌ Live mining data fetch error:", error);
-      setError(error instanceof Error ? error.message : "Unknown error occurred");
-      setRetryCount(prev => prev + 1);
+    } catch (err) {
+      console.error("❌ Error fetching mining data:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch mining data");
+      setCorsProxyStatus("error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-refresh every 30 seconds
+  const testCorsProxies = async () => {
+    try {
+      setLoading(true);
+      setCorsProxyStatus("testing");
+      console.log("🔍 Testing CORS proxy connectivity...");
+      
+      const results = await directMiningService.testCorsProxies();
+      console.log("🔍 CORS proxy test results:", results);
+      
+      const workingProxies = results.filter(r => r.working);
+      if (workingProxies.length > 0) {
+        setCorsProxyStatus("available");
+        console.log(`✅ ${workingProxies.length} CORS proxies working`);
+      } else {
+        setCorsProxyStatus("unavailable");
+        console.log("❌ No CORS proxies working");
+      }
+    } catch (error) {
+      console.error("❌ Error testing CORS proxies:", error);
+      setCorsProxyStatus("error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMiningData(true);
-
-    const interval = setInterval(() => {
-      fetchMiningData(false);
-    }, 30000);
-
+    const interval = setInterval(() => fetchMiningData(false), 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
   const formatHashrate = (hashrate: number) => {
     if (hashrate === 0) return "0 H/s";
-    if (hashrate >= 1e12) return `${(hashrate / 1e12).toFixed(2)} TH/s`;
-    if (hashrate >= 1e9) return `${(hashrate / 1e9).toFixed(2)} GH/s`;
-    if (hashrate >= 1e6) return `${(hashrate / 1e6).toFixed(2)} MH/s`;
-    if (hashrate >= 1e3) return `${(hashrate / 1e3).toFixed(2)} KH/s`;
-    return `${hashrate.toFixed(0)} H/s`;
+    if (hashrate < 1000) return `${hashrate.toFixed(2)} H/s`;
+    if (hashrate < 1000000) return `${(hashrate / 1000).toFixed(2)} kH/s`;
+    if (hashrate < 1000000000) return `${(hashrate / 1000000).toFixed(2)} MH/s`;
+    return `${(hashrate / 1000000000).toFixed(2)} GH/s`;
   };
 
   const formatXMR = (amount: number) => {
-    return amount.toFixed(6);
+    return `${(amount / 1000000000000).toFixed(6)} XMR`;
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'online':
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Online</Badge>;
-      case 'offline':
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Offline</Badge>;
+      case 'online': return 'bg-green-500';
+      case 'mining': return 'bg-blue-500';
+      case 'offline': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'online': return t('mining.status.online') || 'Online';
+      case 'mining': return t('mining.status.mining') || 'Mining';
+      case 'offline': return t('mining.status.offline') || 'Offline';
+      default: return t('mining.status.unknown') || 'Unknown';
+    }
+  };
+
+  const getCorsStatusIcon = () => {
+    switch (corsProxyStatus) {
+      case 'connected': return <Wifi className="h-4 w-4 text-green-500" />;
+      case 'failed':
       case 'error':
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Error</Badge>;
-      default:
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Unknown</Badge>;
+      case 'unavailable': return <WifiOff className="h-4 w-4 text-red-500" />;
+      default: return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />;
     }
   };
 
   if (loading && !stats) {
     return (
-      <div className="w-full space-y-6">
-        <div className="text-center py-8">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg font-medium">Loading Live Mining Data...</p>
-          <p className="text-sm text-muted-foreground">Connecting to SupportXMR API</p>
-        </div>
-      </div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5 animate-spin" />
+            {t('mining.loading') || 'Loading Mining Stats...'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-4">
+              Connecting to SupportXMR pool via CORS proxy...
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <Card className="w-full border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            {t('mining.error') || 'Mining Stats Error'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-600 mb-4">{error}</p>
+          <div className="flex gap-2">
+            <Button onClick={() => fetchMiningData(true)} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {t('mining.retry') || 'Retry'}
+            </Button>
+            <Button onClick={testCorsProxies} variant="outline">
+              <Wifi className="h-4 w-4 mr-2" />
+              Test CORS Proxies
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header with Refresh Button */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="h-6 w-6 text-primary" />
-          <h2 className="text-2xl font-bold">Live Mining Intelligence</h2>
+        <div>
+          <h2 className="text-2xl font-bold">{t('mining.title') || 'Live Mining Statistics'}</h2>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span>
+              {t('mining.lastUpdate') || 'Last Update'}: {lastUpdate.toLocaleTimeString()}
+            </span>
+            {getCorsStatusIcon()}
+            <span className="text-xs">
+              CORS: {corsProxyStatus}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            Last updated: {lastUpdate.toLocaleTimeString()}
-          </Badge>
-          <Button
-            onClick={() => fetchMiningData(true)}
-            disabled={loading}
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => fetchMiningData(true)} 
+            variant="outline" 
             size="sm"
-            variant="outline"
+            disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('mining.refresh') || 'Refresh'}
+          </Button>
+          <Button 
+            onClick={testCorsProxies} 
+            variant="outline" 
+            size="sm"
+            disabled={loading}
+          >
+            <Wifi className="h-4 w-4 mr-2" />
+            Test Proxies
           </Button>
         </div>
       </div>
 
-      <p className="text-muted-foreground">
-        Real-time mining data integrated into your AI assistant • Performance insights at your fingertips
-      </p>
-
-      {error && (
-        <Card className="border-red-500/50 bg-red-500/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-red-400">
-              <AlertCircle className="h-5 w-5" />
-              <span>Error: {error}</span>
+      {/* Status Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            {t('mining.status.title') || 'Mining Status'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 mb-4">
+            <div className={`w-3 h-3 rounded-full ${getStatusColor(stats?.status || 'offline')}`}></div>
+            <span className="font-medium">{getStatusText(stats?.status || 'offline')}</span>
+            {stats?.isOnline && (
+              <Badge variant="secondary" className="ml-2">
+                {t('mining.status.connected') || 'Connected'}
+              </Badge>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <Hash className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+              <p className="text-sm text-muted-foreground">{t('mining.hashrate') || 'Hashrate'}</p>
+              <p className="font-bold text-lg">{formatHashrate(stats?.hashrate || 0)}</p>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Mining Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Hashrate</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatHashrate(stats?.hashrate || 0)}</div>
-            <div className="flex items-center gap-2 mt-1">
-              {getStatusBadge(stats?.status || 'offline')}
+            
+            <div className="text-center">
+              <Target className="h-8 w-8 mx-auto mb-2 text-green-500" />
+              <p className="text-sm text-muted-foreground">{t('mining.validShares') || 'Valid Shares'}</p>
+              <p className="font-bold text-lg">{stats?.validShares || 0}</p>
             </div>
-          </CardContent>
-        </Card>
+            
+            <div className="text-center">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-500" />
+              <p className="text-sm text-muted-foreground">{t('mining.invalidShares') || 'Invalid Shares'}</p>
+              <p className="font-bold text-lg">{stats?.invalidShares || 0}</p>
+            </div>
+            
+            <div className="text-center">
+              <Gauge className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+              <p className="text-sm text-muted-foreground">{t('mining.totalHashes') || 'Total Hashes'}</p>
+              <p className="font-bold text-lg">{stats?.totalHashes || 0}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valid Shares</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(stats?.validShares || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {(stats?.invalidShares || 0).toLocaleString()} invalid
-            </p>
-          </CardContent>
-        </Card>
+      {/* Earnings Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coins className="h-5 w-5" />
+            {t('mining.earnings.title') || 'Earnings'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">{t('mining.earnings.balance') || 'Balance'}</p>
+              <p className="font-bold text-xl text-green-600">{formatXMR(stats?.balance || 0)}</p>
+            </div>
+            
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">{t('mining.earnings.due') || 'Amount Due'}</p>
+              <p className="font-bold text-xl text-blue-600">{formatXMR(stats?.amountDue || 0)}</p>
+            </div>
+            
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">{t('mining.earnings.paid') || 'Amount Paid'}</p>
+              <p className="font-bold text-xl text-gray-600">{formatXMR(stats?.amountPaid || 0)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Amount Due</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatXMR(stats?.amountDue || 0)} XMR</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Paid: {formatXMR(stats?.amountPaid || 0)} XMR
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hashes</CardTitle>
-            <Hash className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(stats?.totalHashes || 0).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {(stats?.txnCount || 0)} transactions
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Pool Information */}
+      {/* Pool Stats Card */}
       {poolStats && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Pool Information
+              {t('mining.pool.title') || 'Pool Statistics'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <p className="text-sm text-muted-foreground">Pool Hashrate</p>
-                <p className="text-xl font-bold text-primary">{formatHashrate(poolStats.poolHashrate)}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">{t('mining.pool.hashrate') || 'Pool Hashrate'}</p>
+                <p className="font-bold text-xl">{formatHashrate(poolStats.hashrate || 0)}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Connected Miners</p>
-                <p className="text-xl font-bold text-primary">{poolStats.poolMiners.toLocaleString()}</p>
+              
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">{t('mining.pool.miners') || 'Active Miners'}</p>
+                <p className="font-bold text-xl">{poolStats.miners || 0}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Blocks Found</p>
-                <p className="text-xl font-bold text-primary">{poolStats.totalBlocksFound.toLocaleString()}</p>
+              
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">{t('mining.pool.blocks') || 'Blocks Found'}</p>
+                <p className="font-bold text-xl">{poolStats.totalBlocksFound?.toLocaleString() || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Status Indicator */}
-      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <div className={`w-2 h-2 rounded-full ${stats?.isOnline ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
-        <span>Miner {stats?.isOnline ? 'Online' : 'Offline'}</span>
-        <span className="mx-2">•</span>
-        <Clock className="h-4 w-4" />
-        <span>Live updates every 30s</span>
-      </div>
+      {/* Last Hash Info */}
+      {stats?.lastHash && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {t('mining.lastHash.title') || 'Last Hash'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-mono text-sm break-all bg-gray-100 p-2 rounded">
+              {stats.lastHash}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connection Status */}
+      <Card className={`border-2 ${corsProxyStatus === 'connected' ? 'border-green-200 bg-green-50' : corsProxyStatus === 'failed' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50'}`}>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-2">
+            {getCorsStatusIcon()}
+            <span className="text-sm font-medium">
+              SupportXMR Pool Connection: {corsProxyStatus}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Using CORS proxy to fetch data from pool.supportxmr.com:3333
+          </p>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-yellow-800">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">{error}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
