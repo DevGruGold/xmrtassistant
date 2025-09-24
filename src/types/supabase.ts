@@ -102,6 +102,102 @@ export type Database = {
           metadata?: Json | null
         }
       }
+      interaction_patterns: {
+        Row: {
+          id: string
+          session_key: string
+          pattern_name: string
+          pattern_data: Json
+          frequency: number
+          last_occurrence: string
+          confidence_score: number | null
+          metadata: Json | null
+        }
+        Insert: {
+          id?: string
+          session_key: string
+          pattern_name: string
+          pattern_data: Json
+          frequency?: number
+          last_occurrence?: string
+          confidence_score?: number | null
+          metadata?: Json | null
+        }
+        Update: {
+          id?: string
+          session_key?: string
+          pattern_name?: string
+          pattern_data?: Json
+          frequency?: number
+          last_occurrence?: string
+          confidence_score?: number | null
+          metadata?: Json | null
+        }
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          session_key: string
+          preference_key: string
+          preference_value: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_key: string
+          preference_key: string
+          preference_value: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_key?: string
+          preference_key?: string
+          preference_value?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      worker_registrations: {
+        Row: {
+          id: string
+          worker_id: string
+          ip_address: string
+          session_key: string | null
+          registration_date: string
+          last_seen: string
+          is_active: boolean
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          worker_id: string
+          ip_address: string
+          session_key?: string | null
+          registration_date?: string
+          last_seen?: string
+          is_active?: boolean
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          worker_id?: string
+          ip_address?: string
+          session_key?: string | null
+          registration_date?: string
+          last_seen?: string
+          is_active?: boolean
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       tasks: {
         Row: {
           id: string

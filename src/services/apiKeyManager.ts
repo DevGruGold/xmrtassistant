@@ -34,13 +34,17 @@ export class APIKeyManager {
     }
   }
 
-  public setUserApiKey(apiKey: string): void {
+  public setUserApiKey(apiKey: string): { success: boolean; message: string } {
     this.userApiKey = apiKey;
     localStorage.setItem('gemini_api_key', apiKey);
     this.keyStatus = {
       isValid: false,
       keyType: 'user',
       lastChecked: null
+    };
+    return {
+      success: false,
+      message: 'Gemini AI dependencies not available'
     };
   }
 
@@ -72,6 +76,19 @@ export class APIKeyManager {
 
   public hasValidKey(): boolean {
     return false; // Disabled
+  }
+
+  public hasUserApiKey(): boolean {
+    return this.userApiKey !== null;
+  }
+
+  public createGeminiInstance(): null {
+    console.log('Gemini instance creation disabled');
+    return null;
+  }
+
+  public markKeyAsWorking(): void {
+    console.log('Key marking disabled');
   }
 }
 

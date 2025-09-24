@@ -1,22 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles } from "lucide-react";
-import { useWallet } from "@/hooks/useWallet";
-import Dashboard from "@/components/Dashboard";
-import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
+import { Sparkles, ArrowRight, Users, Shield, Layers, Database } from "lucide-react";
 import DirectLiveMiningStats from "@/components/DirectLiveMiningStats";
 import UnifiedChat from "@/components/UnifiedChat";
 import { Footer } from "@/components/Footer";
-import DaoTabs from "@/components/DaoTabs";
-import XMRTDashboard from "@/components/XMRTDashboard";
+import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const Index = () => {
-  const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
-  const [activeTab, setActiveTab] = useState("members");
   const { t } = useLanguage();
 
   return (
@@ -32,7 +26,6 @@ const Index = () => {
           {/* Compact Header */}
           <div className="max-w-6xl mx-auto">
             <div className="text-center space-y-4 mb-8">
-              
               
               {/* Compact Title */}
               <div className="space-y-2">
@@ -110,15 +103,6 @@ const Index = () => {
                       <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </a>
                   </Button>
-                  <Button 
-                    size="lg"
-                    variant="outline"
-                    className="font-source font-semibold px-6 py-3 rounded-lg transition-all duration-300 text-sm"
-                    onClick={() => setActiveTab('dashboard')}
-                  >
-                    <Wallet2 className="mr-2 h-4 w-4" />
-                    {t('actions.join.dao')}
-                  </Button>
                 </div>
               </div>
             </div>
@@ -139,95 +123,83 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Main Content */}
+      {/* Features Section */}
       <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 sm:py-8 lg:py-12">
-        {wallet.isConnected ? (
-          <>
-            <div className="mb-4 sm:mb-6">
-              <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            </div>
-            {activeTab === "xmrt" ? (
-              <XMRTDashboard wallet={wallet} onRefreshXMRT={refreshXMRTData} />
-            ) : (
-              <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
-            )}
-          </>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-12">
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                    <Layers className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.mobile.title')}</CardTitle>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-12">
+          
+          <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Layers className="h-6 w-6 text-primary" />
                 </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.mobile.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 flex-wrap">
-                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">{t('feature.mobile.tag.arm')}</div>
-                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">{t('feature.mobile.tag.battery')}</div>
-                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">{t('feature.mobile.tag.thermal')}</div>
-                </div>
-              </CardContent>
-            </Card>
+                <CardTitle className="text-foreground text-xl font-bold">{t('feature.mobile.title')}</CardTitle>
+              </div>
+              <CardDescription className="text-muted-foreground">
+                {t('feature.mobile.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
+                <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">{t('feature.mobile.tag.arm')}</div>
+                <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">{t('feature.mobile.tag.battery')}</div>
+                <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">{t('feature.mobile.tag.thermal')}</div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
-                    <Users className="h-6 w-6 text-mining-active" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.dao.title')}</CardTitle>
+          <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
+                  <Users className="h-6 w-6 text-mining-active" />
                 </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.dao.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.dao.executives')}</span>
-                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.active')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.dao.compute')}</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.certified')}</span>
-                  </div>
+                <CardTitle className="text-foreground text-xl font-bold">{t('feature.dao.title')}</CardTitle>
+              </div>
+              <CardDescription className="text-muted-foreground">
+                {t('feature.dao.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-foreground font-medium">{t('feature.dao.executives')}</span>
+                  <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.active')}</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex justify-between items-center">
+                  <span className="text-foreground font-medium">{t('feature.dao.compute')}</span>
+                  <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.certified')}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in md:col-span-2 xl:col-span-1">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
-                    <Shield className="h-6 w-6 text-mining-info" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.privacy.title')}</CardTitle>
+          <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in md:col-span-2 xl:col-span-1">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
+                  <Shield className="h-6 w-6 text-mining-info" />
                 </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.privacy.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.privacy.mesh')}</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.building')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.privacy.privacy')}</span>
-                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.fundamental')}</span>
-                  </div>
+                <CardTitle className="text-foreground text-xl font-bold">{t('feature.privacy.title')}</CardTitle>
+              </div>
+              <CardDescription className="text-muted-foreground">
+                {t('feature.privacy.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-foreground font-medium">{t('feature.privacy.mesh')}</span>
+                  <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.building')}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                <div className="flex justify-between items-center">
+                  <span className="text-foreground font-medium">{t('feature.privacy.privacy')}</span>
+                  <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.fundamental')}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </main>
 
       {/* Community Chat Section */}

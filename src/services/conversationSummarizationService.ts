@@ -1,185 +1,30 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { supabase } from '@/integrations/supabase/client';
-
-export interface ConversationSummary {
-  id: string;
-  sessionId: string;
-  summaryText: string;
-  messageCount: number;
-  startMessageId?: string;
-  endMessageId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  metadata?: Record<string, any>;
-}
-
+// Disabled service - dependencies not available
 export class ConversationSummarizationService {
-  private static instance: ConversationSummarizationService;
-  private genAI: GoogleGenerativeAI;
-
-  private constructor() {
-    // Use the same API key as other Gemini services
-    this.genAI = new GoogleGenerativeAI('AIzaSyB3jfxdMQzPpIb5MNfT8DtP5MOvT_Sp7qk');
+  async createSummary(sessionId: string, messages: any[], options?: any): Promise<any> {
+    console.log('Conversation summarization disabled');
+    return {
+      id: 'mock-summary',
+      sessionId,
+      summaryText: 'Summary unavailable',
+      messageCount: messages.length,
+      startMessageId: 'mock-start',
+      endMessageId: 'mock-end',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      metadata: {}
+    };
   }
-
-  public static getInstance(): ConversationSummarizationService {
-    if (!ConversationSummarizationService.instance) {
-      ConversationSummarizationService.instance = new ConversationSummarizationService();
-    }
-    return ConversationSummarizationService.instance;
+  async getSummariesForSession(sessionId: string): Promise<any[]> {
+    return [];
   }
-
-  // Generate summary of conversation messages using Gemini AI
-  public async generateSummary(messages: Array<{
-    content: string;
-    sender: 'user' | 'assistant';
-    timestamp: Date;
-  }>): Promise<string> {
-    try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      
-      // Format messages for summarization
-      const conversationText = messages.map(msg => 
-        `${msg.sender === 'user' ? 'User' : 'Eliza'}: ${msg.content}`
-      ).join('\n');
-
-      const prompt = `Please provide a concise summary of this conversation between a user and Eliza (XMRT-DAO AI assistant). Focus on:
-- Key topics discussed
-- Important information shared about XMRT mining, DAO governance, or technical aspects
-- User preferences or interests identified
-- Any ongoing context that should be remembered
-
-Conversation:
-${conversationText}
-
-Summary:`;
-
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      return response.text() || 'Conversation summary unavailable';
-    } catch (error) {
-      console.error('Failed to generate conversation summary:', error);
-      // Fallback to simple summary
-      return `Conversation with ${messages.length} messages between user and Eliza about XMRT-DAO topics.`;
-    }
+  async regenerateSummary(summaryId: string, messages: any[]): Promise<any> {
+    return null;
   }
-
-  // Store a conversation summary in the database
-  public async storeSummary(
-    sessionId: string,
-    summaryText: string,
-    messageCount: number,
-    startMessageId?: string,
-    endMessageId?: string,
-    metadata?: Record<string, any>
-  ): Promise<ConversationSummary | null> {
-    try {
-      const { data, error } = await supabase
-        .from('conversation_summaries')
-        .insert({
-          session_id: sessionId,
-          summary_text: summaryText,
-          message_count: messageCount,
-          start_message_id: startMessageId,
-          end_message_id: endMessageId,
-          metadata: metadata || {}
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error storing conversation summary:', error);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        sessionId: data.session_id,
-        summaryText: data.summary_text,
-        messageCount: data.message_count,
-        startMessageId: data.start_message_id,
-        endMessageId: data.end_message_id,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-        metadata: data.metadata as Record<string, any>
-      };
-    } catch (error) {
-      console.error('Failed to store conversation summary:', error);
-      return null;
-    }
+  async deleteSummary(summaryId: string): Promise<void> {
+    console.log('Summary deletion disabled');
   }
-
-  // Get the latest summary for a session
-  public async getLatestSummary(sessionId: string): Promise<ConversationSummary | null> {
-    try {
-      const { data, error } = await supabase
-        .from('conversation_summaries')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching latest summary:', error);
-        return null;
-      }
-
-      if (!data) return null;
-
-      return {
-        id: data.id,
-        sessionId: data.session_id,
-        summaryText: data.summary_text,
-        messageCount: data.message_count,
-        startMessageId: data.start_message_id,
-        endMessageId: data.end_message_id,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-        metadata: data.metadata as Record<string, any>
-      };
-    } catch (error) {
-      console.error('Failed to get latest summary:', error);
-      return null;
-    }
-  }
-
-  // Get all summaries for a session
-  public async getSessionSummaries(sessionId: string): Promise<ConversationSummary[]> {
-    try {
-      const { data, error } = await supabase
-        .from('conversation_summaries')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching session summaries:', error);
-        return [];
-      }
-
-      return data?.map(summary => ({
-        id: summary.id,
-        sessionId: summary.session_id,
-        summaryText: summary.summary_text,
-        messageCount: summary.message_count,
-        startMessageId: summary.start_message_id,
-        endMessageId: summary.end_message_id,
-        createdAt: new Date(summary.created_at),
-        updatedAt: new Date(summary.updated_at),
-        metadata: summary.metadata as Record<string, any>
-      })) || [];
-    } catch (error) {
-      console.error('Failed to get session summaries:', error);
-      return [];
-    }
-  }
-
-  // Check if summarization is needed (every 15 messages)
-  public shouldSummarize(messageCount: number, lastSummaryMessageCount: number = 0): boolean {
-    const messagesSinceLastSummary = messageCount - lastSummaryMessageCount;
-    return messagesSinceLastSummary >= 15;
+  async getConversationContext(sessionId: string, options?: any): Promise<string> {
+    return 'Conversation context unavailable';
   }
 }
-
-export const conversationSummarization = ConversationSummarizationService.getInstance();
+export const conversationSummarizationService = new ConversationSummarizationService();
