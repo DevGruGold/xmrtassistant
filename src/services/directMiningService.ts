@@ -1,150 +1,203 @@
-// Direct Mining Service - Bypasses Supabase, calls SupportXMR API directly
-import axios from 'axios';
-
+// Updated directMiningService with CORS proxy support
 export interface DirectMiningStats {
   hashrate: number;
-  status: 'online' | 'offline' | 'error';
+  status: string;
   validShares: number;
   invalidShares: number;
   amountDue: number;
   amountPaid: number;
-  txnCount: number;
+  balance: number;
   lastHash: string | null;
   totalHashes: number;
   isOnline: boolean;
-  lastSeen?: Date;
 }
 
 export interface DirectPoolStats {
-  poolHashrate: number;
-  poolMiners: number;
-  totalBlocksFound: number;
-  networkDifficulty: number;
-  networkHashrate: number;
-  lastBlockFound: Date;
-  effort: number;
+  hashrate: number;
+  miners: number;
+  difficulty?: number;
+  totalBlocksFound?: number;
+  lastBlockFound?: number;
+  totalPayments?: number;
 }
 
 class DirectMiningService {
-  private readonly WALLET_ADDRESS = '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg';
-  private readonly SUPPORTXMR_API = 'https://supportxmr.com/api';
-  private readonly TIMEOUT = 10000; // 10 seconds
+  private readonly WALLET_ADDRESS = "46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg";
+  private readonly BASE_URL = "https://supportxmr.com/api";
+  
+  // CORS proxy options - try multiple proxies for reliability
+  private readonly CORS_PROXIES = [
+    "https://api.allorigins.win/raw?url=",
+    "https://corsproxy.io/?",
+    "https://cors-anywhere.herokuapp.com/",
+    "https://api.codetabs.com/v1/proxy?quest="
+  ];
 
-  constructor() {
-    console.log('🚀 Direct Mining Service initialized');
-    console.log(`📧 Monitoring wallet: ${this.WALLET_ADDRESS.substring(0, 8)}...`);
+  private async fetchWithCorsProxy(url: string): Promise<any> {
+    const errors: string[] = [];
+    
+    // Try each CORS proxy until one works
+    for (const proxy of this.CORS_PROXIES) {
+      try {
+        const proxyUrl = proxy + encodeURIComponent(url);
+        console.log(`🔄 Trying CORS proxy: ${proxy}`);
+        
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          // Add timeout to prevent hanging
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log(`✅ Successfully fetched data via ${proxy}`);
+        return data;
+        
+      } catch (error) {
+        const errorMsg = `${proxy}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMsg);
+        console.warn(`❌ CORS proxy failed: ${errorMsg}`);
+        continue;
+      }
+    }
+    
+    // If all proxies fail, try direct fetch as last resort
+    try {
+      console.log(`🔄 Trying direct fetch as fallback...`);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log(`✅ Direct fetch successful`);
+      return data;
+      
+    } catch (error) {
+      errors.push(`Direct fetch: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // All methods failed
+    throw new Error(`All CORS proxies and direct fetch failed:\n${errors.join('\n')}`);
   }
 
-  // Convert atomic units to XMR
-  private atomicToXMR(atomic: number): number {
-    return atomic / 1e12;
-  }
-
-  // Get miner statistics directly from SupportXMR
   async getMiningStats(): Promise<DirectMiningStats> {
     try {
-      console.log('🔄 Fetching direct mining stats...');
-
-      const url = `${this.SUPPORTXMR_API}/miner/${this.WALLET_ADDRESS}/stats`;
-      const response = await axios.get(url, {
-        timeout: this.TIMEOUT,
-        headers: {
-          'User-Agent': 'XMRT-DAO/1.0',
-          'Accept': 'application/json'
-        }
-      });
-
-      const data = response.data;
-      console.log('✅ Direct mining stats received:', data);
-
+      const url = `${this.BASE_URL}/miner/${this.WALLET_ADDRESS}/stats`;
+      console.log(`🔍 Fetching miner stats from: ${url}`);
+      
+      const data = await this.fetchWithCorsProxy(url);
+      
+      // Parse the response based on actual SupportXMR API format
       return {
         hashrate: data.hash || 0,
-        status: (data.hash && data.hash > 0) ? 'online' : 'offline',
+        status: this.determineStatus(data),
         validShares: data.validShares || 0,
         invalidShares: data.invalidShares || 0,
-        amountDue: this.atomicToXMR(data.amtDue || 0),
-        amountPaid: this.atomicToXMR(data.amtPaid || 0),
-        txnCount: data.txnCount || 0,
-        lastHash: data.lastHash || null,
+        amountDue: data.amtDue || 0,
+        amountPaid: data.amtPaid || 0,
+        balance: data.amtDue || 0, // Use amtDue as balance
+        lastHash: data.lastHash ? data.lastHash.toString() : null,
         totalHashes: data.totalHashes || 0,
-        isOnline: (data.hash && data.hash > 0) || false,
-        lastSeen: data.lastHash ? new Date() : undefined
+        isOnline: this.isOnline(data)
       };
-
+      
     } catch (error) {
-      console.error('❌ Direct mining stats error:', error);
-
-      return {
-        hashrate: 0,
-        status: 'error',
-        validShares: 0,
-        invalidShares: 0,
-        amountDue: 0,
-        amountPaid: 0,
-        txnCount: 0,
-        lastHash: null,
-        totalHashes: 0,
-        isOnline: false
-      };
+      console.error('❌ Error fetching mining stats:', error);
+      throw new Error(`Failed to fetch mining statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // Get pool statistics directly from SupportXMR
   async getPoolStats(): Promise<DirectPoolStats> {
     try {
-      console.log('🔄 Fetching direct pool stats...');
-
-      const url = `${this.SUPPORTXMR_API}/pool/stats`;
-      const response = await axios.get(url, {
-        timeout: this.TIMEOUT,
-        headers: {
-          'User-Agent': 'XMRT-DAO/1.0',
-          'Accept': 'application/json'
-        }
-      });
-
-      const data = response.data;
-      console.log('✅ Direct pool stats received:', data);
-
+      const url = `${this.BASE_URL}/pool/stats`;
+      console.log(`🔍 Fetching pool stats from: ${url}`);
+      
+      const data = await this.fetchWithCorsProxy(url);
+      
+      // Parse the response based on actual SupportXMR API format
+      const poolStats = data.pool_statistics || {};
+      
       return {
-        poolHashrate: data.pool_statistics?.hashRate || 0,
-        poolMiners: data.pool_statistics?.miners || 0,
-        totalBlocksFound: data.pool_statistics?.totalBlocksFound || 0,
-        networkDifficulty: data.network?.difficulty || 0,
-        networkHashrate: data.network?.hashrate || 0,
-        lastBlockFound: data.pool_statistics?.lastBlockFound 
-          ? new Date(data.pool_statistics.lastBlockFound * 1000) 
-          : new Date(),
-        effort: data.pool_statistics?.roundEffort || 0
+        hashrate: poolStats.hashRate || 0,
+        miners: poolStats.miners || 0,
+        difficulty: poolStats.difficulty,
+        totalBlocksFound: poolStats.totalBlocksFound,
+        lastBlockFound: poolStats.lastBlockFound,
+        totalPayments: poolStats.totalPayments
       };
-
+      
     } catch (error) {
-      console.error('❌ Direct pool stats error:', error);
-
-      return {
-        poolHashrate: 0,
-        poolMiners: 0,
-        totalBlocksFound: 0,
-        networkDifficulty: 0,
-        networkHashrate: 0,
-        lastBlockFound: new Date(),
-        effort: 0
-      };
+      console.error('❌ Error fetching pool stats:', error);
+      throw new Error(`Failed to fetch pool statistics: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // Format hash rate with appropriate units
-  formatHashrate(hashrate: number): string {
-    if (hashrate >= 1e12) return `${(hashrate / 1e12).toFixed(2)} TH/s`;
-    if (hashrate >= 1e9) return `${(hashrate / 1e9).toFixed(2)} GH/s`;
-    if (hashrate >= 1e6) return `${(hashrate / 1e6).toFixed(2)} MH/s`;
-    if (hashrate >= 1e3) return `${(hashrate / 1e3).toFixed(2)} KH/s`;
-    return `${hashrate.toFixed(0)} H/s`;
+  private determineStatus(data: any): string {
+    // Determine mining status based on available data
+    if (data.hash && data.hash > 0) {
+      return 'mining';
+    } else if (data.validShares && data.validShares > 0) {
+      return 'online';
+    } else {
+      return 'offline';
+    }
   }
 
-  // Format XMR amounts
-  formatXMR(amount: number, decimals: number = 6): string {
-    return `${amount.toFixed(decimals)} XMR`;
+  private isOnline(data: any): boolean {
+    // Consider online if there's recent activity
+    const now = Date.now() / 1000; // Current time in seconds
+    const lastHashTime = data.lastHash || 0;
+    const timeDiff = now - lastHashTime;
+    
+    // Consider online if last hash was within 5 minutes (300 seconds)
+    return timeDiff < 300 && data.hash > 0;
+  }
+
+  // Method to test connectivity to all CORS proxies
+  async testCorsProxies(): Promise<{ proxy: string; working: boolean; error?: string }[]> {
+    const testUrl = `${this.BASE_URL}/pool/stats`;
+    const results = [];
+    
+    for (const proxy of this.CORS_PROXIES) {
+      try {
+        const proxyUrl = proxy + encodeURIComponent(testUrl);
+        const response = await fetch(proxyUrl, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000) // 5 second timeout for testing
+        });
+        
+        results.push({
+          proxy,
+          working: response.ok,
+          error: response.ok ? undefined : `HTTP ${response.status}`
+        });
+        
+      } catch (error) {
+        results.push({
+          proxy,
+          working: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+    
+    return results;
   }
 }
 
