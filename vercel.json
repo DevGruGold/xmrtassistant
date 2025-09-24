@@ -1,21 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "installCommand": "npm install",
   "framework": "vite",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "env": {
-    "VITE_XMRT_POOL_WALLET": "@vite_xmrt_pool_wallet",
-    "VITE_SUPPORTXMR_API": "@vite_supportxmr_api",
-    "VITE_XMRT_ECOSYSTEM_API": "@vite_xmrt_ecosystem_api",
-    "VITE_SUPABASE_URL": "@vite_supabase_url",
-    "VITE_SUPABASE_ANON_KEY": "@vite_supabase_anon_key",
-    "VITE_WEBSOCKET_URL": "@vite_websocket_url"
-  },
-  "functions": {
-    "src/api/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "nodejs": "18.x"
 }
