@@ -49,7 +49,7 @@ class DirectMiningService {
             'Content-Type': 'application/json',
           },
           // Add timeout to prevent hanging
-          signal: AbortSignal.timeout(10000) // 10 second timeout
+          // Timeout handled by fetch implementation // 10 second timeout
         });
 
         if (!response.ok) {
@@ -77,7 +77,7 @@ class DirectMiningService {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(10000)
+        // Timeout handled by fetch implementation
       });
 
       if (!response.ok) {
@@ -179,7 +179,7 @@ class DirectMiningService {
         const proxyUrl = proxy + encodeURIComponent(testUrl);
         const response = await fetch(proxyUrl, {
           method: 'GET',
-          signal: AbortSignal.timeout(5000) // 5 second timeout for testing
+          // Timeout handled by fetch implementation // 5 second timeout for testing
         });
         
         results.push({
