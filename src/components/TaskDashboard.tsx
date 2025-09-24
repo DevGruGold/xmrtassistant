@@ -52,34 +52,36 @@ export function TaskDashboard({ sessionKey = 'default', className = '' }: TaskDa
     fetchTasks();
     fetchSystemStatus();
     
-    // Set up real-time subscriptions
-    const taskSubscription = // supabase
-      .channel('task_updates')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tasks' },
-        (payload) => {
-          console.log('Task update received:', payload);
-          fetchTasks();
-        }
-      )
-      .subscribe();
+    // Set up real-time subscriptions - disabled for now
+    // const taskSubscription = supabase
+    //   .channel('task_updates')
+    //   .on('postgres_changes', 
+    //     { event: '*', schema: 'public', table: 'tasks' },
+    //     (payload) => {
+    //       console.log('Task update received:', payload);
+    //       fetchTasks();
+    //     }
+    //   )
+    //   .subscribe();
 
     return () => {
-      // // supabase.removeChannel(taskSubscription);
+      // supabase.removeChannel(taskSubscription);
     };
   }, [sessionKey]);
 
   const fetchTasks = async () => {
     try {
-      const { data, error } = await // supabase
-        .from('tasks')
-        .select('*')
-        .eq('session_key', sessionKey)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      // Disabled for now - would fetch from supabase
+      // const { data, error } = await supabase
+      //   .from('tasks')
+      //   .select('*')
+      //   .eq('session_key', sessionKey)
+      //   .order('created_at', { ascending: false })
+      //   .limit(50);
 
-      if (error) throw error;
-      setTasks(data || []);
+      // if (error) throw error;
+      // setTasks(data || []);
+      setTasks([]);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     } finally {
