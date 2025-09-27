@@ -6,7 +6,6 @@ import { Mic, MicOff, Volume2, VolumeX, Brain, Heart } from 'lucide-react';
 import { useToast } from './ui/use-toast';
 import { humeEVIService } from '@/services/humeEVIService';
 import { createElevenLabsService, ElevenLabsService } from '@/services/elevenlabsService';
-import { UnifiedElizaService } from '@/services/unifiedElizaService';
 
 interface EnhancedVoiceInterfaceProps {
   onTranscript?: (transcript: string, emotions?: any) => void;
@@ -59,12 +58,12 @@ export const EnhancedVoiceInterface: React.FC<EnhancedVoiceInterfaceProps> = ({
       try {
         console.log('🚀 Initializing enhanced voice services...');
         
-        // Initialize Hume EVI for voice processing only
+        // Initialize Hume EVI for emotional intelligence
         const hume = humeEVIService();
         if (hume) {
-          await hume.initializeVoiceProcessing();
+          await hume.initializeConversation();
           setHumeService(hume);
-          console.log('🧠 Hume EVI initialized for voice processing');
+          console.log('🧠 Hume EVI initialized with emotional intelligence');
         }
         
         // Initialize ElevenLabs for premium TTS
@@ -215,30 +214,32 @@ export const EnhancedVoiceInterface: React.FC<EnhancedVoiceInterfaceProps> = ({
         setCurrentTranscript(transcript);
         onTranscript?.(transcript, emotions);
 
-        // Generate AI response using UnifiedElizaService (Gemini)
-        try {
-          console.log('🤖 Generating AI response with Gemini...');
-          response = await UnifiedElizaService.generateResponse(transcript, {
-            miningStats: undefined,
-            userContext: undefined,
-            shouldSpeak: false // Prevent duplication since we handle TTS here
-          });
-          
-          // Speak response with emotional context
-          if (voiceEnabled && elevenLabsService) {
-            setIsSpeaking(true);
-            
-            // Select voice based on emotional context
-            const voiceId = ElevenLabsService.getVoiceForEmotion(emotionalState.dominant);
-            
-            await elevenLabsService.speakText(response, voiceId, undefined, () => {
-              setIsSpeaking(false);
+        // Generate emotionally intelligent response
+        if (humeService) {
+          try {
+            const responseData = await humeService.generateResponse(transcript, {
+              miningStats: {}, // Add mining context if needed
+              userContext: {}
             });
+            
+            response = responseData.text;
+            
+            // Speak response with emotional context
+            if (voiceEnabled && elevenLabsService) {
+              setIsSpeaking(true);
+              
+              // Select voice based on emotional context
+              const voiceId = ElevenLabsService.getVoiceForEmotion(emotionalState.dominant);
+              
+              await elevenLabsService.speakText(response, voiceId, undefined, () => {
+                setIsSpeaking(false);
+              });
+            }
+            
+          } catch (error) {
+            console.error('❌ Response generation failed:', error);
+            response = "I understand what you're saying. How can I help you with XMRT-DAO?";
           }
-          
-        } catch (error) {
-          console.error('❌ AI response generation failed:', error);
-          response = "I understand what you're saying. How can I help you with XMRT-DAO?";
         }
 
         onResponse?.(response, emotions);

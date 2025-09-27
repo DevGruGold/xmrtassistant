@@ -7,7 +7,6 @@ import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GeminiAPIKeyInput } from './GeminiAPIKeyInput';
-import { TaskApprovalInterface } from './TaskApprovalInterface';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
 
@@ -16,10 +15,9 @@ import { UnifiedElizaService } from '@/services/unifiedElizaService';
 import { GeminiTTSService } from '@/services/geminiTTSService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
-import { conversationPersistenceService } from '@/services/conversationPersistenceService';
+import { conversationPersistence } from '@/services/conversationPersistenceService';
 import { quickGreetingService } from '@/services/quickGreetingService';
 import { apiKeyManager } from '@/services/apiKeyManager';
-import { autonomousTaskService } from '@/services/autonomousTaskService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -46,14 +44,6 @@ interface UnifiedMessage {
   };
   emotion?: string;
   confidence?: number;
-  taskRequest?: {
-    taskId: string;
-    requiresApproval: boolean;
-    description: string;
-    confidence: number;
-    type?: string;
-    parameters?: any;
-  };
 }
 
 // MiningStats imported from unifiedDataService
@@ -91,15 +81,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
   const [needsAPIKey, setNeedsAPIKey] = useState(false);
-
-  // Task handling state
-  const [pendingTaskApproval, setPendingTaskApproval] = useState<{
-    taskId: string;
-    requiresApproval: boolean;
-    description: string;
-    confidence: number;
-  } | null>(null);
-  const [executingTask, setExecutingTask] = useState<string | null>(null);
 
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
@@ -160,10 +141,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
         // Initialize conversation persistence with optimized loading
         try {
-          await conversationPersistenceService.getOrCreateSession('default');
+          await conversationPersistence.initializeSession();
           
           // Load conversation context (summaries only, no messages for return users)
-          const context = await conversationPersistenceService.getConversationInsights('default');
+          const context = await conversationPersistence.getConversationContext(0); // 0 messages = summaries only
           
           if (context.summaries.length > 0 || context.totalMessageCount > 0) {
             // Set context but don't load messages - let AI greeting handle the context
@@ -222,8 +203,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setLastElizaMessage(quickGreeting);
     
     // Store greeting in persistent storage (non-blocking)
-    conversationPersistenceService.saveMessage('default', quickGreeting, 'assistant').catch(error => {
-      console.log('Failed to store greeting:', error);
+    conversationPersistence.storeMessage(quickGreeting, 'assistant', {
+      type: 'quick-greeting',
+      isReturnUser: conversationSummaries.length > 0,
+      totalPreviousMessages: totalMessageCount
+    }).catch(error => {
+      console.log('Conversation persistence error:', error);
     });
   };
 
@@ -234,7 +219,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
-      await conversationPersistenceService.closeSession('default');
+      await conversationPersistence.clearConversationHistory();
       
       // Reset local state
       setMessages([]);
@@ -256,7 +241,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         setLastElizaMessage(greeting.content);
         
         // Store new greeting
-        await conversationPersistenceService.saveMessage('default', greeting.content, 'assistant');
+        await conversationPersistence.storeMessage(greeting.content, 'assistant', {
+          type: 'fresh-start-greeting'
+        });
       }
       
       console.log('✅ Conversation cleared and reset');
@@ -280,7 +267,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setLoadingMoreMessages(true);
     try {
       // Load recent messages from the database (this replaces the current empty state)
-      const recentMessages = await conversationPersistenceService.getRecentSummaries('default', 20);
+      const recentMessages = await conversationPersistence.getRecentConversationHistory(20);
       if (recentMessages.length > 0) {
         const convertedMessages: UnifiedMessage[] = recentMessages.map(msg => ({
           id: msg.id,
@@ -398,7 +385,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // Store user message
     try {
-      await conversationPersistenceService.saveMessage('default', transcript, 'user');
+      await conversationPersistence.storeMessage(transcript, 'user', {
+        emotion: currentEmotion,
+        confidence: emotionConfidence,
+        inputType: 'voice'
+      });
     } catch (error) {
       console.log('Conversation persistence error:', error);
     }
@@ -411,7 +402,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputMode: 'voice',
         shouldSpeak: true,
         enableBrowsing: true,
-        conversationContext: await conversationPersistenceService.getConversationInsights('default')
+        conversationContext: await conversationPersistence.getFullConversationContext()  // Enhanced context for voice too
       });
 
       const elizaMessage: UnifiedMessage = {
@@ -427,7 +418,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       // Store Eliza's response
       try {
-        await conversationPersistenceService.saveMessage('default', response, 'assistant');
+        await conversationPersistence.storeMessage(response, 'assistant', {
+          confidence: 0.95,
+          method: 'Gemini AI',
+          inputType: 'voice'
+        });
       } catch (error) {
         console.log('Conversation persistence error:', error);
       }
@@ -539,7 +534,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // Store user message
     try {
-      await conversationPersistenceService.saveMessage('default', userMessage.content, 'user');
+      await conversationPersistence.storeMessage(userMessage.content, 'user', {
+        inputType: 'text'
+      });
     } catch (error) {
       console.log('Conversation persistence error:', error);
     }
@@ -551,7 +548,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       console.log('💾 User message stored, generating response...');
       
       // Get full conversation context for better AI understanding
-      const fullContext = await conversationPersistenceService.getConversationInsights('default');
+      const fullContext = await conversationPersistence.getFullConversationContext();
       
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
@@ -559,8 +556,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputMode: 'text',
         shouldSpeak: false,
         enableBrowsing: true,  // Let the service decide when to browse
-        conversationContext: fullContext,  // Enhanced context for better understanding
-        sessionKey: 'unified-chat-session'  // Add session key for task tracking
+        conversationContext: fullContext  // Enhanced context for better understanding
       }, language);
       
       // Check if response indicates API key is needed
@@ -583,7 +579,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       // Store Eliza's response
       try {
-        await conversationPersistenceService.saveMessage('default', response, 'assistant');
+        await conversationPersistence.storeMessage(response, 'assistant', {
+          confidence: 0.95,
+          method: 'Gemini AI',
+          inputType: 'text'
+        });
       } catch (error) {
         console.log('Conversation persistence error:', error);
       }

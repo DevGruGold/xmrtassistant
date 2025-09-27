@@ -1,7 +1,20 @@
-import { useHumeVoiceTools } from '@/services/humeVoiceTools';
+import { useState, useCallback } from 'react';
+import { useEnhancedHumeClientTools } from '@/services/enhancedHumeClientTools';
 
-// Enhanced hook that uses the voice-only Hume client tools
+interface MiningStats {
+  hash: number;
+  validShares: number;
+  invalidShares: number;
+  lastHash: number;
+  totalHashes: number;
+  amtDue: number;
+  amtPaid: number;
+  txnCount: number;
+  isOnline: boolean;
+}
+
+// Enhanced hook that uses the new comprehensive client tools
 export const useHumeClientTools = () => {
-  // Use the voice-focused client tools
-  return useHumeVoiceTools();
+  // Use the enhanced client tools with full ecosystem capabilities
+  return useEnhancedHumeClientTools();
 };

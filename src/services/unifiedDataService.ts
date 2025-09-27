@@ -7,12 +7,6 @@ export interface MiningStats {
   amountPaid: number;
   isOnline: boolean;
   lastUpdate: Date;
-  workerContext?: {
-    canIdentifyWorker: boolean;
-    detectedWorker: string | null;
-    registrationRequired: boolean;
-    clientIP?: string;
-  };
 }
 
 export interface UserContext {
@@ -85,14 +79,15 @@ class UnifiedDataService {
     try {
       console.log('📊 UnifiedData: Fetching mining statistics...');
       
-      // Import supabase client dynamically to avoid circular dependencies
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { data, error } = await supabase.functions.invoke('mining-proxy');
+      // Use Supabase proxy endpoint which handles CORS
+      const response = await fetch('https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy');
       
-      if (error) {
-        console.warn('⚠️ Mining API request failed:', error);
+      if (!response.ok) {
+        console.warn('⚠️ Mining API request failed:', response.status);
         return null; // No mock data - return null if real data unavailable
       }
+      
+      const data = await response.json();
       console.log('✅ UnifiedData: Mining stats retrieved');
       
       const miningStats: MiningStats = {

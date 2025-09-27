@@ -13,51 +13,51 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const translations = {
   en: {
     // Hero Section
-    'hero.title': 'XMRT Assistant',
-    'hero.subtitle': 'AI-Powered Personal Assistant • Voice-Enabled Productivity • Mining Intelligence Integration',
-    'hero.tag.smartphone': '📱 Voice Interface',
-    'hero.tag.ai': '🤖 Smart Assistant',
+    'hero.title': 'XMRT Economy',
+    'hero.subtitle': 'Mobile Mining Democracy • AI-Human Collaboration • Privacy as a Fundamental Right',
+    'hero.tag.smartphone': '📱 Smartphone Mining',
+    'hero.tag.ai': '🤖 Autonomous AI',
     'hero.tag.privacy': '🔐 Privacy First',
-    'hero.tag.mesh': '⚡ Real-time Insights',
+    'hero.tag.mesh': '🕸️ Mesh Networks',
     
     // Mining Section
-    'mining.title': 'Live Mining Intelligence',
-    'mining.subtitle': 'Real-time mining data integrated into your AI assistant • Performance insights at your fingertips',
+    'mining.title': 'Mobile Mining Democracy in Action',
+    'mining.subtitle': 'Every smartphone becomes a tool of economic empowerment • Live data from the mesh network',
     
     // AI Section
-    'ai.title': 'Meet Your AI Assistant',
-    'ai.subtitle': 'Intelligent personal assistant with mining insights • Voice-enabled for hands-free interaction • Task automation and productivity tools',
+    'ai.title': 'Eliza AI: Autonomous DAO Operator',
+    'ai.subtitle': 'The philosophical AI guide embodying XMRT principles • Voice-enabled for mobile-first experience • 95%+ autonomous decision-making capabilities',
     
     // Actions Section
-    'actions.title': 'Start Your AI Experience',
-    'actions.subtitle': 'Chat with your assistant • Get mining insights • Boost your productivity',
-    'actions.start.mining': 'Start Conversation',
-    'actions.join.dao': 'Explore Features',
+    'actions.title': 'Join the Infrastructure Revolution',
+    'actions.subtitle': 'Transform your smartphone into a mining node • Participate in true decentralized governance • Build the mesh network',
+    'actions.start.mining': 'Start Mobile Mining',
+    'actions.join.dao': 'Join DAO Governance',
     
     // Calculator
-    'calculator.title': 'Productivity Calculator',
-    'calculator.subtitle': 'Calculate efficiency gains with your AI assistant • Task automation • Time optimization',
+    'calculator.title': 'Smartphone Mining Calculator',
+    'calculator.subtitle': 'Calculate your mobile mining potential • ARM processor optimization • Thermal management included',
     
     // Feature Cards
-    'feature.mobile.title': 'Voice-Enabled Interface',
-    'feature.mobile.description': 'Natural conversation with your AI assistant anywhere',
-    'feature.mobile.tag.arm': '🎤 Voice Commands',
-    'feature.mobile.tag.battery': '⚡ Instant Response',
-    'feature.mobile.tag.thermal': '🧠 Smart Learning',
+    'feature.mobile.title': 'Mobile Mining Democracy',
+    'feature.mobile.description': 'Transform smartphones into tools of economic empowerment',
+    'feature.mobile.tag.arm': '📱 ARM Optimized',
+    'feature.mobile.tag.battery': '🔋 Battery Safe',
+    'feature.mobile.tag.thermal': '🌡️ Thermal Managed',
     
-    'feature.dao.title': 'Mining Intelligence',
-    'feature.dao.description': 'Real-time mining insights and performance analytics',
-    'feature.dao.executives': 'Live Stats',
-    'feature.dao.compute': 'Smart Analysis',
+    'feature.dao.title': 'Autonomous DAO Governance',
+    'feature.dao.description': '95%+ autonomous AI with verifiable compute and community oversight',
+    'feature.dao.executives': 'AI Executives',
+    'feature.dao.compute': 'Verifiable Compute',
     'feature.dao.status.active': 'Active',
-    'feature.dao.status.certified': 'Verified',
+    'feature.dao.status.certified': 'Certified',
     
-    'feature.privacy.title': 'Productivity Tools',
-    'feature.privacy.description': 'Task automation, reminders, and intelligent assistance',
-    'feature.privacy.mesh': 'Task Manager',
-    'feature.privacy.privacy': 'Smart Tools',
-    'feature.privacy.status.building': 'Growing',
-    'feature.privacy.status.fundamental': 'Essential',
+    'feature.privacy.title': 'Privacy-First Infrastructure',
+    'feature.privacy.description': 'Mesh networks, private transactions, and censorship-resistant communication',
+    'feature.privacy.mesh': 'Mesh Network',
+    'feature.privacy.privacy': 'Privacy',
+    'feature.privacy.status.building': 'Building',
+    'feature.privacy.status.fundamental': 'Fundamental',
     
     // Navigation
     'nav.home': 'Home',
@@ -185,51 +185,51 @@ const translations = {
   },
   es: {
     // Hero Section
-    'hero.title': 'Asistente XMRT',
-    'hero.subtitle': 'Asistente Personal con IA • Interfaz de Voz Habilitada • Integración de Inteligencia Minera',
-    'hero.tag.smartphone': '📱 Interfaz de Voz',
-    'hero.tag.ai': '🤖 Asistente Inteligente',
+    'hero.title': 'Economía XMRT',
+    'hero.subtitle': 'Democracia de Minería Móvil • Colaboración IA-Humano • Privacidad como Derecho Fundamental',
+    'hero.tag.smartphone': '📱 Minería Móvil',
+    'hero.tag.ai': '🤖 IA Autónoma',
     'hero.tag.privacy': '🔐 Privacidad Primero',
-    'hero.tag.mesh': '⚡ Información en Tiempo Real',
+    'hero.tag.mesh': '🕸️ Redes Mesh',
     
     // Mining Section
-    'mining.title': 'Inteligencia Minera en Vivo',
-    'mining.subtitle': 'Datos de minería en tiempo real integrados en tu asistente IA • Información de rendimiento al alcance',
+    'mining.title': 'Democracia de Minería Móvil en Acción',
+    'mining.subtitle': 'Cada smartphone se convierte en una herramienta de empoderamiento económico • Datos en vivo de la red mesh',
     
     // AI Section
-    'ai.title': 'Conoce a tu Asistente IA',
-    'ai.subtitle': 'Asistente personal inteligente con información minera • Habilitado por voz para interacción sin manos • Herramientas de automatización y productividad',
+    'ai.title': 'Eliza IA: Operador DAO Autónomo',
+    'ai.subtitle': 'La guía filosófica de IA que encarna los principios XMRT • Habilitada por voz para experiencia móvil • Capacidades de toma de decisiones 95%+ autónomas',
     
     // Actions Section
-    'actions.title': 'Comienza tu Experiencia IA',
-    'actions.subtitle': 'Chatea con tu asistente • Obtén información minera • Aumenta tu productividad',
-    'actions.start.mining': 'Iniciar Conversación',
-    'actions.join.dao': 'Explorar Funciones',
+    'actions.title': 'Únete a la Revolución de Infraestructura',
+    'actions.subtitle': 'Transforma tu smartphone en un nodo de minería • Participa en gobernanza verdaderamente descentralizada • Construye la red mesh',
+    'actions.start.mining': 'Iniciar Minería Móvil',
+    'actions.join.dao': 'Unirse a Gobernanza DAO',
     
     // Calculator
-    'calculator.title': 'Calculadora de Productividad',
-    'calculator.subtitle': 'Calcula ganancias de eficiencia con tu asistente IA • Automatización de tareas • Optimización de tiempo',
+    'calculator.title': 'Calculadora de Minería Móvil',
+    'calculator.subtitle': 'Calcula tu potencial de minería móvil • Optimización de procesador ARM • Gestión térmica incluida',
     
     // Feature Cards
-    'feature.mobile.title': 'Interfaz Habilitada por Voz',
-    'feature.mobile.description': 'Conversación natural con tu asistente IA en cualquier lugar',
-    'feature.mobile.tag.arm': '🎤 Comandos de Voz',
-    'feature.mobile.tag.battery': '⚡ Respuesta Instantánea',
-    'feature.mobile.tag.thermal': '🧠 Aprendizaje Inteligente',
+    'feature.mobile.title': 'Democracia de Minería Móvil',
+    'feature.mobile.description': 'Transforma smartphones en herramientas de empoderamiento económico',
+    'feature.mobile.tag.arm': '📱 Optimizado ARM',
+    'feature.mobile.tag.battery': '🔋 Seguro para Batería',
+    'feature.mobile.tag.thermal': '🌡️ Gestionado Térmicamente',
     
-    'feature.dao.title': 'Inteligencia Minera',
-    'feature.dao.description': 'Información minera en tiempo real y análisis de rendimiento',
-    'feature.dao.executives': 'Estadísticas en Vivo',
-    'feature.dao.compute': 'Análisis Inteligente',
+    'feature.dao.title': 'Gobernanza DAO Autónoma',
+    'feature.dao.description': 'IA 95%+ autónoma con cómputo verificable y supervisión comunitaria',
+    'feature.dao.executives': 'Ejecutivos IA',
+    'feature.dao.compute': 'Cómputo Verificable',
     'feature.dao.status.active': 'Activo',
-    'feature.dao.status.certified': 'Verificado',
+    'feature.dao.status.certified': 'Certificado',
     
-    'feature.privacy.title': 'Herramientas de Productividad',
-    'feature.privacy.description': 'Automatización de tareas, recordatorios y asistencia inteligente',
-    'feature.privacy.mesh': 'Gestor de Tareas',
-    'feature.privacy.privacy': 'Herramientas Inteligentes',
-    'feature.privacy.status.building': 'Creciendo',
-    'feature.privacy.status.fundamental': 'Esencial',
+    'feature.privacy.title': 'Infraestructura Privacidad-Primero',
+    'feature.privacy.description': 'Redes mesh, transacciones privadas y comunicación resistente a la censura',
+    'feature.privacy.mesh': 'Red Mesh',
+    'feature.privacy.privacy': 'Privacidad',
+    'feature.privacy.status.building': 'Construyendo',
+    'feature.privacy.status.fundamental': 'Fundamental',
     
     // Navigation
     'nav.home': 'Inicio',
