@@ -73,7 +73,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [geminiTTSService, setGeminiTTSService] = useState<GeminiTTSService | null>(null);
+  const [openAITTSService, setOpenAITTSService] = useState<OpenAITTSService | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
@@ -475,7 +475,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         if (result.success) {
           // Clear the API key from input and reset services
           setTextInput('');
-          UnifiedElizaService.resetGeminiInstance();
+          UnifiedElizaService.resetOpenAIInstance();
           setNeedsAPIKey(false);
           
           const successMessage: UnifiedMessage = {
@@ -642,7 +642,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     console.log('✅ API key validated, resetting Gemini and hiding input');
     
     // Reset Gemini instance to use new API key
-    UnifiedElizaService.resetGeminiInstance();
+    UnifiedElizaService.resetOpenAIInstance();
     
     // Hide the API key input
     setShowAPIKeyInput(false);
@@ -788,7 +788,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         {/* API Key Input Dialog - Show automatically when needed or manually requested */}
         {(showAPIKeyInput || needsAPIKey) && (
           <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <GeminiAPIKeyInput 
+            <OpenAIAPIKeyInput 
               onKeyValidated={handleAPIKeyValidated}
               onClose={() => {
                 setShowAPIKeyInput(false);

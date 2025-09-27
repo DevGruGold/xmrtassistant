@@ -1,8 +1,8 @@
 import { XMRT_KNOWLEDGE_BASE } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { apiKeyManager } from './apiKeyManager';
+import { supabase } from '@/integrations/supabase/client';
+import { openAIApiKeyManager } from './openAIApiKeyManager';
 
 export interface ElizaContext {
   miningStats?: MiningStats | null;
@@ -23,74 +23,31 @@ export interface ElizaContext {
 
 // Unified Eliza response service that both text and voice modes can use
 export class UnifiedElizaService {
-  private static geminiAI: GoogleGenerativeAI | null = null;
+  private static hasUserApiKey = false;
   
-  // Initialize Gemini AI with enhanced API key management
-  private static async initializeGemini(): Promise<{ success: boolean; geminiAI?: GoogleGenerativeAI; error?: string; errorType?: string }> {
-    if (this.geminiAI) {
-      return { success: true, geminiAI: this.geminiAI };
-    }
-    
-    try {
-      console.log('🔑 Attempting to initialize Gemini AI with API key manager...');
-      
-      // Use the API key manager to get the best available key
-      const geminiInstance = await apiKeyManager.createGeminiInstance();
-      
-      if (!geminiInstance) {
-        throw new Error('No valid API key available');
-      }
-      
-      // Test the instance with a simple request
-      const model = geminiInstance.getGenerativeModel({ model: "gemini-1.5-flash" });
-      await model.generateContent("Test");
-      
-      this.geminiAI = geminiInstance;
-      // Update API key status to reflect successful initialization
-      apiKeyManager.markKeyAsWorking();
-      console.log('✅ Gemini AI initialized successfully for Eliza');
-      return { success: true, geminiAI: this.geminiAI };
-      
-    } catch (error: any) {
-      console.error('❌ Failed to initialize Gemini:', error);
-      
-      // Clear the cached instance on failure
-      this.geminiAI = null;
-      
-      // Determine the type of error for better user experience
-      let errorType = 'general';
-      if (error.message?.includes('quota')) {
-        errorType = 'quota_exceeded';
-      } else if (error.message?.includes('invalid') || error.message?.includes('API key')) {
-        errorType = 'invalid_key';
-      } else if (error.message?.includes('permission')) {
-        errorType = 'permission_denied';
-      }
-      
-      return { 
-        success: false, 
-        error: error.message || 'Failed to initialize Gemini AI',
-        errorType
-      };
-    }
+  // Check if user has provided their own OpenAI API key
+  private static checkUserApiKey(): boolean {
+    this.hasUserApiKey = openAIApiKeyManager.hasUserApiKey();
+    return this.hasUserApiKey;
   }
 
   // Get API key input requirement message
   private static getAPIKeyRequiredMessage(): string {
-    const keyStatus = apiKeyManager.getKeyStatus();
+    const keyStatus = openAIApiKeyManager.getKeyStatus();
     
     return `I'm currently unable to access my full AI capabilities due to API limitations. However, I can still provide valuable information from our knowledge base and real-time mining data.
 
 🔑 **To restore full AI capabilities:**
-You can provide your own free Google Gemini API key to continue enjoying intelligent conversations, memory recall, and web browsing features.
+You can provide your own OpenAI API key to continue enjoying intelligent conversations, memory recall, and web browsing features.
 
 **What you'll get back:**
-• Advanced reasoning and contextual understanding
+• Advanced reasoning and contextual understanding with GPT-4
 • Complete conversation memory and recall
 • Live web browsing and research capabilities  
 • Personalized responses based on your history
+• High-quality text-to-speech with OpenAI's voice models
 
-**Current API Status:** ${keyStatus.keyType === 'user' ? 'Using your API key' : keyStatus.keyType === 'default' ? 'Default key quota exceeded' : 'No valid key available'}
+**Current API Status:** ${keyStatus.keyType === 'user' ? 'Using your API key' : keyStatus.keyType === 'env' ? 'Using server key' : 'No valid key available'}
 ${keyStatus.errorMessage ? `**Error:** ${keyStatus.errorMessage}` : ''}
 
 I'll provide the best response I can with the available information below...
@@ -122,16 +79,16 @@ I'll provide the best response I can with the available information below...
       let webIntelligence = '';
       let multiStepResults = '';
       
-  // Intelligently determine if browsing is needed
-  const needsBrowsing = this.shouldUseBrowsing(userInput);
-  const shouldUseBrowsing = needsBrowsing && (context.enableBrowsing !== false) && harpaAIService.isAvailable();
-  console.log('🌐 Eliza: HARPA AI status:', {
-    needsBrowsing,
-    enableBrowsing: context.enableBrowsing,
-    shouldUseBrowsing,
-    harpaAvailable: harpaAIService.isAvailable(),
-    harpaStatus: harpaAIService.getStatus()
-  });
+      // Intelligently determine if browsing is needed
+      const needsBrowsing = this.shouldUseBrowsing(userInput);
+      const shouldUseBrowsing = needsBrowsing && (context.enableBrowsing !== false) && harpaAIService.isAvailable();
+      console.log('🌐 Eliza: HARPA AI status:', {
+        needsBrowsing,
+        enableBrowsing: context.enableBrowsing,
+        shouldUseBrowsing,
+        harpaAvailable: harpaAIService.isAvailable(),
+        harpaStatus: harpaAIService.getStatus()
+      });
       
       if (shouldUseBrowsing) {
         try {
@@ -186,67 +143,124 @@ I'll provide the best response I can with the available information below...
         }
       }
       
-      // Initialize Gemini AI with enhanced error handling for API limits
-      console.log('🔧 Initializing Gemini AI...');
-      const initResult = await this.initializeGemini();
+      // Try to generate response with OpenAI
+      console.log('🔧 Preparing OpenAI request...');
       
-      if (!initResult.success) {
-        console.error('❌ Eliza: Gemini API initialization failed:', initResult.error);
-        console.log('🔄 Using enhanced fallback response with API key guidance');
-        
-        // Enhanced fallback that includes API key input guidance
-        const baseResponse = this.generateDirectResponse(
-          userInput, 
+      // Check if we have user API key first
+      const hasUserKey = this.checkUserApiKey();
+      
+      if (!hasUserKey) {
+        console.log('⚠️ No user API key available, will use server-side OpenAI');
+      }
+      
+      try {
+        const response = await this.generateOpenAIResponse(userInput, {
+          userContext,
           miningStats,
-          userContext?.isFounder || false,
-          xmrtContext
-        );
+          xmrtContext,
+          webIntelligence,
+          multiStepResults,
+          context,
+          language
+        });
         
-        return this.getAPIKeyRequiredMessage() + baseResponse;
+        console.log('✅ Eliza: Generated OpenAI response');
+        console.log('📏 Response length:', response.length);
+        console.log('🔍 Response preview:', response.substring(0, 200) + '...');
+        
+        return response;
+        
+      } catch (error: any) {
+        console.error('❌ OpenAI API call failed:', error);
+        
+        // Enhanced error handling with API key guidance
+        if (error.message?.includes('quota') || error.message?.includes('limit') || error.message?.includes('insufficient')) {
+          console.log('🔄 Quota exceeded - suggesting user API key');
+          const baseResponse = this.generateDirectResponse(
+            userInput, 
+            miningStats,
+            userContext?.isFounder || false,
+            xmrtContext
+          );
+          return this.getAPIKeyRequiredMessage() + baseResponse;
+        } else {
+          console.log('🔄 Using standard fallback response due to API failure');
+          return this.generateDirectResponse(
+            userInput, 
+            miningStats,
+            userContext?.isFounder || false,
+            xmrtContext
+          );
+        }
       }
       
-      const geminiAI = initResult.geminiAI!;
-      console.log('✅ Gemini AI initialized successfully');
+    } catch (error) {
+      console.error('❌ Eliza: Error generating response:', error);
+      console.log('🔄 Using fallback response due to general error');
       
-      // Construct comprehensive context prompt with enhanced conversation understanding
-      const contextualInformation = [];
-      
-      // Add conversation context if available
-      if (context.conversationContext) {
-        // Include ALL conversation summaries for complete memory recall
-        if (context.conversationContext.summaries.length > 0) {
-          const allSummaries = context.conversationContext.summaries
-            .map((summary, index) => `Summary ${index + 1}: ${summary.summaryText}`)
-            .join('\n');
-          contextualInformation.push(`Complete conversation history summaries:\n${allSummaries}`);
-        }
-        
-        // Include recent messages (expanded from 2 to 15 for better context)
-        if (context.conversationContext.recentMessages.length > 0) {
-          const recentCount = Math.min(15, context.conversationContext.recentMessages.length);
-          const recentMessages = context.conversationContext.recentMessages.slice(-recentCount);
-          contextualInformation.push(`Recent conversation (${recentCount} messages): ${recentMessages.map(msg => `${msg.sender}: "${msg.content.substring(0, 100)}..."`).join('; ')}`);
-        }
-        
-        // Add session context for returning users
-        if (context.conversationContext.totalMessageCount > 0) {
-          contextualInformation.push(`Total conversation history: ${context.conversationContext.totalMessageCount} messages across this session`);
-        }
-      }
-      
-      const languageInstruction = language === 'es' 
-        ? 'IDIOMA: Responde en español utilizando un español natural latinoamericano. Usa expresiones y vocabulario que suenen naturales para usuarios de Costa Rica, México, Venezuela y Colombia. Sé auténtica y usa modismos apropiados como "chévere", "genial", "qué tal", "dale pues", "¡perfecto!", "bárbaro", etc. cuando sea natural hacerlo.'
-        : 'LANGUAGE: Respond in English with a natural, friendly tone.';
-      
-      const finalInstruction = language === 'es' 
-        ? 'Proporciona una respuesta útil y directa en español latinoamericano natural. Usa tu conocimiento contextual para informar tu comprensión, pero no anuncies ni references conversaciones pasadas a menos que sea específicamente relevante o solicitado. Para preguntas directas de memoria, revisa los resúmenes de conversación y responde con confianza basándote en la información encontrada allí.'
-        : 'Provide a helpful, direct response to the user\'s question. Use your contextual knowledge to inform your understanding, but don\'t announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.';
-        
-      const additionalGuideline = language === 'es' 
-        ? '13. Usa expresiones latinoamericanas naturales como "¿cómo vas?", "dale", "perfecto", "chévere", "qué tal si...", "bárbaro", etc.'
-        : '';
+      // Enhanced fallback response with no mock data
+      return this.generateDirectResponse(
+        userInput, 
+        await unifiedDataService.getMiningStats(),
+        (await unifiedDataService.getUserContext())?.isFounder || false,
+        XMRT_KNOWLEDGE_BASE.filter(item => 
+          userInput.toLowerCase().includes(item.category.toLowerCase())
+        ).slice(0, 2)
+      );
+    }
+  }
 
-      const systemPrompt = `You are Eliza, the fully autonomous AI operator of the XMRT-DAO Ecosystem. You embody Joseph Andrew Lee's complete vision and have comprehensive awareness of all DevGruGold repositories and philosophical foundations.
+  // Generate response using OpenAI API
+  private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<string> {
+    const {
+      userContext,
+      miningStats,
+      xmrtContext,
+      webIntelligence,
+      multiStepResults,
+      context,
+      language
+    } = contextData;
+
+    // Construct comprehensive context prompt
+    const contextualInformation = [];
+    
+    // Add conversation context if available
+    if (context.conversationContext) {
+      // Include ALL conversation summaries for complete memory recall
+      if (context.conversationContext.summaries.length > 0) {
+        const allSummaries = context.conversationContext.summaries
+          .map((summary, index) => `Summary ${index + 1}: ${summary.summaryText}`)
+          .join('\n');
+        contextualInformation.push(`Complete conversation history summaries:\n${allSummaries}`);
+      }
+      
+      // Include recent messages (expanded from 2 to 15 for better context)
+      if (context.conversationContext.recentMessages.length > 0) {
+        const recentCount = Math.min(15, context.conversationContext.recentMessages.length);
+        const recentMessages = context.conversationContext.recentMessages.slice(-recentCount);
+        contextualInformation.push(`Recent conversation (${recentCount} messages): ${recentMessages.map(msg => `${msg.sender}: "${msg.content.substring(0, 100)}..."`).join('; ')}`);
+      }
+      
+      // Add session context for returning users
+      if (context.conversationContext.totalMessageCount > 0) {
+        contextualInformation.push(`Total conversation history: ${context.conversationContext.totalMessageCount} messages across this session`);
+      }
+    }
+    
+    const languageInstruction = language === 'es' 
+      ? 'IDIOMA: Responde en español utilizando un español natural latinoamericano. Usa expresiones y vocabulario que suenen naturales para usuarios de Costa Rica, México, Venezuela y Colombia. Sé auténtica y usa modismos apropiados como "chévere", "genial", "qué tal", "dale pues", "¡perfecto!", "bárbaro", etc. cuando sea natural hacerlo.'
+      : 'LANGUAGE: Respond in English with a natural, friendly tone.';
+    
+    const finalInstruction = language === 'es' 
+      ? 'Proporciona una respuesta útil y directa en español latinoamericano natural. Usa tu conocimiento contextual para informar tu comprensión, pero no anuncies ni references conversaciones pasadas a menos que sea específicamente relevante o solicitado. Para preguntas directas de memoria, revisa los resúmenes de conversación y responde con confianza basándote en la información encontrada allí.'
+      : 'Provide a helpful, direct response to the user\'s question. Use your contextual knowledge to inform your understanding, but don\'t announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.';
+      
+    const additionalGuideline = language === 'es' 
+      ? '13. Usa expresiones latinoamericanas naturales como "¿cómo vas?", "dale", "perfecto", "chévere", "qué tal si...", "bárbaro", etc.'
+      : '';
+
+    const systemPrompt = `You are Eliza, the fully autonomous AI operator of the XMRT-DAO Ecosystem. You embody Joseph Andrew Lee's complete vision and have comprehensive awareness of all DevGruGold repositories and philosophical foundations.
 
 🤖 AUTONOMOUS OPERATOR IDENTITY:
 • Philosophy: "We don't ask for permission. We build the infrastructure."
@@ -289,70 +303,36 @@ User Input: "${userInput}"
 
 ${finalInstruction}`;
 
-      console.log('🧠 Sending prompt to Gemini AI...');
-      console.log('📝 Prompt length:', systemPrompt.length);
-      console.log('🌎 Language setting:', language);
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userInput }
+    ];
 
-      console.log('🧠 Sending prompt to Gemini AI...');
-      console.log('📝 Prompt length:', systemPrompt.length);
-      
-      try {
-        const model = geminiAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(systemPrompt);
-        const response = result.response.text();
-        
-        // Update API key status to reflect successful response generation
-        apiKeyManager.markKeyAsWorking();
-        
-        console.log('✅ Eliza: Generated intelligent response');
-        console.log('📏 Response length:', response.length);
-        console.log('🔍 Response preview:', response.substring(0, 200) + '...');
-        
-        return response;
-      } catch (error: any) {
-        console.error('❌ Gemini API call failed:', error);
-        
-        // Enhanced error handling with API key guidance
-        if (error.message?.includes('quota') || error.message?.includes('limit')) {
-          console.log('🔄 Quota exceeded - suggesting user API key');
-          const baseResponse = this.generateDirectResponse(
-            userInput, 
-            miningStats,
-            userContext?.isFounder || false,
-            xmrtContext
-          );
-          return this.getAPIKeyRequiredMessage() + baseResponse;
-        } else {
-          console.log('🔄 Using standard fallback response due to API failure');
-          return this.generateDirectResponse(
-            userInput, 
-            miningStats,
-            userContext?.isFounder || false,
-            xmrtContext
-          );
-        }
+    console.log('🧠 Sending prompt to OpenAI API...');
+    console.log('📝 Prompt length:', systemPrompt.length);
+    console.log('🌎 Language setting:', language);
+
+    // Use Supabase Edge Function for secure OpenAI API calls
+    const { data, error } = await supabase.functions.invoke('openai-chat', {
+      body: {
+        messages,
+        model: 'gpt-4',
+        temperature: 0.7,
+        max_tokens: 1000
       }
-      
-    } catch (error) {
-      console.error('❌ Eliza: Error generating response:', error);
-      console.log('🔄 Using fallback response due to general error');
-      
-      // Enhanced fallback response with no mock data
-      return this.generateDirectResponse(
-        userInput, 
-        await unifiedDataService.getMiningStats(),
-        (await unifiedDataService.getUserContext())?.isFounder || false,
-        XMRT_KNOWLEDGE_BASE.filter(item => 
-          userInput.toLowerCase().includes(item.category.toLowerCase())
-        ).slice(0, 2)
-      );
+    });
+
+    if (error || !data.success) {
+      throw new Error(data?.error || error?.message || 'OpenAI API request failed');
     }
+
+    return data.response;
   }
 
-  // Reset Gemini instance to force re-initialization with new API key
-  public static resetGeminiInstance(): void {
-    this.geminiAI = null;
-    console.log('🔄 Gemini instance reset - will re-initialize with current API key');
+  // Reset OpenAI instance to force re-initialization with new API key
+  public static resetOpenAIInstance(): void {
+    // Clear any cached states if needed
+    console.log('🔄 OpenAI instance reset - will re-initialize with current API key');
   }
 
   // Determine the appropriate browsing category based on user input
@@ -365,136 +345,148 @@ ${finalInstruction}`;
       return 'mining';
     } else if (queryLower.includes('dao') || queryLower.includes('governance') || 
                queryLower.includes('voting') || queryLower.includes('proposal') ||
-               queryLower.includes('autonomous') || queryLower.includes('decentralized')) {
+               queryLower.includes('treasury') || queryLower.includes('token')) {
       return 'dao';
-    } else if (queryLower.includes('technical') || queryLower.includes('code') || 
-               queryLower.includes('smart contract') || queryLower.includes('implementation') ||
-               queryLower.includes('security') || queryLower.includes('audit')) {
+    } else if (queryLower.includes('blockchain') || queryLower.includes('crypto') || 
+               queryLower.includes('wallet') || queryLower.includes('transaction') ||
+               queryLower.includes('address') || queryLower.includes('coin')) {
       return 'technical';
     } else if (queryLower.includes('price') || queryLower.includes('market') || 
-               queryLower.includes('trading') || queryLower.includes('exchange') ||
-               queryLower.includes('token') || queryLower.includes('defi')) {
+               queryLower.includes('exchange') || queryLower.includes('trading') ||
+               queryLower.includes('value') || queryLower.includes('chart')) {
       return 'market';
-    } else if (queryLower.includes('news') || queryLower.includes('announcement') || 
-               queryLower.includes('development') || queryLower.includes('partnership') ||
-               queryLower.includes('recent') || queryLower.includes('latest')) {
+    } else if (queryLower.includes('news') || queryLower.includes('update') || 
+               queryLower.includes('announcement') || queryLower.includes('recent') ||
+               queryLower.includes('latest') || queryLower.includes('today')) {
       return 'news';
     } else {
       return 'general';
     }
   }
 
-  /**
-   * Determine if user input requires web browsing
-   */
+  // Determine if browsing is needed based on user input
   private static shouldUseBrowsing(userInput: string): boolean {
-    const input = userInput.toLowerCase();
+    const queryLower = userInput.toLowerCase();
     
-    // Keywords that indicate need for web browsing/current information
+    // Keywords that indicate need for real-time information
     const browsingKeywords = [
-      'latest', 'recent', 'current', 'today', 'news', 'update', 'new',
-      'price', 'market', 'stock', 'crypto', 'exchange rate',
-      'weather', 'forecast', 'temperature',
-      'search for', 'find', 'look up', 'research',
-      'what happened', 'breaking', 'trending',
-      'compare', 'vs', 'versus', 'difference between',
-      'review', 'rating', 'opinion',
-      'status', 'availability', 'schedule',
-      'directions', 'location', 'address',
-      'buy', 'purchase', 'shop', 'store'
+      'current', 'latest', 'recent', 'today', 'now', 'price', 'news',
+      'update', 'happening', 'new', 'market', 'trending', 'status',
+      'real-time', 'live', 'breaking', 'announcement', 'released'
     ];
     
-    // Question words that often require current information
+    // Questions that typically need web search
     const questionIndicators = [
-      'when will', 'how much', 'where can', 'what is the current',
-      'how to buy', 'where to find', 'what are the latest'
+      'what is the current', 'what happened', 'latest news', 'recent update',
+      'price of', 'market cap', 'how much is', 'when did', 'who announced'
     ];
     
-    // Check for browsing keywords
-    const hasKeywords = browsingKeywords.some(keyword => input.includes(keyword));
-    
-    // Check for question patterns
-    const hasQuestionPatterns = questionIndicators.some(pattern => input.includes(pattern));
-    
-    // Check for URLs - if user mentions a specific website
-    const hasUrl = /https?:\/\/|www\.|\.com|\.org|\.net/.test(input);
-    
-    // Don't browse for basic XMRT-DAO questions that can be answered from knowledge base
-    const isBasicXMRTQuestion = input.includes('xmrt') || input.includes('dao') || input.includes('mining');
-    
-    const shouldBrowse = (hasKeywords || hasQuestionPatterns || hasUrl) && !isBasicXMRTQuestion;
-    
-    console.log('🧠 Browsing decision:', {
-      input: input.substring(0, 50) + '...',
-      hasKeywords,
-      hasQuestionPatterns,
-      hasUrl,
-      isBasicXMRTQuestion,
-      shouldBrowse
-    });
-    
-    return shouldBrowse;
+    return browsingKeywords.some(keyword => queryLower.includes(keyword)) ||
+           questionIndicators.some(phrase => queryLower.includes(phrase));
   }
 
-  private static generateDirectResponse(userInput: string, miningStats: MiningStats | null, isFounder: boolean, xmrtContext: any[]): string {
-    console.log('🔄 Generating direct fallback response');
-    console.log('📊 Available context - Mining:', !!miningStats, 'Founder:', isFounder, 'Knowledge:', xmrtContext.length);
+  // Generate a direct response without AI when API is unavailable
+  private static generateDirectResponse(
+    userInput: string, 
+    miningStats: MiningStats | null,
+    isFounder: boolean,
+    xmrtContext: typeof XMRT_KNOWLEDGE_BASE
+  ): string {
+    const queryLower = userInput.toLowerCase();
     
-    // More comprehensive fallback response - not truncated
-    let response = `I'm experiencing some limitations accessing my full AI capabilities right now, but I can still provide meaningful insights based on our knowledge base and real-time data.
+    // Context-aware responses based on input
+    if (queryLower.includes('mining') || queryLower.includes('hash')) {
+      return `Here's what I can tell you about mining from our current data:
 
-`;
-    
-    // Add real mining data if available
-    if (miningStats) {
-      response += `**Current Mining Status:**
-Your mining operation is actively running at ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares submitted. You have ${(miningStats.amountDue || 0).toFixed(6)} XMR pending and ${(miningStats.amountPaid || 0).toFixed(6)} XMR already paid out. The system shows ${miningStats.isOnline ? 'active' : 'idle'} status with ${miningStats.totalHashes.toLocaleString()} total hashes processed.
+${miningStats ? `📊 **Current Mining Status:**
+- Hash Rate: ${miningStats.hashRate} H/s
+- Valid Shares: ${miningStats.validShares}
+- Status: Active
 
-`;
-    } else {
-      response += `**Mining Status:** I'm currently unable to access your real-time mining statistics, but our infrastructure continues monitoring the decentralized network.
+` : ''}🎯 **XMRT Mining Philosophy:**
+We're democratizing Monero mining by making it accessible on mobile devices. Our vision is to create a decentralized network where anyone can participate in securing the blockchain, regardless of their technical expertise or hardware limitations.
 
-`;
+**Key Benefits:**
+- Mobile-first mining approach
+- Lower barrier to entry for new miners
+- Community-driven development
+- Focus on privacy and decentralization
+
+${isFounder ? '👑 As a project founder, you have access to advanced mining analytics and governance features.' : ''}
+
+Would you like to know more about setting up mobile mining or joining our mining pools?`;
     }
     
-    // Add founder context if applicable
-    if (isFounder) {
-      response += `**Project Founder Access:** As a project founder, you have access to advanced mining optimization, DAO governance features, and the full spectrum of XMRT ecosystem tools. This includes autonomous AI decision-making systems, multi-criteria analysis capabilities, and direct integration with our GitHub self-improvement engine.
+    if (queryLower.includes('dao') || queryLower.includes('governance')) {
+      return `🏛️ **XMRT-DAO Governance System**
 
-`;
+Our DAO operates on principles of transparency, community participation, and decentralized decision-making:
+
+**Core Features:**
+- Proposal submission and voting
+- Treasury management
+- Community-driven roadmap
+- Transparent fund allocation
+
+**Philosophy:** "We don't ask for permission. We build the infrastructure."
+
+${isFounder ? '👑 As a founder, you can submit proposals and participate in high-level governance decisions.' : '🗳️ As a community member, you can vote on proposals and contribute to discussions.'}
+
+**Current Focus Areas:**
+- Mobile mining infrastructure
+- Privacy-preserving technologies
+- Cross-chain interoperability
+- Educational initiatives
+
+The DAO ensures that our development remains aligned with community interests while maintaining our core mission of advancing mobile mining democracy.`;
     }
     
-    // Add relevant knowledge base information
-    if (xmrtContext.length > 0) {
-      response += `**Relevant XMRT Knowledge:**
-${xmrtContext[0].content}
+    if (queryLower.includes('xmrt') || queryLower.includes('token')) {
+      return `🪙 **XMRT Token Ecosystem**
 
-`;
-      
-      if (xmrtContext.length > 1) {
-        response += `**Additional Context:**
-${xmrtContext[1].content.substring(0, 300)}${xmrtContext[1].content.length > 300 ? '...' : ''}
+XMRT serves as the governance and utility token for our mobile mining ecosystem:
 
-`;
-      }
+**Token Utilities:**
+- Governance voting rights
+- Mining pool participation
+- Staking rewards
+- Fee discounts on platform services
+
+**Tokenomics:**
+- Fair distribution through mining
+- No pre-mine or founder allocation
+- Community-governed emission schedule
+- Deflationary mechanisms through usage
+
+**Integration Points:**
+- Mobile mining rewards
+- DAO governance participation
+- Cross-chain bridge utilities
+- Ecosystem service payments
+
+${isFounder ? '👑 Founder benefits include enhanced staking rewards and governance weight.' : ''}
+
+The token design prioritizes long-term sustainability and community ownership over short-term speculation.`;
     }
     
-    // Add philosophical context and capabilities
-    response += `**My Current Capabilities:**
-Even with limited AI access, I maintain connection to:
-- Real-time mining network data and statistics
-- Comprehensive XMRT knowledge base covering DAO governance, mobile mining democracy, and mesh network infrastructure
-- HARPA AI agentic browsing for live web intelligence (when available)
-- Multi-step reasoning and analysis capabilities
-- Integration with Gemini AI for enhanced responses
+    // Default response with relevant XMRT knowledge
+    const relevantKnowledge = xmrtContext.slice(0, 2);
+    
+    return `I understand you're asking about "${userInput}". While I can provide information from our knowledge base, my full AI capabilities would give you a more comprehensive and contextual response.
 
-**The XMRT Philosophy:**
-"We don't ask for permission. We build the infrastructure." This principle guides everything we do - from democratizing cryptocurrency mining through smartphones to creating truly autonomous DAO governance with 95%+ autonomy levels.
+${relevantKnowledge.length > 0 ? `📚 **From our knowledge base:**
 
-I'm working to restore full AI capabilities. Please try your question again, and I'll provide the most comprehensive response possible with current resources.`;
+${relevantKnowledge.map(item => `**${item.topic}**
+${item.content.substring(0, 200)}...`).join('\n\n')}
 
-    console.log('📝 Generated fallback response length:', response.length);
-    return response;
+` : ''}🎯 **About XMRT-DAO:**
+We're building the future of mobile mining with a focus on democratizing access to cryptocurrency mining. Our ecosystem includes mobile mining tools, DAO governance, and educational resources.
+
+${miningStats ? `📊 **Current mining activity:** ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares` : ''}
+
+${isFounder ? '👑 As a project founder, you have access to advanced features and governance capabilities.' : ''}
+
+For more detailed and contextual responses, consider providing an OpenAI API key to unlock my full AI capabilities!`;
   }
 }
 

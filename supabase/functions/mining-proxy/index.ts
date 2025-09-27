@@ -42,13 +42,13 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Mining proxy error:', error);
     
     return new Response(
       JSON.stringify({ 
         error: 'Failed to fetch mining stats',
-        message: error.message 
+        message: error?.message || 'Unknown error occurred'
       }),
       { 
         status: 500,
