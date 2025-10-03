@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.render-api]
 verify_jwt = false
+
+[functions.python-executor]
+verify_jwt = false

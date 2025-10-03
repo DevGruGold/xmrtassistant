@@ -137,6 +137,14 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Deployment status', 'System version tracking', 'Service monitoring'],
     category: 'deployment',
     example_use: 'Track XMRT Ecosystem deployment versions and status'
+  },
+  {
+    name: 'python-executor',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-executor',
+    description: 'Execute Python code in a sandboxed environment',
+    capabilities: ['Python code execution', 'Data analysis', 'Script automation', 'Web scraping with libraries'],
+    category: 'ai',
+    example_use: 'Run Python scripts for data processing, analysis, automation, or testing code snippets'
   }
 ];
 
