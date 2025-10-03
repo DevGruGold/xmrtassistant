@@ -1,6 +1,7 @@
 import { XMRT_KNOWLEDGE_BASE } from '@/data/xmrtKnowledgeBase';
 import { unifiedDataService, type MiningStats, type UserContext } from './unifiedDataService';
 import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './harpaAIService';
+import { renderAPIService } from './renderAPIService';
 import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
 
@@ -73,6 +74,16 @@ I'll provide the best response I can with the available information below...
       // Get memory contexts based on session/IP for perfect recall
       const sessionKey = `ip-${userContext.ip}`;
       const memoryContexts = await memoryContextService.getRelevantContexts(sessionKey, 20);
+      
+      // Get system version info from Render deployment
+      let systemVersion = null;
+      if (userInput.toLowerCase().includes('version') || 
+          userInput.toLowerCase().includes('deployment') ||
+          userInput.toLowerCase().includes('system status')) {
+        console.log('🚀 Fetching XMRT system version from Render...');
+        systemVersion = await renderAPIService.getSystemVersion();
+        console.log('📦 System version:', systemVersion);
+      }
       
       console.log('📊 Context loaded - User:', userContext, 'Mining:', miningStats);
       console.log('🧠 Memory contexts retrieved:', memoryContexts.length, 'entries');
@@ -169,6 +180,7 @@ I'll provide the best response I can with the available information below...
           xmrtContext,
           webIntelligence,
           multiStepResults,
+          systemVersion,
           context,
           language
         });
@@ -227,6 +239,7 @@ I'll provide the best response I can with the available information below...
       xmrtContext,
       webIntelligence,
       multiStepResults,
+      systemVersion,
       context,
       language
     } = contextData;
@@ -284,7 +297,19 @@ I'll provide the best response I can with the available information below...
         miningStats: miningStats ? {
           hashRate: miningStats.hashRate,
           validShares: miningStats.validShares,
+          amountDue: miningStats.amountDue,
+          amountPaid: miningStats.amountPaid,
+          isOnline: miningStats.isOnline,
           totalHashes: miningStats.totalHashes
+        } : null,
+        systemVersion: systemVersion ? {
+          version: systemVersion.version,
+          deploymentId: systemVersion.deploymentId,
+          commitHash: systemVersion.commitHash,
+          commitMessage: systemVersion.commitMessage,
+          deployedAt: systemVersion.deployedAt,
+          status: systemVersion.status,
+          serviceUrl: systemVersion.serviceUrl
         } : null
       }
     });

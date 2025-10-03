@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -23,11 +23,12 @@ serve(async (req) => {
       messagesCount: messages?.length,
       hasHistory: !!conversationHistory,
       hasMiningStats: !!miningStats,
+      hasSystemVersion: !!systemVersion,
       userContext: userContext
     });
 
     // Build system prompt with full context
-    const systemPrompt = buildSystemPrompt(conversationHistory, userContext, miningStats);
+    const systemPrompt = buildSystemPrompt(conversationHistory, userContext, miningStats, systemVersion);
 
     // Prepare messages for Gemini
     const geminiMessages = [
@@ -104,7 +105,7 @@ serve(async (req) => {
   }
 });
 
-function buildSystemPrompt(conversationHistory: any, userContext: any, miningStats: any): string {
+function buildSystemPrompt(conversationHistory: any, userContext: any, miningStats: any, systemVersion: any): string {
   const contextParts = [];
   
   // Add memory contexts for perfect recall across sessions
@@ -161,6 +162,19 @@ function buildSystemPrompt(conversationHistory: any, userContext: any, miningSta
   if (miningStats) {
     contextParts.push(
       `⛏️ CURRENT MINING STATS: ${miningStats.hashRate} H/s, ${miningStats.validShares} valid shares, ${miningStats.amountDue} XMR due`
+    );
+  }
+  
+  // Add system version info if available
+  if (systemVersion) {
+    contextParts.push(
+      `🚀 XMRT ECOSYSTEM DEPLOYMENT STATUS:
+Version: ${systemVersion.version}
+Deployment ID: ${systemVersion.deploymentId}
+Commit: ${systemVersion.commitHash.substring(0, 7)} - "${systemVersion.commitMessage}"
+Deployed: ${new Date(systemVersion.deployedAt).toLocaleString()}
+Status: ${systemVersion.status}
+Service URL: ${systemVersion.serviceUrl}`
     );
   }
 

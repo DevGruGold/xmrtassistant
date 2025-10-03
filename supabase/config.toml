@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.conversation-access]
 verify_jwt = false
+
+[functions.render-api]
+verify_jwt = false
