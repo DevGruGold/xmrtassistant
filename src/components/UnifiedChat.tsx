@@ -18,6 +18,9 @@ import { unifiedFallbackService } from '@/services/unifiedFallbackService';
 import { conversationPersistence } from '@/services/conversationPersistenceService';
 import { quickGreetingService } from '@/services/quickGreetingService';
 import { apiKeyManager } from '@/services/apiKeyManager';
+import { memoryContextService } from '@/services/memoryContextService';
+import { learningPatternsService } from '@/services/learningPatternsService';
+import { knowledgeEntityService } from '@/services/knowledgeEntityService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -128,7 +131,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   }, [messages, isProcessing]);
 
-  // Initialize unified data service and conversation persistence
+  // Initialize unified data service and conversation persistence with full Supabase integration
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -155,7 +158,27 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             setHasMoreMessages(context.totalMessageCount > 0);
             setTotalMessageCount(context.totalMessageCount);
             
-            console.log(`Found ${context.summaries.length} summaries for ${context.totalMessageCount} total messages. Starting with summary-aware greeting.`);
+            console.log(`📚 Found ${context.summaries.length} summaries for ${context.totalMessageCount} total messages. Starting with summary-aware greeting.`);
+          }
+
+          // Load additional Supabase data for enhanced context
+          if (userCtx?.ip) {
+            // Load user preferences
+            const preferences = await conversationPersistence.getUserPreferences();
+            console.log('⚙️ User preferences loaded:', Object.keys(preferences).length, 'items');
+
+            // Load memory contexts for semantic understanding
+            const memoryContexts = await memoryContextService.getRelevantContexts(userCtx.ip, 5);
+            console.log('🧠 Memory contexts loaded:', memoryContexts.length, 'items');
+
+            // Load learning patterns for improved responses
+            const learningPatterns = await learningPatternsService.getHighConfidencePatterns(0.7);
+            console.log('📊 Learning patterns loaded:', learningPatterns.length, 'high-confidence patterns');
+
+            // Load knowledge entities for entity recognition
+            const miningEntities = await knowledgeEntityService.getEntitiesByType('mining_concept');
+            const daoEntities = await knowledgeEntityService.getEntitiesByType('dao_concept');
+            console.log('🏷️ Knowledge entities loaded:', miningEntities.length + daoEntities.length, 'entities');
           }
         } catch (error) {
           console.log('Conversation persistence temporarily disabled:', error);
@@ -386,13 +409,35 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
 
-    // Store user message
+    // Store user message with enhanced data capture
     try {
       await conversationPersistence.storeMessage(transcript, 'user', {
         emotion: currentEmotion,
         confidence: emotionConfidence,
         inputType: 'voice'
       });
+
+      // Extract and store knowledge entities from user input
+      await knowledgeEntityService.extractEntities(transcript);
+
+      // Record interaction pattern
+      await conversationPersistence.storeInteractionPattern(
+        'voice_input',
+        { transcript, emotion: currentEmotion },
+        emotionConfidence
+      );
+
+      // Store important context in memory
+      if (userContext?.ip) {
+        await memoryContextService.storeContext(
+          userContext.ip,
+          userContext.ip,
+          transcript,
+          'user_voice_input',
+          0.7,
+          { emotion: currentEmotion, confidence: emotionConfidence }
+        );
+      }
     } catch (error) {
       console.log('Conversation persistence error:', error);
     }
@@ -419,13 +464,35 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(response);
       
-      // Store Eliza's response
+      // Store Eliza's response with enhanced data
       try {
         await conversationPersistence.storeMessage(response, 'assistant', {
           confidence: 0.95,
-          method: 'Gemini AI',
+          method: 'OpenAI via Edge Function',
           inputType: 'voice'
         });
+
+        // Extract entities from response
+        await knowledgeEntityService.extractEntities(response);
+
+        // Record learning pattern for successful response
+        await learningPatternsService.recordPattern(
+          'voice_response_success',
+          { inputLength: transcript.length, responseLength: response.length },
+          0.9
+        );
+
+        // Store response context
+        if (userContext?.ip) {
+          await memoryContextService.storeContext(
+            userContext.ip,
+            userContext.ip,
+            response,
+            'assistant_voice_response',
+            0.8,
+            { method: 'OpenAI', confidence: 0.95 }
+          );
+        }
       } catch (error) {
         console.log('Conversation persistence error:', error);
       }
@@ -535,11 +602,32 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setTextInput('');
     setIsProcessing(true);
 
-    // Store user message
+    // Store user message with comprehensive data capture
     try {
       await conversationPersistence.storeMessage(userMessage.content, 'user', {
         inputType: 'text'
       });
+
+      // Extract and store knowledge entities
+      await knowledgeEntityService.extractEntities(userMessage.content);
+
+      // Record text interaction pattern
+      await conversationPersistence.storeInteractionPattern(
+        'text_input',
+        { message: userMessage.content, length: userMessage.content.length },
+        0.8
+      );
+
+      // Store in memory contexts
+      if (userContext?.ip) {
+        await memoryContextService.storeContext(
+          userContext.ip,
+          userContext.ip,
+          userMessage.content,
+          'user_text_input',
+          0.6
+        );
+      }
     } catch (error) {
       console.log('Conversation persistence error:', error);
     }
@@ -580,13 +668,39 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setMessages(prev => [...prev, elizaMessage]);
       setLastElizaMessage(response);
       
-      // Store Eliza's response
+      // Store Eliza's response with full data integration
       try {
         await conversationPersistence.storeMessage(response, 'assistant', {
           confidence: 0.95,
-          method: 'Gemini AI',
+          method: 'OpenAI via Edge Function',
           inputType: 'text'
         });
+
+        // Extract entities from response
+        await knowledgeEntityService.extractEntities(response);
+
+        // Record successful text response pattern
+        await learningPatternsService.recordPattern(
+          'text_response_success',
+          { 
+            inputLength: userMessage.content.length, 
+            responseLength: response.length,
+            method: 'OpenAI' 
+          },
+          0.85
+        );
+
+        // Store response in memory
+        if (userContext?.ip) {
+          await memoryContextService.storeContext(
+            userContext.ip,
+            userContext.ip,
+            response,
+            'assistant_text_response',
+            0.75,
+            { method: 'OpenAI', confidence: 0.95 }
+          );
+        }
       } catch (error) {
         console.log('Conversation persistence error:', error);
       }
