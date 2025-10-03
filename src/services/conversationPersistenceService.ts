@@ -53,49 +53,50 @@ export class ConversationPersistenceService {
     const sessionKey = `ip-${userIP}`;
 
     try {
-      // Look for existing active session
-      const { data: existingSessions, error: fetchError } = await supabase
-        .from('conversation_sessions')
-        .select('*')
-        .eq('session_key', sessionKey)
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1);
+      // Use secure edge function to get session
+      const { data, error } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'get_session',
+          sessionKey
+        }
+      });
 
-      if (fetchError) {
-        console.error('Error fetching session:', fetchError);
-        throw fetchError;
+      if (error) {
+        console.error('Error fetching session:', error);
+        throw error;
       }
 
-      if (existingSessions && existingSessions.length > 0) {
+      if (data.session) {
         // Resume existing session
-        this.currentSessionId = existingSessions[0].id;
+        this.currentSessionId = data.session.id;
         console.log(`Resumed session ${this.currentSessionId} for IP ${userIP}`);
         return this.currentSessionId;
       }
 
-      // Create new session
-      const { data: newSession, error: createError } = await supabase
-        .from('conversation_sessions')
-        .insert({
-          session_key: sessionKey,
-          title: `Conversation - ${new Date().toLocaleDateString()}`,
-          is_active: true,
-          metadata: { 
-            userIP,
-            startedAt: new Date().toISOString(),
-            platform: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'
+      // Create new session using service role via edge function
+      const { data: createData, error: createError } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'create_session',
+          sessionKey,
+          sessionData: {
+            session_key: sessionKey,
+            title: `Conversation - ${new Date().toLocaleDateString()}`,
+            is_active: true,
+            metadata: { 
+              userIP,
+              startedAt: new Date().toISOString(),
+              platform: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop'
+            }
           }
-        })
-        .select()
-        .single();
+        }
+      });
 
-      if (createError) {
+      if (createError || !createData.success) {
         console.error('Error creating session:', createError);
         throw createError;
       }
 
-      this.currentSessionId = newSession.id;
+      this.currentSessionId = createData.session.id;
       console.log(`Created new session ${this.currentSessionId} for IP ${userIP}`);
       return this.currentSessionId;
 
@@ -117,38 +118,50 @@ export class ConversationPersistenceService {
       await this.initializeSession();
     }
 
-    try {
-      const { error } = await supabase
-        .from('conversation_messages')
-        .insert({
-          session_id: this.currentSessionId,
-          content,
-          message_type: sender,
-          metadata: {
-            ...metadata,
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent
-          }
-        });
+    const userIP = await this.getUserIP();
+    const sessionKey = `ip-${userIP}`;
 
-      if (error) {
+    try {
+      // Use secure edge function to store message
+      const { data, error } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'add_message',
+          sessionKey,
+          sessionId: this.currentSessionId,
+          messageData: {
+            content,
+            message_type: sender,
+            metadata: {
+              ...metadata,
+              timestamp: new Date().toISOString(),
+              userAgent: navigator.userAgent
+            }
+          }
+        }
+      });
+
+      if (error || !data.success) {
         console.error('Error storing message:', error);
         return;
       }
 
       const currentMessageCount = await this.getMessageCount();
 
-      // Update session timestamp
-      await supabase
-        .from('conversation_sessions')
-        .update({ 
-          updated_at: new Date().toISOString(),
-          metadata: {
-            lastActivity: new Date().toISOString(),
-            messageCount: currentMessageCount
+      // Update session timestamp using secure edge function
+      await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'update_session',
+          sessionKey,
+          sessionId: this.currentSessionId,
+          messageData: {
+            updated_at: new Date().toISOString(),
+            metadata: {
+              lastActivity: new Date().toISOString(),
+              messageCount: currentMessageCount
+            }
           }
-        })
-        .eq('id', this.currentSessionId);
+        }
+      });
 
       // Check if summarization is needed (every 15 messages)
       if (currentMessageCount > 0 && currentMessageCount % 15 === 0) {
@@ -208,23 +221,32 @@ export class ConversationPersistenceService {
       return [];
     }
 
-    try {
-      const { data: messages, error } = await supabase
-        .from('conversation_messages')
-        .select('*')
-        .eq('session_id', this.currentSessionId)
-        .order('timestamp', { ascending: false })
-        .limit(limit);
+    const userIP = await this.getUserIP();
+    const sessionKey = `ip-${userIP}`;
 
-      if (error) {
+    try {
+      // Use secure edge function to get messages
+      const { data, error } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'get_messages',
+          sessionKey,
+          sessionId: this.currentSessionId,
+          limit,
+          offset: 0
+        }
+      });
+
+      if (error || !data.success) {
         console.error('Error fetching recent conversation history:', error);
         return [];
       }
 
+      const messages = data.messages;
+
       // Reverse to maintain chronological order (oldest first)
       const chronologicalMessages = messages?.reverse() || [];
 
-      return chronologicalMessages.map(msg => ({
+      return chronologicalMessages.map((msg: any) => ({
         id: msg.id,
         content: msg.content,
         sender: msg.message_type as 'user' | 'assistant',
@@ -244,23 +266,32 @@ export class ConversationPersistenceService {
       return [];
     }
 
-    try {
-      const { data: messages, error } = await supabase
-        .from('conversation_messages')
-        .select('*')
-        .eq('session_id', this.currentSessionId)
-        .order('timestamp', { ascending: false })
-        .range(offset, offset + limit - 1);
+    const userIP = await this.getUserIP();
+    const sessionKey = `ip-${userIP}`;
 
-      if (error) {
+    try {
+      // Use secure edge function
+      const { data, error } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'get_messages',
+          sessionKey,
+          sessionId: this.currentSessionId,
+          limit,
+          offset
+        }
+      });
+
+      if (error || !data.success) {
         console.error('Error fetching conversation history:', error);
         return [];
       }
 
+      const messages = data.messages;
+
       // Reverse to maintain chronological order (oldest first)
       const chronologicalMessages = messages?.reverse() || [];
 
-      return chronologicalMessages.map(msg => ({
+      return chronologicalMessages.map((msg: any) => ({
         id: msg.id,
         content: msg.content,
         sender: msg.message_type as 'user' | 'assistant',
@@ -295,17 +326,24 @@ export class ConversationPersistenceService {
       };
     }
 
-    try {
-      // Get conversation summaries
-      const { data: summaries, error: summariesError } = await supabase
-        .from('conversation_summaries')
-        .select('summary_text, message_count, created_at')
-        .eq('session_id', this.currentSessionId)
-        .order('created_at', { ascending: true });
+    const userIP = await this.getUserIP();
+    const sessionKey = `ip-${userIP}`;
 
-      if (summariesError) {
+    try {
+      // Get conversation summaries using secure edge function
+      const { data: summariesData, error: summariesError } = await supabase.functions.invoke('conversation-access', {
+        body: {
+          action: 'get_summaries',
+          sessionKey,
+          sessionId: this.currentSessionId
+        }
+      });
+
+      if (summariesError || !summariesData.success) {
         console.error('Error fetching summaries:', summariesError);
       }
+
+      const summaries = summariesData?.summaries || [];
 
       // Get recent messages
       const recentMessages = await this.getRecentConversationHistory(recentMessageLimit);

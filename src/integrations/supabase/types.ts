@@ -645,7 +645,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_session_ownership: {
+        Args: { request_metadata: Json; session_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

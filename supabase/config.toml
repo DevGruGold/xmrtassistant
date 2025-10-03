@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.gemini-chat]
 verify_jwt = false
+
+[functions.conversation-access]
+verify_jwt = false
