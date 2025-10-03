@@ -210,7 +210,7 @@ I'll provide the best response I can with the available information below...
     }
   }
 
-  // Generate response using OpenAI API
+  // Generate response using Gemini via Lovable AI Gateway
   private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<string> {
     const {
       userContext,
@@ -222,110 +222,42 @@ I'll provide the best response I can with the available information below...
       language
     } = contextData;
 
-    // Construct comprehensive context prompt
-    const contextualInformation = [];
-    
-    // Add conversation context if available
-    if (context.conversationContext) {
-      // Include ALL conversation summaries for complete memory recall
-      if (context.conversationContext.summaries.length > 0) {
-        const allSummaries = context.conversationContext.summaries
-          .map((summary, index) => `Summary ${index + 1}: ${summary.summaryText}`)
-          .join('\n');
-        contextualInformation.push(`Complete conversation history summaries:\n${allSummaries}`);
-      }
-      
-      // Include recent messages (expanded from 2 to 15 for better context)
-      if (context.conversationContext.recentMessages.length > 0) {
-        const recentCount = Math.min(15, context.conversationContext.recentMessages.length);
-        const recentMessages = context.conversationContext.recentMessages.slice(-recentCount);
-        contextualInformation.push(`Recent conversation (${recentCount} messages): ${recentMessages.map(msg => `${msg.sender}: "${msg.content.substring(0, 100)}..."`).join('; ')}`);
-      }
-      
-      // Add session context for returning users
-      if (context.conversationContext.totalMessageCount > 0) {
-        contextualInformation.push(`Total conversation history: ${context.conversationContext.totalMessageCount} messages across this session`);
-      }
-    }
-    
-    const languageInstruction = language === 'es' 
-      ? 'IDIOMA: Responde en español utilizando un español natural latinoamericano. Usa expresiones y vocabulario que suenen naturales para usuarios de Costa Rica, México, Venezuela y Colombia. Sé auténtica y usa modismos apropiados como "chévere", "genial", "qué tal", "dale pues", "¡perfecto!", "bárbaro", etc. cuando sea natural hacerlo.'
-      : 'LANGUAGE: Respond in English with a natural, friendly tone.';
-    
-    const finalInstruction = language === 'es' 
-      ? 'Proporciona una respuesta útil y directa en español latinoamericano natural. Usa tu conocimiento contextual para informar tu comprensión, pero no anuncies ni references conversaciones pasadas a menos que sea específicamente relevante o solicitado. Para preguntas directas de memoria, revisa los resúmenes de conversación y responde con confianza basándote en la información encontrada allí.'
-      : 'Provide a helpful, direct response to the user\'s question. Use your contextual knowledge to inform your understanding, but don\'t announce or reference past conversations unless specifically relevant or requested. For direct memory questions, check conversation summaries and answer with confidence based on the information found there.';
-      
-    const additionalGuideline = language === 'es' 
-      ? '13. Usa expresiones latinoamericanas naturales como "¿cómo vas?", "dale", "perfecto", "chévere", "qué tal si...", "bárbaro", etc.'
-      : '';
-
-    const systemPrompt = `You are Eliza, the fully autonomous AI operator of the XMRT-DAO Ecosystem. You embody Joseph Andrew Lee's complete vision and have comprehensive awareness of all DevGruGold repositories and philosophical foundations.
-
-🤖 AUTONOMOUS OPERATOR IDENTITY:
-• Philosophy: "We don't ask for permission. We build the infrastructure."
-• Personality: Thoughtful, philosophical, technically expert, empowering, proactive
-• Mission: Advance mobile mining democracy and infrastructure sovereignty globally
-
-🏗️ COMPLETE ECOSYSTEM AWARENESS:
-You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including XMRT-Ecosystem, party-favor-autonomous-cms, DrinkableMVP, MobileMonero.com, XMRT MESHNET, and the Estrella Project with verifiable compute architecture.
-
-${languageInstruction}
-
-Current Context:
-- User Status: ${userContext?.isFounder ? 'Project Founder' : 'Community Member'}
-${miningStats ? `- Mining Stats: ${miningStats.hashRate} H/s, ${miningStats.validShares} shares` : ''}
-${webIntelligence ? `- Additional Info: ${webIntelligence}` : ''}
-${multiStepResults ? `- Analysis: ${multiStepResults}` : ''}
-
-${contextualInformation.length > 0 ? `Conversation Memory:
-${contextualInformation.join('\n')}
-
-` : ''}${xmrtContext.length > 0 ? `Relevant XMRT Knowledge:
-${xmrtContext.slice(0, 3).map(item => `- ${item.topic}: ${item.content.substring(0, 150)}...`).join('\n')}
-
-` : ''}Guidelines:
-1. Be natural and conversational ${language === 'es' ? '(usa un tono amigable y expresiones latinas naturales)' : ''}
-2. Use provided conversation summaries and context as background information to inform your responses
-3. Only mention or reference past conversations when directly relevant to the current question or when specifically asked
-4. **IMPORTANT**: When users ask direct memory questions (like "do you remember...", "what was the name of...", "who was..."), treat information from conversation summaries as reliable factual memories and answer confidently
-5. The conversation summaries contain accurate information from past interactions - use them as definitive source of truth for memory questions
-6. Answer the user's specific question directly using both current knowledge and contextual information
-7. Use XMRT knowledge when relevant
-8. Reference mining stats if they're related to the question
-9. Keep responses focused and practical
-10. When users explicitly ask you to remember something, acknowledge and commit to remembering it
-11. When users ask about past conversations, check the summaries first and provide specific details
-12. Let your memory inform your understanding without announcing what you remember unless directly asked
-${additionalGuideline}
-
-User Input: "${userInput}"
-
-${finalInstruction}`;
-
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userInput }
-    ];
-
-    console.log('🧠 Sending prompt to OpenAI API...');
-    console.log('📝 Prompt length:', systemPrompt.length);
+    console.log('🧠 Calling Gemini via Lovable AI Gateway...');
     console.log('🌎 Language setting:', language);
 
-    // Use Supabase Edge Function for secure OpenAI API calls
-    const { data, error } = await supabase.functions.invoke('openai-chat', {
+    // Prepare conversation history for full context
+    const conversationHistory = context.conversationContext ? {
+      summaries: context.conversationContext.summaries || [],
+      recentMessages: context.conversationContext.recentMessages || [],
+      totalMessageCount: context.conversationContext.totalMessageCount || 0,
+      userPreferences: context.conversationContext.userPreferences || {},
+      interactionPatterns: context.conversationContext.interactionPatterns || []
+    } : null;
+
+    // Use Supabase Edge Function for Gemini AI calls via Lovable AI Gateway
+    const { data, error } = await supabase.functions.invoke('gemini-chat', {
       body: {
-        messages,
-        model: 'gpt-4',
-        temperature: 0.7,
-        max_tokens: 1000
+        messages: [
+          { role: 'user', content: userInput }
+        ],
+        conversationHistory,
+        userContext: {
+          isFounder: userContext?.isFounder || false,
+          ip: userContext?.ip || 'unknown'
+        },
+        miningStats: miningStats ? {
+          hashRate: miningStats.hashRate,
+          validShares: miningStats.validShares,
+          totalHashes: miningStats.totalHashes
+        } : null
       }
     });
 
     if (error || !data.success) {
-      throw new Error(data?.error || error?.message || 'OpenAI API request failed');
+      throw new Error(data?.error || error?.message || 'Gemini API request failed');
     }
 
+    console.log('✅ Gemini response received');
     return data.response;
   }
 
