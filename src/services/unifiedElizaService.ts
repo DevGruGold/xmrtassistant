@@ -61,12 +61,21 @@ I'll provide the best response I can with the available information below...
     try {
       console.log('🤖 Eliza: Processing user input:', userInput);
       
-      // Get user and mining context
+      // Get user context, mining stats, AND memory contexts from database
       const [userContext, miningStats] = await Promise.all([
         unifiedDataService.getUserContext(),
         unifiedDataService.getMiningStats()
       ]);
+      
+      // Import memory service dynamically to fetch stored contexts
+      const { memoryContextService } = await import('./memoryContextService');
+      
+      // Get memory contexts based on session/IP for perfect recall
+      const sessionKey = `ip-${userContext.ip}`;
+      const memoryContexts = await memoryContextService.getRelevantContexts(sessionKey, 20);
+      
       console.log('📊 Context loaded - User:', userContext, 'Mining:', miningStats);
+      console.log('🧠 Memory contexts retrieved:', memoryContexts.length, 'entries');
       
       // Search knowledge base for relevant information
       const xmrtContext = XMRT_KNOWLEDGE_BASE.filter(item => 
@@ -225,14 +234,40 @@ I'll provide the best response I can with the available information below...
     console.log('🧠 Calling Gemini via Lovable AI Gateway...');
     console.log('🌎 Language setting:', language);
 
-    // Prepare conversation history for full context
-    const conversationHistory = context.conversationContext ? {
-      summaries: context.conversationContext.summaries || [],
-      recentMessages: context.conversationContext.recentMessages || [],
-      totalMessageCount: context.conversationContext.totalMessageCount || 0,
-      userPreferences: context.conversationContext.userPreferences || {},
-      interactionPatterns: context.conversationContext.interactionPatterns || []
-    } : null;
+    // Get session key for database access
+    const sessionKey = `ip-${userContext?.ip || 'unknown'}`;
+    
+    // Import memory and conversation services
+    const { memoryContextService } = await import('./memoryContextService');
+    const { conversationPersistence } = await import('./conversationPersistenceService');
+    
+    // Fetch ALL memory data for perfect recall
+    const [memoryContexts, fullConversationContext] = await Promise.all([
+      memoryContextService.getRelevantContexts(sessionKey, 30),
+      conversationPersistence.getFullConversationContext()
+    ]);
+    
+    console.log('🧠 Retrieved memory contexts:', memoryContexts.length);
+    console.log('💬 Retrieved conversation context:', {
+      summaries: fullConversationContext.summaries?.length || 0,
+      messages: fullConversationContext.recentMessages?.length || 0,
+      patterns: fullConversationContext.interactionPatterns?.length || 0
+    });
+    
+    // Prepare comprehensive conversation history with ALL available context
+    const conversationHistory = {
+      summaries: fullConversationContext.summaries || [],
+      recentMessages: fullConversationContext.recentMessages || [],
+      totalMessageCount: fullConversationContext.totalMessageCount || 0,
+      userPreferences: fullConversationContext.userPreferences || {},
+      interactionPatterns: fullConversationContext.interactionPatterns || [],
+      memoryContexts: memoryContexts.map(m => ({
+        content: m.content,
+        contextType: m.contextType,
+        importanceScore: m.importanceScore,
+        timestamp: m.timestamp
+      }))
+    };
 
     // Use Supabase Edge Function for Gemini AI calls via Lovable AI Gateway
     const { data, error } = await supabase.functions.invoke('gemini-chat', {
@@ -243,7 +278,8 @@ I'll provide the best response I can with the available information below...
         conversationHistory,
         userContext: {
           isFounder: userContext?.isFounder || false,
-          ip: userContext?.ip || 'unknown'
+          ip: userContext?.ip || 'unknown',
+          sessionKey
         },
         miningStats: miningStats ? {
           hashRate: miningStats.hashRate,
