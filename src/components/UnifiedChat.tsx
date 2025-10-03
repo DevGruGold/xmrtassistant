@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
-import { GeminiTTSService } from '@/services/geminiTTSService';
+import { unifiedTTSService } from '@/services/unifiedTTSService';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -76,8 +76,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [geminiTTSService, setGeminiTTSService] = useState<GeminiTTSService | null>(null);
-  const [voiceEnabled, setVoiceEnabled] = useState(true); // Default to enabled
+  const [voiceEnabled, setVoiceEnabled] = useState(false); // Require user to enable
+  const [audioInitialized, setAudioInitialized] = useState(false);
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
@@ -97,21 +97,25 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize Gemini TTS service
+  // Enable audio after user interaction (required for mobile browsers)
+  const handleEnableAudio = async () => {
+    try {
+      await unifiedTTSService.initialize();
+      setAudioInitialized(true);
+      setVoiceEnabled(true);
+      localStorage.setItem('audioEnabled', 'true');
+      console.log('✅ Audio enabled by user');
+    } catch (error) {
+      console.error('Failed to enable audio:', error);
+    }
+  };
+
+  // Check if audio was previously enabled
   useEffect(() => {
-    const initTTS = async () => {
-      try {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
-        const service = new GeminiTTSService(apiKey);
-        setGeminiTTSService(service);
-        console.log('✅ Gemini TTS service initialized (using Web Speech API fallback)');
-      } catch (error) {
-        console.error('Failed to initialize Gemini TTS:', error);
-        // Even if Gemini fails, Web Speech API will work
-        setGeminiTTSService(new GeminiTTSService(""));
-      }
-    };
-    initTTS();
+    const wasEnabled = localStorage.getItem('audioEnabled') === 'true';
+    if (wasEnabled) {
+      handleEnableAudio();
+    }
   }, []);
 
   // Auto-scroll to bottom only when messages are actually added (within chat container only)
@@ -374,16 +378,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setMessages(prev => [...prev, elizaMessage]);
     setLastElizaMessage(responseText);
 
-    // Use TTS if requested and voice service is available
-    // Add a small delay in voice mode to reduce overlap with speech recognition
-    if (shouldSpeak && geminiTTSService && voiceEnabled) {
+    // Use TTS if requested and voice is enabled
+    if (shouldSpeak && voiceEnabled) {
       try {
         setIsSpeaking(true);
         
-        await geminiTTSService.speakText({ text: responseText });
+        const result = await unifiedTTSService.speakText(
+          { text: responseText },
+          () => setIsSpeaking(false)
+        );
+        
+        setCurrentTTSMethod(result.method);
+        console.log(`🎵 TTS Method: ${result.method}`);
       } catch (error) {
-        console.error('Gemini TTS error:', error);
-      } finally {
+        console.error('TTS error:', error);
         setIsSpeaking(false);
       }
     }
@@ -394,8 +402,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (!transcript?.trim() || isProcessing) return;
 
     // If Eliza is speaking, interrupt her
-    if (isSpeaking && geminiTTSService) {
-      geminiTTSService.stopSpeaking();
+    if (isSpeaking) {
+      unifiedTTSService.stopSpeaking();
       setIsSpeaking(false);
     }
 
@@ -499,22 +507,22 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response using Gemini TTS (with Web Speech API fallback)
-      if (voiceEnabled && geminiTTSService) {
+      // Speak response using Unified TTS
+      if (voiceEnabled) {
         try {
           setIsSpeaking(true);
           
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await geminiTTSService.speakText({ text: response }, () => {
-            setIsSpeaking(false);
-          });
-          setCurrentTTSMethod('Gemini TTS (Web Speech)');
+          const result = await unifiedTTSService.speakText(
+            { text: response },
+            () => setIsSpeaking(false)
+          );
+          setCurrentTTSMethod(result.method);
         } catch (error) {
-          console.error('Gemini TTS failed:', error);
+          console.error('TTS failed:', error);
           setCurrentTTSMethod('failed');
-        } finally {
           setIsSpeaking(false);
         }
       }
@@ -588,8 +596,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     // If Eliza is speaking, interrupt her when user sends a message
-    if (isSpeaking && geminiTTSService) {
-      geminiTTSService.stopSpeaking();
+    if (isSpeaking) {
+      unifiedTTSService.stopSpeaking();
       setIsSpeaking(false);
     }
 
@@ -707,16 +715,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response if voice is enabled using Gemini TTS
-      if (voiceEnabled && geminiTTSService) {
+      // Speak response if voice is enabled using Unified TTS
+      if (voiceEnabled) {
         try {
           setIsSpeaking(true);
-          await geminiTTSService.speakText({ text: response }, () => {
-            setIsSpeaking(false);
-          });
-          setCurrentTTSMethod('Gemini TTS (Web Speech)');
+          const result = await unifiedTTSService.speakText(
+            { text: response },
+            () => setIsSpeaking(false)
+          );
+          setCurrentTTSMethod(result.method);
         } catch (error) {
-          console.error('Gemini TTS failed:', error);
+          console.error('TTS failed:', error);
           setCurrentTTSMethod('failed');
           setIsSpeaking(false);
         }
@@ -745,15 +754,23 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   };
 
+
   // Toggle voice synthesis
-  const toggleVoiceSynthesis = () => {
-    const newVoiceState = !voiceEnabled;
-    setVoiceEnabled(newVoiceState);
-    
-    // If disabling voice (muting), stop any ongoing speech
-    if (!newVoiceState && geminiTTSService) {
-      geminiTTSService.stopSpeaking();
-      setIsSpeaking(false);
+  const toggleVoiceSynthesis = async () => {
+    if (!voiceEnabled && !audioInitialized) {
+      // First time enabling - need to initialize
+      await handleEnableAudio();
+    } else {
+      // Toggle on/off
+      const newState = !voiceEnabled;
+      setVoiceEnabled(newState);
+      localStorage.setItem('audioEnabled', newState.toString());
+      
+      // If disabling, stop any ongoing speech
+      if (!newState) {
+        unifiedTTSService.stopSpeaking();
+        setIsSpeaking(false);
+      }
     }
   };
 
@@ -926,8 +943,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onChange={(e) => {
                 setTextInput(e.target.value);
                 // If user starts typing while Eliza is speaking, interrupt her
-                if (isSpeaking && geminiTTSService && e.target.value.length > 0) {
-                  geminiTTSService.stopSpeaking();
+                if (isSpeaking && e.target.value.length > 0) {
+                  unifiedTTSService.stopSpeaking();
                   setIsSpeaking(false);
                 }
               }}
