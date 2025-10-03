@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      agents: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: string
+          skills: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name: string
+          role: string
+          skills?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string
+          skills?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          id: string
+          message_text: string
+          sender: string
+          session_id: string
+          timestamp: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          message_text: string
+          sender: string
+          session_id: string
+          timestamp?: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          message_text?: string
+          sender?: string
+          session_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_activity: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_activity?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_activity?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversation_messages: {
         Row: {
           content: string
@@ -117,6 +209,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      decisions: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          decision: string
+          id: string
+          rationale: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          decision: string
+          id: string
+          rationale: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          decision?: string
+          id?: string
+          rationale?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entity_relationships: {
         Row: {
@@ -292,6 +416,36 @@ export type Database = {
         }
         Relationships: []
       }
+      repos: {
+        Row: {
+          category: string
+          default_branch: string | null
+          is_fork: boolean | null
+          last_checked: string | null
+          name: string
+          repo_exists: boolean | null
+          url: string | null
+        }
+        Insert: {
+          category: string
+          default_branch?: string | null
+          is_fork?: boolean | null
+          last_checked?: string | null
+          name: string
+          repo_exists?: boolean | null
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          default_branch?: string | null
+          is_fork?: boolean | null
+          last_checked?: string | null
+          name?: string
+          repo_exists?: boolean | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       scheduled_actions: {
         Row: {
           action_data: Json
@@ -365,71 +519,57 @@ export type Database = {
           status?: string
           task_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "task_executions_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       tasks: {
         Row: {
-          completed_at: string | null
+          assignee_agent_id: string | null
+          blocking_reason: string | null
+          category: string
           created_at: string
-          description: string | null
-          execution_data: Json | null
+          description: string
           id: string
-          metadata: Json | null
-          parent_task_id: string | null
-          priority: number | null
-          scheduled_for: string | null
-          session_key: string
+          priority: number
+          repo: string
+          stage: string
           status: string
-          task_type: string
           title: string
           updated_at: string
         }
         Insert: {
-          completed_at?: string | null
+          assignee_agent_id?: string | null
+          blocking_reason?: string | null
+          category: string
           created_at?: string
-          description?: string | null
-          execution_data?: Json | null
-          id?: string
-          metadata?: Json | null
-          parent_task_id?: string | null
-          priority?: number | null
-          scheduled_for?: string | null
-          session_key: string
+          description: string
+          id: string
+          priority?: number
+          repo: string
+          stage: string
           status?: string
-          task_type: string
           title: string
           updated_at?: string
         }
         Update: {
-          completed_at?: string | null
+          assignee_agent_id?: string | null
+          blocking_reason?: string | null
+          category?: string
           created_at?: string
-          description?: string | null
-          execution_data?: Json | null
+          description?: string
           id?: string
-          metadata?: Json | null
-          parent_task_id?: string | null
-          priority?: number | null
-          scheduled_for?: string | null
-          session_key?: string
+          priority?: number
+          repo?: string
+          stage?: string
           status?: string
-          task_type?: string
           title?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "tasks_parent_task_id_fkey"
-            columns: ["parent_task_id"]
+            foreignKeyName: "tasks_assignee_agent_id_fkey"
+            columns: ["assignee_agent_id"]
             isOneToOne: false
-            referencedRelation: "tasks"
+            referencedRelation: "agents"
             referencedColumns: ["id"]
           },
         ]
@@ -458,6 +598,45 @@ export type Database = {
           preference_value?: Json
           session_key?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      worker_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: unknown
+          is_active: boolean
+          last_seen: string
+          metadata: Json | null
+          registration_date: string
+          session_key: string | null
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address: unknown
+          is_active?: boolean
+          last_seen?: string
+          metadata?: Json | null
+          registration_date?: string
+          session_key?: string | null
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean
+          last_seen?: string
+          metadata?: Json | null
+          registration_date?: string
+          session_key?: string | null
+          updated_at?: string
+          worker_id?: string
         }
         Relationships: []
       }
