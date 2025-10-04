@@ -4,6 +4,7 @@ import { harpaAIService, HarpaAIService, type HarpaBrowsingContext } from './har
 import { renderAPIService } from './renderAPIService';
 import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
+import { enhancedTTS } from './enhancedTTSService';
 
 export interface ElizaContext {
   miningStats?: MiningStats | null;

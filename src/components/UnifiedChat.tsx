@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
-import { unifiedTTSService } from '@/services/unifiedTTSService';
+import { enhancedTTS } from '@/services/enhancedTTSService';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -100,11 +100,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   // Enable audio after user interaction (required for mobile browsers)
   const handleEnableAudio = async () => {
     try {
-      await unifiedTTSService.initialize();
+      await enhancedTTS.initialize();
       setAudioInitialized(true);
       setVoiceEnabled(true);
       localStorage.setItem('audioEnabled', 'true');
-      console.log('✅ Audio enabled by user');
+      console.log('✅ Audio enabled by user with fallback TTS');
     } catch (error) {
       console.error('Failed to enable audio:', error);
     }
@@ -382,14 +382,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (shouldSpeak && voiceEnabled) {
       try {
         setIsSpeaking(true);
-        
-        const result = await unifiedTTSService.speakText(
-          { text: responseText },
-          () => setIsSpeaking(false)
-        );
-        
-        setCurrentTTSMethod(result.method);
-        console.log(`🎵 TTS Method: ${result.method}`);
+        await enhancedTTS.speak(responseText);
+        setCurrentTTSMethod(enhancedTTS.getLastMethod());
+        console.log(`🎵 TTS Method: ${enhancedTTS.getLastMethod()}`);
+        setIsSpeaking(false);
       } catch (error) {
         console.error('TTS error:', error);
         setIsSpeaking(false);
@@ -403,7 +399,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // If Eliza is speaking, interrupt her
     if (isSpeaking) {
-      unifiedTTSService.stopSpeaking();
+      enhancedTTS.stop();
       setIsSpeaking(false);
     }
 
@@ -507,7 +503,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response using Unified TTS
+      // Speak response using Enhanced TTS with fallbacks
       if (voiceEnabled) {
         try {
           setIsSpeaking(true);
@@ -515,11 +511,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const result = await unifiedTTSService.speakText(
-            { text: response },
-            () => setIsSpeaking(false)
-          );
-          setCurrentTTSMethod(result.method);
+          await enhancedTTS.speak(response);
+          setCurrentTTSMethod(enhancedTTS.getLastMethod());
+          setIsSpeaking(false);
         } catch (error) {
           console.error('TTS failed:', error);
           setCurrentTTSMethod('failed');
@@ -597,7 +591,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // If Eliza is speaking, interrupt her when user sends a message
     if (isSpeaking) {
-      unifiedTTSService.stopSpeaking();
+      enhancedTTS.stop();
       setIsSpeaking(false);
     }
 
@@ -715,15 +709,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response if voice is enabled using Unified TTS
+      // Speak response if voice is enabled using Enhanced TTS with fallbacks
       if (voiceEnabled) {
         try {
           setIsSpeaking(true);
-          const result = await unifiedTTSService.speakText(
-            { text: response },
-            () => setIsSpeaking(false)
-          );
-          setCurrentTTSMethod(result.method);
+          await enhancedTTS.speak(response);
+          setCurrentTTSMethod(enhancedTTS.getLastMethod());
+          setIsSpeaking(false);
         } catch (error) {
           console.error('TTS failed:', error);
           setCurrentTTSMethod('failed');
@@ -768,7 +760,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       // If disabling, stop any ongoing speech
       if (!newState) {
-        unifiedTTSService.stopSpeaking();
+        enhancedTTS.stop();
         setIsSpeaking(false);
       }
     }
@@ -944,7 +936,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 setTextInput(e.target.value);
                 // If user starts typing while Eliza is speaking, interrupt her
                 if (isSpeaking && e.target.value.length > 0) {
-                  unifiedTTSService.stopSpeaking();
+                  enhancedTTS.stop();
                   setIsSpeaking(false);
                 }
               }}

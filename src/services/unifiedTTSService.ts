@@ -69,21 +69,22 @@ export class UnifiedTTSService {
       console.log('✅ OpenAI TTS succeeded');
       return { success: true, method: 'OpenAI TTS' };
     } catch (error) {
-      console.warn('OpenAI TTS failed, trying Web Speech API:', error);
+      console.warn('⚠️ OpenAI TTS failed (likely quota exceeded), falling back to Web Speech API:', error);
     }
 
-    // Method 2: Fallback to Web Speech API
+    // Method 2: Fallback to Web Speech API (always works in browsers)
     try {
-      console.log('🎵 Trying Web Speech API...');
+      console.log('🎵 Using Web Speech API fallback...');
       await this.speakWithWebSpeech(options);
       console.log('✅ Web Speech API succeeded');
       return { success: true, method: 'Web Speech API' };
     } catch (error) {
-      console.error('Web Speech API failed:', error);
+      console.error('❌ Web Speech API failed:', error);
     }
 
-    // Method 3: Silent mode (last resort)
-    console.warn('⚠️ All TTS methods failed - running in silent mode');
+    // Method 3: Silent mode with notification (last resort)
+    console.warn('⚠️ All TTS methods failed - running in silent mode (text only)');
+    console.log('💡 TIP: Web Speech API should work in most browsers. Check browser permissions.');
     onSpeechEnd?.();
     return { success: false, method: 'Silent Mode' };
   }
