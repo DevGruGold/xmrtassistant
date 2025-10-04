@@ -145,6 +145,22 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Python code execution', 'Data analysis', 'Script automation', 'Web scraping with libraries'],
     category: 'ai',
     example_use: 'Run Python scripts for data processing, analysis, automation, or testing code snippets'
+  },
+  {
+    name: 'github-integration',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/github-integration',
+    description: 'Complete GitHub integration for issues, PRs, discussions, and code management',
+    capabilities: ['Create/manage issues', 'Create PRs', 'Manage discussions', 'Commit files', 'Search code', 'Monitor repos'],
+    category: 'ecosystem',
+    example_use: 'Monitor GitHub issues, create tasks from discussions, publish code changes, interact with the community'
+  },
+  {
+    name: 'agent-manager',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/agent-manager',
+    description: 'Spawn, manage, and delegate to AI agents in the ecosystem',
+    capabilities: ['Spawn new agents', 'Assign tasks', 'Monitor agent workload', 'Update agent status', 'Log decisions'],
+    category: 'ecosystem',
+    example_use: 'Create specialized agents for complex tasks, delegate work, coordinate multi-agent workflows'
   }
 ];
 

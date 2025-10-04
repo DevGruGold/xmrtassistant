@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.python-executor]
 verify_jwt = false
+
+[functions.github-integration]
+verify_jwt = false
+
+[functions.agent-manager]
+verify_jwt = false
