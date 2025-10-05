@@ -78,7 +78,7 @@ serve(async (req) => {
           error: fixError.message || 'Edge Function returned a non-2xx status code'
         });
       } else if (fixResult?.skipped) {
-        // DeepSeek API rate limit or quota issue - skip silently
+        // Lovable AI rate limit or quota issue - skip silently
         console.log(`⏸️ Skipped execution ${execution.id}: ${fixResult.reason}`);
         results.push({
           execution_id: execution.id,

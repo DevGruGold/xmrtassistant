@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -34,10 +35,10 @@ serve(async (req) => {
     console.log('📋 Original code:', execution.code);
     console.log('❌ Error:', execution.error);
 
-    // Use DeepSeek to analyze and fix the code
-    const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
-    if (!deepseekApiKey) {
-      throw new Error('DEEPSEEK_API_KEY not configured');
+    // Use Lovable AI Gateway (Gemini 2.5 Flash - free until Oct 6, 2025) to analyze and fix the code
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const fixPrompt = `You are a Python debugging expert. The following Python code failed with an error.
@@ -54,16 +55,18 @@ Purpose: ${execution.purpose || 'Unknown'}
 
 Please analyze the error and provide ONLY the fixed Python code. Do not include explanations, markdown code blocks, or any other text. Just return the corrected Python code that will execute successfully.`;
 
-    const deepseekResponse = await fetch(
-      'https://api.deepseek.com/v1/chat/completions',
+    console.log('🤖 Calling Lovable AI Gateway for code fix...');
+
+    const aiResponse = await fetch(
+      'https://ai.gateway.lovable.dev/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${deepseekApiKey}`,
+          'Authorization': `Bearer ${lovableApiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'google/gemini-2.5-flash', // Free until Oct 6, 2025
           messages: [
             {
               role: 'system',
@@ -74,33 +77,26 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
               content: fixPrompt
             }
           ],
-          temperature: 0.3,
-          max_tokens: 2048,
         })
       }
     );
 
-    if (!deepseekResponse.ok) {
-      const errorText = await deepseekResponse.text();
-      console.error('DeepSeek API error:', errorText);
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('Lovable AI Gateway error:', errorText);
       
-      // Check if it's a quota/rate limit/balance error
-      if (deepseekResponse.status === 429 || errorText.includes('Insufficient Balance')) {
-        const reason = errorText.includes('Insufficient Balance') ? 'insufficient_balance' : 'rate_limit_exceeded';
-        const title = reason === 'insufficient_balance' 
-          ? '💳 Python Fix Skipped - Insufficient Balance' 
-          : '⏸️ Python Fix Skipped - Rate Limited';
-        
-        console.log(`⏸️ DeepSeek API ${reason}, skipping fix attempt`);
+      // Check if it's a rate limit or payment error
+      if (aiResponse.status === 429) {
+        console.log('⏸️ Lovable AI rate limit exceeded, skipping fix attempt');
         
         await supabase.from('eliza_activity_log').insert({
           activity_type: 'python_fix',
-          title,
-          description: `DeepSeek API ${reason.replace('_', ' ')}. Code fix skipped.`,
+          title: '⏸️ Python Fix Skipped - Rate Limited',
+          description: 'Lovable AI rate limit exceeded. Code fix skipped.',
           status: 'pending',
           metadata: {
             execution_id,
-            reason,
+            reason: 'rate_limit_exceeded',
             error: execution.error?.substring(0, 100)
           }
         });
@@ -108,19 +104,47 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
         return new Response(JSON.stringify({
           success: false,
           skipped: true,
-          reason,
-          error: `DeepSeek API ${reason.replace('_', ' ')}`
+          reason: 'rate_limit_exceeded',
+          error: 'Lovable AI rate limit exceeded'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         });
       }
       
-      throw new Error(`DeepSeek API failed: ${errorText}`);
+      if (aiResponse.status === 402) {
+        console.log('⏸️ Lovable AI payment required, skipping fix attempt');
+        
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'python_fix',
+          title: '💳 Python Fix Skipped - Payment Required',
+          description: 'Lovable AI credits exhausted. Code fix skipped.',
+          status: 'pending',
+          metadata: {
+            execution_id,
+            reason: 'payment_required',
+            error: execution.error?.substring(0, 100)
+          }
+        });
+        
+        return new Response(JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: 'payment_required',
+          error: 'Lovable AI payment required'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        });
+      }
+      
+      throw new Error(`Lovable AI Gateway failed: ${errorText}`);
     }
 
-    const deepseekData = await deepseekResponse.json();
-    let fixedCode = deepseekData.choices?.[0]?.message?.content || '';
+    const aiData = await aiResponse.json();
+    let fixedCode = aiData.choices?.[0]?.message?.content || '';
+
+    console.log('✅ Received fix from Lovable AI Gateway');
 
     // Clean up the code (remove markdown if present)
     fixedCode = fixedCode.replace(/```python\n?/g, '').replace(/```\n?/g, '').trim();
