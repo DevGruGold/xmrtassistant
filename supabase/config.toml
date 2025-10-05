@@ -131,4 +131,7 @@ verify_jwt = false
 [functions.summarize-conversation]
 verify_jwt = false
 
+[functions.get-lovable-key]
+verify_jwt = false
+
 

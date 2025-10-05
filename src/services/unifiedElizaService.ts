@@ -321,7 +321,12 @@ export class UnifiedElizaService {
     // Tier 1: PRIMARY - Lovable AI Gateway with Gemini for guaranteed connectivity
     try {
       console.log('🎯 Tier 1 (PRIMARY): Using Lovable AI Gateway with Gemini...');
-      const LOVABLE_API_KEY = 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
+      
+      // Get Lovable API key from Supabase secret
+      const { data: lovableKeyData } = await supabase.functions.invoke('get-lovable-key', {});
+      const LOVABLE_API_KEY = lovableKeyData?.key || 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
+      
+      console.log('🔑 Lovable API Key status:', LOVABLE_API_KEY ? 'Available' : 'Missing');
       
       // Build comprehensive system prompt with all context
       let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have access to real-time mining data, conversation history, and system information.
