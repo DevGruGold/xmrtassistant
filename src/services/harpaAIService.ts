@@ -109,7 +109,7 @@ export class HarpaAIService {
       
       const results: HarpaBrowsingResult[] = [];
       
-      for (const url of context.urls.slice(0, 3)) { // Limit to 3 URLs
+      for (const url of context.urls.slice(0, 10)) { // Expanded URL browsing limit
         const payload = {
           action: 'scrape',
           url: url,

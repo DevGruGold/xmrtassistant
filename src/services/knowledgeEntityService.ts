@@ -74,7 +74,7 @@ export class KnowledgeEntityService {
         .select('*')
         .eq('entity_type', entityType)
         .order('confidence_score', { ascending: false })
-        .limit(20);
+        .limit(100);
 
       if (error) {
         console.error('Error fetching entities by type:', error);
@@ -105,7 +105,7 @@ export class KnowledgeEntityService {
         .select('*')
         .or(`entity_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
         .order('confidence_score', { ascending: false })
-        .limit(10);
+        .limit(50);
 
       if (error) {
         console.error('Error searching entities:', error);

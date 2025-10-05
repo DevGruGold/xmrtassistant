@@ -68,7 +68,7 @@ export class LearningPatternsService {
         .select('*')
         .eq('pattern_type', patternType)
         .order('confidence_score', { ascending: false })
-        .limit(10);
+        .limit(100);
 
       if (error) {
         console.error('Error fetching learning patterns:', error);
@@ -97,7 +97,7 @@ export class LearningPatternsService {
         .select('*')
         .gte('confidence_score', minConfidence)
         .order('confidence_score', { ascending: false })
-        .limit(20);
+        .limit(200);
 
       if (error) {
         console.error('Error fetching high-confidence patterns:', error);

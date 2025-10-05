@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = "gpt-4", temperature = 0.7, max_tokens = 1000 } = await req.json();
+    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000 } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');

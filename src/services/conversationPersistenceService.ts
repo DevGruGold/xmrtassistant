@@ -216,7 +216,7 @@ export class ConversationPersistenceService {
   }
 
   // Get recent conversation history (lazy loading - only recent messages)
-  public async getRecentConversationHistory(limit: number = 10): Promise<ConversationMessage[]> {
+  public async getRecentConversationHistory(limit: number = 100): Promise<ConversationMessage[]> {
     if (!this.currentSessionId) {
       return [];
     }
@@ -261,7 +261,7 @@ export class ConversationPersistenceService {
   }
 
   // Get conversation history with pagination support
-  public async getConversationHistory(limit: number = 50, offset: number = 0): Promise<ConversationMessage[]> {
+  public async getConversationHistory(limit: number = 500, offset: number = 0): Promise<ConversationMessage[]> {
     if (!this.currentSessionId) {
       return [];
     }
@@ -306,12 +306,12 @@ export class ConversationPersistenceService {
   }
 
   // Load more messages for pagination
-  public async loadMoreMessages(currentMessageCount: number, limit: number = 20): Promise<ConversationMessage[]> {
+  public async loadMoreMessages(currentMessageCount: number, limit: number = 200): Promise<ConversationMessage[]> {
     return this.getConversationHistory(limit, currentMessageCount);
   }
 
   // Get conversation context (summaries + recent messages) for optimized loading
-  public async getConversationContext(recentMessageLimit: number = 10): Promise<{
+  public async getConversationContext(recentMessageLimit: number = 100): Promise<{
     summaries: Array<{ summaryText: string; messageCount: number; createdAt: Date }>;
     recentMessages: ConversationMessage[];
     totalMessageCount: number;

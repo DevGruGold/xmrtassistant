@@ -122,8 +122,8 @@ CRITICAL INSTRUCTIONS:
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: deepseekMessages,
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.9,
+        max_tokens: 8000,
         stream: false
       }),
     });

@@ -41,9 +41,9 @@ export class UnifiedElizaService {
       // Import memory service dynamically to fetch stored contexts
       const { memoryContextService } = await import('./memoryContextService');
       
-      // Get memory contexts based on session/IP for perfect recall
+      // Get memory contexts based on session/IP for perfect recall - UNLIMITED
       const sessionKey = `ip-${userContext.ip}`;
-      const memoryContexts = await memoryContextService.getRelevantContexts(sessionKey, 20);
+      const memoryContexts = await memoryContextService.getRelevantContexts(sessionKey, 200);
       
       // Get system version info from Render deployment
       let systemVersion = null;
@@ -187,9 +187,9 @@ export class UnifiedElizaService {
     const { memoryContextService } = await import('./memoryContextService');
     const { conversationPersistence } = await import('./conversationPersistenceService');
     
-    // Fetch ALL memory data for perfect recall
+      // Fetch ALL memory data for perfect recall - UNLIMITED
     const [memoryContexts, fullConversationContext] = await Promise.all([
-      memoryContextService.getRelevantContexts(sessionKey, 30),
+      memoryContextService.getRelevantContexts(sessionKey, 100),
       conversationPersistence.getFullConversationContext()
     ]);
     

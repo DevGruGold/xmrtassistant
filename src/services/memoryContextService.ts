@@ -54,7 +54,7 @@ export class MemoryContextService {
   // Retrieve relevant contexts for current conversation
   public async getRelevantContexts(
     userId: string,
-    limit: number = 10
+    limit: number = 100
   ): Promise<MemoryContext[]> {
     try {
       const { data, error } = await supabase
@@ -91,7 +91,7 @@ export class MemoryContextService {
   public async getContextsByType(
     userId: string,
     contextType: string,
-    limit: number = 5
+    limit: number = 50
   ): Promise<MemoryContext[]> {
     try {
       const { data, error } = await supabase

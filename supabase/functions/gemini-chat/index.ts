@@ -53,8 +53,8 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: geminiMessages,
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.9,
+        max_tokens: 8000,
         tools: [
           {
             type: 'function',
@@ -389,7 +389,7 @@ serve(async (req) => {
       let currentMessages = [...geminiMessages];
       let workflowComplete = false;
       let workflowStep = 0;
-      const MAX_WORKFLOW_STEPS = 10; // Prevent infinite loops
+      const MAX_WORKFLOW_STEPS = 50; // Expanded for complex workflows
       
       while (!workflowComplete && workflowStep < MAX_WORKFLOW_STEPS) {
         workflowStep++;
