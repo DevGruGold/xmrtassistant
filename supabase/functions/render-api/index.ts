@@ -60,7 +60,13 @@ serve(async (req) => {
     const RENDER_API_KEY = Deno.env.get("RENDER_API_KEY");
     if (!RENDER_API_KEY) {
       console.error("RENDER_API_KEY is not configured");
-      throw new Error("Render API not configured");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Render API key not configured" 
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const RENDER_API_BASE = "https://api.render.com/v1";
@@ -70,183 +76,246 @@ serve(async (req) => {
 
     // Handle different actions
     if (action === "get_deployment_info") {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      // First try to get version from Flask service directly
       try {
-        const versionResponse = await fetch(`${FLASK_SERVICE_URL}/version`, {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        if (versionResponse.ok) {
-          const versionData = await versionResponse.json();
+        // Try Flask service first
+        try {
+          const versionResponse = await fetch(`${FLASK_SERVICE_URL}/version`, {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
           
+          if (versionResponse.ok) {
+            const versionData = await versionResponse.json();
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                systemVersion: {
+                  version: versionData.version || "unknown",
+                  deploymentId: versionData.deployment_id || "unknown",
+                  commitHash: versionData.commit_hash || "unknown",
+                  commitMessage: versionData.commit_message || "No commit message",
+                  deployedAt: versionData.deployed_at || new Date().toISOString(),
+                  status: "active",
+                  serviceUrl: FLASK_SERVICE_URL
+                }
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } catch (flaskError) {
+          clearTimeout(timeoutId);
+          console.log("Flask version endpoint unavailable, falling back to Render API");
+        }
+        
+        // Fallback to Render API with timeout
+        const renderController = new AbortController();
+        const renderTimeoutId = setTimeout(() => renderController.abort(), 10000);
+        
+        const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
+          headers: {
+            "Authorization": `Bearer ${RENDER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          signal: renderController.signal
+        });
+        
+        clearTimeout(renderTimeoutId);
+        
+        if (!servicesResponse.ok) {
+          throw new Error(`Render API error: ${servicesResponse.status}`);
+        }
+        
+        const services = await servicesResponse.json();
+        const xmrtService = services.find((s: any) => 
+          s.service?.name?.toLowerCase().includes('xmrt') ||
+          s.service?.repo?.includes('XMRT-Ecosystem')
+        );
+        
+        if (!xmrtService) {
           return new Response(
             JSON.stringify({
               success: true,
               systemVersion: {
-                version: versionData.version || "unknown",
-                deploymentId: versionData.deployment_id || "unknown",
-                commitHash: versionData.commit_hash || "unknown",
-                commitMessage: versionData.commit_message || "No commit message",
-                deployedAt: versionData.deployed_at || new Date().toISOString(),
-                status: "active",
+                version: "unknown",
+                deploymentId: "not-found",
+                commitHash: "unknown",
+                commitMessage: "Service not found in Render",
+                deployedAt: new Date().toISOString(),
+                status: "unknown",
                 serviceUrl: FLASK_SERVICE_URL
               }
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-      } catch (error) {
-        clearTimeout(timeoutId);
-        console.log("Flask version endpoint not available, using Render API:", error.message);
-      }
-      
-      // Fallback to Render API
-      const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
-        headers: {
-          "Authorization": `Bearer ${RENDER_API_KEY}`,
-          "Content-Type": "application/json"
+        
+        const serviceId = xmrtService.service.id;
+        
+        const deployController = new AbortController();
+        const deployTimeoutId = setTimeout(() => deployController.abort(), 10000);
+        
+        const deploysResponse = await fetch(`${RENDER_API_BASE}/services/${serviceId}/deploys?limit=1`, {
+          headers: {
+            "Authorization": `Bearer ${RENDER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          signal: deployController.signal
+        });
+        
+        clearTimeout(deployTimeoutId);
+        
+        if (!deploysResponse.ok) {
+          throw new Error(`Render API deploys error: ${deploysResponse.status}`);
         }
-      });
-      
-      if (!servicesResponse.ok) {
-        throw new Error(`Render API error: ${servicesResponse.status}`);
-      }
-      
-      const services = await servicesResponse.json();
-      const xmrtService = services.find((s: any) => 
-        s.service?.name?.toLowerCase().includes('xmrt') ||
-        s.service?.repo?.includes('XMRT-Ecosystem')
-      );
-      
-      if (!xmrtService) {
+        
+        const deploys = await deploysResponse.json();
+        const latestDeploy = deploys[0]?.deploy;
+        
         return new Response(
           JSON.stringify({
             success: true,
             systemVersion: {
-              version: "unknown",
-              deploymentId: "not-found",
-              commitHash: "unknown",
-              commitMessage: "Service not found in Render",
-              deployedAt: new Date().toISOString(),
-              status: "unknown",
+              version: latestDeploy?.commit?.id?.substring(0, 7) || "unknown",
+              deploymentId: latestDeploy?.id || "unknown",
+              commitHash: latestDeploy?.commit?.id || "unknown",
+              commitMessage: latestDeploy?.commit?.message || "No commit message",
+              deployedAt: latestDeploy?.finishedAt || latestDeploy?.createdAt || new Date().toISOString(),
+              status: latestDeploy?.status || "unknown",
               serviceUrl: FLASK_SERVICE_URL
             }
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      } catch (error) {
+        console.error('get_deployment_info error:', error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch deployment info'
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      
-      const serviceId = xmrtService.service.id;
-      
-      // Get latest deployment
-      const deploysResponse = await fetch(`${RENDER_API_BASE}/services/${serviceId}/deploys?limit=1`, {
-        headers: {
-          "Authorization": `Bearer ${RENDER_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      if (!deploysResponse.ok) {
-        throw new Error(`Render API deploys error: ${deploysResponse.status}`);
-      }
-      
-      const deploys = await deploysResponse.json();
-      const latestDeploy = deploys[0]?.deploy;
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          systemVersion: {
-            version: latestDeploy?.commit?.id?.substring(0, 7) || "unknown",
-            deploymentId: latestDeploy?.id || "unknown",
-            commitHash: latestDeploy?.commit?.id || "unknown",
-            commitMessage: latestDeploy?.commit?.message || "No commit message",
-            deployedAt: latestDeploy?.finishedAt || latestDeploy?.createdAt || new Date().toISOString(),
-            status: latestDeploy?.status || "unknown",
-            serviceUrl: FLASK_SERVICE_URL
-          }
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
     
     if (action === "get_service_status") {
-      const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
-        headers: {
-          "Authorization": `Bearer ${RENDER_API_KEY}`,
-          "Content-Type": "application/json"
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
+          headers: {
+            "Authorization": `Bearer ${RENDER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!servicesResponse.ok) {
+          throw new Error(`Render API error: ${servicesResponse.status}`);
         }
-      });
-      
-      if (!servicesResponse.ok) {
-        throw new Error(`Render API error: ${servicesResponse.status}`);
+        
+        const services = await servicesResponse.json();
+        const xmrtService = services.find((s: any) => 
+          s.service?.name?.toLowerCase().includes('xmrt') ||
+          s.service?.repo?.includes('XMRT-Ecosystem')
+        );
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            service: xmrtService?.service || null
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error('get_service_status error:', error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch service status'
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      
-      const services = await servicesResponse.json();
-      const xmrtService = services.find((s: any) => 
-        s.service?.name?.toLowerCase().includes('xmrt') ||
-        s.service?.repo?.includes('XMRT-Ecosystem')
-      );
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          service: xmrtService?.service || null
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
     
     if (action === "get_deployments") {
-      const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
-        headers: {
-          "Authorization": `Bearer ${RENDER_API_KEY}`,
-          "Content-Type": "application/json"
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
+          headers: {
+            "Authorization": `Bearer ${RENDER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!servicesResponse.ok) {
+          throw new Error(`Render API error: ${servicesResponse.status}`);
         }
-      });
-      
-      if (!servicesResponse.ok) {
-        throw new Error(`Render API error: ${servicesResponse.status}`);
-      }
-      
-      const services = await servicesResponse.json();
-      const xmrtService = services.find((s: any) => 
-        s.service?.name?.toLowerCase().includes('xmrt') ||
-        s.service?.repo?.includes('XMRT-Ecosystem')
-      );
-      
-      if (!xmrtService) {
+        
+        const services = await servicesResponse.json();
+        const xmrtService = services.find((s: any) => 
+          s.service?.name?.toLowerCase().includes('xmrt') ||
+          s.service?.repo?.includes('XMRT-Ecosystem')
+        );
+        
+        if (!xmrtService) {
+          return new Response(
+            JSON.stringify({ success: true, deployments: [] }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        const serviceId = xmrtService.service.id;
+        
+        const deployController = new AbortController();
+        const deployTimeoutId = setTimeout(() => deployController.abort(), 10000);
+        
+        const deploysResponse = await fetch(`${RENDER_API_BASE}/services/${serviceId}/deploys?limit=${limit || 5}`, {
+          headers: {
+            "Authorization": `Bearer ${RENDER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          signal: deployController.signal
+        });
+        
+        clearTimeout(deployTimeoutId);
+        
+        if (!deploysResponse.ok) {
+          throw new Error(`Render API deploys error: ${deploysResponse.status}`);
+        }
+        
+        const deploys = await deploysResponse.json();
+        
         return new Response(
-          JSON.stringify({ success: true, deployments: [] }),
+          JSON.stringify({
+            success: true,
+            deployments: deploys.map((d: any) => d.deploy)
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      } catch (error) {
+        console.error('get_deployments error:', error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch deployments'
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      
-      const serviceId = xmrtService.service.id;
-      const deploysResponse = await fetch(`${RENDER_API_BASE}/services/${serviceId}/deploys?limit=${limit || 5}`, {
-        headers: {
-          "Authorization": `Bearer ${RENDER_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      });
-      
-      if (!deploysResponse.ok) {
-        throw new Error(`Render API deploys error: ${deploysResponse.status}`);
-      }
-      
-      const deploys = await deploysResponse.json();
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          deployments: deploys.map((d: any) => d.deploy)
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
     
     // Handle getServiceStatus action (camelCase variant)
