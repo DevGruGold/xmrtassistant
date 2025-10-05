@@ -53,7 +53,29 @@ ${execution.error}
 
 Purpose: ${execution.purpose || 'Unknown'}
 
-Please analyze the error and provide ONLY the fixed Python code. Do not include explanations, markdown code blocks, or any other text. Just return the corrected Python code that will execute successfully.`;
+CRITICAL CONSTRAINTS:
+- The Python sandbox ONLY has the standard library available (no pip packages)
+- You CANNOT use: requests, numpy, pandas, or any external libraries
+- You MUST use only built-in Python modules like: urllib.request, urllib.parse, json, http.client, etc.
+- For HTTP requests, use urllib.request.urlopen() or http.client
+- For JSON parsing, use the json module
+
+Please analyze the error and provide ONLY the fixed Python code using standard library alternatives. Do not include explanations, markdown code blocks, or any other text. Just return the corrected Python code that will execute successfully in a standard library-only environment.
+
+Example of converting requests to urllib:
+\`\`\`python
+# BAD (uses requests):
+import requests
+response = requests.get('https://api.example.com')
+data = response.json()
+
+# GOOD (uses standard library):
+import urllib.request
+import json
+with urllib.request.urlopen('https://api.example.com') as response:
+    data = json.loads(response.read().decode())
+\`\`\`
+`;
 
     console.log('🤖 Calling Lovable AI Gateway for code fix...');
 
@@ -215,7 +237,7 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       }
     });
 
-    // Also create a conversation message for Eliza to process the fix
+    // Also create a human-readable conversation message for Eliza with the actual output
     const { data: sessions } = await supabase
       .from('conversation_sessions')
       .select('id')
@@ -224,20 +246,21 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       .limit(1);
 
     if (sessions && sessions.length > 0) {
+      // Create a system message with the actual output that Eliza was trying to get
+      const outputMessage = execResult.output 
+        ? `✅ Python execution succeeded. Output:\n${execResult.output}` 
+        : '✅ Python code executed successfully (no output)';
+      
       await supabase.from('conversation_messages').insert({
         session_id: sessions[0].id,
-        role: 'system',
-        content: JSON.stringify({
-          type: 'code_fix_learning',
-          original_error: execution.error,
-          original_code: execution.code,
-          fixed_code: fixedCode,
-          output: execResult.output,
-          purpose: execution.purpose
-        }),
+        message_type: 'system',
+        content: `AUTONOMOUS CODE FIX COMPLETE\n\nOriginal Purpose: ${execution.purpose || 'Unknown'}\n\n${outputMessage}\n\n🔧 The code was automatically fixed and executed. Original error was: ${execution.error?.split('\n')[0]}`,
         metadata: {
           source: 'python-fixer-agent',
-          fix_execution_id: successExec?.id
+          fix_execution_id: successExec?.id,
+          original_execution_id: execution_id,
+          output: execResult.output,
+          fixed_code: fixedCode.substring(0, 500) // First 500 chars for reference
         }
       });
     }
