@@ -60,14 +60,30 @@ serve(async (req) => {
             type: 'function',
             function: {
               name: 'execute_python',
-              description: 'Execute Python code for data analysis, calculations, or processing. User will see execution in PythonShell.',
+              description: 'Execute Python code for data analysis, calculations, or processing. User will see execution in PythonShell. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
               parameters: {
                 type: 'object',
                 properties: {
-                  code: { type: 'string', description: 'The Python code to execute' },
+                  code: { type: 'string', description: 'The Python code to execute. DO NOT import requests - use urllib.request instead or use call_edge_function tool' },
                   purpose: { type: 'string', description: 'Brief description of what this code does' }
                 },
                 required: ['code', 'purpose']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'call_edge_function',
+              description: 'Call a Supabase edge function directly. Use this for API calls instead of Python requests. Returns the function response.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  function_name: { type: 'string', description: 'Edge function name (e.g., github-integration, mining-proxy)' },
+                  body: { type: 'object', description: 'Request body to send to the function' },
+                  purpose: { type: 'string', description: 'What this call is for' }
+                },
+                required: ['function_name', 'body']
               }
             }
           },
@@ -435,10 +451,12 @@ Original code:
 ${args.code}
 \`\`\`
 
-Please analyze the error, fix the code, and provide the corrected version. Remember:
-- Use requests.post() with full URL for edge functions
-- Include proper headers with Authorization token
-- Handle the response correctly
+Please analyze the error and fix the code. CRITICAL RULES:
+- The "requests" module is NOT available in this environment
+- Use urllib.request from Python's standard library for HTTP calls instead
+- Example: import urllib.request; import json; urllib.request.urlopen(urllib.request.Request(url, data=json.dumps(body).encode(), headers={'Content-Type': 'application/json'}))
+- OR better yet, avoid Python for API calls and suggest using the call_edge_function tool instead
+- Include proper error handling
 `;
 
             const fixResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -581,6 +599,22 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       result = { success: false, error: 'Python execution failed', data };
     } else {
       console.log('✅ Python executed successfully');
+      result = { success: true, data };
+    }
+  } else if (functionName === 'call_edge_function') {
+    activityType = 'edge_function_call';
+    activityTitle = args.purpose || `Calling ${args.function_name}`;
+    activityDescription = `Calling edge function: ${args.function_name}`;
+    
+    const { data, error } = await supabase.functions.invoke(args.function_name, {
+      body: args.body
+    });
+    
+    if (error) {
+      console.error(`❌ Edge function ${args.function_name} failed:`, error);
+      result = { success: false, error: error.message, data };
+    } else {
+      console.log(`✅ Edge function ${args.function_name} succeeded`);
       result = { success: true, data };
     }
   } else if (functionName === 'list_agents') {
