@@ -113,3 +113,6 @@ verify_jwt = false
 [functions.cleanup-duplicate-tasks]
 verify_jwt = false
 
+[functions.system-diagnostics]
+verify_jwt = false
+
