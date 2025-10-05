@@ -165,6 +165,31 @@ serve(async (req) => {
               }
             }
           },
+          {
+            type: 'function',
+            function: {
+              name: 'list_tasks',
+              description: 'Get all tasks and their status/assignments to see what agents are working on.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'get_agent_workload',
+              description: 'Get current workload and active tasks for a specific agent.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  agent_id: { type: 'string', description: 'Agent ID to check workload for' }
+                },
+                required: ['agent_id']
+              }
+            }
+          },
         ],
         tool_choice: 'auto'
       }),
@@ -692,8 +717,23 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       console.error('❌ List agents failed:', error);
       result = { success: false, error: error.message };
     } else {
-      console.log('📋 Agents listed:', data);
-      result = { success: true, data };
+      const agents = data?.data || [];
+      console.log('📋 Agents listed:', agents);
+      
+      // Format agent data for better readability
+      const formattedAgents = agents.map((agent: any) => ({
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        status: agent.status,
+        skills: agent.skills
+      }));
+      
+      result = { 
+        success: true, 
+        agents: formattedAgents,
+        summary: `Found ${agents.length} agents. ${agents.filter((a: any) => a.status === 'IDLE').length} idle, ${agents.filter((a: any) => a.status === 'BUSY').length} busy, ${agents.filter((a: any) => a.status === 'WORKING').length} working.`
+      };
     }
   } else if (functionName === 'list_issues') {
     activityType = 'github_integration';
@@ -808,6 +848,79 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     } else {
       console.log('✅ Task status updated:', data);
       result = { success: true, data };
+    }
+  } else if (functionName === 'list_tasks') {
+    activityType = 'task_assignment';
+    activityTitle = 'List All Tasks';
+    activityDescription = 'Retrieving all task statuses and assignments';
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'list_tasks',
+        data: {}
+      }
+    });
+    
+    if (error) {
+      console.error('❌ List tasks failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      const tasks = data?.data || [];
+      console.log('📋 Tasks listed:', tasks.length);
+      
+      // Format task data for better readability
+      const formattedTasks = tasks.map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        stage: task.stage,
+        assignee: task.assignee_agent_id,
+        priority: task.priority,
+        category: task.category
+      }));
+      
+      const statusCounts = {
+        PENDING: tasks.filter((t: any) => t.status === 'PENDING').length,
+        IN_PROGRESS: tasks.filter((t: any) => t.status === 'IN_PROGRESS').length,
+        BLOCKED: tasks.filter((t: any) => t.status === 'BLOCKED').length,
+        COMPLETED: tasks.filter((t: any) => t.status === 'COMPLETED').length,
+        FAILED: tasks.filter((t: any) => t.status === 'FAILED').length
+      };
+      
+      result = { 
+        success: true, 
+        tasks: formattedTasks,
+        summary: `Total: ${tasks.length} tasks. Pending: ${statusCounts.PENDING}, In Progress: ${statusCounts.IN_PROGRESS}, Blocked: ${statusCounts.BLOCKED}, Completed: ${statusCounts.COMPLETED}, Failed: ${statusCounts.FAILED}`
+      };
+    }
+  } else if (functionName === 'get_agent_workload') {
+    activityType = 'agent_management';
+    activityTitle = `Get Workload: ${args.agent_id}`;
+    activityDescription = 'Checking agent workload and active tasks';
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'get_agent_workload',
+        data: {
+          agent_id: args.agent_id
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Get agent workload failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      const workload = data?.data || {};
+      console.log('📊 Agent workload:', workload);
+      
+      result = { 
+        success: true, 
+        agent_id: workload.agent_id,
+        active_tasks: workload.active_tasks,
+        tasks: workload.tasks,
+        summary: `Agent ${workload.agent_id} has ${workload.active_tasks} active task(s)`
+      };
     }
   } else {
     result = { success: false, error: `Unknown function: ${functionName}` };
