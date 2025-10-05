@@ -74,6 +74,35 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
     if (!geminiResponse.ok) {
       const errorText = await geminiResponse.text();
       console.error('Gemini API error:', errorText);
+      
+      // Check if it's a quota error
+      if (geminiResponse.status === 429) {
+        console.log('⏸️ Gemini API quota exceeded, skipping fix attempt');
+        
+        // Log this as a skipped attempt, not a failure
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'python_fix',
+          title: '⏸️ Python Fix Skipped',
+          description: 'Gemini API quota exceeded. Will retry later.',
+          status: 'pending',
+          metadata: {
+            execution_id,
+            reason: 'quota_exceeded',
+            error: execution.error?.substring(0, 100)
+          }
+        });
+        
+        return new Response(JSON.stringify({
+          success: false,
+          skipped: true,
+          reason: 'quota_exceeded',
+          error: 'Gemini API quota exceeded, will retry later'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        });
+      }
+      
       throw new Error(`Gemini API failed: ${errorText}`);
     }
 
