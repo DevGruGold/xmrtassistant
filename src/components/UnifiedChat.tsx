@@ -449,14 +449,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
-      
       const response = await UnifiedElizaService.generateResponse(transcript, {
         miningStats,
         userContext,
         inputMode: 'voice',
         shouldSpeak: true,
         enableBrowsing: true,
-        conversationContext: await conversationPersistence.getFullConversationContext()  // Enhanced context for voice too
+        conversationContext: await conversationPersistence.getFullConversationContext()
       });
 
       const elizaMessage: UnifiedMessage = {
@@ -645,7 +644,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
-      // Process response (non-blocking - user can keep typing)
+      // Process response using Lovable AI Gateway
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
@@ -654,11 +653,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         enableBrowsing: true,
         conversationContext: fullContext
       }, language);
-      
-      // Check if response indicates API key is needed
-      if (response.includes('🔑 **To restore full AI capabilities:**')) {
-        setNeedsAPIKey(true);
-      }
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 

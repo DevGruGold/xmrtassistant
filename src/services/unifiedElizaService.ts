@@ -25,37 +25,6 @@ export interface ElizaContext {
 
 // Unified Eliza response service that both text and voice modes can use
 export class UnifiedElizaService {
-  private static hasUserApiKey = false;
-  
-  // Check if user has provided their own OpenAI API key
-  private static checkUserApiKey(): boolean {
-    this.hasUserApiKey = openAIApiKeyManager.hasUserApiKey();
-    return this.hasUserApiKey;
-  }
-
-  // Get API key input requirement message
-  private static getAPIKeyRequiredMessage(): string {
-    const keyStatus = openAIApiKeyManager.getKeyStatus();
-    
-    return `I'm currently unable to access my full AI capabilities due to API limitations. However, I can still provide valuable information from our knowledge base and real-time mining data.
-
-🔑 **To restore full AI capabilities:**
-You can provide your own OpenAI API key to continue enjoying intelligent conversations, memory recall, and web browsing features.
-
-**What you'll get back:**
-• Advanced reasoning and contextual understanding with GPT-4
-• Complete conversation memory and recall
-• Live web browsing and research capabilities  
-• Personalized responses based on your history
-• High-quality text-to-speech with OpenAI's voice models
-
-**Current API Status:** ${keyStatus.keyType === 'user' ? 'Using your API key' : keyStatus.keyType === 'env' ? 'Using server key' : 'No valid key available'}
-${keyStatus.errorMessage ? `**Error:** ${keyStatus.errorMessage}` : ''}
-
-I'll provide the best response I can with the available information below...
-
-`;
-  }
 
   public static async generateResponse(userInput: string, context: ElizaContext = {}, language: string = 'en'): Promise<string> {
     console.log('🤖 Eliza: Starting response generation for:', userInput);
@@ -164,75 +133,34 @@ I'll provide the best response I can with the available information below...
         }
       }
       
-      // Try to generate response with OpenAI
-      console.log('🔧 Preparing OpenAI request...');
+      // Generate response using Lovable AI Gateway
+      console.log('🔧 Calling Lovable AI Gateway with Gemini...');
       
-      // Check if we have user API key first
-      const hasUserKey = this.checkUserApiKey();
+      const result = await this.generateOpenAIResponse(userInput, {
+        userContext,
+        miningStats,
+        xmrtContext,
+        webIntelligence,
+        multiStepResults,
+        systemVersion,
+        context,
+        language
+      });
       
-      if (!hasUserKey) {
-        console.log('⚠️ No user API key available, will use server-side OpenAI');
-      }
+      console.log('✅ Eliza: Generated AI response');
+      console.log('📏 Response length:', result.response.length);
+      console.log('🔍 Response preview:', result.response.substring(0, 200) + '...');
+      console.log('🔧 Has tool calls:', result.hasToolCalls);
       
-      try {
-        const result = await this.generateOpenAIResponse(userInput, {
-          userContext,
-          miningStats,
-          xmrtContext,
-          webIntelligence,
-          multiStepResults,
-          systemVersion,
-          context,
-          language
-        });
-        
-        console.log('✅ Eliza: Generated OpenAI response');
-        console.log('📏 Response length:', result.response.length);
-        console.log('🔍 Response preview:', result.response.substring(0, 200) + '...');
-        console.log('🔧 Has tool calls:', result.hasToolCalls);
-        
-        // Store the hasToolCalls flag for the frontend to use
-        (window as any).__lastElizaHasToolCalls = result.hasToolCalls;
-        
-        return result.response;
-        
-      } catch (error: any) {
-        console.error('❌ OpenAI API call failed:', error);
-        
-        // Enhanced error handling with API key guidance
-        if (error.message?.includes('quota') || error.message?.includes('limit') || error.message?.includes('insufficient')) {
-          console.log('🔄 Quota exceeded - suggesting user API key');
-          const baseResponse = this.generateDirectResponse(
-            userInput, 
-            miningStats,
-            userContext?.isFounder || false,
-            xmrtContext
-          );
-          return this.getAPIKeyRequiredMessage() + baseResponse;
-        } else {
-          console.log('🔄 Using standard fallback response due to API failure');
-          return this.generateDirectResponse(
-            userInput, 
-            miningStats,
-            userContext?.isFounder || false,
-            xmrtContext
-          );
-        }
-      }
+      // Store the hasToolCalls flag for the frontend to use
+      (window as any).__lastElizaHasToolCalls = result.hasToolCalls;
+      
+      return result.response;
       
     } catch (error) {
-      console.error('❌ Eliza: Error generating response:', error);
-      console.log('🔄 Using fallback response due to general error');
-      
-      // Enhanced fallback response with no mock data
-      return this.generateDirectResponse(
-        userInput, 
-        await unifiedDataService.getMiningStats(),
-        (await unifiedDataService.getUserContext())?.isFounder || false,
-        XMRT_KNOWLEDGE_BASE.filter(item => 
-          userInput.toLowerCase().includes(item.category.toLowerCase())
-        ).slice(0, 2)
-      );
+      console.error('❌ Eliza: Critical error generating response:', error);
+      // Re-throw error to be handled by caller - no silent fallbacks
+      throw new Error(`Failed to generate AI response: ${error.message}`);
     }
   }
 
