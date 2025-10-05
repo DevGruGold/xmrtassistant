@@ -389,7 +389,9 @@ serve(async (req) => {
       let currentMessages = [...geminiMessages];
       let workflowComplete = false;
       let workflowStep = 0;
-      const MAX_WORKFLOW_STEPS = 50; // Expanded for complex workflows
+      const MAX_WORKFLOW_STEPS = 50;
+      let consecutiveDuplicates = 0; // Track consecutive duplicate attempts
+      const MAX_CONSECUTIVE_DUPLICATES = 3; // Break after 3 duplicate attempts
       
       while (!workflowComplete && workflowStep < MAX_WORKFLOW_STEPS) {
         workflowStep++;
@@ -404,75 +406,52 @@ serve(async (req) => {
         
         console.log(`🔧 Executing ${currentToolCalls.length} tool(s) in this step`);
         
-        // Execute tools with retry logic
-        const toolResults = await executeToolCallsWithRetry(currentToolCalls, supabase, LOVABLE_API_KEY, currentMessages);
+        // Execute the tools
+        const toolResults = await executeToolCalls(
+          currentToolCalls,
+          supabase,
+          executedToolSignatures,
+          conversationHistory
+        );
         
-        // Check if any tools failed and should use fallback
-        const failedToolsNeedingFallback = toolResults.filter((r: any) => r.shouldUseFallback);
-        
-        if (failedToolsNeedingFallback.length > 0) {
-          console.log(`⚠️ ${failedToolsNeedingFallback.length} tool(s) failed - using AI fallback`);
+        // Check if all tools were duplicates (circuit breaker)
+        const allDuplicates = toolResults.every(r => r.note?.includes("cached result"));
+        if (allDuplicates) {
+          consecutiveDuplicates++;
+          console.warn(`⚠️ All tools were duplicates (${consecutiveDuplicates}/${MAX_CONSECUTIVE_DUPLICATES})`);
           
-          // Use Gemini's own intelligence to answer instead of calling failed tools
-          const fallbackPrompt = failedToolsNeedingFallback
-            .map((r: any) => `Tool failed: ${r.error}. ${r.fallbackQuery || 'Please answer using your own knowledge.'}`)
-            .join('\n');
-          
-          const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                ...geminiMessages,
-                { 
-                  role: "system", 
-                  content: `The edge functions are currently unavailable. Use your own knowledge and reasoning to answer the user's question. ${fallbackPrompt}` 
-                }
-              ],
-              temperature: 0.7,
-              max_tokens: 1500,
-            }),
-          });
-          
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            const fallbackMessage = fallbackData.choices?.[0]?.message?.content;
-            
-            console.log("📤 Sending fallback AI response:", fallbackMessage?.substring(0, 100));
-            
-            return new Response(
-              JSON.stringify({ 
-                success: true, 
-                response: fallbackMessage || "I apologize, but I'm having trouble accessing that information right now.",
-                usedFallback: true
-              }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+          if (consecutiveDuplicates >= MAX_CONSECUTIVE_DUPLICATES) {
+            console.error("🛑 Circuit breaker: Too many consecutive duplicate calls - forcing completion");
+            currentMessages.push({
+              role: "assistant",
+              content: "I've gathered all the necessary information. Let me provide you with a summary based on the data I've collected."
+            });
+            workflowComplete = true;
+            break;
           }
+        } else {
+          consecutiveDuplicates = 0; // Reset counter on successful execution
         }
         
-        // Add assistant message with tool calls and tool results to conversation
-        const toolResultsForGemini = currentToolCalls.map((call: any, index: number) => ({
-          role: "function",
-          name: call.function.name,
-          content: JSON.stringify(toolResults[index])
+        // Format tool results for Gemini
+        const toolResponseMessages = currentToolCalls.map((toolCall: any, idx: number) => ({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(toolResults[idx])
         }));
         
+        // Add tool calls and responses to message history
         currentMessages.push({
           role: "assistant",
           content: message.content || "",
           tool_calls: currentToolCalls
         });
-        currentMessages.push(...toolResultsForGemini);
+        currentMessages.push(...toolResponseMessages);
         
         console.log("📤 Sending tool results back to Gemini for analysis and next steps...");
         
-        // Ask Gemini to analyze results and decide next steps
-        const nextResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        // Send updated messages back to Gemini
+        const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -481,19 +460,19 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash",
             messages: currentMessages,
-            temperature: 0.7,
-            max_tokens: 1500,
+            temperature: 0.9,
+            max_tokens: 8000,
             tools: [
               {
                 type: 'function',
                 function: {
                   name: 'execute_python',
-                  description: 'Execute real Python code',
+                  description: 'Execute Python code for data analysis, calculations, or processing. User will see execution in PythonShell. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
                   parameters: {
                     type: 'object',
                     properties: {
-                      code: { type: 'string' },
-                      purpose: { type: 'string' }
+                      code: { type: 'string', description: 'The Python code to execute. DO NOT import requests - use urllib.request instead or use call_edge_function tool' },
+                      purpose: { type: 'string', description: 'Brief description of what this code does' }
                     },
                     required: ['code', 'purpose']
                   }
@@ -502,24 +481,47 @@ serve(async (req) => {
               {
                 type: 'function',
                 function: {
-                  name: 'list_agents',
-                  description: 'Get all existing agents',
-                  parameters: { type: 'object', properties: {} }
+                  name: 'call_edge_function',
+                  description: 'Call a Supabase edge function directly. Use this for API calls instead of Python requests. Returns the function response.',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      function_name: { type: 'string', description: 'Edge function name (e.g., github-integration, mining-proxy)' },
+                      body: { type: 'object', description: 'Request body to send to the function' },
+                      purpose: { type: 'string', description: 'What this call is for' }
+                    },
+                    required: ['function_name', 'body']
+                  }
                 }
               },
               {
                 type: 'function',
                 function: {
-                  name: 'spawn_agent',
-                  description: 'Create a new agent',
+                  name: 'list_agents',
+                  description: 'Get all existing agents and their IDs/status. ALWAYS call this BEFORE assigning tasks to know agent IDs.',
+                  parameters: {
+                    type: 'object',
+                    properties: {}
+                  }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'assign_task',
+                  description: 'Assign a task to a specific agent. ALWAYS call list_agents first to get current agent IDs.',
                   parameters: {
                     type: 'object',
                     properties: {
-                      name: { type: 'string' },
-                      role: { type: 'string' },
-                      skills: { type: 'array', items: { type: 'string' } }
+                      title: { type: 'string', description: 'Clear, specific task title (e.g., "Audit wallet security")' },
+                      description: { type: 'string', description: 'Detailed requirements, acceptance criteria, and technical approach' },
+                      repo: { type: 'string', description: 'Repository name (default: xmrt-ecosystem)' },
+                      category: { type: 'string', description: 'Task category (e.g., security, blockchain, infrastructure)' },
+                      stage: { type: 'string', description: 'Current stage (PLANNING, DEVELOPMENT, TESTING, REVIEW, DEPLOYMENT)' },
+                      assignee_agent_id: { type: 'string', description: 'Agent UUID from list_agents call' },
+                      priority: { type: 'number', description: 'Priority level 1-10 (10 = critical)' }
                     },
-                    required: ['name', 'role', 'skills']
+                    required: ['title', 'description', 'assignee_agent_id']
                   }
                 }
               },
@@ -527,12 +529,12 @@ serve(async (req) => {
                 type: 'function',
                 function: {
                   name: 'update_agent_status',
-                  description: 'Change agent status',
+                  description: 'Update agent status. Valid statuses: IDLE, BUSY, WORKING, COMPLETED, ERROR',
                   parameters: {
                     type: 'object',
                     properties: {
-                      agent_id: { type: 'string' },
-                      status: { type: 'string', enum: ['IDLE', 'BUSY', 'WORKING', 'COMPLETED', 'ERROR'] }
+                      agent_id: { type: 'string', description: 'Agent UUID' },
+                      status: { type: 'string', description: 'New status (IDLE, BUSY, WORKING, COMPLETED, ERROR)' }
                     },
                     required: ['agent_id', 'status']
                   }
@@ -541,65 +543,56 @@ serve(async (req) => {
               {
                 type: 'function',
                 function: {
-                  name: 'assign_task',
-                  description: 'Assign task to agent',
+                  name: 'update_task_status',
+                  description: 'Update task status and stage',
                   parameters: {
                     type: 'object',
                     properties: {
-                      title: { type: 'string' },
-                      description: { type: 'string' },
-                      repo: { type: 'string' },
-                      category: { type: 'string' },
-                      stage: { type: 'string' },
-                      assignee_agent_id: { type: 'string' },
-                      priority: { type: 'number' }
+                      task_id: { type: 'string', description: 'Task UUID' },
+                      status: { type: 'string', description: 'PENDING, IN_PROGRESS, BLOCKED, COMPLETED, FAILED' },
+                      stage: { type: 'string', description: 'PLANNING, DEVELOPMENT, TESTING, REVIEW, DEPLOYMENT' }
                     },
-                    required: ['title', 'description', 'repo', 'category', 'stage', 'assignee_agent_id']
+                    required: ['task_id', 'status']
                   }
                 }
               },
               {
                 type: 'function',
                 function: {
-                  name: 'update_task_status',
-                  description: 'Update task status',
+                  name: 'list_tasks',
+                  description: 'Get all tasks with optional filters',
                   parameters: {
                     type: 'object',
                     properties: {
-                      task_id: { type: 'string' },
-                      status: { type: 'string', enum: ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'FAILED'] },
-                      stage: { type: 'string' }
-                    },
-                    required: ['task_id', 'status']
+                      status: { type: 'string', description: 'Filter by status (PENDING, IN_PROGRESS, etc.)' },
+                      agent_id: { type: 'string', description: 'Filter by assigned agent' }
+                    }
                   }
                 }
-          },
-          {
-            type: 'function',
-            function: {
-              name: 'check_system_status',
-              description: 'Perform comprehensive system health check including agents, tasks, mining, database, and Render service status. Returns detailed status report with health score.',
-              parameters: {
-                type: 'object',
-                properties: {}
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'check_system_status',
+                  description: 'Get comprehensive system health status including database, agents, tasks, mining, and services. Use this for diagnostics and status reports.',
+                  parameters: {
+                    type: 'object',
+                    properties: {}
+                  }
+                }
               }
-            }
-          }
-        ],
+            ]
           }),
         });
         
-        if (!nextResponse.ok) {
-          console.error("Next step response error:", nextResponse.status);
-          workflowComplete = true;
-          break;
+        if (!followUpResponse.ok) {
+          const errorText = await followUpResponse.text();
+          console.error("❌ Gemini follow-up API error:", followUpResponse.status, errorText);
+          throw new Error(`Gemini API error: ${followUpResponse.status} - ${errorText}`);
         }
         
-        const nextData = await nextResponse.json();
-        const nextMessage = nextData.choices?.[0]?.message;
-        
-        // Update message reference instead of reassigning const
-        Object.assign(message, nextMessage);
+        const followUpData = await followUpResponse.json();
+        message = followUpData.choices[0].message;
         
         // Check if Gemini wants to make more tool calls or is done
         if (!message?.tool_calls || message.tool_calls.length === 0) {
