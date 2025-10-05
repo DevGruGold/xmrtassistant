@@ -124,7 +124,7 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       purpose: `Fixed: ${execution.purpose || 'Unknown'}`
     }).select().single();
 
-    // Create an activity log entry for Eliza
+    // Create an activity log entry for Eliza with detailed learning data
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'python_fix',
       title: '🔧 Python Code Auto-Fixed',
@@ -133,11 +133,42 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       metadata: {
         original_execution_id: execution_id,
         fixed_execution_id: successExec?.id,
+        original_code: execution.code,
+        fixed_code: fixedCode,
         original_error: execution.error,
-        output: execResult.output,
-        purpose: execution.purpose
+        fix_output: execResult.output,
+        purpose: execution.purpose,
+        learning_insight: `Code fix pattern: ${execution.error?.split('\n')[0]} was resolved by modifying the code structure`,
+        timestamp: new Date().toISOString()
       }
     });
+
+    // Also create a conversation message for Eliza to process the fix
+    const { data: sessions } = await supabase
+      .from('conversation_sessions')
+      .select('id')
+      .eq('session_key', 'eliza-system')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (sessions && sessions.length > 0) {
+      await supabase.from('conversation_messages').insert({
+        session_id: sessions[0].id,
+        role: 'system',
+        content: JSON.stringify({
+          type: 'code_fix_learning',
+          original_error: execution.error,
+          original_code: execution.code,
+          fixed_code: fixedCode,
+          output: execResult.output,
+          purpose: execution.purpose
+        }),
+        metadata: {
+          source: 'python-fixer-agent',
+          fix_execution_id: successExec?.id
+        }
+      });
+    }
 
     return new Response(JSON.stringify({
       success: true,
