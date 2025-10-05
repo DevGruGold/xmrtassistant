@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,36 +14,35 @@ serve(async (req) => {
 
   try {
     const { memory_id, content, context_type } = await req.json();
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (!memory_id || !content) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not configured');
+      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    console.log(`🧠 Vectorizing memory ${memory_id}...`);
 
-    // Generate embedding using Lovable AI
-    const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+    // Generate embedding using OpenAI
+    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'text-embedding-3-small',
         input: content,
-        model: 'text-embedding-3-small'
       }),
     });
 
     if (!embeddingResponse.ok) {
       const errorText = await embeddingResponse.text();
-      console.error('Embedding API error:', embeddingResponse.status, errorText);
-      throw new Error('Failed to generate embedding');
+      console.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${errorText}`);
     }
 
     const embeddingData = await embeddingResponse.json();
@@ -61,28 +60,24 @@ serve(async (req) => {
       .eq('id', memory_id);
 
     if (updateError) {
-      console.error('Failed to update memory:', updateError);
+      console.error('Database update error:', updateError);
       throw updateError;
     }
 
-    // Log success
-    await supabase.from('webhook_logs').insert({
-      webhook_name: 'vectorize_memory',
-      trigger_table: 'memory_contexts',
-      trigger_operation: 'INSERT',
-      payload: { memory_id, context_type },
-      status: 'completed'
-    });
+    console.log(`✅ Memory ${memory_id} vectorized successfully`);
 
     return new Response(
       JSON.stringify({ success: true, memory_id }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in vectorize-memory:', error);
+    console.error('Error in vectorize-memory function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     );
   }
 });
