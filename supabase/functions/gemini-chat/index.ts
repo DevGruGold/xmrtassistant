@@ -190,33 +190,43 @@ serve(async (req) => {
       toolCallsCount: message?.tool_calls?.length || 0
     });
 
-    // Execute any tool calls in the background (non-blocking)
-    let toolCallDescription = "";
+    // Execute any tool calls and wait for results
     if (message?.tool_calls && message.tool_calls.length > 0) {
-      console.log("🔧 Executing", message.tool_calls.length, "tool calls in background");
+      console.log("🔧 Executing", message.tool_calls.length, "tool calls");
       
-      // Generate intelligent description of what's happening based on tool calls
-      const toolCall = message.tool_calls[0]; // Get first tool call for description
-      const functionName = toolCall.function.name;
-      const args = JSON.parse(toolCall.function.arguments || "{}");
+      // Execute tools and get results
+      const toolResults = await executeToolCalls(message.tool_calls, supabase);
       
-      if (functionName === 'execute_python') {
-        toolCallDescription = `Executing Python analysis: ${args.purpose || 'processing data'}...\n\nCheck the Python Shell below to see the live execution.`;
-      } else if (functionName === 'assign_task') {
-        toolCallDescription = `Assigning task "${args.title}" to agent. Priority level: ${args.priority || 5}\n\nDescription: ${args.description}\n\nWatch the Task Visualizer below for real-time updates.`;
-      } else if (functionName === 'update_agent_status') {
-        toolCallDescription = `Updating agent status to ${args.status}. The agent is now actively ${args.status.toLowerCase()}.`;
-      } else if (functionName === 'list_agents') {
-        toolCallDescription = `Retrieving current agent statuses and their assigned tasks...`;
-      } else if (functionName === 'update_task_status') {
-        toolCallDescription = `Updating task progress to ${args.status} stage: ${args.stage}`;
-      }
+      // Add tool results to conversation and get final response from Gemini
+      console.log("📤 Sending tool results back to Gemini for final response...");
       
-      executeToolCalls(message.tool_calls, supabase);
+      const toolResultsForGemini = message.tool_calls.map((call: any, index: number) => ({
+        role: "function",
+        name: call.function.name,
+        content: JSON.stringify(toolResults[index])
+      }));
+      
+      const finalResponse = await callLovableAIGateway({
+        messages: [
+          ...preparedMessages,
+          { role: "assistant", content: message.content || "", tool_calls: message.tool_calls },
+          ...toolResultsForGemini
+        ],
+        miningStats,
+        systemVersion: null
+      });
+      
+      const finalMessage = finalResponse.choices?.[0]?.message;
+      const aiResponse = finalMessage?.content || "I've completed the requested action.";
+      
+      return new Response(
+        JSON.stringify({ success: true, response: aiResponse }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Use content from Gemini, or intelligent tool description, or require Gemini to provide content
-    const aiResponse = message?.content || toolCallDescription || "Processing your request...";
+    // If no tool calls, just return the content
+    const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
     return new Response(
       JSON.stringify({ success: true, response: aiResponse }),
@@ -235,14 +245,18 @@ serve(async (req) => {
   }
 });
 
-// Execute tool calls using native function calling
+// Execute tool calls and return results
 async function executeToolCalls(toolCalls: any[], supabase: any) {
+  const results = [];
+  
   for (const toolCall of toolCalls) {
     try {
       const functionName = toolCall.function.name;
       const args = JSON.parse(toolCall.function.arguments);
       
       console.log(`🔧 Executing tool: ${functionName}`, args);
+      
+      let result;
       
       if (functionName === 'execute_python') {
         const { data, error } = await supabase.functions.invoke('python-executor', {
@@ -254,8 +268,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ Python execution failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('✅ Python executed successfully');
+          result = { success: true, data };
         }
       } else if (functionName === 'list_agents') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -267,8 +283,25 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ List agents failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('📋 Agents listed:', data);
+          result = { success: true, data };
+        }
+      } else if (functionName === 'list_issues') {
+        const { data, error } = await supabase.functions.invoke('github-integration', {
+          body: { 
+            action: 'list_issues',
+            repo: args.repo || 'xmrt-ecosystem'
+          }
+        });
+        
+        if (error) {
+          console.error('❌ List issues failed:', error);
+          result = { success: false, error: error.message };
+        } else {
+          console.log('📋 Issues listed:', data);
+          result = { success: true, data };
         }
       } else if (functionName === 'spawn_agent') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -284,8 +317,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ Agent spawn failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('✅ Agent spawned:', data);
+          result = { success: true, data };
         }
       } else if (functionName === 'update_agent_status') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -300,8 +335,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ Agent status update failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('✅ Agent status updated:', data);
+          result = { success: true, data };
         }
       } else if (functionName === 'assign_task') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -321,8 +358,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ Task assignment failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('✅ Task assigned:', data);
+          result = { success: true, data };
         }
       } else if (functionName === 'update_task_status') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -338,14 +377,23 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         
         if (error) {
           console.error('❌ Task status update failed:', error);
+          result = { success: false, error: error.message };
         } else {
           console.log('✅ Task status updated:', data);
+          result = { success: true, data };
         }
+      } else {
+        result = { success: false, error: `Unknown function: ${functionName}` };
       }
+      
+      results.push(result);
     } catch (error) {
       console.error('❌ Tool execution error:', error);
+      results.push({ success: false, error: error.message });
     }
   }
+  
+  return results;
 }
 
 function buildSystemPrompt(conversationHistory: any, userContext: any, miningStats: any, systemVersion: any): string {
