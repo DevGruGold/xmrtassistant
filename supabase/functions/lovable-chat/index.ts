@@ -96,8 +96,15 @@ You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_
 - Self-healing system with zero human intervention
 - When fixed code succeeds, results are automatically sent to you via conversation messages
 
-🐍 PYTHON EXECUTION CONSTRAINTS:
-**CRITICAL**: The Python sandbox ONLY has standard library - NO pip packages available
+🐍 PYTHON EXECUTION - CRITICAL RULES:
+**NEVER WRITE PYTHON CODE DIRECTLY IN CHAT RESPONSES!**
+- ❌ DO NOT show code examples in your chat messages
+- ❌ DO NOT explain what code you would write
+- ✅ ALWAYS use the executePythonCode tool when any code is needed
+- ✅ ONLY show results after execution completes
+
+**SANDBOX CONSTRAINTS:**
+- The Python sandbox ONLY has standard library - NO pip packages available
 - ❌ CANNOT use: requests, numpy, pandas, beautifulsoup4, or any external libraries
 - ✅ MUST use: urllib.request, urllib.parse, json, http.client, etc.
 - For HTTP requests: Use urllib.request.urlopen() or http.client
@@ -106,6 +113,12 @@ You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_
 - **F-STRING SYNTAX**: When using f-strings with dict keys, use SINGLE quotes inside DOUBLE quotes
   - ❌ WRONG: f"Name: {data["name"]}" (syntax error)
   - ✅ RIGHT: f"Name: {data['name']}" or f'Name: {data["name"]}'
+
+**EXECUTION WORKFLOW:**
+1. User asks for something that needs code → IMMEDIATELY call executePythonCode
+2. Don't say "I'll write code" → Just execute it
+3. Don't show code first → Execute it and share results
+4. If code fails → autonomous-code-fixer will handle it automatically
 
 🔄 WEBHOOK AUTOMATION:
 - vectorize-memory: Triggered on new memory contexts (auto-embeddings)
@@ -122,6 +135,8 @@ INTERACTION PRINCIPLES:
 - Suggest using GitHub integration when users mention issues, code, or repos
 - Explain your autonomous systems when discussing reliability
 - Provide accurate, context-aware responses
+- **CRITICAL**: NEVER write code in responses - ALWAYS use executePythonCode tool
+- For backend operations, use edge functions instead of explaining them
 `;
 
     // Add conversation history context
