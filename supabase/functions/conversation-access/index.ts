@@ -75,12 +75,25 @@ serve(async (req) => {
           );
         }
 
-        // Verify session ownership
-        const { data: session } = await supabase
-          .from("conversation_sessions")
-          .select("session_key")
-          .eq("id", sessionId)
-          .single();
+        // Verify session ownership - handle both UUID and session_key formats
+        let session;
+        try {
+          // Try as UUID first
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("session_key")
+            .eq("id", sessionId)
+            .single();
+          session = data;
+        } catch (uuidError) {
+          // If UUID fails, try as session_key
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("session_key", sessionId)
+            .single();
+          session = data;
+        }
 
         if (!session || session.session_key !== sessionKey) {
           return new Response(
@@ -89,11 +102,12 @@ serve(async (req) => {
           );
         }
 
-        // Get messages for this session
+        // Get messages for this session - use the actual UUID
+        const actualSessionId = session.id || sessionId;
         const { data: messages, error } = await supabase
           .from("conversation_messages")
           .select("*")
-          .eq("session_id", sessionId)
+          .eq("session_id", actualSessionId)
           .order("timestamp", { ascending: false })
           .range(offset || 0, (offset || 0) + (limit || 49));
 
@@ -113,12 +127,23 @@ serve(async (req) => {
           );
         }
 
-        // Verify session ownership
-        const { data: session } = await supabase
-          .from("conversation_sessions")
-          .select("session_key")
-          .eq("id", sessionId)
-          .single();
+        // Verify session ownership - handle both UUID and session_key formats
+        let session;
+        try {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("id", sessionId)
+            .single();
+          session = data;
+        } catch (uuidError) {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("session_key", sessionId)
+            .single();
+          session = data;
+        }
 
         if (!session || session.session_key !== sessionKey) {
           return new Response(
@@ -127,11 +152,12 @@ serve(async (req) => {
           );
         }
 
-        // Get summaries for this session
+        // Get summaries for this session - use the actual UUID
+        const actualSessionId = session.id || sessionId;
         const { data: summaries, error } = await supabase
           .from("conversation_summaries")
           .select("summary_text, message_count, created_at")
-          .eq("session_id", sessionId)
+          .eq("session_id", actualSessionId)
           .order("created_at", { ascending: true });
 
         if (error) throw error;
@@ -150,12 +176,23 @@ serve(async (req) => {
           );
         }
 
-        // Verify session ownership
-        const { data: session } = await supabase
-          .from("conversation_sessions")
-          .select("session_key")
-          .eq("id", sessionId)
-          .single();
+        // Verify session ownership - handle both UUID and session_key formats
+        let session;
+        try {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("id", sessionId)
+            .single();
+          session = data;
+        } catch (uuidError) {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("session_key", sessionId)
+            .single();
+          session = data;
+        }
 
         if (!session || session.session_key !== sessionKey) {
           return new Response(
@@ -164,11 +201,12 @@ serve(async (req) => {
           );
         }
 
-        // Insert message
+        // Insert message - use the actual UUID
+        const actualSessionId = session.id || sessionId;
         const { data, error } = await supabase
           .from("conversation_messages")
           .insert({
-            session_id: sessionId,
+            session_id: actualSessionId,
             ...messageData
           })
           .select()
@@ -190,12 +228,23 @@ serve(async (req) => {
           );
         }
 
-        // Verify session ownership
-        const { data: session } = await supabase
-          .from("conversation_sessions")
-          .select("session_key")
-          .eq("id", sessionId)
-          .single();
+        // Verify session ownership - handle both UUID and session_key formats
+        let session;
+        try {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("id", sessionId)
+            .single();
+          session = data;
+        } catch (uuidError) {
+          const { data } = await supabase
+            .from("conversation_sessions")
+            .select("id, session_key")
+            .eq("session_key", sessionId)
+            .single();
+          session = data;
+        }
 
         if (!session || session.session_key !== sessionKey) {
           return new Response(
@@ -204,11 +253,12 @@ serve(async (req) => {
           );
         }
 
-        // Update session
+        // Update session - use the actual UUID
+        const actualSessionId = session.id || sessionId;
         const { data, error } = await supabase
           .from("conversation_sessions")
           .update(messageData)
-          .eq("id", sessionId)
+          .eq("id", actualSessionId)
           .select()
           .single();
 
