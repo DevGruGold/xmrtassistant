@@ -627,11 +627,20 @@ serve(async (req) => {
                   ...currentMessages,
                   { 
                     role: "system", 
-                    content: `You have successfully gathered all requested information. The tool calls have completed with the following results:
+                    content: `CRITICAL INSTRUCTION: You have ALREADY SUCCESSFULLY COLLECTED all the data you need. The tool executions are COMPLETE. Here are the results:
 
 ${allToolResults}
 
-Now provide your response to the user using the data you already collected. Do NOT say you are "still waiting" or "gathering" - you HAVE the data. Present it clearly and concisely. Do NOT make any more tool calls.` 
+DO NOT say you are "retrieving", "gathering", "checking", or "waiting" for information. You ALREADY HAVE IT.
+DO NOT make any more tool calls.
+DO NOT say there are errors or failures if the data shows success: true.
+
+Your task now is ONLY to present this information to the user in a clear, natural way. Act as if you just received this data and are now sharing it with them.
+
+Example good response: "I've checked the agent status. Currently there are [number] agents in the system: [list key details]"
+Example BAD response: "I am currently retrieving..." or "Let me check..." or "I'll gather that information..."
+
+Respond NOW using the data shown above.` 
                   }
                 ],
                 temperature: 0.7,
@@ -661,14 +670,50 @@ Now provide your response to the user using the data you already collected. Do N
       // Return final response with content from Gemini or collected data
       let aiResponse = message?.content;
       
-      // If no content from Gemini, but we have tool results, format them directly
-      if (!aiResponse && executedToolSignatures.size > 0) {
-        console.log("📦 No final message from Gemini, formatting tool results directly");
+      // Check if Gemini is giving unhelpful responses despite having data
+      const unhelpfulPhrases = [
+        'currently retrieving',
+        'gathering information',
+        'let me check',
+        'still waiting',
+        'i\'ll look into',
+        'checking on that'
+      ];
+      
+      const hasUnhelpfulResponse = aiResponse && unhelpfulPhrases.some(phrase => 
+        aiResponse!.toLowerCase().includes(phrase)
+      );
+      
+      // If no content from Gemini, or if response is unhelpful despite having data, format tool results directly
+      if ((!aiResponse || hasUnhelpfulResponse) && executedToolSignatures.size > 0) {
+        if (hasUnhelpfulResponse) {
+          console.log("⚠️ Gemini gave unhelpful response despite having data, formatting results directly");
+        } else {
+          console.log("📦 No final message from Gemini, formatting tool results directly");
+        }
+        
         const toolSummaries = Array.from(executedToolSignatures.entries()).map(([sig, result]) => {
           const [funcName] = sig.split(':');
           if (funcName === 'list_agents' && result.success) {
             const agentCount = result.agents?.length || 0;
-            return `Found ${agentCount} agents: ${result.summary || ''}`;
+            const agents = result.agents || [];
+            const idleCount = agents.filter((a: any) => a.status === 'IDLE').length;
+            const busyCount = agents.filter((a: any) => a.status === 'BUSY').length;
+            const workingCount = agents.filter((a: any) => a.status === 'WORKING').length;
+            
+            let summary = `I found ${agentCount} agent${agentCount !== 1 ? 's' : ''} in the system:\n`;
+            summary += `• ${idleCount} idle\n`;
+            summary += `• ${busyCount} busy\n`;
+            summary += `• ${workingCount} working\n\n`;
+            
+            if (agents.length > 0) {
+              summary += "Agents:\n";
+              agents.forEach((agent: any) => {
+                summary += `• ${agent.name} (${agent.status}): ${agent.role}\n`;
+              });
+            }
+            
+            return summary;
           }
           return result.success ? `${funcName} completed successfully` : `${funcName} failed: ${result.error}`;
         }).join('\n');
