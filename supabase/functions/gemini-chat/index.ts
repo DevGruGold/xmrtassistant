@@ -191,12 +191,32 @@ serve(async (req) => {
     });
 
     // Execute any tool calls in the background (non-blocking)
+    let toolCallDescription = "";
     if (message?.tool_calls && message.tool_calls.length > 0) {
       console.log("🔧 Executing", message.tool_calls.length, "tool calls in background");
+      
+      // Generate intelligent description of what's happening based on tool calls
+      const toolCall = message.tool_calls[0]; // Get first tool call for description
+      const functionName = toolCall.function.name;
+      const args = JSON.parse(toolCall.function.arguments || "{}");
+      
+      if (functionName === 'execute_python') {
+        toolCallDescription = `Executing Python analysis: ${args.purpose || 'processing data'}...\n\nCheck the Python Shell below to see the live execution.`;
+      } else if (functionName === 'assign_task') {
+        toolCallDescription = `Assigning task "${args.title}" to agent. Priority level: ${args.priority || 5}\n\nDescription: ${args.description}\n\nWatch the Task Visualizer below for real-time updates.`;
+      } else if (functionName === 'update_agent_status') {
+        toolCallDescription = `Updating agent status to ${args.status}. The agent is now actively ${args.status.toLowerCase()}.`;
+      } else if (functionName === 'list_agents') {
+        toolCallDescription = `Retrieving current agent statuses and their assigned tasks...`;
+      } else if (functionName === 'update_task_status') {
+        toolCallDescription = `Updating task progress to ${args.status} stage: ${args.stage}`;
+      }
+      
       executeToolCalls(message.tool_calls, supabase);
     }
 
-    const aiResponse = message?.content || "Working on it...";
+    // Use content from Gemini, or intelligent tool description, or require Gemini to provide content
+    const aiResponse = message?.content || toolCallDescription || "Processing your request...";
 
     return new Response(
       JSON.stringify({ success: true, response: aiResponse }),
