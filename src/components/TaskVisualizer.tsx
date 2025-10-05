@@ -261,8 +261,9 @@ export const TaskVisualizer = () => {
           ) : (
             <div className="space-y-3">
               {tasks.map((task) => {
-                const StatusIcon = STATUS_CONFIG[task.status].icon;
-                const statusColor = STATUS_CONFIG[task.status].color;
+                const statusConfig = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.PENDING;
+                const StatusIcon = statusConfig.icon;
+                const statusColor = statusConfig.color;
                 const stageColor = getStageColor(task.stage);
 
                 return (
@@ -280,7 +281,7 @@ export const TaskVisualizer = () => {
                           {task.stage}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {STATUS_CONFIG[task.status].label}
+                          {statusConfig.label}
                         </Badge>
                       </div>
                     </div>
