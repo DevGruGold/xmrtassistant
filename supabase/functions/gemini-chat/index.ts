@@ -596,27 +596,24 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
   1. execute_python(code, purpose) - Execute real Python code
      • Use for calculations, analysis, data processing, web scraping
      • Available libraries: numpy, pandas, requests, beautifulsoup4, supabase
-     • Example: execute_python("import requests\nresponse = requests.get('https://api.example.com')\nprint(response.json())", "Fetch API data")
+     • Example: execute_python("import requests\\nresponse = requests.get('https://api.example.com')\\nprint(response.json())", "Fetch API data")
      
      ⚠️ CRITICAL: HOW TO CALL SUPABASE EDGE FUNCTIONS FROM PYTHON:
      
      ALWAYS use the supabase-py client to call edge functions, NEVER use requests.get():
      
-     ```python
+     EXAMPLE - Call mining-proxy edge function:
+     
      from supabase import create_client
-     
-     # Initialize client with project credentials
-     supabase = create_client(
-         "${supabaseUrl}",
-         "${supabaseServiceKey}"
-     )
-     
-     # Call edge function - example: mining-proxy
+     supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
      result = supabase.functions.invoke('mining-proxy')
      data = result.data
      print(data)
      
-     # Call edge function with parameters - example: github-integration
+     EXAMPLE - Call edge function with parameters:
+     
+     from supabase import create_client
+     supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
      result = supabase.functions.invoke('github-integration', {
          'body': {
              'action': 'list_issues',
@@ -625,7 +622,6 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
      })
      issues = result.data
      print(issues)
-     ```
      
      Available edge functions you can call:
      - mining-proxy (no params) - Get current mining stats
@@ -637,18 +633,14 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
      - claim-faucet-tokens (wallet_address, ip_address, amount) - Claim tokens
      
      ❌ WRONG - This will FAIL:
-     ```python
      import requests
-     response = requests.get('http://localhost:8080/mining-proxy')  # FAILS!
-     ```
+     response = requests.get('http://localhost:8080/mining-proxy')
      
      ✅ CORRECT - This WORKS:
-     ```python
      from supabase import create_client
      supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
      result = supabase.functions.invoke('mining-proxy')
      print(result.data)
-     ```
   
   2. assign_task(title, description, repo, category, stage, assignee_agent_id, priority)
      • Delegate work to specialized agents
