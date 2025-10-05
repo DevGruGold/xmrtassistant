@@ -377,11 +377,39 @@ serve(async (req) => {
       }
       
       if (workflowStep >= MAX_WORKFLOW_STEPS) {
-        console.warn("⚠️ Workflow reached maximum steps limit");
+        console.warn("⚠️ Workflow reached maximum steps limit - stopping here");
+        
+        // Force one final response from Gemini without tool calling
+        const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              ...currentMessages,
+              { role: "system", content: "Provide a brief summary of what you accomplished. Do NOT make any more tool calls." }
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+            tool_choice: 'none'
+          }),
+        });
+        
+        if (finalResponse.ok) {
+          const finalData = await finalResponse.json();
+          const finalMessage = finalData.choices?.[0]?.message?.content;
+          if (finalMessage) {
+            Object.assign(message, { content: finalMessage, tool_calls: [] });
+          }
+        }
       }
       
-      // Return final response
+      // Return final response with content from Gemini
       const aiResponse = message?.content || "I've completed all the requested tasks.";
+      console.log("📤 Sending final response to chat:", aiResponse.substring(0, 100) + "...");
       
       return new Response(
         JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
