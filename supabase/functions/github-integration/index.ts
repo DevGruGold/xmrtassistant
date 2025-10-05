@@ -20,40 +20,19 @@ async function getAccessToken(): Promise<string> {
     throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
   }
 
-  // Use OAuth App client credentials to get access token
-  const response = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      client_secret: GITHUB_CLIENT_SECRET,
-      grant_type: 'client_credentials',
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Failed to get access token:', error);
-    throw new Error('Failed to authenticate with GitHub OAuth');
-  }
-
-  const data = await response.json();
+  // For GitHub OAuth Apps, we use Basic Authentication with client_id:client_secret
+  // This allows the app to make API requests on behalf of the app itself
+  const credentials = btoa(`${GITHUB_CLIENT_ID}:${GITHUB_CLIENT_SECRET}`);
   
-  if (data.error) {
-    console.error('OAuth error:', data);
-    throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`);
-  }
+  console.log(`🔐 Authenticating with GitHub OAuth App: ${GITHUB_CLIENT_ID}`);
 
-  // Cache token for 1 hour (tokens typically last longer but we refresh proactively)
+  // Cache token for 1 hour
   cachedToken = {
-    token: data.access_token,
+    token: credentials,
     expiresAt: Date.now() + 3600000,
   };
 
-  return data.access_token;
+  return credentials;
 }
 
 serve(async (req) => {
@@ -84,7 +63,7 @@ serve(async (req) => {
     const accessToken = await getAccessToken();
 
     const headers = {
-      'Authorization': `token ${accessToken}`,
+      'Authorization': `Basic ${accessToken}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     };
