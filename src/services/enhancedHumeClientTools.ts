@@ -599,8 +599,64 @@ These integrations enable autonomous cross-platform coordination and real-time e
 Integration monitoring systems continue autonomous coordination.`;
   }, []);
 
+  const executePythonCode = useCallback(async (parameters: { code: string; purpose?: string }) => {
+    try {
+      const { code, purpose } = parameters;
+      
+      console.log('🐍 Executing Python code:', purpose || 'User request');
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/python-executor`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          },
+          body: JSON.stringify({ 
+            code, 
+            purpose: purpose || 'Code execution via voice/chat'
+          })
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Python execution failed');
+      }
+      
+      const result = await response.json();
+      
+      if (result.exitCode === 0) {
+        return `✅ Python code executed successfully!
+
+${purpose ? `Purpose: ${purpose}\n` : ''}
+Output:
+${result.output || '(No output)'}
+
+The code ran successfully in the sandboxed Python environment.`;
+      } else {
+        return `❌ Python execution failed:
+
+${purpose ? `Purpose: ${purpose}\n` : ''}
+Error:
+${result.error}
+
+Note: Remember that only Python standard library is available. Use urllib.request for HTTP requests, not the 'requests' package.
+
+The autonomous code-fixer will attempt to fix this automatically.`;
+      }
+    } catch (error) {
+      console.error('Python execution error:', error);
+      return `❌ Failed to execute Python code: ${error instanceof Error ? error.message : 'Unknown error'}
+
+Remember: Only Python standard library is available (urllib, json, http.client, etc.). External packages like 'requests' are not supported.`;
+    }
+  }, []);
+
   // Enhanced client tools configuration
   const clientTools = {
+    executePythonCode,
     getMiningStats,
     getUserInfo,
     searchXMRTKnowledge,

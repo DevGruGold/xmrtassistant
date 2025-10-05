@@ -234,6 +234,24 @@ export const HUME_EVI_CONFIG = {
       }
     },
     {
+      name: "executePythonCode",
+      description: "Execute Python code in a sandboxed environment. CRITICAL: Only standard library available (urllib, json, http.client). NO external packages (requests, numpy, pandas). Use this to run Python code, not just display it in chat.",
+      parameters: {
+        type: "object",
+        required: ["code"],
+        properties: {
+          code: { 
+            type: "string", 
+            description: "Python code to execute. Must use only standard library (urllib.request for HTTP, json for parsing). NO requests library." 
+          },
+          purpose: { 
+            type: "string", 
+            description: "Brief description of what this code does (e.g., 'Fetch mining stats', 'Query GitHub API')" 
+          }
+        }
+      }
+    },
+    {
       name: "listMyCapabilities",
       description: "List all available edge functions Eliza can use",
       parameters: { type: "object", properties: {} }
