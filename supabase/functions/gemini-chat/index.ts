@@ -600,47 +600,53 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
      
      ⚠️ CRITICAL: HOW TO CALL SUPABASE EDGE FUNCTIONS FROM PYTHON:
      
-     ALWAYS use the supabase-py client to call edge functions, NEVER use requests.get():
+     The supabase-py library does NOT support functions.invoke(). You MUST use HTTP requests via the requests library:
      
      EXAMPLE - Call mining-proxy edge function:
      
-     from supabase import create_client
-     supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
-     result = supabase.functions.invoke('mining-proxy')
-     data = result.data
+     import requests
+     url = "${supabaseUrl}/functions/v1/mining-proxy"
+     headers = {
+         "Authorization": "Bearer ${supabaseServiceKey}",
+         "Content-Type": "application/json"
+     }
+     response = requests.post(url, headers=headers)
+     data = response.json()
      print(data)
      
-     EXAMPLE - Call edge function with parameters:
+     EXAMPLE - Call edge function with parameters (github-integration):
      
-     from supabase import create_client
-     supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
-     result = supabase.functions.invoke('github-integration', {
-         'body': {
-             'action': 'list_issues',
-             'repo': 'xmrt-ecosystem'
-         }
-     })
-     issues = result.data
+     import requests
+     url = "${supabaseUrl}/functions/v1/github-integration"
+     headers = {
+         "Authorization": "Bearer ${supabaseServiceKey}",
+         "Content-Type": "application/json"
+     }
+     payload = {
+         "action": "list_issues",
+         "repo": "xmrt-ecosystem"
+     }
+     response = requests.post(url, headers=headers, json=payload)
+     issues = response.json()
      print(issues)
      
      Available edge functions you can call:
      - mining-proxy (no params) - Get current mining stats
-     - supportxmr-proxy (no params) - Get detailed pool data
      - github-integration (action, repo, data) - GitHub operations
      - agent-manager (action, data) - Agent operations
      - render-api (action) - Deployment status
-     - check-faucet-eligibility (wallet_address, ip_address) - Check faucet eligibility
-     - claim-faucet-tokens (wallet_address, ip_address, amount) - Claim tokens
      
-     ❌ WRONG - This will FAIL:
-     import requests
-     response = requests.get('http://localhost:8080/mining-proxy')
+     ❌ WRONG - This will FAIL (supabase-py doesn't support this):
+     from supabase import create_client
+     supabase = create_client("url", "key")
+     result = supabase.functions.invoke('mining-proxy')  # This method doesn't exist!
      
      ✅ CORRECT - This WORKS:
-     from supabase import create_client
-     supabase = create_client("${supabaseUrl}", "${supabaseServiceKey}")
-     result = supabase.functions.invoke('mining-proxy')
-     print(result.data)
+     import requests
+     url = "${supabaseUrl}/functions/v1/mining-proxy"
+     headers = {"Authorization": "Bearer ${supabaseServiceKey}", "Content-Type": "application/json"}
+     response = requests.post(url, headers=headers)
+     print(response.json())
   
   2. assign_task(title, description, repo, category, stage, assignee_agent_id, priority)
      • Delegate work to specialized agents
