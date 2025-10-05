@@ -693,7 +693,9 @@ Respond NOW using the data shown above.`
         }
         
         const toolSummaries = Array.from(executedToolSignatures.entries()).map(([sig, result]) => {
-          const [funcName] = sig.split(':');
+          const [funcName, argsJson] = sig.split(':');
+          
+          // Handle list_agents tool
           if (funcName === 'list_agents' && result.success) {
             const agentCount = result.agents?.length || 0;
             const agents = result.agents || [];
@@ -715,6 +717,37 @@ Respond NOW using the data shown above.`
             
             return summary;
           }
+          
+          // Handle call_edge_function for agent-manager
+          if (funcName === 'call_edge_function' && result.success) {
+            const data = result.data?.data || result.data;
+            
+            // Check if this was a list_agents call
+            if (Array.isArray(data) && data.length > 0 && data[0].name && data[0].role) {
+              const agentCount = data.length;
+              const idleCount = data.filter((a: any) => a.status === 'IDLE').length;
+              const busyCount = data.filter((a: any) => a.status === 'BUSY').length;
+              const workingCount = data.filter((a: any) => a.status === 'WORKING').length;
+              
+              let summary = `I found ${agentCount} agent${agentCount !== 1 ? 's' : ''} in the system:\n`;
+              summary += `• ${idleCount} idle\n`;
+              summary += `• ${busyCount} busy\n`;
+              summary += `• ${workingCount} working\n\n`;
+              
+              if (data.length > 0) {
+                summary += "Agents:\n";
+                data.forEach((agent: any) => {
+                  summary += `• ${agent.name} (${agent.status}): ${agent.role}\n`;
+                });
+              }
+              
+              return summary;
+            }
+            
+            // Other edge function calls
+            return `Edge function completed successfully`;
+          }
+          
           return result.success ? `${funcName} completed successfully` : `${funcName} failed: ${result.error}`;
         }).join('\n');
         
