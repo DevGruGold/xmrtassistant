@@ -26,13 +26,7 @@ const LiveMiningStats = () => {
   const fetchMiningStats = async () => {
     try {
       const response = await fetch(
-        "https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy",
-        {
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhd291dWd0endtZWp4cWtlcXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3Njk3MTIsImV4cCI6MjA2ODM0NTcxMn0.qtZk3zk5RMqzlPNhxCkTM6fyVQX5ULGt7nna_XOUr00',
-            'Content-Type': 'application/json'
-          }
-        }
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg/stats"
       );
       
       if (!response.ok) {
