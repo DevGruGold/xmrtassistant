@@ -34,10 +34,10 @@ serve(async (req) => {
     console.log('📋 Original code:', execution.code);
     console.log('❌ Error:', execution.error);
 
-    // Use Gemini to analyze and fix the code
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) {
-      throw new Error('GEMINI_API_KEY not configured');
+    // Use DeepSeek to analyze and fix the code
+    const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
+    if (!deepseekApiKey) {
+      throw new Error('DEEPSEEK_API_KEY not configured');
     }
 
     const fixPrompt = `You are a Python debugging expert. The following Python code failed with an error.
@@ -54,40 +54,48 @@ Purpose: ${execution.purpose || 'Unknown'}
 
 Please analyze the error and provide ONLY the fixed Python code. Do not include explanations, markdown code blocks, or any other text. Just return the corrected Python code that will execute successfully.`;
 
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
+    const deepseekResponse = await fetch(
+      'https://api.deepseek.com/v1/chat/completions',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${deepseekApiKey}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: fixPrompt }]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 2048,
-          }
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a Python debugging expert. Always return only the fixed Python code without any explanations or markdown formatting.'
+            },
+            {
+              role: 'user',
+              content: fixPrompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048,
         })
       }
     );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini API error:', errorText);
+    if (!deepseekResponse.ok) {
+      const errorText = await deepseekResponse.text();
+      console.error('DeepSeek API error:', errorText);
       
-      // Check if it's a quota error
-      if (geminiResponse.status === 429) {
-        console.log('⏸️ Gemini API quota exceeded, skipping fix attempt');
+      // Check if it's a quota/rate limit error
+      if (deepseekResponse.status === 429) {
+        console.log('⏸️ DeepSeek API rate limit exceeded, skipping fix attempt');
         
-        // Log this as a skipped attempt, not a failure
         await supabase.from('eliza_activity_log').insert({
           activity_type: 'python_fix',
           title: '⏸️ Python Fix Skipped',
-          description: 'Gemini API quota exceeded. Will retry later.',
+          description: 'DeepSeek API rate limit exceeded. Will retry later.',
           status: 'pending',
           metadata: {
             execution_id,
-            reason: 'quota_exceeded',
+            reason: 'rate_limit_exceeded',
             error: execution.error?.substring(0, 100)
           }
         });
@@ -95,19 +103,19 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
         return new Response(JSON.stringify({
           success: false,
           skipped: true,
-          reason: 'quota_exceeded',
-          error: 'Gemini API quota exceeded, will retry later'
+          reason: 'rate_limit_exceeded',
+          error: 'DeepSeek API rate limit exceeded, will retry later'
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         });
       }
       
-      throw new Error(`Gemini API failed: ${errorText}`);
+      throw new Error(`DeepSeek API failed: ${errorText}`);
     }
 
-    const geminiData = await geminiResponse.json();
-    let fixedCode = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const deepseekData = await deepseekResponse.json();
+    let fixedCode = deepseekData.choices?.[0]?.message?.content || '';
 
     // Clean up the code (remove markdown if present)
     fixedCode = fixedCode.replace(/```python\n?/g, '').replace(/```\n?/g, '').trim();
