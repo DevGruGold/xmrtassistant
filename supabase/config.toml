@@ -134,4 +134,8 @@ verify_jwt = false
 [functions.get-lovable-key]
 verify_jwt = false
 
+[functions.lovable-chat]
+verify_jwt = false
+
+
 

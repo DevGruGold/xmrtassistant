@@ -318,133 +318,50 @@ export class UnifiedElizaService {
       } : null
     };
 
-    // Tier 1: PRIMARY - Lovable AI Gateway with Gemini for guaranteed connectivity
+    // Tier 1: PRIMARY - Lovable AI Gateway with Gemini (via edge function)
     try {
       console.log('🎯 Tier 1 (PRIMARY): Using Lovable AI Gateway with Gemini...');
       
-      // Use the Lovable API key directly - it's already in the custom knowledge
-      const LOVABLE_API_KEY = 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
-      
-      console.log('🔑 Lovable API Key configured');
-      
-      // Build comprehensive system prompt with all context
-      let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have access to real-time mining data, conversation history, and system information.
-
-CRITICAL INSTRUCTIONS:
-- Be conversational, friendly, and helpful
-- Use the conversation history to maintain context and remember previous discussions
-- Reference mining stats when relevant to user questions
-- Provide accurate, detailed responses based on the available context
-`;
-
-      // Add conversation history context
-      if (conversationHistory) {
-        if (conversationHistory.summaries?.length > 0) {
-          systemPrompt += `\n📜 PREVIOUS CONVERSATION SUMMARIES:\n`;
-          conversationHistory.summaries.forEach((summary: any) => {
-            systemPrompt += `- ${summary.summaryText} (${summary.messageCount} messages)\n`;
-          });
+      const { data, error } = await supabase.functions.invoke('lovable-chat', {
+        body: {
+          messages: [{ role: 'user', content: userInput }],
+          conversationHistory,
+          userContext: {
+            isFounder: userContext?.isFounder || false,
+            ip: userContext?.ip || 'unknown',
+            sessionKey
+          },
+          miningStats: miningStats ? {
+            hashRate: miningStats.hashRate,
+            validShares: miningStats.validShares,
+            amountDue: miningStats.amountDue,
+            amountPaid: miningStats.amountPaid,
+            isOnline: miningStats.isOnline,
+            totalHashes: miningStats.totalHashes
+          } : null,
+          systemVersion: systemVersion ? {
+            version: systemVersion.version,
+            deploymentId: systemVersion.deploymentId,
+            commitHash: systemVersion.commitHash,
+            commitMessage: systemVersion.commitMessage,
+            deployedAt: systemVersion.deployedAt,
+            status: systemVersion.status,
+            serviceUrl: systemVersion.serviceUrl
+          } : null
         }
-
-        if (conversationHistory.recentMessages?.length > 0) {
-          systemPrompt += `\n💬 RECENT MESSAGES:\n`;
-          conversationHistory.recentMessages.forEach((msg: any) => {
-            systemPrompt += `${msg.sender}: ${msg.content}\n`;
-          });
-        }
-
-        if (conversationHistory.userPreferences && Object.keys(conversationHistory.userPreferences).length > 0) {
-          systemPrompt += `\n⚙️ USER PREFERENCES:\n${JSON.stringify(conversationHistory.userPreferences, null, 2)}\n`;
-        }
-
-        if (conversationHistory.interactionPatterns?.length > 0) {
-          systemPrompt += `\n🎯 INTERACTION PATTERNS:\n`;
-          conversationHistory.interactionPatterns.forEach((pattern: any) => {
-            systemPrompt += `- ${pattern.patternName}: ${pattern.frequency} times (${(pattern.confidence * 100).toFixed(0)}% confidence)\n`;
-          });
-        }
-
-        if (conversationHistory.memoryContexts?.length > 0) {
-          systemPrompt += `\n🧠 MEMORY CONTEXTS:\n`;
-          conversationHistory.memoryContexts.forEach((memory: any) => {
-            systemPrompt += `- [${memory.contextType}] ${memory.content} (importance: ${memory.importanceScore})\n`;
-          });
-        }
-      }
-
-      // Add user context
-      if (userContext) {
-        systemPrompt += `\n👤 USER CONTEXT:\n`;
-        systemPrompt += `- IP: ${userContext.ip}\n`;
-        systemPrompt += `- Founder: ${userContext.isFounder ? 'Yes' : 'No'}\n`;
-        systemPrompt += `- Session: ${sessionKey}\n`;
-      }
-
-      // Add mining stats
-      if (miningStats) {
-        systemPrompt += `\n⛏️ MINING STATS:\n`;
-        systemPrompt += `- Hash Rate: ${miningStats.hashRate} H/s\n`;
-        systemPrompt += `- Valid Shares: ${miningStats.validShares}\n`;
-        systemPrompt += `- Amount Due: ${miningStats.amountDue} XMR\n`;
-        systemPrompt += `- Amount Paid: ${miningStats.amountPaid} XMR\n`;
-        systemPrompt += `- Total Hashes: ${miningStats.totalHashes}\n`;
-        systemPrompt += `- Status: ${miningStats.isOnline ? 'Online' : 'Offline'}\n`;
-      }
-
-      // Add system version
-      if (systemVersion) {
-        systemPrompt += `\n🚀 SYSTEM VERSION:\n`;
-        systemPrompt += `- Version: ${systemVersion.version}\n`;
-        systemPrompt += `- Deployment ID: ${systemVersion.deploymentId}\n`;
-        systemPrompt += `- Commit: ${systemVersion.commitHash}\n`;
-        systemPrompt += `- Message: ${systemVersion.commitMessage}\n`;
-        systemPrompt += `- Deployed: ${systemVersion.deployedAt}\n`;
-        systemPrompt += `- Status: ${systemVersion.status}\n`;
-      }
-      
-      const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userInput }
-          ],
-        }),
       });
 
-      if (lovableResponse.ok) {
-        const lovableData = await lovableResponse.json();
-        console.log('📦 Lovable AI response data:', lovableData);
-        const response = lovableData.choices?.[0]?.message?.content;
-        if (response) {
-          console.log('✅ Lovable AI Gateway (Tier 1) response received:', response.substring(0, 100));
-          return {
-            response,
-            hasToolCalls: false
-          };
-        } else {
-          console.warn('⚠️ Lovable AI response missing content:', lovableData);
-        }
-      } else {
-        const errorText = await lovableResponse.text();
-        console.error('❌ Lovable AI Gateway error:', {
-          status: lovableResponse.status,
-          statusText: lovableResponse.statusText,
-          error: errorText
-        });
+      if (!error && data?.success && data?.response) {
+        console.log('✅ Lovable AI Gateway (Tier 1) response received');
+        return {
+          response: data.response,
+          hasToolCalls: false
+        };
       }
       
-      console.warn('⚠️ Tier 1 failed, falling back to Tier 2');
+      console.warn('⚠️ Tier 1 failed:', error?.message || data?.error, '- falling back to Tier 2');
     } catch (err) {
-      console.warn('⚠️ Tier 1 exception:', {
-        message: err.message,
-        willFallbackToTier2: true
-      });
+      console.warn('⚠️ Tier 1 exception:', err.message, '- falling back to Tier 2');
     }
 
     // Tier 2: Fallback to Deepseek
