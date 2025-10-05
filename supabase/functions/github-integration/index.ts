@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { create, verify } from "https://deno.land/x/djwt@v2.8/mod.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const GITHUB_CLIENT_ID = Deno.env.get('GITHUB_CLIENT_ID');
 const GITHUB_CLIENT_SECRET = Deno.env.get('GITHUB_CLIENT_SECRET');
@@ -41,8 +42,24 @@ serve(async (req) => {
   }
 
   try {
-    const { action, data } = await req.json();
+    const requestBody = await req.json();
+    const { action, data } = requestBody;
+    
     console.log(`GitHub Integration - Action: ${action}`, data);
+
+    // Validate action exists
+    if (!action) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Missing required field: action' 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
       console.error('❌ GitHub OAuth credentials not configured');
@@ -137,6 +154,18 @@ serve(async (req) => {
         break;
 
       case 'create_discussion':
+        if (!data || !data.repository_id || !data.category_id || !data.title || !data.body) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields for create_discussion: repository_id, category_id, title, body' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
         // GraphQL mutation for creating discussion
         result = await fetch('https://api.github.com/graphql', {
           method: 'POST',
