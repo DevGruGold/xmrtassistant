@@ -273,9 +273,52 @@ export class UnifiedElizaService {
       });
     }
 
-    // Tier 2: Fallback to Lovable AI Gateway (Gemini)
+    // Tier 2: IMMEDIATE BACKUP - Lovable AI Gateway for guaranteed connectivity
     try {
-      console.log('🎯 Tier 2: Trying Lovable AI Gateway (Gemini)...');
+      console.log('🎯 Tier 2: Using Lovable AI Gateway (immediate backup)...');
+      const LOVABLE_API_KEY = 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
+      
+      const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. Provide helpful, conversational responses.` },
+            { role: 'user', content: userInput }
+          ],
+        }),
+      });
+
+      if (lovableResponse.ok) {
+        const lovableData = await lovableResponse.json();
+        const response = lovableData.choices?.[0]?.message?.content;
+        if (response) {
+          console.log('✅ Lovable AI Gateway response received');
+          return {
+            response,
+            hasToolCalls: false
+          };
+        }
+      }
+      
+      console.warn('⚠️ Tier 2 failed:', {
+        status: lovableResponse.status,
+        willFallbackToTier3: true
+      });
+    } catch (err) {
+      console.warn('⚠️ Tier 2 exception:', {
+        message: err.message,
+        willFallbackToTier3: true
+      });
+    }
+
+    // Tier 3: Fallback to Gemini with advanced tools
+    try {
+      console.log('🎯 Tier 3: Trying Gemini with advanced tools...');
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: requestBody
       });
@@ -292,24 +335,24 @@ export class UnifiedElizaService {
       if (data?.toolResults) {
         console.log('🔧 Tool call results from Gemini:', data.toolResults);
       }
-      console.warn('⚠️ Tier 2 failed:', {
+      console.warn('⚠️ Tier 3 failed:', {
         error: error?.message || data?.error,
         hadToolCalls: !!data?.hasToolCalls,
         toolResults: data?.toolResults,
-        willFallbackToTier3: true
+        willFallbackToTier4: true
       });
     } catch (err) {
-      console.warn('⚠️ Tier 2 exception:', {
+      console.warn('⚠️ Tier 3 exception:', {
         message: err.message,
-        willFallbackToTier3: true
+        willFallbackToTier4: true
       });
     }
 
-    // Tier 3: Fallback to OpenAI edge function
+    // Tier 4: Fallback to OpenAI edge function
     try {
       const apiKey = openAIApiKeyManager.getCurrentApiKey();
       if (apiKey || openAIApiKeyManager.hasUserApiKey()) {
-        console.log('🎯 Tier 3: Trying OpenAI fallback...');
+        console.log('🎯 Tier 4: Trying OpenAI fallback...');
         const { data, error } = await supabase.functions.invoke('openai-chat', {
           body: requestBody
         });
@@ -321,22 +364,22 @@ export class UnifiedElizaService {
             hasToolCalls: false
           };
         }
-        console.warn('⚠️ Tier 3 failed:', {
+        console.warn('⚠️ Tier 4 failed:', {
           error: error?.message || data?.error,
-          willFallbackToTier4: true
+          willFallbackToTier5: true
         });
       } else {
-        console.log('⚠️ Tier 3 skipped: No OpenAI API key configured');
+        console.log('⚠️ Tier 4 skipped: No OpenAI API key configured');
       }
     } catch (err: any) {
-      console.warn('⚠️ Tier 3 exception:', {
+      console.warn('⚠️ Tier 4 exception:', {
         message: err.message,
-        willFallbackToTier4: true
+        willFallbackToTier5: true
       });
     }
 
-    // Tier 4: Use embedded knowledge base with enhanced context awareness
-    console.log('🎯 Tier 4: Using embedded knowledge fallback with intelligent analysis...');
+    // Tier 5: Use embedded knowledge base with enhanced context awareness
+    console.log('🎯 Tier 5: Using embedded knowledge fallback with intelligent analysis...');
     
     // Analyze what the user is asking for
     const isAskingAbout = {
