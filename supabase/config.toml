@@ -122,4 +122,13 @@ verify_jwt = false
 [functions.manus-chat]
 verify_jwt = false
 
+[functions.vectorize-memory]
+verify_jwt = false
+
+[functions.extract-knowledge]
+verify_jwt = false
+
+[functions.summarize-conversation]
+verify_jwt = false
+
 
