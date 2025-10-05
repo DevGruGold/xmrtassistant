@@ -604,15 +604,24 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = args.purpose || `Calling ${args.function_name}`;
     activityDescription = `Calling edge function: ${args.function_name}`;
     
+    console.log(`📞 Calling edge function: ${args.function_name} with body:`, JSON.stringify(args.body).substring(0, 200));
+    
     const { data, error } = await supabase.functions.invoke(args.function_name, {
       body: args.body
     });
     
     if (error) {
-      console.error(`❌ Edge function ${args.function_name} failed:`, error);
-      result = { success: false, error: error.message, data };
+      console.error(`❌ Edge function ${args.function_name} failed with error:`, {
+        message: error.message,
+        context: error.context,
+        data: data
+      });
+      
+      // Provide detailed error information back to the AI
+      const errorDetails = `Edge function '${args.function_name}' returned error: ${error.message}${data ? `. Response data: ${JSON.stringify(data).substring(0, 500)}` : ''}`;
+      result = { success: false, error: errorDetails, data };
     } else {
-      console.log(`✅ Edge function ${args.function_name} succeeded`);
+      console.log(`✅ Edge function ${args.function_name} succeeded with response:`, JSON.stringify(data).substring(0, 200));
       result = { success: true, data };
     }
   } else if (functionName === 'list_agents') {
