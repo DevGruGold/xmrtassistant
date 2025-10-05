@@ -1,9 +1,60 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { create, verify } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
-const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN');
+const GITHUB_CLIENT_ID = Deno.env.get('GITHUB_CLIENT_ID');
+const GITHUB_CLIENT_SECRET = Deno.env.get('GITHUB_CLIENT_SECRET');
 const GITHUB_OWNER = Deno.env.get('GITHUB_OWNER') || 'xmr-telamon';
 const GITHUB_REPO = Deno.env.get('GITHUB_REPO') || 'xmrt-ecosystem';
+
+// Cache for access token
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getAccessToken(): Promise<string> {
+  // Check cache first
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.token;
+  }
+
+  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+    throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
+  }
+
+  // Use OAuth App client credentials to get access token
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: GITHUB_CLIENT_ID,
+      client_secret: GITHUB_CLIENT_SECRET,
+      grant_type: 'client_credentials',
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Failed to get access token:', error);
+    throw new Error('Failed to authenticate with GitHub OAuth');
+  }
+
+  const data = await response.json();
+  
+  if (data.error) {
+    console.error('OAuth error:', data);
+    throw new Error(`GitHub OAuth error: ${data.error_description || data.error}`);
+  }
+
+  // Cache token for 1 hour (tokens typically last longer but we refresh proactively)
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + 3600000,
+  };
+
+  return data.access_token;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,12 +65,12 @@ serve(async (req) => {
     const { action, data } = await req.json();
     console.log(`GitHub Integration - Action: ${action}`, data);
 
-    if (!GITHUB_TOKEN) {
-      console.error('❌ GITHUB_TOKEN not configured');
+    if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+      console.error('❌ GitHub OAuth credentials not configured');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'GitHub integration not configured. Please set GITHUB_TOKEN secret.',
+          error: 'GitHub integration not configured. Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET secrets.',
           needsSetup: true 
         }),
         { 
@@ -29,8 +80,11 @@ serve(async (req) => {
       );
     }
 
+    // Get access token using OAuth credentials
+    const accessToken = await getAccessToken();
+
     const headers = {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Authorization': `token ${accessToken}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     };
