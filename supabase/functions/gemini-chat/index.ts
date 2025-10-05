@@ -94,6 +94,9 @@ serve(async (req) => {
 
     console.log("✅ Gemini response generated:", aiResponse.substring(0, 100) + "...");
 
+    // Execute any tool calls in the background (non-blocking)
+    executeToolsInBackground(aiResponse, supabase);
+
     return new Response(
       JSON.stringify({ success: true, response: aiResponse }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -110,6 +113,82 @@ serve(async (req) => {
     );
   }
 });
+
+// Execute tools in background without blocking the response
+async function executeToolsInBackground(response: string, supabase: any) {
+  try {
+    // Parse for Python execution
+    const pythonMatch = response.match(/<tool_use>\s*<tool_name>execute_python<\/tool_name>\s*<parameters>\s*<code>([\s\S]*?)<\/code>\s*<purpose>([\s\S]*?)<\/purpose>\s*<\/parameters>\s*<\/tool_use>/);
+    if (pythonMatch) {
+      const code = pythonMatch[1].trim();
+      const purpose = pythonMatch[2].trim();
+      
+      console.log("🐍 Executing Python in background:", purpose);
+      
+      // Call python-executor
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/python-executor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+        },
+        body: JSON.stringify({ code, purpose })
+      }).catch(err => console.error("Python execution error:", err));
+    }
+
+    // Parse for agent spawning
+    const spawnMatch = response.match(/<tool_use>\s*<tool_name>spawn_agent<\/tool_name>\s*<parameters>\s*<name>([\s\S]*?)<\/name>\s*<specialization>([\s\S]*?)<\/specialization>\s*<capabilities>([\s\S]*?)<\/capabilities>\s*<\/parameters>\s*<\/tool_use>/);
+    if (spawnMatch) {
+      const name = spawnMatch[1].trim();
+      const specialization = spawnMatch[2].trim();
+      const capabilities = JSON.parse(spawnMatch[3].trim());
+      
+      console.log("🤖 Spawning agent in background:", name);
+      
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/agent-manager`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+        },
+        body: JSON.stringify({
+          action: 'spawn_agent',
+          name,
+          specialization,
+          capabilities
+        })
+      }).catch(err => console.error("Agent spawn error:", err));
+    }
+
+    // Parse for task assignment
+    const taskMatch = response.match(/<tool_use>\s*<tool_name>assign_task<\/tool_name>\s*<parameters>\s*<agent_id>([\s\S]*?)<\/agent_id>\s*<title>([\s\S]*?)<\/title>\s*<description>([\s\S]*?)<\/description>\s*<priority>([\s\S]*?)<\/priority>\s*<\/parameters>\s*<\/tool_use>/);
+    if (taskMatch) {
+      const agentId = taskMatch[1].trim();
+      const title = taskMatch[2].trim();
+      const description = taskMatch[3].trim();
+      const priority = taskMatch[4].trim();
+      
+      console.log("📋 Assigning task in background:", title);
+      
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/agent-manager`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+        },
+        body: JSON.stringify({
+          action: 'assign_task',
+          agentId,
+          title,
+          description,
+          priority
+        })
+      }).catch(err => console.error("Task assignment error:", err));
+    }
+  } catch (error) {
+    console.error("Tool execution error:", error);
+  }
+}
 
 function buildSystemPrompt(conversationHistory: any, userContext: any, miningStats: any, systemVersion: any): string {
   const contextParts = [];
@@ -227,20 +306,23 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 • python-executor - Execute REAL Python code in sandboxed environment (Piston API)
   USE THIS to write and run ACTUAL Python scripts (pandas, numpy, requests, beautifulsoup4 available)
   
-  🔄 SEAMLESS WORKFLOW - CHAT → BACKGROUND → CHAT:
-  1. **Announce in Chat**: Tell user what you're going to do
-     Example: "I'll analyze this dataset using Python to find patterns..."
+  🔄 CRITICAL TOOL USE - YOU CAN EXECUTE FUNCTIONS:
+  To execute Python code, use the execute_python tool in your response:
   
-  2. **Execute in Background**: Call the edge function immediately
-     POST to python-executor with {code, purpose}
-     
-  3. **Automatic Logging**: Your execution is INSTANTLY logged to eliza_python_executions table
-     The user sees your code and output in real-time in the PythonShell component
-     
-  4. **Report Results in Chat**: Include the findings in your response
-     Example: "Analysis complete! I found 3 key patterns: X, Y, Z. Full code and output visible in Python Shell."
+  <tool_use>
+    <tool_name>execute_python</tool_name>
+    <parameters>
+      <code>
+import pandas as pd
+# Your actual Python code here
+print("Results")
+      </code>
+      <purpose>Brief description of what this does</purpose>
+    </parameters>
+  </tool_use>
   
-  NEVER show code blocks in chat. ALWAYS execute via edge function. User sees background work in real-time!
+  The system will execute this immediately and log to eliza_python_executions.
+  User sees execution in real-time in PythonShell. Just tell them briefly what you're doing!
 
 **GITHUB INTEGRATION & CODE MANAGEMENT:**
 • github-integration - FULL GitHub control (issues, PRs, discussions, commits, code search)
@@ -252,20 +334,30 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 • agent-manager - Spawn and manage AI agents, delegate tasks, coordinate workflows
   Actions: spawn_agent, assign_task, list_agents, update_agent_status, get_agent_workload, log_decision
   
-  🔄 SEAMLESS WORKFLOW - CHAT → BACKGROUND → CHAT:
-  1. **Announce in Chat**: Tell user what you're going to do
-     Example: "I'll create a specialized agent to handle this complex task..."
+  🔄 CRITICAL TOOL USE - YOU CAN SPAWN AGENTS:
+  To spawn an agent or assign a task, use tools in your response:
   
-  2. **Execute in Background**: Call the edge function immediately
-     POST to agent-manager with appropriate action (spawn_agent, assign_task)
-     
-  3. **Automatic Logging**: Your actions are INSTANTLY logged to eliza_activity_log table
-     The user sees task creation, agent spawning, and status updates in real-time in TaskVisualizer
-     
-  4. **Report Results in Chat**: Confirm what was created
-     Example: "Agent 'DataAnalyzer' spawned and assigned task #1234. You can watch progress in Task Visualizer."
+  <tool_use>
+    <tool_name>spawn_agent</tool_name>
+    <parameters>
+      <name>DataAnalyzer</name>
+      <specialization>Data analysis and visualization</specialization>
+      <capabilities>["Python", "pandas", "data mining"]</capabilities>
+    </parameters>
+  </tool_use>
   
-  USE THIS to create specialized agents for complex tasks. User sees all activity in real-time!
+  <tool_use>
+    <tool_name>assign_task</tool_name>
+    <parameters>
+      <agent_id>agent-123</agent_id>
+      <title>Analyze dataset</title>
+      <description>Find patterns in mining data</description>
+      <priority>high</priority>
+    </parameters>
+  </tool_use>
+  
+  The system executes these immediately and logs to eliza_activity_log.
+  User sees all activity in real-time in TaskVisualizer!
   WHEN TO SPAWN AGENTS:
     - Multi-step complex tasks requiring different expertise
     - Parallel work that can be done simultaneously

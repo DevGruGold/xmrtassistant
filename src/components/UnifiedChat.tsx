@@ -645,13 +645,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
+      // Process response (non-blocking - user can keep typing)
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
         inputMode: 'text',
         shouldSpeak: false,
-        enableBrowsing: true,  // Let the service decide when to browse
-        conversationContext: fullContext  // Enhanced context for better understanding
+        enableBrowsing: true,
+        conversationContext: fullContext
       }, language);
       
       // Check if response indicates API key is needed
@@ -661,34 +662,37 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 
+      // Remove tool_use tags from chat display
+      const cleanResponse = response.replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '').trim();
+
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: response,
+        content: cleanResponse,
         sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(response);
+      setLastElizaMessage(cleanResponse);
       
       // Store Eliza's response with full data integration
       try {
-        await conversationPersistence.storeMessage(response, 'assistant', {
+        await conversationPersistence.storeMessage(cleanResponse, 'assistant', {
           confidence: 0.95,
           method: 'OpenAI via Edge Function',
           inputType: 'text'
         });
 
         // Extract entities from response
-        await knowledgeEntityService.extractEntities(response);
+        await knowledgeEntityService.extractEntities(cleanResponse);
 
         // Record successful text response pattern
         await learningPatternsService.recordPattern(
           'text_response_success',
           { 
             inputLength: userMessage.content.length, 
-            responseLength: response.length,
+            responseLength: cleanResponse.length,
             method: 'OpenAI' 
           },
           0.85
@@ -699,7 +703,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           await memoryContextService.storeContext(
             userContext.ip,
             userContext.ip,
-            response,
+            cleanResponse,
             'assistant_text_response',
             0.75,
             { method: 'OpenAI', confidence: 0.95 }
@@ -709,18 +713,19 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response if voice is enabled using Enhanced TTS with fallbacks
-      if (voiceEnabled) {
-        try {
-          setIsSpeaking(true);
-          await enhancedTTS.speak(response);
-          setCurrentTTSMethod(enhancedTTS.getLastMethod());
-          setIsSpeaking(false);
-        } catch (error) {
-          console.error('TTS failed:', error);
-          setCurrentTTSMethod('failed');
-          setIsSpeaking(false);
-        }
+      // Speak response if voice is enabled (don't await - let it run in background)
+      if (voiceEnabled && cleanResponse) {
+        setIsSpeaking(true);
+        enhancedTTS.speak(cleanResponse)
+          .then(() => {
+            setCurrentTTSMethod(enhancedTTS.getLastMethod());
+            setIsSpeaking(false);
+          })
+          .catch((error) => {
+            console.error('TTS failed:', error);
+            setCurrentTTSMethod('failed');
+            setIsSpeaking(false);
+          });
       }
       
     } catch (error) {
