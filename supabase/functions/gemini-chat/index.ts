@@ -330,6 +330,17 @@ serve(async (req) => {
               }
             }
           },
+          {
+            type: 'function',
+            function: {
+              name: 'cleanup_duplicate_agents',
+              description: 'Remove duplicate agents from the database, keeping only the oldest instance of each agent name.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
         ],
         tool_choice: 'auto'
       }),
@@ -1366,6 +1377,25 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       result = { success: false, error: error.message };
     } else {
       console.log('🧹 Cleanup complete:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'cleanup_duplicate_agents') {
+    activityType = 'system_maintenance';
+    activityTitle = 'Clean Up Duplicate Agents';
+    activityDescription = 'Removing duplicate agent entries from database';
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'cleanup_duplicate_agents',
+        data: {}
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Agent cleanup failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('🧹 Agent cleanup complete:', data);
       result = { success: true, data };
     }
   } else {
