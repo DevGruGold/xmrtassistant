@@ -6,30 +6,47 @@ const corsHeaders = {
 };
 
 async function handleGetServiceStatus(renderApiKey: string, renderApiBase: string, headers: any) {
-  const servicesResponse = await fetch(`${renderApiBase}/services`, {
-    headers: {
-      "Authorization": `Bearer ${renderApiKey}`,
-      "Content-Type": "application/json"
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  
+  try {
+    const servicesResponse = await fetch(`${renderApiBase}/services`, {
+      headers: {
+        "Authorization": `Bearer ${renderApiKey}`,
+        "Content-Type": "application/json"
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!servicesResponse.ok) {
+      throw new Error(`Render API error: ${servicesResponse.status}`);
     }
-  });
-  
-  if (!servicesResponse.ok) {
-    throw new Error(`Render API error: ${servicesResponse.status}`);
+    
+    const services = await servicesResponse.json();
+    const xmrtService = services.find((s: any) => 
+      s.service?.name?.toLowerCase().includes('xmrt') ||
+      s.service?.repo?.includes('XMRT-Ecosystem')
+    );
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        service: xmrtService?.service || null
+      }),
+      { headers: { ...headers, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error('Render API getServiceStatus error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error fetching service status'
+      }),
+      { status: 500, headers: { ...headers, "Content-Type": "application/json" } }
+    );
   }
-  
-  const services = await servicesResponse.json();
-  const xmrtService = services.find((s: any) => 
-    s.service?.name?.toLowerCase().includes('xmrt') ||
-    s.service?.repo?.includes('XMRT-Ecosystem')
-  );
-  
-  return new Response(
-    JSON.stringify({
-      success: true,
-      service: xmrtService?.service || null
-    }),
-    { headers: { ...headers, "Content-Type": "application/json" } }
-  );
 }
 
 serve(async (req) => {
@@ -53,9 +70,16 @@ serve(async (req) => {
 
     // Handle different actions
     if (action === "get_deployment_info") {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       // First try to get version from Flask service directly
       try {
-        const versionResponse = await fetch(`${FLASK_SERVICE_URL}/version`);
+        const versionResponse = await fetch(`${FLASK_SERVICE_URL}/version`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
         if (versionResponse.ok) {
           const versionData = await versionResponse.json();
           
@@ -76,7 +100,8 @@ serve(async (req) => {
           );
         }
       } catch (error) {
-        console.log("Flask version endpoint not available, using Render API");
+        clearTimeout(timeoutId);
+        console.log("Flask version endpoint not available, using Render API:", error.message);
       }
       
       // Fallback to Render API
