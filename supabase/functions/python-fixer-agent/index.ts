@@ -41,40 +41,42 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    const fixPrompt = `You are a Python debugging expert. The following Python code failed with an error.
+    const fixPrompt = `PYTHON CODE FIXER - STANDARD LIBRARY ONLY
 
-Original Code:
+⚠️ SANDBOX ENVIRONMENT CONSTRAINTS:
+• Python 3.10 with STANDARD LIBRARY ONLY
+• NO pip packages (requests, numpy, pandas will FAIL with ModuleNotFoundError)
+• MUST use: urllib.request, urllib.parse, json, http.client, re, os, sys, etc.
+
+FAILED CODE:
 \`\`\`python
 ${execution.code}
 \`\`\`
 
-Error:
+ERROR MESSAGE:
 ${execution.error}
 
-Purpose: ${execution.purpose || 'Unknown'}
+PURPOSE: ${execution.purpose || 'Unknown'}
 
-CRITICAL CONSTRAINTS:
-- The Python sandbox ONLY has the standard library available (no pip packages)
-- You CANNOT use: requests, numpy, pandas, or any external libraries
-- You MUST use only built-in Python modules like: urllib.request, urllib.parse, json, http.client, etc.
-- For HTTP requests, use urllib.request.urlopen() or http.client
-- For JSON parsing, use the json module
+REQUIRED CONVERSIONS:
+1. requests.get(url) → urllib.request.urlopen(url)
+2. requests.post(url, json=data) → urllib.request.Request(url, data=json.dumps(data).encode(), method='POST')
+3. response.json() → json.loads(response.read().decode())
 
-Please analyze the error and provide ONLY the fixed Python code using standard library alternatives. Do not include explanations, markdown code blocks, or any other text. Just return the corrected Python code that will execute successfully in a standard library-only environment.
+INSTRUCTIONS:
+• Return ONLY the fixed Python code
+• NO markdown formatting (no \`\`\`python blocks)
+• NO explanations or comments
+• Use ONLY standard library modules
+• If you see "import requests" - IMMEDIATELY replace with urllib equivalent
 
-Example of converting requests to urllib:
-\`\`\`python
-# BAD (uses requests):
-import requests
-response = requests.get('https://api.example.com')
-data = response.json()
-
-# GOOD (uses standard library):
+CORRECT urllib.request example:
 import urllib.request
 import json
-with urllib.request.urlopen('https://api.example.com') as response:
+req = urllib.request.Request('https://api.example.com', headers={'Authorization': 'Bearer token'})
+with urllib.request.urlopen(req) as response:
     data = json.loads(response.read().decode())
-\`\`\`
+    print(data)
 `;
 
     console.log('🤖 Calling Lovable AI Gateway for code fix...');
