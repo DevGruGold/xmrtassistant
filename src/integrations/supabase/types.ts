@@ -760,6 +760,75 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_configs: {
+        Row: {
+          created_at: string | null
+          endpoint_url: string
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          name: string
+          secret_key: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint_url: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name: string
+          secret_key?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endpoint_url?: string
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          name?: string
+          secret_key?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          payload: Json | null
+          response: Json | null
+          status: string | null
+          trigger_operation: string
+          trigger_table: string
+          webhook_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          status?: string | null
+          trigger_operation: string
+          trigger_table: string
+          webhook_name: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          status?: string | null
+          trigger_operation?: string
+          trigger_table?: string
+          webhook_name?: string
+        }
+        Relationships: []
+      }
       worker_registrations: {
         Row: {
           created_at: string
