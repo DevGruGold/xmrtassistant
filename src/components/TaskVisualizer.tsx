@@ -149,13 +149,46 @@ export const TaskVisualizer = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'tasks'
         },
         (payload) => {
-          console.log('📋 Task change detected:', payload);
-          fetchData();
+          console.log('📋 New task detected:', payload);
+          const newTask = payload.new as Task;
+          setTasks(prev => {
+            if (prev.find(t => t.id === newTask.id)) {
+              return prev;
+            }
+            return [newTask, ...prev].slice(0, 20);
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks'
+        },
+        (payload) => {
+          console.log('📋 Task updated:', payload);
+          const updatedTask = payload.new as Task;
+          setTasks(prev => 
+            prev.map(t => t.id === updatedTask.id ? updatedTask : t)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tasks'
+        },
+        (payload) => {
+          console.log('📋 Task deleted:', payload);
+          setTasks(prev => prev.filter(t => t.id !== payload.old.id));
         }
       )
       .subscribe();
@@ -165,13 +198,46 @@ export const TaskVisualizer = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'agents'
         },
         (payload) => {
-          console.log('🤖 Agent change detected:', payload);
-          fetchData();
+          console.log('🤖 New agent detected:', payload);
+          const newAgent = payload.new as Agent;
+          setAgents(prev => {
+            if (prev.find(a => a.id === newAgent.id)) {
+              return prev;
+            }
+            return [newAgent, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'agents'
+        },
+        (payload) => {
+          console.log('🤖 Agent updated:', payload);
+          const updatedAgent = payload.new as Agent;
+          setAgents(prev => 
+            prev.map(a => a.id === updatedAgent.id ? updatedAgent : a)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'agents'
+        },
+        (payload) => {
+          console.log('🤖 Agent deleted:', payload);
+          setAgents(prev => prev.filter(a => a.id !== payload.old.id));
         }
       )
       .subscribe();
