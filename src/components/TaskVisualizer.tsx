@@ -65,7 +65,14 @@ export const TaskVisualizer = () => {
         .limit(50);
 
       if (!activityError && activityData) {
-        setActivities(activityData);
+        // Deduplicate activities by ID
+        const uniqueActivities = activityData.reduce((acc, activity) => {
+          if (!acc.find(a => a.id === activity.id)) {
+            acc.push(activity);
+          }
+          return acc;
+        }, [] as ElizaActivity[]);
+        setActivities(uniqueActivities);
       }
 
       // Fetch tasks
@@ -76,14 +83,21 @@ export const TaskVisualizer = () => {
         .limit(20);
 
       if (!tasksError && tasksData) {
-        setTasks(tasksData);
+        // Deduplicate tasks by ID
+        const uniqueTasks = tasksData.reduce((acc, task) => {
+          if (!acc.find(t => t.id === task.id)) {
+            acc.push(task);
+          }
+          return acc;
+        }, [] as Task[]);
+        setTasks(uniqueTasks);
       }
 
       // Fetch agents - deduplicate by ID
       const { data: agentsData, error: agentsError } = await supabase
         .from('agents')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false});
 
       if (!agentsError && agentsData) {
         // Remove duplicates by keeping only the latest entry for each agent ID
@@ -117,7 +131,15 @@ export const TaskVisualizer = () => {
         },
         (payload) => {
           console.log('📋 New activity from Eliza:', payload);
-          setActivities(prev => [payload.new as ElizaActivity, ...prev].slice(0, 50));
+          const newActivity = payload.new as ElizaActivity;
+          setActivities(prev => {
+            // Check if this activity already exists
+            if (prev.find(a => a.id === newActivity.id)) {
+              return prev; // Already exists, don't add duplicate
+            }
+            // Add new activity and keep only the latest 50
+            return [newActivity, ...prev].slice(0, 50);
+          });
         }
       )
       .subscribe();
