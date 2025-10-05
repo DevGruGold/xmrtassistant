@@ -319,6 +319,17 @@ serve(async (req) => {
               }
             }
           },
+          {
+            type: 'function',
+            function: {
+              name: 'cleanup_duplicate_tasks',
+              description: 'Remove duplicate tasks from the database, keeping only the oldest instance of each duplicate.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
         ],
         tool_choice: 'auto'
       }),
@@ -1219,6 +1230,22 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       result = { success: false, error: error.message };
     } else {
       console.log('📝 Decision logged:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'cleanup_duplicate_tasks') {
+    activityType = 'system_maintenance';
+    activityTitle = 'Clean Up Duplicate Tasks';
+    activityDescription = 'Removing duplicate task entries from database';
+    
+    const { data, error } = await supabase.functions.invoke('cleanup-duplicate-tasks', {
+      body: {}
+    });
+    
+    if (error) {
+      console.error('❌ Cleanup failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('🧹 Cleanup complete:', data);
       result = { success: true, data };
     }
   } else {

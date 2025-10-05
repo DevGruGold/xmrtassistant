@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle, Sparkles } from 'lucide-react';
+import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle, Sparkles, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Task {
   id: string;
@@ -54,6 +56,7 @@ export const TaskVisualizer = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activities, setActivities] = useState<ElizaActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -269,13 +272,51 @@ export const TaskVisualizer = () => {
     return STAGE_COLORS[stage.toLowerCase() as keyof typeof STAGE_COLORS] || 'bg-gray-500';
   };
 
+  const handleCleanupDuplicates = async () => {
+    setIsCleaningUp(true);
+    toast.info('🧹 Starting cleanup of duplicate tasks...');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-duplicate-tasks', {
+        body: {}
+      });
+      
+      if (error) {
+        console.error('Cleanup error:', error);
+        toast.error('Failed to cleanup duplicates: ' + error.message);
+      } else {
+        console.log('Cleanup result:', data);
+        toast.success(`✅ ${data.message || 'Cleanup completed successfully'}`);
+        // Refresh the data
+        await fetchData();
+      }
+    } catch (err: any) {
+      console.error('Cleanup exception:', err);
+      toast.error('Failed to cleanup duplicates: ' + err.message);
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Workflow className="h-5 w-5 text-primary" />
-          Task Pipeline Visualizer
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Workflow className="h-5 w-5 text-primary" />
+            Task Pipeline Visualizer
+          </CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleCleanupDuplicates}
+            disabled={isCleaningUp}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            {isCleaningUp ? 'Cleaning...' : 'Clean Duplicates'}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {/* Eliza's Activity Stream */}

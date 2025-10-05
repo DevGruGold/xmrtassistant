@@ -109,3 +109,7 @@ verify_jwt = false
 
 [functions.ecosystem-monitor]
 verify_jwt = false
+
+[functions.cleanup-duplicate-tasks]
+verify_jwt = false
+
