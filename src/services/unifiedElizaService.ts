@@ -245,9 +245,28 @@ export class UnifiedElizaService {
       } : null
     };
 
-    // Tier 1: Try Lovable AI Gateway (Gemini) first
+    // Tier 1: Try Deepseek first
     try {
-      console.log('🎯 Tier 1: Trying Lovable AI Gateway (Gemini)...');
+      console.log('🎯 Tier 1: Trying Deepseek...');
+      const { data, error } = await supabase.functions.invoke('deepseek-chat', {
+        body: requestBody
+      });
+
+      if (!error && data?.success) {
+        console.log('✅ Deepseek response received');
+        return {
+          response: data.response,
+          hasToolCalls: data.hasToolCalls || false
+        };
+      }
+      console.warn('⚠️ Tier 1 failed:', error?.message || data?.error);
+    } catch (err) {
+      console.warn('⚠️ Tier 1 exception:', err.message);
+    }
+
+    // Tier 2: Fallback to Lovable AI Gateway (Gemini)
+    try {
+      console.log('🎯 Tier 2: Trying Lovable AI Gateway (Gemini)...');
       const { data, error } = await supabase.functions.invoke('gemini-chat', {
         body: requestBody
       });
@@ -259,14 +278,14 @@ export class UnifiedElizaService {
           hasToolCalls: data.hasToolCalls || false
         };
       }
-      console.warn('⚠️ Tier 1 failed:', error?.message || data?.error);
+      console.warn('⚠️ Tier 2 failed:', error?.message || data?.error);
     } catch (err) {
-      console.warn('⚠️ Tier 1 exception:', err.message);
+      console.warn('⚠️ Tier 2 exception:', err.message);
     }
 
-    // Tier 2: Fallback to OpenAI edge function
+    // Tier 3: Fallback to OpenAI edge function
     try {
-      console.log('🎯 Tier 2: Trying OpenAI fallback...');
+      console.log('🎯 Tier 3: Trying OpenAI fallback...');
       const { data, error } = await supabase.functions.invoke('openai-chat', {
         body: requestBody
       });
@@ -278,13 +297,13 @@ export class UnifiedElizaService {
           hasToolCalls: false
         };
       }
-      console.warn('⚠️ Tier 2 failed:', error?.message || data?.error);
+      console.warn('⚠️ Tier 3 failed:', error?.message || data?.error);
     } catch (err) {
-      console.warn('⚠️ Tier 2 exception:', err.message);
+      console.warn('⚠️ Tier 3 exception:', err.message);
     }
 
-    // Tier 3: Use embedded knowledge base with context
-    console.log('🎯 Tier 3: Using embedded knowledge fallback...');
+    // Tier 4: Use embedded knowledge base with context
+    console.log('🎯 Tier 4: Using embedded knowledge fallback...');
     const relevantKnowledge = xmrtContext.slice(0, 3);
     const knowledgeContext = relevantKnowledge.map(k => 
       `${k.topic}: ${k.content.substring(0, 300)}`
