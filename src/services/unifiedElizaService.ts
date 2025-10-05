@@ -215,46 +215,93 @@ export class UnifiedElizaService {
       }))
     };
 
-    // Use Supabase Edge Function for Gemini AI calls via Lovable AI Gateway
-    const { data, error } = await supabase.functions.invoke('gemini-chat', {
-      body: {
-        messages: [
-          { role: 'user', content: userInput }
-        ],
-        conversationHistory,
-        userContext: {
-          isFounder: userContext?.isFounder || false,
-          ip: userContext?.ip || 'unknown',
-          sessionKey
-        },
-        miningStats: miningStats ? {
-          hashRate: miningStats.hashRate,
-          validShares: miningStats.validShares,
-          amountDue: miningStats.amountDue,
-          amountPaid: miningStats.amountPaid,
-          isOnline: miningStats.isOnline,
-          totalHashes: miningStats.totalHashes
-        } : null,
-        systemVersion: systemVersion ? {
-          version: systemVersion.version,
-          deploymentId: systemVersion.deploymentId,
-          commitHash: systemVersion.commitHash,
-          commitMessage: systemVersion.commitMessage,
-          deployedAt: systemVersion.deployedAt,
-          status: systemVersion.status,
-          serviceUrl: systemVersion.serviceUrl
-        } : null
-      }
-    });
+    // Multi-tier AI fallback system for guaranteed responses
+    const requestBody = {
+      messages: [
+        { role: 'user', content: userInput }
+      ],
+      conversationHistory,
+      userContext: {
+        isFounder: userContext?.isFounder || false,
+        ip: userContext?.ip || 'unknown',
+        sessionKey
+      },
+      miningStats: miningStats ? {
+        hashRate: miningStats.hashRate,
+        validShares: miningStats.validShares,
+        amountDue: miningStats.amountDue,
+        amountPaid: miningStats.amountPaid,
+        isOnline: miningStats.isOnline,
+        totalHashes: miningStats.totalHashes
+      } : null,
+      systemVersion: systemVersion ? {
+        version: systemVersion.version,
+        deploymentId: systemVersion.deploymentId,
+        commitHash: systemVersion.commitHash,
+        commitMessage: systemVersion.commitMessage,
+        deployedAt: systemVersion.deployedAt,
+        status: systemVersion.status,
+        serviceUrl: systemVersion.serviceUrl
+      } : null
+    };
 
-    if (error || !data.success) {
-      throw new Error(data?.error || error?.message || 'Gemini API request failed');
+    // Tier 1: Try Lovable AI Gateway (Gemini) first
+    try {
+      console.log('🎯 Tier 1: Trying Lovable AI Gateway (Gemini)...');
+      const { data, error } = await supabase.functions.invoke('gemini-chat', {
+        body: requestBody
+      });
+
+      if (!error && data?.success) {
+        console.log('✅ Gemini response received', { hasToolCalls: data.hasToolCalls });
+        return {
+          response: data.response,
+          hasToolCalls: data.hasToolCalls || false
+        };
+      }
+      console.warn('⚠️ Tier 1 failed:', error?.message || data?.error);
+    } catch (err) {
+      console.warn('⚠️ Tier 1 exception:', err.message);
     }
 
-    console.log('✅ Gemini response received', { hasToolCalls: data.hasToolCalls });
+    // Tier 2: Fallback to OpenAI edge function
+    try {
+      console.log('🎯 Tier 2: Trying OpenAI fallback...');
+      const { data, error } = await supabase.functions.invoke('openai-chat', {
+        body: requestBody
+      });
+
+      if (!error && data?.success) {
+        console.log('✅ OpenAI response received');
+        return {
+          response: data.response,
+          hasToolCalls: false
+        };
+      }
+      console.warn('⚠️ Tier 2 failed:', error?.message || data?.error);
+    } catch (err) {
+      console.warn('⚠️ Tier 2 exception:', err.message);
+    }
+
+    // Tier 3: Use embedded knowledge base with context
+    console.log('🎯 Tier 3: Using embedded knowledge fallback...');
+    const relevantKnowledge = xmrtContext.slice(0, 3);
+    const knowledgeContext = relevantKnowledge.map(k => 
+      `${k.topic}: ${k.content.substring(0, 300)}`
+    ).join('\n\n');
+    
+    const contextualResponse = `Based on my embedded knowledge about "${userInput}":
+
+${knowledgeContext}
+
+${miningStats ? `\n📊 Current mining activity: ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares` : ''}
+
+Note: I'm currently running on embedded knowledge mode. Full AI services will be restored momentarily.`;
+
+    console.log('✅ Embedded knowledge response generated');
     return {
-      response: data.response,
-      hasToolCalls: data.hasToolCalls || false
+      response: contextualResponse,
+      hasToolCalls: false
     };
   }
 
