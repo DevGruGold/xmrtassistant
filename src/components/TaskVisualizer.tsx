@@ -73,9 +73,47 @@ export const TaskVisualizer = () => {
   useEffect(() => {
     fetchData();
     
-    // Poll every 5 seconds for updates
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    // Set up real-time subscriptions for tasks and agents
+    const tasksChannel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        (payload) => {
+          console.log('📋 Task change detected:', payload);
+          fetchData(); // Refetch to get complete data
+        }
+      )
+      .subscribe();
+
+    const agentsChannel = supabase
+      .channel('agents-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'agents'
+        },
+        (payload) => {
+          console.log('🤖 Agent change detected:', payload);
+          fetchData(); // Refetch to get complete data
+        }
+      )
+      .subscribe();
+    
+    // Also poll every 10 seconds as backup
+    const interval = setInterval(fetchData, 10000);
+    
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(agentsChannel);
+    };
   }, []);
 
   const getAgentName = (agentId: string) => {
