@@ -809,6 +809,19 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       console.log('✅ Task status updated:', data);
       result = { success: true, data };
     }
+  } else if (functionName === 'playwright_browse') {
+    activityType = 'web_browsing';
+    activityTitle = `Browse Web: ${args.url}`;
+    activityDescription = `Browsing and extracting data from: ${args.url}`;
+    
+    console.log(`🌐 Browsing URL with Playwright: ${args.url}`);
+    
+    // For now, return a helpful error since playwright edge function doesn't exist yet
+    // In the future, this should call a real playwright browsing service
+    result = { 
+      success: false, 
+      error: 'Playwright browsing is not yet implemented. Please use call_edge_function with github-integration or other available edge functions instead.' 
+    };
   } else {
     result = { success: false, error: `Unknown function: ${functionName}` };
   }
