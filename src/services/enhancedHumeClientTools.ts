@@ -32,7 +32,7 @@ export const useEnhancedHumeClientTools = () => {
   const getMiningStats = useCallback(async () => {
     try {
       const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg/stats"
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats"
       );
       
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
