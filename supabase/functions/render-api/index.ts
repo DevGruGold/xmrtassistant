@@ -5,6 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function handleGetServiceStatus(renderApiKey: string, renderApiBase: string, headers: any) {
+  const servicesResponse = await fetch(`${renderApiBase}/services`, {
+    headers: {
+      "Authorization": `Bearer ${renderApiKey}`,
+      "Content-Type": "application/json"
+    }
+  });
+  
+  if (!servicesResponse.ok) {
+    throw new Error(`Render API error: ${servicesResponse.status}`);
+  }
+  
+  const services = await servicesResponse.json();
+  const xmrtService = services.find((s: any) => 
+    s.service?.name?.toLowerCase().includes('xmrt') ||
+    s.service?.repo?.includes('XMRT-Ecosystem')
+  );
+  
+  return new Response(
+    JSON.stringify({
+      success: true,
+      service: xmrtService?.service || null
+    }),
+    { headers: { ...headers, "Content-Type": "application/json" } }
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -195,6 +222,11 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+    
+    // Handle getServiceStatus action (camelCase variant)
+    if (action === "getServiceStatus") {
+      return await handleGetServiceStatus(RENDER_API_KEY, RENDER_API_BASE, corsHeaders);
     }
     
     throw new Error(`Unknown action: ${action}`);

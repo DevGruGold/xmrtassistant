@@ -302,22 +302,46 @@ export class UnifiedElizaService {
       console.warn('⚠️ Tier 3 exception:', err.message);
     }
 
-    // Tier 4: Use embedded knowledge base with context
-    console.log('🎯 Tier 4: Using embedded knowledge fallback...');
-    const relevantKnowledge = xmrtContext.slice(0, 3);
-    const knowledgeContext = relevantKnowledge.map(k => 
-      `${k.topic}: ${k.content.substring(0, 300)}`
-    ).join('\n\n');
+    // Tier 4: Use embedded knowledge base with enhanced context awareness
+    console.log('🎯 Tier 4: Using embedded knowledge fallback with enhanced context...');
     
-    const contextualResponse = `Based on my embedded knowledge about "${userInput}":
+    // Try to extract meaningful context from conversation history
+    const conversationContext = fullConversationContext?.recentMessages?.slice(-5).map(m => 
+      `${m.sender}: ${m.content}`
+    ).join('\n') || '';
+    
+    const relevantKnowledge = xmrtContext.slice(0, 3);
+    const knowledgeContext = relevantKnowledge.length > 0 
+      ? relevantKnowledge.map(k => `${k.topic}: ${k.content.substring(0, 300)}`).join('\n\n')
+      : 'I have general knowledge about the XMRT-DAO ecosystem.';
+    
+    // Build a more contextual response
+    let contextualResponse = '';
+    
+    if (conversationContext) {
+      contextualResponse += `Based on our recent conversation and available information:\n\n`;
+    }
+    
+    contextualResponse += knowledgeContext;
+    
+    if (miningStats) {
+      contextualResponse += `\n\n📊 Current Mining Stats:\n`;
+      contextualResponse += `- Hash Rate: ${miningStats.hashRate} H/s\n`;
+      contextualResponse += `- Valid Shares: ${miningStats.validShares}\n`;
+      contextualResponse += `- Amount Due: ${miningStats.amountDue} XMR\n`;
+      contextualResponse += `- Status: ${miningStats.isOnline ? 'Online ✓' : 'Offline'}\n`;
+    }
+    
+    if (systemVersion) {
+      contextualResponse += `\n\n🚀 System Status:\n`;
+      contextualResponse += `- Version: ${systemVersion.version}\n`;
+      contextualResponse += `- Deployment: ${systemVersion.deploymentId}\n`;
+      contextualResponse += `- Status: ${systemVersion.status}\n`;
+    }
+    
+    contextualResponse += `\n\nNote: I'm using my embedded knowledge base right now. For real-time data and advanced features, the AI services will be back online shortly.`;
 
-${knowledgeContext}
-
-${miningStats ? `\n📊 Current mining activity: ${miningStats.hashRate} H/s with ${miningStats.validShares} valid shares` : ''}
-
-Note: I'm currently running on embedded knowledge mode. Full AI services will be restored momentarily.`;
-
-    console.log('✅ Embedded knowledge response generated');
+    console.log('✅ Enhanced contextual knowledge response generated');
     return {
       response: contextualResponse,
       hasToolCalls: false

@@ -362,7 +362,10 @@ serve(async (req) => {
         }
         
         const nextData = await nextResponse.json();
-        message = nextData.choices?.[0]?.message;
+        const nextMessage = nextData.choices?.[0]?.message;
+        
+        // Update message reference instead of reassigning const
+        Object.assign(message, nextMessage);
         
         // Check if Gemini wants to make more tool calls or is done
         if (!message?.tool_calls || message.tool_calls.length === 0) {
