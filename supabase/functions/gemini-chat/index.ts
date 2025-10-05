@@ -190,53 +190,179 @@ serve(async (req) => {
       toolCallsCount: message?.tool_calls?.length || 0
     });
 
-    // Execute any tool calls and wait for results
+    // Execute tool calls with multi-step workflow support
     if (message?.tool_calls && message.tool_calls.length > 0) {
-      console.log("🔧 Executing", message.tool_calls.length, "tool calls");
+      console.log("🔧 Starting multi-step workflow with", message.tool_calls.length, "initial tool calls");
       
-      // Execute tools with retry logic
-      const toolResults = await executeToolCallsWithRetry(message.tool_calls, supabase, LOVABLE_API_KEY, geminiMessages);
+      let currentMessages = [...geminiMessages];
+      let workflowComplete = false;
+      let workflowStep = 0;
+      const MAX_WORKFLOW_STEPS = 10; // Prevent infinite loops
       
-      // Add tool results to conversation and get final response from Gemini
-      console.log("📤 Sending tool results back to Gemini for final response...");
-      
-      const toolResultsForGemini = message.tool_calls.map((call: any, index: number) => ({
-        role: "function",
-        name: call.function.name,
-        content: JSON.stringify(toolResults[index])
-      }));
-      
-      const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            ...geminiMessages,
-            { role: "assistant", content: message.content || "", tool_calls: message.tool_calls },
-            ...toolResultsForGemini
-          ],
-          temperature: 0.7,
-          max_tokens: 1500
-        }),
-      });
-      
-      if (!finalResponse.ok) {
-        console.error("Final response error:", finalResponse.status);
-        // Return tool results as plain text if final call fails
-        const aiResponse = `I executed the requested functions. Results: ${JSON.stringify(toolResults, null, 2)}`;
-        return new Response(
-          JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      while (!workflowComplete && workflowStep < MAX_WORKFLOW_STEPS) {
+        workflowStep++;
+        console.log(`\n📊 Workflow Step ${workflowStep}/${MAX_WORKFLOW_STEPS}`);
+        
+        // Get current tool calls from the latest message
+        const currentToolCalls = message?.tool_calls;
+        if (!currentToolCalls || currentToolCalls.length === 0) {
+          workflowComplete = true;
+          break;
+        }
+        
+        console.log(`🔧 Executing ${currentToolCalls.length} tool(s) in this step`);
+        
+        // Execute tools with retry logic
+        const toolResults = await executeToolCallsWithRetry(currentToolCalls, supabase, LOVABLE_API_KEY, currentMessages);
+        
+        // Add assistant message with tool calls and tool results to conversation
+        const toolResultsForGemini = currentToolCalls.map((call: any, index: number) => ({
+          role: "function",
+          name: call.function.name,
+          content: JSON.stringify(toolResults[index])
+        }));
+        
+        currentMessages.push({
+          role: "assistant",
+          content: message.content || "",
+          tool_calls: currentToolCalls
+        });
+        currentMessages.push(...toolResultsForGemini);
+        
+        console.log("📤 Sending tool results back to Gemini for analysis and next steps...");
+        
+        // Ask Gemini to analyze results and decide next steps
+        const nextResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: currentMessages,
+            temperature: 0.7,
+            max_tokens: 1500,
+            tools: [
+              {
+                type: 'function',
+                function: {
+                  name: 'execute_python',
+                  description: 'Execute real Python code',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      code: { type: 'string' },
+                      purpose: { type: 'string' }
+                    },
+                    required: ['code', 'purpose']
+                  }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'list_agents',
+                  description: 'Get all existing agents',
+                  parameters: { type: 'object', properties: {} }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'spawn_agent',
+                  description: 'Create a new agent',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      role: { type: 'string' },
+                      skills: { type: 'array', items: { type: 'string' } }
+                    },
+                    required: ['name', 'role', 'skills']
+                  }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'update_agent_status',
+                  description: 'Change agent status',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      agent_id: { type: 'string' },
+                      status: { type: 'string', enum: ['IDLE', 'BUSY', 'WORKING', 'COMPLETED', 'ERROR'] }
+                    },
+                    required: ['agent_id', 'status']
+                  }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'assign_task',
+                  description: 'Assign task to agent',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      description: { type: 'string' },
+                      repo: { type: 'string' },
+                      category: { type: 'string' },
+                      stage: { type: 'string' },
+                      assignee_agent_id: { type: 'string' },
+                      priority: { type: 'number' }
+                    },
+                    required: ['title', 'description', 'repo', 'category', 'stage', 'assignee_agent_id']
+                  }
+                }
+              },
+              {
+                type: 'function',
+                function: {
+                  name: 'update_task_status',
+                  description: 'Update task status',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      task_id: { type: 'string' },
+                      status: { type: 'string', enum: ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'FAILED'] },
+                      stage: { type: 'string' }
+                    },
+                    required: ['task_id', 'status']
+                  }
+                }
+              }
+            ],
+            tool_choice: 'auto'
+          }),
+        });
+        
+        if (!nextResponse.ok) {
+          console.error("Next step response error:", nextResponse.status);
+          workflowComplete = true;
+          break;
+        }
+        
+        const nextData = await nextResponse.json();
+        message = nextData.choices?.[0]?.message;
+        
+        // Check if Gemini wants to make more tool calls or is done
+        if (!message?.tool_calls || message.tool_calls.length === 0) {
+          console.log("✅ Workflow complete - no more tool calls needed");
+          workflowComplete = true;
+        } else {
+          console.log(`🔄 Continuing workflow - Gemini requested ${message.tool_calls.length} more tool call(s)`);
+        }
       }
       
-      const finalData = await finalResponse.json();
-      const finalMessage = finalData.choices?.[0]?.message;
-      const aiResponse = finalMessage?.content || "I've completed the requested action.";
+      if (workflowStep >= MAX_WORKFLOW_STEPS) {
+        console.warn("⚠️ Workflow reached maximum steps limit");
+      }
+      
+      // Return final response
+      const aiResponse = message?.content || "I've completed all the requested tasks.";
       
       return new Response(
         JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
