@@ -25,6 +25,8 @@ import { apiKeyManager } from '@/services/apiKeyManager';
 import { memoryContextService } from '@/services/memoryContextService';
 import { learningPatternsService } from '@/services/learningPatternsService';
 import { knowledgeEntityService } from '@/services/knowledgeEntityService';
+import { useEnhancedHumeClientTools } from '@/services/enhancedHumeClientTools';
+import { humeEVIService } from '@/services/humeEVIService';
 
 // Debug environment variables on component load
 console.log('UnifiedChat Environment Check:', {
@@ -79,6 +81,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
   
+  // Hume EVI integration
+  const humeTools = useEnhancedHumeClientTools();
+  const [humeService, setHumeService] = useState<any>(null);
+  const [humeReady, setHumeReady] = useState(false);
+  
   // Manus AI approval state
   const [manusApproval, setManusApproval] = useState<any>(null);
   const [pendingInput, setPendingInput] = useState<string>("");
@@ -125,6 +132,30 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (wasEnabled) {
       handleEnableAudio();
     }
+  }, []);
+
+  // Initialize Hume EVI with client tools
+  useEffect(() => {
+    const initHume = async () => {
+      try {
+        const hume = humeEVIService();
+        if (hume) {
+          await hume.initializeConversation();
+          setHumeService(hume);
+          setHumeReady(true);
+          console.log('🧠 Hume EVI initialized with comprehensive client tools');
+          
+          toast({
+            title: "🧠 Enhanced AI Active",
+            description: "Hume EVI emotional intelligence and ecosystem tools ready",
+          });
+        }
+      } catch (error) {
+        console.warn('Hume EVI initialization failed, using fallback:', error);
+      }
+    };
+    
+    initHume();
   }, []);
 
   // Auto-scroll to bottom only when messages are actually added (within chat container only)
@@ -458,9 +489,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
-      const response = await UnifiedElizaService.generateResponse(transcript, {
-        miningStats,
-        userContext,
+      // Try Hume EVI first for emotionally intelligent responses
+      let response;
+      let aiMethod = 'UnifiedEliza';
+      
+      if (humeService && humeReady) {
+        try {
+          const humeResponse = await humeService.generateResponse(transcript, {
+            miningStats,
+            userContext,
         inputMode: 'voice',
         shouldSpeak: true,
         enableBrowsing: true,
@@ -653,15 +690,46 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
-      // Process response using Lovable AI Gateway
-      const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
-        miningStats,
-        userContext,
-        inputMode: 'text',
-        shouldSpeak: false,
-        enableBrowsing: true,
-        conversationContext: fullContext
-      }, language);
+      // Try Hume EVI first for emotionally intelligent responses with comprehensive client tools
+      let response;
+      let aiMethod = 'UnifiedEliza';
+      
+      if (humeService && humeReady) {
+        try {
+          const humeResponse = await humeService.generateResponse(textInput.trim(), {
+            miningStats,
+            userContext,
+            conversationHistory: messages.map(m => ({ role: m.sender, content: m.content })),
+            lastElizaResponse: lastElizaMessage
+          });
+          
+          response = humeResponse.text;
+          aiMethod = 'HumeEVI';
+          console.log('🧠 Using Hume EVI with comprehensive ecosystem tools');
+        } catch (error) {
+          console.warn('Hume EVI failed, falling back to UnifiedEliza:', error);
+          response = await UnifiedElizaService.generateResponse(textInput.trim(), {
+            miningStats,
+            userContext,
+            inputMode: 'text',
+            shouldSpeak: false,
+            enableBrowsing: true,
+            conversationContext: fullContext
+          }, language);
+        }
+      } else {
+        // Process response using Lovable AI Gateway
+        response = await UnifiedElizaService.generateResponse(textInput.trim(), {
+          miningStats,
+          userContext,
+          inputMode: 'text',
+          shouldSpeak: false,
+          enableBrowsing: true,
+          conversationContext: fullContext
+        }, language);
+      }
+      
+      setCurrentAIMethod(aiMethod);
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 
