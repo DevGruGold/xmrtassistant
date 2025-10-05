@@ -200,6 +200,28 @@ INTERACTION PRINCIPLES:
           { role: 'system', content: systemPrompt },
           ...messages
         ],
+        tools: [{
+          type: 'function',
+          function: {
+            name: 'executePythonCode',
+            description: 'Execute Python code in a sandboxed environment. CRITICAL: Only standard library available (urllib, json, http.client). NO external packages (requests, numpy, pandas).',
+            parameters: {
+              type: 'object',
+              required: ['code'],
+              properties: {
+                code: { 
+                  type: 'string',
+                  description: 'Python code to execute using only standard library. Use urllib.request for HTTP, json for parsing. NO requests library.'
+                },
+                purpose: {
+                  type: 'string',
+                  description: 'Brief description of what this code does'
+                }
+              }
+            }
+          }
+        }],
+        tool_choice: 'auto'
       }),
     });
 
@@ -226,6 +248,64 @@ INTERACTION PRINCIPLES:
 
     const lovableData = await lovableResponse.json();
     console.log('✅ Lovable AI response received');
+    
+    // Check if the AI wants to execute Python code
+    const toolCalls = lovableData.choices?.[0]?.message?.tool_calls;
+    
+    if (toolCalls && toolCalls.length > 0) {
+      const toolCall = toolCalls[0];
+      
+      if (toolCall.function.name === 'executePythonCode') {
+        console.log('🐍 AI requested Python execution');
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Create Supabase client
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Execute Python code
+        const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
+          body: {
+            code: args.code,
+            purpose: args.purpose || 'Code execution by Eliza'
+          }
+        });
+        
+        if (execError || !execResult.success) {
+          console.error('❌ Python execution failed:', execError || execResult);
+          
+          // Return error to user
+          return new Response(
+            JSON.stringify({
+              success: true,
+              response: `I attempted to execute the Python code, but encountered an error:\n\n${execResult?.error || execError?.message}\n\nThe autonomous code-fixer will attempt to fix this automatically. You can check the Python shell for updates.`,
+              hasToolCalls: true
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        console.log('✅ Python code executed successfully');
+        
+        // Return success with output
+        const output = execResult.output || '(No output)';
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: `✅ Python code executed successfully!\n\n${args.purpose ? `**Purpose:** ${args.purpose}\n\n` : ''}**Output:**\n${output}`,
+            hasToolCalls: true,
+            executionResult: execResult
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    }
     
     const response = lovableData.choices?.[0]?.message?.content;
     
