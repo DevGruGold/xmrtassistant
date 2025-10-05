@@ -437,6 +437,9 @@ serve(async (req) => {
   }
 });
 
+// Track tool calls executed in this workflow to prevent duplicates
+const executedToolSignatures = new Set<string>();
+
 // Execute tool calls with automatic retry on failure
 async function executeToolCallsWithRetry(
   toolCalls: any[], 
@@ -448,6 +451,24 @@ async function executeToolCallsWithRetry(
   const results = [];
   
   for (const toolCall of toolCalls) {
+    // Create a signature for this tool call to detect duplicates
+    const functionName = toolCall.function.name;
+    const args = JSON.parse(toolCall.function.arguments);
+    const toolSignature = `${functionName}:${JSON.stringify(args)}`;
+    
+    // Check if this exact tool call was already executed in this workflow
+    if (executedToolSignatures.has(toolSignature)) {
+      console.warn(`⚠️ Skipping duplicate tool call: ${functionName}`);
+      results.push({
+        success: false,
+        error: "This exact operation was already completed in this workflow. Task already created.",
+        isDuplicate: true
+      });
+      continue;
+    }
+    
+    // Mark this tool call as executed
+    executedToolSignatures.add(toolSignature);
     let retryCount = 0;
     let currentToolCall = toolCall;
     let lastError = null;
