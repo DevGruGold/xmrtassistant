@@ -9,6 +9,8 @@ import UnifiedChat from "@/components/UnifiedChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
+import { PythonShell } from "@/components/PythonShell";
+import { TaskVisualizer } from "@/components/TaskVisualizer";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -83,6 +85,32 @@ const Index = () => {
             <div className="bg-card/50 border border-border rounded-2xl p-6 shadow-lg backdrop-blur-sm">
               <UnifiedChat />
             </div>
+          </div>
+
+          {/* Python Shell - Eliza's Background Work */}
+          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-4">
+              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                Autonomous Python Shell
+              </h2>
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                Eliza's background workspace for code execution and automation
+              </p>
+            </div>
+            <PythonShell />
+          </div>
+
+          {/* Task Visualizer - Real-time Pipeline */}
+          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-4">
+              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                Multi-Agent Task Pipeline
+              </h2>
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                Real-time visualization of autonomous agent workflows
+              </p>
+            </div>
+            <TaskVisualizer />
           </div>
           
           {/* Quick Actions */}
