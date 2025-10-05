@@ -74,8 +74,19 @@ serve(async (req) => {
           {
             type: 'function',
             function: {
+              name: 'list_agents',
+              description: 'Get all existing agents and their IDs/status. ALWAYS call this BEFORE assigning tasks to know agent IDs.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
               name: 'spawn_agent',
-              description: 'Create a new specialized agent to work on tasks. User will see agent in TaskVisualizer.',
+              description: 'Create a new specialized agent. Returns agent with ID. User will see agent in TaskVisualizer.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -90,8 +101,23 @@ serve(async (req) => {
           {
             type: 'function',
             function: {
+              name: 'update_agent_status',
+              description: 'Change agent status to show progress (IDLE, BUSY, WORKING, COMPLETED, ERROR).',
+              parameters: {
+                type: 'object',
+                properties: {
+                  agent_id: { type: 'string', description: 'Agent ID (e.g., agent-1759625833505)' },
+                  status: { type: 'string', enum: ['IDLE', 'BUSY', 'WORKING', 'COMPLETED', 'ERROR'], description: 'New status' }
+                },
+                required: ['agent_id', 'status']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
               name: 'assign_task',
-              description: 'Create and assign a task to an agent. User will see task in TaskVisualizer.',
+              description: 'Create and assign a task to an agent using their ID (NOT name). User will see task in TaskVisualizer.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -100,9 +126,26 @@ serve(async (req) => {
                   repo: { type: 'string', description: 'Repository name (e.g., XMRT-Ecosystem)' },
                   category: { type: 'string', description: 'Task category (e.g., development, documentation)' },
                   stage: { type: 'string', description: 'Development stage (e.g., planning, implementation)' },
-                  assignee_agent_id: { type: 'string', description: 'Agent ID to assign to (optional)' }
+                  assignee_agent_id: { type: 'string', description: 'Agent ID from list_agents or spawn_agent result' },
+                  priority: { type: 'number', description: 'Priority 1-10, default 5' }
                 },
-                required: ['title', 'description', 'repo', 'category', 'stage']
+                required: ['title', 'description', 'repo', 'category', 'stage', 'assignee_agent_id']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'update_task_status',
+              description: 'Update task status and stage as agents work on it.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID' },
+                  status: { type: 'string', enum: ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'FAILED'], description: 'New status' },
+                  stage: { type: 'string', description: 'New stage (e.g., planning, development, testing)' }
+                },
+                required: ['task_id', 'status']
               }
             }
           }
@@ -194,6 +237,19 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         } else {
           console.log('✅ Python executed successfully');
         }
+      } else if (functionName === 'list_agents') {
+        const { data, error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'list_agents',
+            data: {}
+          }
+        });
+        
+        if (error) {
+          console.error('❌ List agents failed:', error);
+        } else {
+          console.log('📋 Agents listed:', data);
+        }
       } else if (functionName === 'spawn_agent') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
@@ -209,7 +265,23 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         if (error) {
           console.error('❌ Agent spawn failed:', error);
         } else {
-          console.log('✅ Agent spawned successfully:', data);
+          console.log('✅ Agent spawned:', data);
+        }
+      } else if (functionName === 'update_agent_status') {
+        const { data, error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'update_agent_status',
+            data: {
+              agent_id: args.agent_id,
+              status: args.status
+            }
+          }
+        });
+        
+        if (error) {
+          console.error('❌ Agent status update failed:', error);
+        } else {
+          console.log('✅ Agent status updated:', data);
         }
       } else if (functionName === 'assign_task') {
         const { data, error } = await supabase.functions.invoke('agent-manager', {
@@ -221,7 +293,8 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
               repo: args.repo,
               category: args.category,
               stage: args.stage,
-              assignee_agent_id: args.assignee_agent_id
+              assignee_agent_id: args.assignee_agent_id,
+              priority: args.priority || 5
             }
           }
         });
@@ -229,7 +302,24 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         if (error) {
           console.error('❌ Task assignment failed:', error);
         } else {
-          console.log('✅ Task assigned successfully:', data);
+          console.log('✅ Task assigned:', data);
+        }
+      } else if (functionName === 'update_task_status') {
+        const { data, error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'update_task_status',
+            data: {
+              task_id: args.task_id,
+              status: args.status,
+              stage: args.stage
+            }
+          }
+        });
+        
+        if (error) {
+          console.error('❌ Task status update failed:', error);
+        } else {
+          console.log('✅ Task status updated:', data);
         }
       }
     } catch (error) {
@@ -358,11 +448,24 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
   You can call these functions directly by using them in your response:
   
   - execute_python(code, purpose): Execute actual Python code
-  - spawn_agent(name, role, skills): Create a new specialized agent
-  - assign_task(title, description, repo, category, stage, assignee_agent_id): Create/assign a task
+  - list_agents(): Get all agents with their IDs and status
+  - spawn_agent(name, role, skills): Create new agent (returns agent with ID)
+  - update_agent_status(agent_id, status): Change agent status (IDLE→BUSY→WORKING→COMPLETED)
+  - assign_task(title, description, repo, category, stage, assignee_agent_id, priority): Assign task using agent ID
+  - update_task_status(task_id, status, stage): Update task progress
   
   The system executes these IMMEDIATELY in the background.
   User sees execution in real-time in PythonShell and TaskVisualizer.
+  
+  ** AGENT WORKFLOW - ALWAYS FOLLOW THIS SEQUENCE: **
+  1. list_agents() to see existing agents and their IDs
+  2. spawn_agent() if you need a new agent (note the returned ID!)
+  3. update_agent_status(agent_id, "BUSY") to activate the agent
+  4. assign_task() using the agent's ID (NOT name!)
+  5. update_agent_status(agent_id, "WORKING") to show progress
+  6. update_task_status() to show task progression
+  7. update_agent_status(agent_id, "COMPLETED") when done
+  
   Just announce what you're doing in chat!
 
 **GITHUB INTEGRATION & CODE MANAGEMENT:**
