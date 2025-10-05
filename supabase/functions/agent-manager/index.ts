@@ -156,8 +156,86 @@ serve(async (req) => {
           },
           status: 'completed'
         });
+
+        // If task is completed, free up the agent for new assignments
+        if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+          await supabase
+            .from('agents')
+            .update({ status: 'IDLE' })
+            .eq('id', updatedTask.assignee_agent_id);
+          
+          console.log(`✅ Agent ${updatedTask.assignee_agent_id} marked IDLE after task completion`);
+        }
         
         result = updatedTask;
+        break;
+
+      case 'report_progress':
+        // Agent reports progress to lead agent
+        const progressLog = await supabase.from('eliza_activity_log').insert({
+          activity_type: 'progress_report',
+          title: `Progress Report: ${data.agent_name}`,
+          description: data.progress_message,
+          metadata: {
+            agent_id: data.agent_id,
+            task_id: data.task_id,
+            progress_percentage: data.progress_percentage,
+            current_stage: data.current_stage
+          },
+          status: 'completed'
+        });
+        
+        console.log(`📊 Progress reported by ${data.agent_name}:`, data.progress_message);
+        result = { success: true, message: 'Progress reported' };
+        break;
+
+      case 'request_assignment':
+        // Agent requests new assignment from lead
+        const { data: availableTasks, error: availableError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('status', 'PENDING')
+          .order('priority', { ascending: false })
+          .limit(1);
+        
+        if (availableError) throw availableError;
+        
+        if (availableTasks && availableTasks.length > 0) {
+          const nextTask = availableTasks[0];
+          
+          // Assign the task
+          await supabase
+            .from('tasks')
+            .update({ 
+              status: 'IN_PROGRESS',
+              assignee_agent_id: data.agent_id 
+            })
+            .eq('id', nextTask.id);
+          
+          // Update agent status
+          await supabase
+            .from('agents')
+            .update({ status: 'BUSY' })
+            .eq('id', data.agent_id);
+          
+          // Log assignment
+          await supabase.from('eliza_activity_log').insert({
+            activity_type: 'task_assigned',
+            title: `Task Assigned: ${nextTask.title}`,
+            description: `Assigned to ${data.agent_name}`,
+            metadata: {
+              task_id: nextTask.id,
+              agent_id: data.agent_id
+            },
+            status: 'completed'
+          });
+          
+          console.log(`📋 Assigned task "${nextTask.title}" to ${data.agent_name}`);
+          result = { success: true, task: nextTask };
+        } else {
+          console.log(`⏸️ No tasks available for ${data.agent_name}`);
+          result = { success: false, message: 'No pending tasks available' };
+        }
         break;
 
       case 'get_agent_workload':

@@ -79,14 +79,21 @@ export const TaskVisualizer = () => {
         setTasks(tasksData);
       }
 
-      // Fetch agents
+      // Fetch agents - deduplicate by ID
       const { data: agentsData, error: agentsError } = await supabase
         .from('agents')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (!agentsError && agentsData) {
-        setAgents(agentsData);
+        // Remove duplicates by keeping only the latest entry for each agent ID
+        const uniqueAgents = agentsData.reduce((acc, agent) => {
+          if (!acc.find(a => a.id === agent.id)) {
+            acc.push(agent);
+          }
+          return acc;
+        }, [] as Agent[]);
+        setAgents(uniqueAgents);
       }
     } catch (error) {
       console.error('Error fetching task data:', error);
