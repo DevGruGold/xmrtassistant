@@ -721,6 +721,8 @@ Respond NOW using the data shown above.`
           // Handle call_edge_function for agent-manager
           if (funcName === 'call_edge_function' && result.success) {
             const data = result.data?.data || result.data;
+            const args = JSON.parse(argsJson || '{}');
+            const functionName = args.function_name || 'unknown';
             
             // Check if this was a list_agents call
             if (Array.isArray(data) && data.length > 0 && data[0].name && data[0].role) {
@@ -744,12 +746,82 @@ Respond NOW using the data shown above.`
               return summary;
             }
             
-            // Other edge function calls
-            return `Edge function completed successfully`;
+            // Format mining-proxy results
+            if (functionName === 'mining-proxy' && data.success) {
+              const stats = data.stats || {};
+              let summary = `📊 Mining Statistics:\n\n`;
+              summary += `💰 Balance: ${stats.amtDue ? (stats.amtDue / 1000000000000).toFixed(4) + ' XMR' : 'N/A'}\n`;
+              summary += `⚡ Hash Rate: ${stats.hash || 'N/A'}\n`;
+              summary += `🔄 Valid Shares: ${stats.validShares || 'N/A'}\n`;
+              summary += `❌ Invalid Shares: ${stats.invalidShares || 'N/A'}\n`;
+              if (stats.lastShare) {
+                summary += `⏰ Last Share: ${new Date(stats.lastShare * 1000).toLocaleString()}\n`;
+              }
+              return summary;
+            }
+            
+            // Format render-api results
+            if (functionName === 'render-api' && data.success) {
+              const service = data.service || {};
+              let summary = `🚀 Render Service Status:\n\n`;
+              summary += `📝 Name: ${service.name || 'N/A'}\n`;
+              summary += `🔧 Type: ${service.type || 'N/A'}\n`;
+              summary += `✅ State: ${service.state || 'N/A'}\n`;
+              summary += `🌿 Branch: ${service.branch || 'N/A'}\n`;
+              summary += `📅 Created: ${service.createdAt ? new Date(service.createdAt).toLocaleString() : 'N/A'}\n`;
+              if (service.serviceDetails?.url) {
+                summary += `🔗 URL: ${service.serviceDetails.url}\n`;
+              }
+              return summary;
+            }
+            
+            // Format system-diagnostics results
+            if (functionName === 'system-diagnostics' && data.success) {
+              const diag = data.diagnostics || {};
+              let summary = `🖥️ System Diagnostics:\n\n`;
+              summary += `🔧 OS: ${diag.system?.os || 'N/A'}\n`;
+              summary += `🏗️ Architecture: ${diag.system?.arch || 'N/A'}\n`;
+              summary += `📊 Memory (RSS): ${diag.memory?.rss || 'N/A'}\n`;
+              summary += `💾 Heap Used: ${diag.memory?.heap_used || 'N/A'}\n`;
+              summary += `🌐 Hostname: ${diag.environment?.hostname || 'N/A'}\n`;
+              return summary;
+            }
+            
+            // Generic edge function success with data preview
+            if (data && typeof data === 'object') {
+              const dataStr = JSON.stringify(data, null, 2);
+              if (dataStr.length > 300) {
+                return `✅ ${functionName} completed:\n${dataStr.substring(0, 300)}...\n[Response truncated]`;
+              }
+              return `✅ ${functionName} completed:\n${dataStr}`;
+            }
+            
+            return `✅ ${functionName} completed successfully`;
           }
           
-          return result.success ? `${funcName} completed successfully` : `${funcName} failed: ${result.error}`;
-        }).join('\n');
+          // Handle execute_python results
+          if (funcName === 'execute_python' && result.success) {
+            const data = result.data;
+            const args = JSON.parse(argsJson || '{}');
+            const purpose = args.purpose || 'Python execution';
+            
+            let summary = `🐍 ${purpose}:\n`;
+            if (data?.output) {
+              const output = data.output.trim();
+              if (output.length > 500) {
+                summary += `${output.substring(0, 500)}...\n[Output truncated]`;
+              } else {
+                summary += output;
+              }
+            }
+            if (data?.error && data.error.trim()) {
+              summary += `\n⚠️ Errors: ${data.error.trim()}`;
+            }
+            return summary;
+          }
+          
+          return result.success ? `✅ ${funcName} completed successfully` : `❌ ${funcName} failed: ${result.error}`;
+        }).join('\n\n');
         
         aiResponse = toolSummaries || "Tasks completed.";
       }
