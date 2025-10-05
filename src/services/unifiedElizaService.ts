@@ -164,6 +164,23 @@ export class UnifiedElizaService {
     }
   }
 
+  // Helper to detect complex agentic tasks
+  private static isComplexAgenticTask(input: string): boolean {
+    const complexPatterns = [
+      /analyze.*and.*create/i,
+      /multi[- ]?step|multiple steps/i,
+      /coordinate|orchestrate/i,
+      /plan.*and.*execute/i,
+      /research.*and.*summarize/i,
+      /compare.*across.*sources/i,
+      /integrate.*data.*from/i,
+      /build.*workflow/i,
+      /complex.*analysis/i,
+      /autonomous.*task/i
+    ];
+    return complexPatterns.some(pattern => pattern.test(input));
+  }
+
   // Generate response using Gemini via Lovable AI Gateway
   private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<{ response: string; hasToolCalls: boolean }> {
     const {
@@ -214,6 +231,62 @@ export class UnifiedElizaService {
         timestamp: m.timestamp
       }))
     };
+
+    // Tier 0 (Conditional): Manus AI - For complex agentic tasks (token-limited)
+    if (this.isComplexAgenticTask(userInput)) {
+      try {
+        console.log('🧠 Detected complex agentic task, checking Manus AI availability...');
+        const { data, error } = await supabase.functions.invoke('manus-chat', {
+          body: {
+            userInput,
+            context: {
+              miningStats,
+              userContext: {
+                isFounder: userContext?.isFounder || false,
+                ip: userContext?.ip || 'unknown',
+                sessionKey
+              },
+              conversationHistory,
+              systemVersion
+            },
+            requiresApproval: true
+          }
+        });
+
+        // If requires approval, return special response for UI
+        if (data?.requiresApproval) {
+          console.log('⏸️ Manus AI requires user approval');
+          return {
+            response: JSON.stringify({
+              type: 'manus_approval_required',
+              ...data
+            }),
+            hasToolCalls: false
+          };
+        }
+
+        // If successful response
+        if (data?.response && !error) {
+          console.log('✅ Manus AI response received', {
+            tokensUsed: data.tokensUsed,
+            tokensRemaining: data.tokensRemaining
+          });
+          return {
+            response: data.response,
+            hasToolCalls: false
+          };
+        }
+
+        // If tokens depleted or error, fall through to Tier 1
+        if (error?.message?.includes('tokens_depleted') || data?.error === 'tokens_depleted') {
+          console.log('⚠️ Manus tokens depleted, falling back to Tier 1');
+        } else {
+          console.warn('⚠️ Manus AI failed:', error?.message || data?.error);
+        }
+      } catch (err) {
+        console.warn('⚠️ Manus AI exception:', err.message);
+      }
+    }
 
     // Multi-tier AI fallback system for guaranteed responses
     const requestBody = {

@@ -509,6 +509,36 @@ export type Database = {
         }
         Relationships: []
       }
+      manus_token_usage: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          last_reset_at: string
+          tokens_available: number
+          tokens_used: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          last_reset_at?: string
+          tokens_available?: number
+          tokens_used?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          last_reset_at?: string
+          tokens_available?: number
+          tokens_used?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       memory_contexts: {
         Row: {
           content: string
@@ -777,6 +807,10 @@ export type Database = {
       check_session_ownership: {
         Args: { request_metadata: Json; session_uuid: string }
         Returns: boolean
+      }
+      reset_manus_tokens: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

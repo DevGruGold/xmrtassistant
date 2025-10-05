@@ -10,6 +10,10 @@ import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
 import { enhancedTTS } from '@/services/enhancedTTSService';
+import { ManusTokenDisplay } from './ManusTokenDisplay';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -65,6 +69,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 }) => {
   // Core state
   const { language } = useLanguage();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [conversationSummaries, setConversationSummaries] = useState<Array<{ summaryText: string; messageCount: number; createdAt: Date }>>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -73,6 +78,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
+  
+  // Manus AI approval state
+  const [manusApproval, setManusApproval] = useState<any>(null);
+  const [pendingInput, setPendingInput] = useState<string>("");
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -656,6 +665,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 
+      // Check if response requires Manus approval
+      try {
+        const parsedResponse = JSON.parse(response);
+        if (parsedResponse.type === 'manus_approval_required') {
+          console.log('⏸️ Manus approval required, showing dialog');
+          setManusApproval(parsedResponse);
+          setPendingInput(textInput.trim());
+          setIsProcessing(false);
+          return;
+        }
+      } catch {
+        // Not a JSON response, continue normally
+      }
+
       // Remove tool_use tags from chat display
       const cleanResponse = response.replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '').trim();
 
@@ -738,6 +761,74 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   };
 
+  const handleManusApproval = async (approved: boolean) => {
+    if (!approved) {
+      setManusApproval(null);
+      setPendingInput("");
+      toast({
+        title: "Manus AI Declined",
+        description: "Using standard AI tier instead",
+      });
+      // Retry with regular flow by resetting and letting it skip Manus
+      setTextInput(pendingInput);
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const { data, error } = await supabase.functions.invoke('manus-chat', {
+        body: {
+          userInput: pendingInput,
+          context: {
+            miningStats,
+            userContext,
+            conversationHistory: messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.content }))
+          },
+          requiresApproval: false,
+          userApproved: true
+        }
+      });
+
+      if (error || !data?.response) throw error;
+
+      const elizaMessage: UnifiedMessage = {
+        id: `eliza-${Date.now()}`,
+        content: data.response,
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, elizaMessage]);
+      setLastElizaMessage(data.response);
+      
+      toast({
+        title: "🧠 Manus AI Executed",
+        description: `Tokens used: 1, Remaining: ${data.tokensRemaining}`,
+      });
+
+      // Store Manus response
+      await conversationPersistence.storeMessage(data.response, 'assistant', {
+        service: 'manus',
+        tokens_used: data.tokensUsed,
+        tokens_remaining: data.tokensRemaining
+      });
+
+    } catch (error: any) {
+      console.error('Manus execution error:', error);
+      toast({
+        title: "Manus AI Failed",
+        description: "Falling back to standard AI",
+        variant: "destructive",
+      });
+      // Fall back to standard processing
+      setTextInput(pendingInput);
+    } finally {
+      setManusApproval(null);
+      setPendingInput("");
+      setIsProcessing(false);
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -802,6 +893,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               <h3 className="font-semibold text-foreground text-sm sm:text-base">Eliza AI</h3>
               <p className="text-xs text-muted-foreground">Your XMRT Assistant</p>
             </div>
+            <ManusTokenDisplay />
           </div>
 
           <div className="flex items-center gap-2">
@@ -961,6 +1053,32 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Manus Approval Dialog */}
+      <AlertDialog open={!!manusApproval} onOpenChange={() => setManusApproval(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>🧠 Use Manus Agentic AI?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This task appears to require complex multi-step reasoning.</p>
+              <p className="font-semibold">
+                Tokens: {manusApproval?.tokensRequired || 1} required, {manusApproval?.tokensRemaining || 0} remaining today
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {manusApproval?.estimatedCapability}
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => handleManusApproval(false)}>
+              Use Standard AI
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleManusApproval(true)}>
+              Use Manus AI
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
