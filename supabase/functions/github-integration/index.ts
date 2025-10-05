@@ -1,39 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { create, verify } from "https://deno.land/x/djwt@v2.8/mod.ts";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
-const GITHUB_CLIENT_ID = Deno.env.get('GITHUB_CLIENT_ID');
-const GITHUB_CLIENT_SECRET = Deno.env.get('GITHUB_CLIENT_SECRET');
-const GITHUB_OWNER = Deno.env.get('GITHUB_OWNER') || 'xmr-telamon';
-const GITHUB_REPO = Deno.env.get('GITHUB_REPO') || 'xmrt-ecosystem';
+const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN');
+const GITHUB_OWNER = Deno.env.get('GITHUB_OWNER') || 'DevGruGold';
+const GITHUB_REPO = Deno.env.get('GITHUB_REPO') || 'XMRT-Ecosystem';
 
-// Cache for access token
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-async function getAccessToken(): Promise<string> {
-  // Check cache first
-  if (cachedToken && cachedToken.expiresAt > Date.now()) {
-    return cachedToken.token;
+// Validate required environment variables
+function validateGitHubConfig(): void {
+  if (!GITHUB_TOKEN) {
+    throw new Error('GITHUB_TOKEN must be configured');
   }
-
-  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-    throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
-  }
-
-  // For GitHub OAuth Apps, we use Basic Authentication with client_id:client_secret
-  // This allows the app to make API requests on behalf of the app itself
-  const credentials = btoa(`${GITHUB_CLIENT_ID}:${GITHUB_CLIENT_SECRET}`);
-  
-  console.log(`🔐 Authenticating with GitHub OAuth App: ${GITHUB_CLIENT_ID}`);
-
-  // Cache token for 1 hour
-  cachedToken = {
-    token: credentials,
-    expiresAt: Date.now() + 3600000,
-  };
-
-  return credentials;
+  console.log(`✅ GitHub configured - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
 }
 
 serve(async (req) => {
@@ -42,10 +19,13 @@ serve(async (req) => {
   }
 
   try {
+    // Validate GitHub configuration
+    validateGitHubConfig();
+
     const requestBody = await req.json();
     const { action, data } = requestBody;
     
-    console.log(`GitHub Integration - Action: ${action}`, data);
+    console.log(`🔧 GitHub Integration - Action: ${action}`, data);
 
     // Validate action exists
     if (!action) {
@@ -61,28 +41,12 @@ serve(async (req) => {
       );
     }
 
-    if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-      console.error('❌ GitHub OAuth credentials not configured');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'GitHub integration not configured. Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET secrets.',
-          needsSetup: true 
-        }),
-        { 
-          status: 503,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Get access token using OAuth credentials
-    const accessToken = await getAccessToken();
-
+    // Use GitHub Personal Access Token for authentication
     const headers = {
-      'Authorization': `Basic ${accessToken}`,
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28',
     };
 
     let result;
