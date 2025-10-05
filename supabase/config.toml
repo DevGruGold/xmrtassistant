@@ -137,5 +137,8 @@ verify_jwt = false
 [functions.lovable-chat]
 verify_jwt = false
 
+[functions.test-github-proof-of-life]
+verify_jwt = false
+
 
 
