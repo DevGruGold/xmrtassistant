@@ -15,7 +15,18 @@ serve(async (req) => {
     console.log(`GitHub Integration - Action: ${action}`, data);
 
     if (!GITHUB_TOKEN) {
-      throw new Error('GITHUB_TOKEN not configured');
+      console.error('❌ GITHUB_TOKEN not configured');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'GitHub integration not configured. Please set GITHUB_TOKEN secret.',
+          needsSetup: true 
+        }),
+        { 
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const headers = {
@@ -185,7 +196,21 @@ serve(async (req) => {
 
     if (!result.ok) {
       console.error('GitHub API Error:', responseData);
-      throw new Error(responseData.message || 'GitHub API request failed');
+      
+      // Return detailed error info instead of throwing
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: responseData.message || 'GitHub API request failed',
+          status: result.status,
+          needsAuth: result.status === 401,
+          details: responseData
+        }),
+        { 
+          status: result.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log(`GitHub Integration - Success: ${action}`);

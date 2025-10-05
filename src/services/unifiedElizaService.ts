@@ -259,9 +259,18 @@ export class UnifiedElizaService {
           hasToolCalls: data.hasToolCalls || false
         };
       }
-      console.warn('⚠️ Tier 1 failed:', error?.message || data?.error);
+      
+      // Log detailed error info for debugging
+      console.warn('⚠️ Tier 1 failed:', {
+        error: error?.message || data?.error,
+        details: data,
+        willFallbackToTier2: true
+      });
     } catch (err) {
-      console.warn('⚠️ Tier 1 exception:', err.message);
+      console.warn('⚠️ Tier 1 exception:', {
+        message: err.message,
+        willFallbackToTier2: true
+      });
     }
 
     // Tier 2: Fallback to Lovable AI Gateway (Gemini)
@@ -278,70 +287,132 @@ export class UnifiedElizaService {
           hasToolCalls: data.hasToolCalls || false
         };
       }
-      console.warn('⚠️ Tier 2 failed:', error?.message || data?.error);
+      
+      // Check if this was a tool call failure - extract any useful info
+      if (data?.toolResults) {
+        console.log('🔧 Tool call results from Gemini:', data.toolResults);
+      }
+      console.warn('⚠️ Tier 2 failed:', {
+        error: error?.message || data?.error,
+        hadToolCalls: !!data?.hasToolCalls,
+        toolResults: data?.toolResults,
+        willFallbackToTier3: true
+      });
     } catch (err) {
-      console.warn('⚠️ Tier 2 exception:', err.message);
+      console.warn('⚠️ Tier 2 exception:', {
+        message: err.message,
+        willFallbackToTier3: true
+      });
     }
 
     // Tier 3: Fallback to OpenAI edge function
     try {
-      console.log('🎯 Tier 3: Trying OpenAI fallback...');
-      const { data, error } = await supabase.functions.invoke('openai-chat', {
-        body: requestBody
-      });
+      const apiKey = openAIApiKeyManager.getCurrentApiKey();
+      if (apiKey || openAIApiKeyManager.hasUserApiKey()) {
+        console.log('🎯 Tier 3: Trying OpenAI fallback...');
+        const { data, error } = await supabase.functions.invoke('openai-chat', {
+          body: requestBody
+        });
 
-      if (!error && data?.success) {
-        console.log('✅ OpenAI response received');
-        return {
-          response: data.response,
-          hasToolCalls: false
-        };
+        if (!error && data?.success) {
+          console.log('✅ OpenAI response received');
+          return {
+            response: data.response,
+            hasToolCalls: false
+          };
+        }
+        console.warn('⚠️ Tier 3 failed:', {
+          error: error?.message || data?.error,
+          willFallbackToTier4: true
+        });
+      } else {
+        console.log('⚠️ Tier 3 skipped: No OpenAI API key configured');
       }
-      console.warn('⚠️ Tier 3 failed:', error?.message || data?.error);
-    } catch (err) {
-      console.warn('⚠️ Tier 3 exception:', err.message);
+    } catch (err: any) {
+      console.warn('⚠️ Tier 3 exception:', {
+        message: err.message,
+        willFallbackToTier4: true
+      });
     }
 
     // Tier 4: Use embedded knowledge base with enhanced context awareness
-    console.log('🎯 Tier 4: Using embedded knowledge fallback with enhanced context...');
+    console.log('🎯 Tier 4: Using embedded knowledge fallback with intelligent analysis...');
     
-    // Try to extract meaningful context from conversation history
-    const conversationContext = fullConversationContext?.recentMessages?.slice(-5).map(m => 
-      `${m.sender}: ${m.content}`
-    ).join('\n') || '';
+    // Analyze what the user is asking for
+    const isAskingAbout = {
+      github: /github|repository|repo|code|commit|pull request|pr|issue/i.test(userInput),
+      mining: /mining|hash|share|xmr|monero|pool/i.test(userInput),
+      system: /version|deployment|status|health|service/i.test(userInput),
+      general: true
+    };
     
-    const relevantKnowledge = xmrtContext.slice(0, 3);
-    const knowledgeContext = relevantKnowledge.length > 0 
-      ? relevantKnowledge.map(k => `${k.topic}: ${k.content.substring(0, 300)}`).join('\n\n')
-      : 'I have general knowledge about the XMRT-DAO ecosystem.';
-    
-    // Build a more contextual response
+    // Build intelligent response based on available data and context
     let contextualResponse = '';
     
-    if (conversationContext) {
-      contextualResponse += `Based on our recent conversation and available information:\n\n`;
+    // If asking about GitHub and we have that in context
+    if (isAskingAbout.github) {
+      contextualResponse += `I can help with GitHub-related questions, but the GitHub integration needs to be reconfigured. `;
+      contextualResponse += `The GITHUB_TOKEN may need to be updated in the Supabase secrets.\n\n`;
     }
     
-    contextualResponse += knowledgeContext;
+    // Add relevant knowledge base context
+    const relevantKnowledge = xmrtContext.slice(0, 3);
+    if (relevantKnowledge.length > 0) {
+      contextualResponse += relevantKnowledge.map(k => 
+        `**${k.topic}**: ${k.content.substring(0, 200)}...`
+      ).join('\n\n') + '\n\n';
+    }
     
-    if (miningStats) {
-      contextualResponse += `\n\n📊 Current Mining Stats:\n`;
+    // Add mining stats if relevant and available
+    if (isAskingAbout.mining && miningStats) {
+      contextualResponse += `📊 **Current Mining Activity**:\n`;
       contextualResponse += `- Hash Rate: ${miningStats.hashRate} H/s\n`;
       contextualResponse += `- Valid Shares: ${miningStats.validShares}\n`;
-      contextualResponse += `- Amount Due: ${miningStats.amountDue} XMR\n`;
-      contextualResponse += `- Status: ${miningStats.isOnline ? 'Online ✓' : 'Offline'}\n`;
+      contextualResponse += `- Amount Due: ${(parseFloat(miningStats.amountDue) / 1e12).toFixed(8)} XMR\n`;
+      contextualResponse += `- Total Hashes: ${miningStats.totalHashes.toLocaleString()}\n`;
+      contextualResponse += `- Status: ${miningStats.isOnline ? '✅ Online' : '⚠️ Offline'}\n\n`;
     }
     
-    if (systemVersion) {
-      contextualResponse += `\n\n🚀 System Status:\n`;
+    // Add system version if relevant and available
+    if (isAskingAbout.system && systemVersion) {
+      contextualResponse += `🚀 **System Information**:\n`;
       contextualResponse += `- Version: ${systemVersion.version}\n`;
-      contextualResponse += `- Deployment: ${systemVersion.deploymentId}\n`;
+      contextualResponse += `- Deployment ID: ${systemVersion.deploymentId}\n`;
       contextualResponse += `- Status: ${systemVersion.status}\n`;
+      if (systemVersion.commitMessage) {
+        contextualResponse += `- Latest Update: ${systemVersion.commitMessage}\n`;
+      }
+      contextualResponse += '\n';
     }
     
-    contextualResponse += `\n\nNote: I'm using my embedded knowledge base right now. For real-time data and advanced features, the AI services will be back online shortly.`;
+    // Add conversational context if available
+    if (fullConversationContext?.recentMessages?.length > 0) {
+      const recentTopics = fullConversationContext.recentMessages
+        .slice(-3)
+        .map(m => m.content)
+        .join(' ');
+      
+      // If response is still empty, provide context-aware fallback
+      if (!contextualResponse.trim()) {
+        contextualResponse = `Based on our conversation, I understand you're asking about "${userInput}". `;
+        contextualResponse += `While my advanced AI features are temporarily unavailable, I can still help with information about the XMRT ecosystem.\n\n`;
+      }
+    }
+    
+    // Final fallback if still no response
+    if (!contextualResponse.trim()) {
+      contextualResponse = `I'm currently operating in embedded knowledge mode. I can help answer questions about the XMRT-DAO ecosystem, mining operations, and system features. Could you rephrase your question or ask about a specific aspect of XMRT?\n\n`;
+    }
+    
+    contextualResponse += `💡 *Note: Running on local knowledge base. Full AI capabilities will return shortly.*`;
 
-    console.log('✅ Enhanced contextual knowledge response generated');
+    console.log('✅ Intelligent fallback response generated with context:', {
+      hasKnowledge: relevantKnowledge.length > 0,
+      hasMiningStats: !!miningStats,
+      hasSystemVersion: !!systemVersion,
+      hasConversationContext: !!fullConversationContext?.recentMessages?.length
+    });
+    
     return {
       response: contextualResponse,
       hasToolCalls: false
