@@ -206,17 +206,36 @@ serve(async (req) => {
         content: JSON.stringify(toolResults[index])
       }));
       
-      const finalResponse = await callLovableAIGateway({
-        messages: [
-          ...preparedMessages,
-          { role: "assistant", content: message.content || "", tool_calls: message.tool_calls },
-          ...toolResultsForGemini
-        ],
-        miningStats,
-        systemVersion: null
+      const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            ...geminiMessages,
+            { role: "assistant", content: message.content || "", tool_calls: message.tool_calls },
+            ...toolResultsForGemini
+          ],
+          temperature: 0.7,
+          max_tokens: 1500
+        }),
       });
       
-      const finalMessage = finalResponse.choices?.[0]?.message;
+      if (!finalResponse.ok) {
+        console.error("Final response error:", finalResponse.status);
+        // Return tool results as plain text if final call fails
+        const aiResponse = `I executed the requested functions. Results: ${JSON.stringify(toolResults, null, 2)}`;
+        return new Response(
+          JSON.stringify({ success: true, response: aiResponse }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const finalData = await finalResponse.json();
+      const finalMessage = finalData.choices?.[0]?.message;
       const aiResponse = finalMessage?.content || "I've completed the requested action.";
       
       return new Response(
