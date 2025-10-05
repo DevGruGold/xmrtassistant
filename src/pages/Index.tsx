@@ -12,6 +12,7 @@ import XMRTDashboard from "@/components/XMRTDashboard";
 import { PythonShell } from "@/components/PythonShell";
 import { TaskVisualizer } from "@/components/TaskVisualizer";
 import { AutomatedCodeHealing } from "@/components/AutomatedCodeHealing";
+import { MiningLeaderboard } from "@/components/MiningLeaderboard";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -148,6 +149,19 @@ const Index = () => {
                 </div>
               </div>
             </div>
+          </div>
+          
+          {/* Mining Leaderboard */}
+          <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
+            <div className="text-center mb-4">
+              <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                Top Miners
+              </h3>
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                Real-time worker performance from the XMRT mining pool
+              </p>
+            </div>
+            <MiningLeaderboard />
           </div>
           
           {/* Mining Calculator */}
