@@ -25,8 +25,16 @@ const LiveMiningStats = () => {
 
   const fetchMiningStats = async () => {
     try {
+      // Add explicit CORS mode and headers for better compatibility
       const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg/stats"
+        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg/stats",
+        {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json',
+          },
+          cache: 'no-cache'
+        }
       );
       
       if (!response.ok) {
@@ -34,6 +42,9 @@ const LiveMiningStats = () => {
       }
       
       const data = await response.json();
+      
+      // Log the raw API response for debugging
+      console.log('📊 Raw mining data from SupportXMR API:', data);
       
       setStats({
         hash: data.hash || 0,
