@@ -11,6 +11,7 @@ import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
 import { PythonShell } from "@/components/PythonShell";
 import { TaskVisualizer } from "@/components/TaskVisualizer";
+import { AutomatedCodeHealing } from "@/components/AutomatedCodeHealing";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -265,6 +266,9 @@ const Index = () => {
           title="XMRT Chat"
         />
       </div>
+      
+      {/* Automated Code Healing Widget */}
+      <AutomatedCodeHealing />
       
       <Footer />
     </div>

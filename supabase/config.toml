@@ -60,6 +60,12 @@ verify_jwt = false
 [functions.python-fixer-agent]
 verify_jwt = false
 
+[functions.autonomous-code-fixer]
+verify_jwt = false
+
+[functions.code-monitor-daemon]
+verify_jwt = false
+
 [functions.github-integration]
 verify_jwt = false
 
