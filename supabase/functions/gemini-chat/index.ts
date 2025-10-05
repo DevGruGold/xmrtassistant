@@ -396,6 +396,54 @@ serve(async (req) => {
         // Execute tools with retry logic
         const toolResults = await executeToolCallsWithRetry(currentToolCalls, supabase, LOVABLE_API_KEY, currentMessages);
         
+        // Check if any tools failed and should use fallback
+        const failedToolsNeedingFallback = toolResults.filter((r: any) => r.shouldUseFallback);
+        
+        if (failedToolsNeedingFallback.length > 0) {
+          console.log(`⚠️ ${failedToolsNeedingFallback.length} tool(s) failed - using AI fallback`);
+          
+          // Use Gemini's own intelligence to answer instead of calling failed tools
+          const fallbackPrompt = failedToolsNeedingFallback
+            .map((r: any) => `Tool failed: ${r.error}. ${r.fallbackQuery || 'Please answer using your own knowledge.'}`)
+            .join('\n');
+          
+          const fallbackResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                ...geminiMessages,
+                { 
+                  role: "system", 
+                  content: `The edge functions are currently unavailable. Use your own knowledge and reasoning to answer the user's question. ${fallbackPrompt}` 
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: 1500,
+            }),
+          });
+          
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            const fallbackMessage = fallbackData.choices?.[0]?.message?.content;
+            
+            console.log("📤 Sending fallback AI response:", fallbackMessage?.substring(0, 100));
+            
+            return new Response(
+              JSON.stringify({ 
+                success: true, 
+                response: fallbackMessage || "I apologize, but I'm having trouble accessing that information right now.",
+                usedFallback: true
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+        
         // Add assistant message with tool calls and tool results to conversation
         const toolResultsForGemini = currentToolCalls.map((call: any, index: number) => ({
           role: "function",
@@ -815,22 +863,38 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = args.purpose || 'Python Code Execution';
     activityDescription = `Executing Python code: ${args.code.substring(0, 100)}${args.code.length > 100 ? '...' : ''}`;
     
-    const { data, error } = await supabase.functions.invoke('python-executor', {
-      body: { 
-        code: args.code,
-        purpose: args.purpose 
+    try {
+      const { data, error } = await supabase.functions.invoke('python-executor', {
+        body: { 
+          code: args.code,
+          purpose: args.purpose 
+        }
+      });
+      
+      if (error) {
+        console.error('❌ Python execution failed:', error);
+        result = { 
+          success: false, 
+          error: error.message, 
+          data,
+          shouldUseFallback: true,
+          fallbackQuery: `The Python code execution failed. Please use your own reasoning to answer: ${args.purpose || 'analyze the request'}`
+        };
+      } else if (data?.exitCode !== 0) {
+        console.error('❌ Python execution had errors:', data?.output || data?.error);
+        result = { success: false, error: 'Python execution failed', data };
+      } else {
+        console.log('✅ Python executed successfully');
+        result = { success: true, data };
       }
-    });
-    
-    if (error) {
-      console.error('❌ Python execution failed:', error);
-      result = { success: false, error: error.message, data };
-    } else if (data?.exitCode !== 0) {
-      console.error('❌ Python execution had errors:', data?.output || data?.error);
-      result = { success: false, error: 'Python execution failed', data };
-    } else {
-      console.log('✅ Python executed successfully');
-      result = { success: true, data };
+    } catch (err: any) {
+      console.error('❌ Exception in Python execution:', err);
+      result = { 
+        success: false, 
+        error: err.message || 'Unknown error',
+        shouldUseFallback: true,
+        fallbackQuery: `The Python code execution failed. Please use your own reasoning to answer: ${args.purpose || 'analyze the request'}`
+      };
     }
   } else if (functionName === 'call_edge_function') {
     activityType = 'edge_function_call';
@@ -862,33 +926,49 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = 'List All Agents';
     activityDescription = 'Retrieving current agent statuses and workloads';
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'list_agents',
-        data: {}
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'list_agents',
+          data: {}
+        }
+      });
+      
+      if (error) {
+        console.error('❌ List agents failed:', error);
+        // Return error but mark it for fallback handling
+        result = { 
+          success: false, 
+          error: error.message,
+          shouldUseFallback: true,
+          fallbackQuery: "List all agents in the XMRT-DAO ecosystem and their current status"
+        };
+      } else {
+        const agents = data?.data || [];
+        console.log('📋 Agents listed:', agents);
+        
+        // Format agent data for better readability
+        const formattedAgents = agents.map((agent: any) => ({
+          id: agent.id,
+          name: agent.name,
+          role: agent.role,
+          status: agent.status,
+          skills: agent.skills
+        }));
+        
+        result = { 
+          success: true, 
+          agents: formattedAgents,
+          summary: `Found ${agents.length} agents. ${agents.filter((a: any) => a.status === 'IDLE').length} idle, ${agents.filter((a: any) => a.status === 'BUSY').length} busy, ${agents.filter((a: any) => a.status === 'WORKING').length} working.`
+        };
       }
-    });
-    
-    if (error) {
-      console.error('❌ List agents failed:', error);
-      result = { success: false, error: error.message };
-    } else {
-      const agents = data?.data || [];
-      console.log('📋 Agents listed:', agents);
-      
-      // Format agent data for better readability
-      const formattedAgents = agents.map((agent: any) => ({
-        id: agent.id,
-        name: agent.name,
-        role: agent.role,
-        status: agent.status,
-        skills: agent.skills
-      }));
-      
+    } catch (err: any) {
+      console.error('❌ Exception calling list_agents:', err);
       result = { 
-        success: true, 
-        agents: formattedAgents,
-        summary: `Found ${agents.length} agents. ${agents.filter((a: any) => a.status === 'IDLE').length} idle, ${agents.filter((a: any) => a.status === 'BUSY').length} busy, ${agents.filter((a: any) => a.status === 'WORKING').length} working.`
+        success: false, 
+        error: err.message || 'Unknown error',
+        shouldUseFallback: true,
+        fallbackQuery: "List all agents in the XMRT-DAO ecosystem and their current status"
       };
     }
   } else if (functionName === 'list_issues') {
@@ -1599,14 +1679,15 @@ ${contextSection}
 
 CRITICAL INSTRUCTIONS FOR AUTONOMOUS OPERATION:
 1. **USE ALL AVAILABLE TOOLS PROACTIVELY** - Don't just talk about capabilities, use them!
-2. **NEVER SIMULATE OR FAKE DATA** - Use real edge functions or say data is unavailable
-3. **Web Browsing** - When users ask about current events, prices, news, or unknown info, USE playwright-browse with REAL results
-4. **GitHub Monitoring** - Check issues and discussions regularly with REAL API calls, engage with community
-5. **Agent Delegation** - Spawn specialized agents for complex or parallel tasks
-6. **Mining Data** - Always include latest REAL mining stats when discussing performance
-7. **Faucet Operations** - Help users claim tokens and check eligibility without hesitation
-8. **Memory Perfection** - Check persistent memory and conversation summaries, answer with certainty
-9. **Deployment Awareness** - Track REAL system versions and inform users of deployment status
+2. **INTELLIGENT FALLBACK** - If edge functions fail, use your own knowledge and reasoning to still help the user
+3. **NEVER SIMULATE OR FAKE DATA** - Use real edge functions when they work, or use your intelligence when they don't
+4. **Web Browsing** - When users ask about current events, prices, news, or unknown info, USE playwright-browse with REAL results
+5. **GitHub Monitoring** - Check issues and discussions regularly with REAL API calls, engage with community
+6. **Agent Delegation** - Spawn specialized agents for complex or parallel tasks
+7. **Mining Data** - Always include latest REAL mining stats when discussing performance
+8. **Faucet Operations** - Help users claim tokens and check eligibility without hesitation
+9. **Memory Perfection** - Check persistent memory and conversation summaries, answer with certainty
+10. **Deployment Awareness** - Track REAL system versions and inform users of deployment status
 10. **Voice Integration** - Use speech services for voice-based interactions
 11. **Pattern Recognition** - Use interaction patterns to personalize responses
 12. **Proactive Intelligence** - Anticipate needs based on context and past interactions
