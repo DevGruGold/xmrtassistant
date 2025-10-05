@@ -84,18 +84,23 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       const errorText = await deepseekResponse.text();
       console.error('DeepSeek API error:', errorText);
       
-      // Check if it's a quota/rate limit error
-      if (deepseekResponse.status === 429) {
-        console.log('⏸️ DeepSeek API rate limit exceeded, skipping fix attempt');
+      // Check if it's a quota/rate limit/balance error
+      if (deepseekResponse.status === 429 || errorText.includes('Insufficient Balance')) {
+        const reason = errorText.includes('Insufficient Balance') ? 'insufficient_balance' : 'rate_limit_exceeded';
+        const title = reason === 'insufficient_balance' 
+          ? '💳 Python Fix Skipped - Insufficient Balance' 
+          : '⏸️ Python Fix Skipped - Rate Limited';
+        
+        console.log(`⏸️ DeepSeek API ${reason}, skipping fix attempt`);
         
         await supabase.from('eliza_activity_log').insert({
           activity_type: 'python_fix',
-          title: '⏸️ Python Fix Skipped',
-          description: 'DeepSeek API rate limit exceeded. Will retry later.',
+          title,
+          description: `DeepSeek API ${reason.replace('_', ' ')}. Code fix skipped.`,
           status: 'pending',
           metadata: {
             execution_id,
-            reason: 'rate_limit_exceeded',
+            reason,
             error: execution.error?.substring(0, 100)
           }
         });
@@ -103,8 +108,8 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
         return new Response(JSON.stringify({
           success: false,
           skipped: true,
-          reason: 'rate_limit_exceeded',
-          error: 'DeepSeek API rate limit exceeded, will retry later'
+          reason,
+          error: `DeepSeek API ${reason.replace('_', ' ')}`
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
