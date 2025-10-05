@@ -416,12 +416,12 @@ serve(async (req) => {
 
       case 'cleanup_duplicate_agents':
         // Find all duplicate agents (same name)
-        const { data: allAgents, error: fetchError } = await supabase
+        const { data: allAgents, error: agentsFetchError } = await supabase
           .from('agents')
           .select('*')
           .order('created_at', { ascending: true });
         
-        if (fetchError) throw fetchError;
+        if (agentsFetchError) throw agentsFetchError;
         
         // Group by name and keep only the oldest
         const agentsByName = new Map();
