@@ -194,8 +194,8 @@ serve(async (req) => {
     if (message?.tool_calls && message.tool_calls.length > 0) {
       console.log("🔧 Executing", message.tool_calls.length, "tool calls");
       
-      // Execute tools and get results
-      const toolResults = await executeToolCalls(message.tool_calls, supabase);
+      // Execute tools with retry logic
+      const toolResults = await executeToolCallsWithRetry(message.tool_calls, supabase, LOVABLE_API_KEY, geminiMessages);
       
       // Add tool results to conversation and get final response from Gemini
       console.log("📤 Sending tool results back to Gemini for final response...");
@@ -264,213 +264,314 @@ serve(async (req) => {
   }
 });
 
-// Execute tool calls and return results
-async function executeToolCalls(toolCalls: any[], supabase: any) {
+// Execute tool calls with automatic retry on failure
+async function executeToolCallsWithRetry(
+  toolCalls: any[], 
+  supabase: any, 
+  lovableApiKey: string,
+  conversationHistory: any[],
+  maxRetries: number = 2
+) {
   const results = [];
   
   for (const toolCall of toolCalls) {
-    try {
-      const functionName = toolCall.function.name;
-      const args = JSON.parse(toolCall.function.arguments);
-      
-      console.log(`🔧 Executing tool: ${functionName}`, args);
-      
-      let result;
-      let activityType = functionName;
-      let activityTitle = functionName;
-      let activityDescription = '';
-      
-      if (functionName === 'execute_python') {
-        activityType = 'python_execution';
-        activityTitle = args.purpose || 'Python Code Execution';
-        activityDescription = `Executing Python code: ${args.code.substring(0, 100)}${args.code.length > 100 ? '...' : ''}`;
+    let retryCount = 0;
+    let currentToolCall = toolCall;
+    let lastError = null;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        const functionName = currentToolCall.function.name;
+        const args = JSON.parse(currentToolCall.function.arguments);
         
-        const { data, error } = await supabase.functions.invoke('python-executor', {
-          body: { 
-            code: args.code,
-            purpose: args.purpose 
-          }
-        });
+        console.log(`🔧 Executing tool (attempt ${retryCount + 1}/${maxRetries + 1}): ${functionName}`, args);
         
-        if (error) {
-          console.error('❌ Python execution failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('✅ Python executed successfully');
-          result = { success: true, data };
-        }
-      } else if (functionName === 'list_agents') {
-        activityType = 'agent_management';
-        activityTitle = 'List All Agents';
-        activityDescription = 'Retrieving current agent statuses and workloads';
+        const result = await executeSingleTool(functionName, args, supabase);
         
-        const { data, error } = await supabase.functions.invoke('agent-manager', {
-          body: { 
-            action: 'list_agents',
-            data: {}
-          }
-        });
-        
-        if (error) {
-          console.error('❌ List agents failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('📋 Agents listed:', data);
-          result = { success: true, data };
-        }
-      } else if (functionName === 'list_issues') {
-        activityType = 'github_integration';
-        activityTitle = `List GitHub Issues: ${args.repo || 'xmrt-ecosystem'}`;
-        activityDescription = `Fetching issues from repository: ${args.repo || 'xmrt-ecosystem'}`;
-        
-        const { data, error } = await supabase.functions.invoke('github-integration', {
-          body: { 
-            action: 'list_issues',
-            repo: args.repo || 'xmrt-ecosystem'
-          }
-        });
-        
-        if (error) {
-          console.error('❌ List issues failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('📋 Issues listed:', data);
-          result = { success: true, data };
-        }
-      } else if (functionName === 'spawn_agent') {
-        activityType = 'agent_management';
-        activityTitle = `Spawn Agent: ${args.name}`;
-        activityDescription = `Creating new agent with role: ${args.role}`;
-        
-        const { data, error } = await supabase.functions.invoke('agent-manager', {
-          body: { 
-            action: 'spawn_agent',
-            data: {
-              name: args.name,
-              role: args.role,
-              skills: args.skills
+        // Check if execution failed
+        if (!result.success) {
+          lastError = result.error || result.data?.error || 'Unknown error';
+          console.error(`❌ Tool execution failed:`, lastError);
+          
+          // If we have retries left, ask Gemini to fix the code
+          if (retryCount < maxRetries && functionName === 'execute_python') {
+            console.log(`🔄 Asking Gemini to fix the error and retry...`);
+            
+            const errorOutput = result.data?.output || result.data?.error || lastError;
+            const fixPrompt = `The Python code you provided failed with this error:
+
+\`\`\`
+${errorOutput}
+\`\`\`
+
+Original code:
+\`\`\`python
+${args.code}
+\`\`\`
+
+Please analyze the error, fix the code, and provide the corrected version. Remember:
+- Use requests.post() with full URL for edge functions
+- Include proper headers with Authorization token
+- Handle the response correctly
+`;
+
+            const fixResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${lovableApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  ...conversationHistory,
+                  { role: "user", content: fixPrompt }
+                ],
+                temperature: 0.7,
+                max_tokens: 1500,
+                tools: [
+                  {
+                    type: 'function',
+                    function: {
+                      name: 'execute_python',
+                      description: 'Execute corrected Python code',
+                      parameters: {
+                        type: 'object',
+                        properties: {
+                          code: { type: 'string' },
+                          purpose: { type: 'string' }
+                        },
+                        required: ['code', 'purpose']
+                      }
+                    }
+                  }
+                ],
+                tool_choice: { type: "function", function: { name: "execute_python" } }
+              }),
+            });
+            
+            if (fixResponse.ok) {
+              const fixData = await fixResponse.json();
+              const fixMessage = fixData.choices?.[0]?.message;
+              
+              if (fixMessage?.tool_calls && fixMessage.tool_calls.length > 0) {
+                currentToolCall = fixMessage.tool_calls[0];
+                retryCount++;
+                console.log(`✅ Gemini provided fixed code, retrying...`);
+                continue; // Retry with fixed code
+              }
             }
           }
-        });
-        
-        if (error) {
-          console.error('❌ Agent spawn failed:', error);
-          result = { success: false, error: error.message };
+          
+          // No more retries or not a python execution, return the error
+          results.push(result);
+          break;
         } else {
-          console.log('✅ Agent spawned:', data);
-          result = { success: true, data };
+          // Success!
+          console.log(`✅ Tool executed successfully`);
+          results.push(result);
+          break;
         }
-      } else if (functionName === 'update_agent_status') {
-        activityType = 'agent_management';
-        activityTitle = 'Update Agent Status';
-        activityDescription = `Changing agent ${args.agent_id} status to: ${args.status}`;
+      } catch (error) {
+        console.error('❌ Tool execution error:', error);
+        lastError = error.message;
         
-        const { data, error } = await supabase.functions.invoke('agent-manager', {
-          body: { 
-            action: 'update_agent_status',
-            data: {
-              agent_id: args.agent_id,
-              status: args.status
-            }
-          }
-        });
-        
-        if (error) {
-          console.error('❌ Agent status update failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('✅ Agent status updated:', data);
-          result = { success: true, data };
+        if (retryCount >= maxRetries) {
+          results.push({ success: false, error: lastError });
+          break;
         }
-      } else if (functionName === 'assign_task') {
-        activityType = 'task_assignment';
-        activityTitle = `Assign Task: ${args.title}`;
-        activityDescription = `Priority ${args.priority || 5}: ${args.description.substring(0, 100)}`;
         
-        const { data, error } = await supabase.functions.invoke('agent-manager', {
-          body: { 
-            action: 'assign_task',
-            data: {
-              title: args.title,
-              description: args.description,
-              repo: args.repo,
-              category: args.category,
-              stage: args.stage,
-              assignee_agent_id: args.assignee_agent_id,
-              priority: args.priority || 5
-            }
-          }
-        });
-        
-        if (error) {
-          console.error('❌ Task assignment failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('✅ Task assigned:', data);
-          result = { success: true, data };
-        }
-      } else if (functionName === 'update_task_status') {
-        activityType = 'task_assignment';
-        activityTitle = 'Update Task Status';
-        activityDescription = `Task ${args.task_id}: ${args.status} - ${args.stage}`;
-        
-        const { data, error } = await supabase.functions.invoke('agent-manager', {
-          body: { 
-            action: 'update_task_status',
-            data: {
-              task_id: args.task_id,
-              status: args.status,
-              stage: args.stage
-            }
-          }
-        });
-        
-        if (error) {
-          console.error('❌ Task status update failed:', error);
-          result = { success: false, error: error.message };
-        } else {
-          console.log('✅ Task status updated:', data);
-          result = { success: true, data };
-        }
-      } else {
-        result = { success: false, error: `Unknown function: ${functionName}` };
+        retryCount++;
       }
-      
-      // Log ALL function calls to activity log for real-time visualization
-      await supabase
-        .from('eliza_activity_log')
-        .insert({
-          activity_type: activityType,
-          title: activityTitle,
-          description: activityDescription,
-          metadata: {
-            function: functionName,
-            args: args,
-            result: result
-          },
-          status: result.success ? 'completed' : 'failed'
-        });
-      
-      results.push(result);
-    } catch (error) {
-      console.error('❌ Tool execution error:', error);
-      
-      // Log the error
-      await supabase
-        .from('eliza_activity_log')
-        .insert({
-          activity_type: 'error',
-          title: 'Function Execution Error',
-          description: error instanceof Error ? error.message : 'Unknown error',
-          metadata: { error: error },
-          status: 'failed'
-        });
-      
-      results.push({ success: false, error: error.message });
     }
   }
   
   return results;
+}
+
+// Execute a single tool
+async function executeSingleTool(functionName: string, args: any, supabase: any) {
+
+  let result;
+  let activityType = functionName;
+  let activityTitle = functionName;
+  let activityDescription = '';
+  
+  if (functionName === 'execute_python') {
+    activityType = 'python_execution';
+    activityTitle = args.purpose || 'Python Code Execution';
+    activityDescription = `Executing Python code: ${args.code.substring(0, 100)}${args.code.length > 100 ? '...' : ''}`;
+    
+    const { data, error } = await supabase.functions.invoke('python-executor', {
+      body: { 
+        code: args.code,
+        purpose: args.purpose 
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Python execution failed:', error);
+      result = { success: false, error: error.message, data };
+    } else if (data?.exitCode !== 0) {
+      console.error('❌ Python execution had errors:', data?.output || data?.error);
+      result = { success: false, error: 'Python execution failed', data };
+    } else {
+      console.log('✅ Python executed successfully');
+      result = { success: true, data };
+    }
+  } else if (functionName === 'list_agents') {
+    activityType = 'agent_management';
+    activityTitle = 'List All Agents';
+    activityDescription = 'Retrieving current agent statuses and workloads';
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'list_agents',
+        data: {}
+      }
+    });
+    
+    if (error) {
+      console.error('❌ List agents failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📋 Agents listed:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'list_issues') {
+    activityType = 'github_integration';
+    activityTitle = `List GitHub Issues: ${args.repo || 'xmrt-ecosystem'}`;
+    activityDescription = `Fetching issues from repository: ${args.repo || 'xmrt-ecosystem'}`;
+    
+    const { data, error } = await supabase.functions.invoke('github-integration', {
+      body: { 
+        action: 'list_issues',
+        repo: args.repo || 'xmrt-ecosystem'
+      }
+    });
+    
+    if (error) {
+      console.error('❌ List issues failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📋 Issues listed:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'spawn_agent') {
+    activityType = 'agent_management';
+    activityTitle = `Spawn Agent: ${args.name}`;
+    activityDescription = `Creating new agent with role: ${args.role}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'spawn_agent',
+        data: {
+          name: args.name,
+          role: args.role,
+          skills: args.skills
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Agent spawn failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Agent spawned:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'update_agent_status') {
+    activityType = 'agent_management';
+    activityTitle = 'Update Agent Status';
+    activityDescription = `Changing agent ${args.agent_id} status to: ${args.status}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'update_agent_status',
+        data: {
+          agent_id: args.agent_id,
+          status: args.status
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Agent status update failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Agent status updated:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'assign_task') {
+    activityType = 'task_assignment';
+    activityTitle = `Assign Task: ${args.title}`;
+    activityDescription = `Priority ${args.priority || 5}: ${args.description.substring(0, 100)}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'assign_task',
+        data: {
+          title: args.title,
+          description: args.description,
+          repo: args.repo,
+          category: args.category,
+          stage: args.stage,
+          assignee_agent_id: args.assignee_agent_id,
+          priority: args.priority || 5
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Task assignment failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task assigned:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'update_task_status') {
+    activityType = 'task_assignment';
+    activityTitle = 'Update Task Status';
+    activityDescription = `Task ${args.task_id}: ${args.status} - ${args.stage}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'update_task_status',
+        data: {
+          task_id: args.task_id,
+          status: args.status,
+          stage: args.stage
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Task status update failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task status updated:', data);
+      result = { success: true, data };
+    }
+  } else {
+    result = { success: false, error: `Unknown function: ${functionName}` };
+  }
+  
+  // Log to activity log
+  await supabase
+    .from('eliza_activity_log')
+    .insert({
+      activity_type: activityType,
+      title: activityTitle,
+      description: activityDescription,
+      metadata: {
+        function: functionName,
+        args: args,
+        result: result
+      },
+      status: result.success ? 'completed' : 'failed'
+    });
+  
+  return result;
 }
 
 function buildSystemPrompt(conversationHistory: any, userContext: any, miningStats: any, systemVersion: any): string {
