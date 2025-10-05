@@ -75,7 +75,16 @@ serve(async (req) => {
         results.push({
           execution_id: execution.id,
           success: false,
-          error: fixError.message
+          error: fixError.message || 'Edge Function returned a non-2xx status code'
+        });
+      } else if (fixResult?.skipped) {
+        // DeepSeek API rate limit or quota issue - skip silently
+        console.log(`⏸️ Skipped execution ${execution.id}: ${fixResult.reason}`);
+        results.push({
+          execution_id: execution.id,
+          success: false,
+          error: `Skipped: ${fixResult.reason}`,
+          skipped: true
         });
       } else if (fixResult?.success) {
         console.log(`✅ Successfully fixed execution ${execution.id}`);
@@ -99,11 +108,11 @@ serve(async (req) => {
           fixed_execution_id: fixResult.execution_id
         });
       } else {
-        console.warn(`⚠️ Fix attempt for ${execution.id} did not succeed`);
+        console.warn(`⚠️ Fix attempt for ${execution.id} did not succeed:`, fixResult);
         results.push({
           execution_id: execution.id,
           success: false,
-          error: 'Fix attempt failed'
+          error: fixResult?.error || 'Fix attempt failed'
         });
       }
 
