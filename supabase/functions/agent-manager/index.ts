@@ -265,6 +265,134 @@ serve(async (req) => {
         result = decision;
         break;
 
+      case 'delete_task':
+        const { data: deletedTask, error: deleteError } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', data.task_id)
+          .select()
+          .single();
+        
+        if (deleteError) throw deleteError;
+        
+        // Log deletion
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'task_deleted',
+          title: `Deleted Task: ${deletedTask.title}`,
+          description: `Reason: ${data.reason}`,
+          metadata: {
+            task_id: deletedTask.id,
+            reason: data.reason
+          },
+          status: 'completed'
+        });
+        
+        // Free up the agent if it was assigned
+        if (deletedTask.assignee_agent_id) {
+          await supabase
+            .from('agents')
+            .update({ status: 'IDLE' })
+            .eq('id', deletedTask.assignee_agent_id);
+        }
+        
+        result = { success: true, deleted_task: deletedTask };
+        break;
+
+      case 'reassign_task':
+        const { data: taskToReassign, error: fetchError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', data.task_id)
+          .single();
+        
+        if (fetchError) throw fetchError;
+        
+        const oldAssignee = taskToReassign.assignee_agent_id;
+        
+        // Update task assignment
+        const { data: reassignedTask, error: reassignError } = await supabase
+          .from('tasks')
+          .update({ assignee_agent_id: data.new_assignee_id })
+          .eq('id', data.task_id)
+          .select()
+          .single();
+        
+        if (reassignError) throw reassignError;
+        
+        // Free up old agent
+        if (oldAssignee) {
+          await supabase
+            .from('agents')
+            .update({ status: 'IDLE' })
+            .eq('id', oldAssignee);
+        }
+        
+        // Mark new agent as busy
+        await supabase
+          .from('agents')
+          .update({ status: 'BUSY' })
+          .eq('id', data.new_assignee_id);
+        
+        // Log reassignment
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'task_updated',
+          title: `Reassigned Task: ${reassignedTask.title}`,
+          description: `From ${oldAssignee || 'unassigned'} to ${data.new_assignee_id}. ${data.reason || ''}`,
+          metadata: {
+            task_id: reassignedTask.id,
+            old_assignee: oldAssignee,
+            new_assignee: data.new_assignee_id,
+            reason: data.reason
+          },
+          status: 'completed'
+        });
+        
+        result = reassignedTask;
+        break;
+
+      case 'update_task_details':
+        const updateFields: any = {};
+        if (data.title) updateFields.title = data.title;
+        if (data.description) updateFields.description = data.description;
+        if (data.priority !== undefined) updateFields.priority = data.priority;
+        if (data.category) updateFields.category = data.category;
+        if (data.repo) updateFields.repo = data.repo;
+        
+        const { data: detailUpdatedTask, error: detailUpdateError } = await supabase
+          .from('tasks')
+          .update(updateFields)
+          .eq('id', data.task_id)
+          .select()
+          .single();
+        
+        if (detailUpdateError) throw detailUpdateError;
+        
+        // Log update
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'task_updated',
+          title: `Updated Task Details: ${detailUpdatedTask.title}`,
+          description: `Updated fields: ${Object.keys(updateFields).join(', ')}`,
+          metadata: {
+            task_id: detailUpdatedTask.id,
+            updated_fields: updateFields
+          },
+          status: 'completed'
+        });
+        
+        result = detailUpdatedTask;
+        break;
+
+      case 'get_task_details':
+        const { data: taskDetails, error: taskDetailsError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', data.task_id)
+          .single();
+        
+        if (taskDetailsError) throw taskDetailsError;
+        result = taskDetails;
+        break;
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }

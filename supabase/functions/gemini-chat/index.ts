@@ -190,6 +190,135 @@ serve(async (req) => {
               }
             }
           },
+          {
+            type: 'function',
+            function: {
+              name: 'delete_task',
+              description: 'Delete a task permanently. Use when task is no longer needed or was created in error.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID to delete' },
+                  reason: { type: 'string', description: 'Reason for deletion' }
+                },
+                required: ['task_id', 'reason']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'reassign_task',
+              description: 'Reassign a task to a different agent.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID to reassign' },
+                  new_assignee_id: { type: 'string', description: 'New agent ID to assign task to' },
+                  reason: { type: 'string', description: 'Reason for reassignment' }
+                },
+                required: ['task_id', 'new_assignee_id']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'update_task_details',
+              description: 'Update task details like title, description, priority, category, or repo.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID to update' },
+                  title: { type: 'string', description: 'New task title' },
+                  description: { type: 'string', description: 'New task description' },
+                  priority: { type: 'number', description: 'New priority (1-10)' },
+                  category: { type: 'string', description: 'New category' },
+                  repo: { type: 'string', description: 'New repository' }
+                },
+                required: ['task_id']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'mark_task_complete',
+              description: 'Mark a task as completed. Shortcut for update_task_status with COMPLETED status.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID to mark complete' },
+                  completion_notes: { type: 'string', description: 'Notes about task completion' }
+                },
+                required: ['task_id']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'get_task_details',
+              description: 'Get detailed information about a specific task.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  task_id: { type: 'string', description: 'Task ID to get details for' }
+                },
+                required: ['task_id']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'report_progress',
+              description: 'Report progress on an ongoing task.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  agent_id: { type: 'string', description: 'Agent reporting progress' },
+                  agent_name: { type: 'string', description: 'Agent name' },
+                  task_id: { type: 'string', description: 'Task ID' },
+                  progress_message: { type: 'string', description: 'Progress update message' },
+                  progress_percentage: { type: 'number', description: 'Progress percentage (0-100)' },
+                  current_stage: { type: 'string', description: 'Current stage of work' }
+                },
+                required: ['agent_id', 'agent_name', 'task_id', 'progress_message']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'request_task_assignment',
+              description: 'Request automatic assignment of the next highest priority pending task to an agent.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  agent_id: { type: 'string', description: 'Agent requesting assignment' },
+                  agent_name: { type: 'string', description: 'Agent name' }
+                },
+                required: ['agent_id', 'agent_name']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'log_decision',
+              description: 'Log an important decision or reasoning for audit trail.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  agent_id: { type: 'string', description: 'Agent making decision (default: eliza)' },
+                  decision: { type: 'string', description: 'The decision made' },
+                  rationale: { type: 'string', description: 'Reasoning behind the decision' }
+                },
+                required: ['decision', 'rationale']
+              }
+            }
+          },
         ],
         tool_choice: 'auto'
       }),
@@ -921,6 +1050,176 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
         tasks: workload.tasks,
         summary: `Agent ${workload.agent_id} has ${workload.active_tasks} active task(s)`
       };
+    }
+  } else if (functionName === 'delete_task') {
+    activityType = 'task_assignment';
+    activityTitle = 'Delete Task';
+    activityDescription = `Deleting task ${args.task_id}: ${args.reason}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'delete_task',
+        data: {
+          task_id: args.task_id,
+          reason: args.reason
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Task deletion failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task deleted:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'reassign_task') {
+    activityType = 'task_assignment';
+    activityTitle = 'Reassign Task';
+    activityDescription = `Reassigning task ${args.task_id} to ${args.new_assignee_id}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'reassign_task',
+        data: {
+          task_id: args.task_id,
+          new_assignee_id: args.new_assignee_id,
+          reason: args.reason
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Task reassignment failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task reassigned:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'update_task_details') {
+    activityType = 'task_assignment';
+    activityTitle = 'Update Task Details';
+    activityDescription = `Updating details for task ${args.task_id}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'update_task_details',
+        data: args
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Task update failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task details updated:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'mark_task_complete') {
+    activityType = 'task_assignment';
+    activityTitle = 'Mark Task Complete';
+    activityDescription = `Completing task ${args.task_id}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'update_task_status',
+        data: {
+          task_id: args.task_id,
+          status: 'COMPLETED',
+          stage: 'completed',
+          completion_notes: args.completion_notes
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Mark task complete failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ Task marked complete:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'get_task_details') {
+    activityType = 'task_assignment';
+    activityTitle = 'Get Task Details';
+    activityDescription = `Fetching details for task ${args.task_id}`;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'get_task_details',
+        data: {
+          task_id: args.task_id
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Get task details failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📋 Task details:', data);
+      result = { success: true, task: data?.data };
+    }
+  } else if (functionName === 'report_progress') {
+    activityType = 'progress_report';
+    activityTitle = `Progress Report: ${args.agent_name}`;
+    activityDescription = args.progress_message;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'report_progress',
+        data: args
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Report progress failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📊 Progress reported:', data);
+      result = { success: true, data };
+    }
+  } else if (functionName === 'request_task_assignment') {
+    activityType = 'task_assignment';
+    activityTitle = `Request Assignment: ${args.agent_name}`;
+    activityDescription = 'Requesting next available task';
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'request_assignment',
+        data: args
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Request assignment failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📋 Assignment result:', data);
+      result = { success: true, data: data?.data };
+    }
+  } else if (functionName === 'log_decision') {
+    activityType = 'decision_log';
+    activityTitle = 'Log Decision';
+    activityDescription = args.decision;
+    
+    const { data, error } = await supabase.functions.invoke('agent-manager', {
+      body: { 
+        action: 'log_decision',
+        data: {
+          agent_id: args.agent_id || 'eliza',
+          decision: args.decision,
+          rationale: args.rationale
+        }
+      }
+    });
+    
+    if (error) {
+      console.error('❌ Log decision failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('📝 Decision logged:', data);
+      result = { success: true, data };
     }
   } else {
     result = { success: false, error: `Unknown function: ${functionName}` };
