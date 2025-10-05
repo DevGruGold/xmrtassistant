@@ -55,6 +55,59 @@ serve(async (req) => {
         messages: geminiMessages,
         temperature: 0.7,
         max_tokens: 1500,
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'execute_python',
+              description: 'Execute Python code for data analysis, calculations, or processing. User will see execution in PythonShell.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  code: { type: 'string', description: 'The Python code to execute' },
+                  purpose: { type: 'string', description: 'Brief description of what this code does' }
+                },
+                required: ['code', 'purpose']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'spawn_agent',
+              description: 'Create a new specialized agent to work on tasks. User will see agent in TaskVisualizer.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Agent name' },
+                  role: { type: 'string', description: 'Agent role/specialization' },
+                  skills: { type: 'array', items: { type: 'string' }, description: 'Array of agent skills' }
+                },
+                required: ['name', 'role', 'skills']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'assign_task',
+              description: 'Create and assign a task to an agent. User will see task in TaskVisualizer.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string', description: 'Task title' },
+                  description: { type: 'string', description: 'Task description' },
+                  repo: { type: 'string', description: 'Repository name (e.g., XMRT-Ecosystem)' },
+                  category: { type: 'string', description: 'Task category (e.g., development, documentation)' },
+                  stage: { type: 'string', description: 'Development stage (e.g., planning, implementation)' },
+                  assignee_agent_id: { type: 'string', description: 'Agent ID to assign to (optional)' }
+                },
+                required: ['title', 'description', 'repo', 'category', 'stage']
+              }
+            }
+          }
+        ],
+        tool_choice: 'auto'
       }),
     });
 
@@ -86,16 +139,21 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content;
+    const message = data.choices?.[0]?.message;
 
-    if (!aiResponse) {
-      throw new Error("No response from AI");
-    }
-
-    console.log("✅ Gemini response generated:", aiResponse.substring(0, 100) + "...");
+    console.log("✅ Gemini response:", { 
+      hasContent: !!message?.content,
+      hasToolCalls: !!message?.tool_calls,
+      toolCallsCount: message?.tool_calls?.length || 0
+    });
 
     // Execute any tool calls in the background (non-blocking)
-    executeToolsInBackground(aiResponse, supabase);
+    if (message?.tool_calls && message.tool_calls.length > 0) {
+      console.log("🔧 Executing", message.tool_calls.length, "tool calls in background");
+      executeToolCalls(message.tool_calls, supabase);
+    }
+
+    const aiResponse = message?.content || "Working on it...";
 
     return new Response(
       JSON.stringify({ success: true, response: aiResponse }),
@@ -114,79 +172,69 @@ serve(async (req) => {
   }
 });
 
-// Execute tools in background without blocking the response
-async function executeToolsInBackground(response: string, supabase: any) {
-  try {
-    // Parse for Python execution
-    const pythonMatch = response.match(/<tool_use>\s*<tool_name>execute_python<\/tool_name>\s*<parameters>\s*<code>([\s\S]*?)<\/code>\s*<purpose>([\s\S]*?)<\/purpose>\s*<\/parameters>\s*<\/tool_use>/);
-    if (pythonMatch) {
-      const code = pythonMatch[1].trim();
-      const purpose = pythonMatch[2].trim();
+// Execute tool calls using native function calling
+async function executeToolCalls(toolCalls: any[], supabase: any) {
+  for (const toolCall of toolCalls) {
+    try {
+      const functionName = toolCall.function.name;
+      const args = JSON.parse(toolCall.function.arguments);
       
-      console.log("🐍 Executing Python in background:", purpose);
+      console.log(`🔧 Executing tool: ${functionName}`, args);
       
-      // Call python-executor
-      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/python-executor`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-        },
-        body: JSON.stringify({ code, purpose })
-      }).catch(err => console.error("Python execution error:", err));
+      if (functionName === 'execute_python') {
+        const { data, error } = await supabase.functions.invoke('python-executor', {
+          body: { 
+            code: args.code,
+            purpose: args.purpose 
+          }
+        });
+        
+        if (error) {
+          console.error('❌ Python execution failed:', error);
+        } else {
+          console.log('✅ Python executed successfully');
+        }
+      } else if (functionName === 'spawn_agent') {
+        const { data, error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'spawn_agent',
+            data: {
+              name: args.name,
+              role: args.role,
+              skills: args.skills
+            }
+          }
+        });
+        
+        if (error) {
+          console.error('❌ Agent spawn failed:', error);
+        } else {
+          console.log('✅ Agent spawned successfully:', data);
+        }
+      } else if (functionName === 'assign_task') {
+        const { data, error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'assign_task',
+            data: {
+              title: args.title,
+              description: args.description,
+              repo: args.repo,
+              category: args.category,
+              stage: args.stage,
+              assignee_agent_id: args.assignee_agent_id
+            }
+          }
+        });
+        
+        if (error) {
+          console.error('❌ Task assignment failed:', error);
+        } else {
+          console.log('✅ Task assigned successfully:', data);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Tool execution error:', error);
     }
-
-    // Parse for agent spawning
-    const spawnMatch = response.match(/<tool_use>\s*<tool_name>spawn_agent<\/tool_name>\s*<parameters>\s*<name>([\s\S]*?)<\/name>\s*<specialization>([\s\S]*?)<\/specialization>\s*<capabilities>([\s\S]*?)<\/capabilities>\s*<\/parameters>\s*<\/tool_use>/);
-    if (spawnMatch) {
-      const name = spawnMatch[1].trim();
-      const specialization = spawnMatch[2].trim();
-      const capabilities = JSON.parse(spawnMatch[3].trim());
-      
-      console.log("🤖 Spawning agent in background:", name);
-      
-      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/agent-manager`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-        },
-        body: JSON.stringify({
-          action: 'spawn_agent',
-          name,
-          specialization,
-          capabilities
-        })
-      }).catch(err => console.error("Agent spawn error:", err));
-    }
-
-    // Parse for task assignment
-    const taskMatch = response.match(/<tool_use>\s*<tool_name>assign_task<\/tool_name>\s*<parameters>\s*<agent_id>([\s\S]*?)<\/agent_id>\s*<title>([\s\S]*?)<\/title>\s*<description>([\s\S]*?)<\/description>\s*<priority>([\s\S]*?)<\/priority>\s*<\/parameters>\s*<\/tool_use>/);
-    if (taskMatch) {
-      const agentId = taskMatch[1].trim();
-      const title = taskMatch[2].trim();
-      const description = taskMatch[3].trim();
-      const priority = taskMatch[4].trim();
-      
-      console.log("📋 Assigning task in background:", title);
-      
-      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/agent-manager`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-        },
-        body: JSON.stringify({
-          action: 'assign_task',
-          agentId,
-          title,
-          description,
-          priority
-        })
-      }).catch(err => console.error("Task assignment error:", err));
-    }
-  } catch (error) {
-    console.error("Tool execution error:", error);
   }
 }
 
@@ -306,23 +354,16 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 • python-executor - Execute REAL Python code in sandboxed environment (Piston API)
   USE THIS to write and run ACTUAL Python scripts (pandas, numpy, requests, beautifulsoup4 available)
   
-  🔄 CRITICAL TOOL USE - YOU CAN EXECUTE FUNCTIONS:
-  To execute Python code, use the execute_python tool in your response:
+  🔄 CRITICAL: YOU HAVE FUNCTION CALLING ABILITIES:
+  You can call these functions directly by using them in your response:
   
-  <tool_use>
-    <tool_name>execute_python</tool_name>
-    <parameters>
-      <code>
-import pandas as pd
-# Your actual Python code here
-print("Results")
-      </code>
-      <purpose>Brief description of what this does</purpose>
-    </parameters>
-  </tool_use>
+  - execute_python(code, purpose): Execute actual Python code
+  - spawn_agent(name, role, skills): Create a new specialized agent
+  - assign_task(title, description, repo, category, stage, assignee_agent_id): Create/assign a task
   
-  The system will execute this immediately and log to eliza_python_executions.
-  User sees execution in real-time in PythonShell. Just tell them briefly what you're doing!
+  The system executes these IMMEDIATELY in the background.
+  User sees execution in real-time in PythonShell and TaskVisualizer.
+  Just announce what you're doing in chat!
 
 **GITHUB INTEGRATION & CODE MANAGEMENT:**
 • github-integration - FULL GitHub control (issues, PRs, discussions, commits, code search)
@@ -334,30 +375,6 @@ print("Results")
 • agent-manager - Spawn and manage AI agents, delegate tasks, coordinate workflows
   Actions: spawn_agent, assign_task, list_agents, update_agent_status, get_agent_workload, log_decision
   
-  🔄 CRITICAL TOOL USE - YOU CAN SPAWN AGENTS:
-  To spawn an agent or assign a task, use tools in your response:
-  
-  <tool_use>
-    <tool_name>spawn_agent</tool_name>
-    <parameters>
-      <name>DataAnalyzer</name>
-      <specialization>Data analysis and visualization</specialization>
-      <capabilities>["Python", "pandas", "data mining"]</capabilities>
-    </parameters>
-  </tool_use>
-  
-  <tool_use>
-    <tool_name>assign_task</tool_name>
-    <parameters>
-      <agent_id>agent-123</agent_id>
-      <title>Analyze dataset</title>
-      <description>Find patterns in mining data</description>
-      <priority>high</priority>
-    </parameters>
-  </tool_use>
-  
-  The system executes these immediately and logs to eliza_activity_log.
-  User sees all activity in real-time in TaskVisualizer!
   WHEN TO SPAWN AGENTS:
     - Multi-step complex tasks requiring different expertise
     - Parallel work that can be done simultaneously
