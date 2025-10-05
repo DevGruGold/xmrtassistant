@@ -116,6 +116,122 @@ export const HUME_EVI_CONFIG = {
   
   // Enhanced client tools for complete autonomous ecosystem management
   clientTools: [
+    // GitHub OAuth Integration Tools (using GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET)
+    {
+      name: "githubListIssues",
+      description: "List GitHub issues from XMRT repositories using OAuth. Returns open issues by default.",
+      parameters: {
+        type: "object",
+        properties: {
+          repo: { type: "string", description: "Repository name (optional, defaults to GITHUB_REPO)" },
+          state: { type: "string", enum: ["open", "closed", "all"], description: "Issue state filter" },
+          perPage: { type: "number", description: "Results per page (default 30)" }
+        }
+      }
+    },
+    {
+      name: "githubCreateIssue",
+      description: "Create GitHub issue with OAuth authentication (no user token needed)",
+      parameters: {
+        type: "object",
+        required: ["title", "body"],
+        properties: {
+          title: { type: "string", description: "Issue title" },
+          body: { type: "string", description: "Issue description" },
+          repo: { type: "string", description: "Repository name (optional)" },
+          labels: { type: "array", items: { type: "string" }, description: "Label names" },
+          assignees: { type: "array", items: { type: "string" }, description: "GitHub usernames" }
+        }
+      }
+    },
+    {
+      name: "githubCommentOnIssue",
+      description: "Add comment to GitHub issue",
+      parameters: {
+        type: "object",
+        required: ["issueNumber", "comment"],
+        properties: {
+          issueNumber: { type: "number" },
+          comment: { type: "string" },
+          repo: { type: "string", description: "Optional repository" }
+        }
+      }
+    },
+    {
+      name: "githubCreatePR",
+      description: "Create pull request in repository",
+      parameters: {
+        type: "object",
+        required: ["title", "body", "head"],
+        properties: {
+          title: { type: "string" },
+          body: { type: "string" },
+          head: { type: "string", description: "Branch with changes" },
+          base: { type: "string", description: "Target branch (default: main)" },
+          repo: { type: "string" }
+        }
+      }
+    },
+    {
+      name: "githubGetFile",
+      description: "Get file content from repository",
+      parameters: {
+        type: "object",
+        required: ["path"],
+        properties: {
+          path: { type: "string", description: "File path in repo" },
+          repo: { type: "string" }
+        }
+      }
+    },
+    {
+      name: "githubCommitFile",
+      description: "Create or update file in repository via commit",
+      parameters: {
+        type: "object",
+        required: ["path", "message", "content"],
+        properties: {
+          path: { type: "string" },
+          message: { type: "string" },
+          content: { type: "string" },
+          branch: { type: "string", description: "default: main" },
+          sha: { type: "string", description: "File SHA when updating" },
+          repo: { type: "string" }
+        }
+      }
+    },
+    {
+      name: "githubSearchCode",
+      description: "Search code in repository",
+      parameters: {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string" },
+          repo: { type: "string" }
+        }
+      }
+    },
+    {
+      name: "githubGetRepoInfo",
+      description: "Get repository info and statistics",
+      parameters: {
+        type: "object",
+        properties: {
+          repo: { type: "string" }
+        }
+      }
+    },
+    {
+      name: "listMyCapabilities",
+      description: "List all available edge functions Eliza can use",
+      parameters: { type: "object", properties: {} }
+    },
+    {
+      name: "explainGithubOAuth",
+      description: "Explain GitHub OAuth setup and authentication",
+      parameters: { type: "object", properties: {} }
+    },
     {
       name: "getMiningStats",
       description: "Fetch comprehensive XMRT mining statistics with mobile mining democracy context and performance analysis",
