@@ -98,10 +98,32 @@ serve(async (req) => {
         break;
 
       case 'assign_task':
+        // Check if task with same title and assignee already exists
+        const { data: existingTask, error: existingTaskError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('title', data.title)
+          .eq('assignee_agent_id', data.assignee_agent_id)
+          .in('status', ['PENDING', 'IN_PROGRESS'])
+          .maybeSingle();
+        
+        if (existingTaskError) throw existingTaskError;
+        
+        // If task already exists, return it instead of creating duplicate
+        if (existingTask) {
+          console.log('Task already exists, returning existing:', existingTask);
+          result = {
+            ...existingTask,
+            message: 'Task already exists',
+            wasExisting: true
+          };
+          break;
+        }
+        
         const { data: task, error: taskError } = await supabase
           .from('tasks')
           .insert({
-            id: data.task_id || `task-${Date.now()}`,
+            id: data.task_id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             title: data.title,
             description: data.description,
             repo: data.repo || 'xmrt-ecosystem',
