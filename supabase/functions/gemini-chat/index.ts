@@ -544,6 +544,12 @@ serve(async (req) => {
       if (workflowStep >= MAX_WORKFLOW_STEPS) {
         console.warn("⚠️ Workflow reached maximum steps limit - stopping here");
         
+        // Collect all tool results from this workflow
+        const allToolResults = Array.from(executedToolSignatures.entries()).map(([sig, result]) => {
+          const [funcName] = sig.split(':');
+          return `${funcName}: ${JSON.stringify(result).substring(0, 200)}`;
+        }).join('\n');
+        
         // Force one final response from Gemini without tool calling
         const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -555,7 +561,14 @@ serve(async (req) => {
             model: "google/gemini-2.5-flash",
             messages: [
               ...currentMessages,
-              { role: "system", content: "Provide a brief summary of what you accomplished. Do NOT make any more tool calls." }
+              { 
+                role: "system", 
+                content: `You have successfully gathered all requested information. The tool calls have completed with the following results:
+
+${allToolResults}
+
+Now provide your response to the user using the data you already collected. Do NOT say you are "still waiting" or "gathering" - you HAVE the data. Present it clearly and concisely. Do NOT make any more tool calls.` 
+              }
             ],
             temperature: 0.7,
             max_tokens: 500,
@@ -603,7 +616,7 @@ serve(async (req) => {
 });
 
 // Track tool calls executed in this workflow to prevent duplicates
-const executedToolSignatures = new Set<string>();
+const executedToolSignatures = new Map<string, any>();
 
 // Execute tool calls with automatic retry on failure
 async function executeToolCallsWithRetry(
@@ -624,16 +637,14 @@ async function executeToolCallsWithRetry(
     // Check if this exact tool call was already executed in this workflow
     if (executedToolSignatures.has(toolSignature)) {
       console.warn(`⚠️ Skipping duplicate tool call: ${functionName}`);
+      const cachedResult = executedToolSignatures.get(toolSignature);
       results.push({
-        success: false,
-        error: "This exact operation was already completed in this workflow. Task already created.",
-        isDuplicate: true
+        ...cachedResult,
+        note: "Using cached result from previous execution in this workflow"
       });
       continue;
     }
     
-    // Mark this tool call as executed
-    executedToolSignatures.add(toolSignature);
     let retryCount = 0;
     let currentToolCall = toolCall;
     let lastError = null;
@@ -646,6 +657,11 @@ async function executeToolCallsWithRetry(
         console.log(`🔧 Executing tool (attempt ${retryCount + 1}/${maxRetries + 1}): ${functionName}`, args);
         
         const result = await executeSingleTool(functionName, args, supabase);
+        
+        // Cache successful results for this workflow
+        if (result.success) {
+          executedToolSignatures.set(toolSignature, result);
+        }
         
         // Check if execution failed
         if (!result.success) {
