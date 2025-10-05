@@ -9,10 +9,24 @@ max_rows = 1000
 
 [db]
 port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+ip_version = "ipv4"
 
 [studio]
 enabled = true
 port = 54323
+api_url = "http://127.0.0.1"
 
 [inbucket]
 enabled = true
@@ -26,15 +40,45 @@ file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
+site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
+enable_anonymous_sign_ins = false
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+inspector_port = 8083
+
+[analytics]
+enabled = true
+port = 54327
+vector_port = 54328
+backend = "postgres"
+
+[functions.autonomous-code-fixer]
+verify_jwt = false
+
+[functions.code-monitor-daemon]
+verify_jwt = false
+
+[functions.conversation-access]
+verify_jwt = false
+
+[functions.deepseek-chat]
+verify_jwt = false
+
+[functions.gemini-chat]
+verify_jwt = false
+
+[functions.github-integration]
+verify_jwt = false
 
 [functions.mining-proxy]
 verify_jwt = false
@@ -45,29 +89,23 @@ verify_jwt = false
 [functions.openai-tts]
 verify_jwt = false
 
-[functions.gemini-chat]
-verify_jwt = false
-
-[functions.conversation-access]
-verify_jwt = false
-
-[functions.render-api]
-verify_jwt = false
-
 [functions.python-executor]
 verify_jwt = false
 
 [functions.python-fixer-agent]
 verify_jwt = false
 
-[functions.autonomous-code-fixer]
-verify_jwt = false
-
-[functions.code-monitor-daemon]
-verify_jwt = false
-
-[functions.github-integration]
+[functions.render-api]
 verify_jwt = false
 
 [functions.agent-manager]
+verify_jwt = false
+
+[functions.knowledge-manager]
+verify_jwt = false
+
+[functions.task-orchestrator]
+verify_jwt = false
+
+[functions.ecosystem-monitor]
 verify_jwt = false

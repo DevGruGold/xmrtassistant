@@ -71,6 +71,12 @@ Please analyze the error and provide ONLY the fixed Python code. Do not include 
       }
     );
 
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API error:', errorText);
+      throw new Error(`Gemini API failed: ${errorText}`);
+    }
+
     const geminiData = await geminiResponse.json();
     let fixedCode = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
