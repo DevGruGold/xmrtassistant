@@ -606,46 +606,81 @@ serve(async (req) => {
         // Collect all tool results from this workflow
         const allToolResults = Array.from(executedToolSignatures.entries()).map(([sig, result]) => {
           const [funcName] = sig.split(':');
-          return `${funcName}: ${JSON.stringify(result).substring(0, 200)}`;
+          return `${funcName}: ${JSON.stringify(result).substring(0, 300)}`;
         }).join('\n');
         
-        // Force one final response from Gemini without tool calling
-        const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              ...currentMessages,
-              { 
-                role: "system", 
-                content: `You have successfully gathered all requested information. The tool calls have completed with the following results:
+        console.log("📊 All collected tool results:", allToolResults);
+        
+        // If we have successful tool results, use them to generate final response
+        if (executedToolSignatures.size > 0) {
+          // Force one final response from Gemini without tool calling
+          try {
+            const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  ...currentMessages,
+                  { 
+                    role: "system", 
+                    content: `You have successfully gathered all requested information. The tool calls have completed with the following results:
 
 ${allToolResults}
 
 Now provide your response to the user using the data you already collected. Do NOT say you are "still waiting" or "gathering" - you HAVE the data. Present it clearly and concisely. Do NOT make any more tool calls.` 
+                  }
+                ],
+                temperature: 0.7,
+                max_tokens: 1000,
+                tool_choice: 'none'
+              }),
+            });
+            
+            if (finalResponse.ok) {
+              const finalData = await finalResponse.json();
+              const finalMessage = finalData.choices?.[0]?.message?.content;
+              if (finalMessage) {
+                console.log("✅ Final response generated from collected data");
+                Object.assign(message, { content: finalMessage, tool_calls: [] });
+              } else {
+                console.warn("⚠️ Final API call succeeded but returned no content");
               }
-            ],
-            temperature: 0.7,
-            max_tokens: 500,
-            tool_choice: 'none'
-          }),
-        });
-        
-        if (finalResponse.ok) {
-          const finalData = await finalResponse.json();
-          const finalMessage = finalData.choices?.[0]?.message?.content;
-          if (finalMessage) {
-            Object.assign(message, { content: finalMessage, tool_calls: [] });
+            } else {
+              console.error("❌ Final response API call failed:", finalResponse.status);
+            }
+          } catch (err) {
+            console.error("❌ Error generating final response:", err);
           }
         }
       }
       
-      // Return final response with content from Gemini
-      const aiResponse = message?.content || "I've completed all the requested tasks.";
+      // Return final response with content from Gemini or collected data
+      let aiResponse = message?.content;
+      
+      // If no content from Gemini, but we have tool results, format them directly
+      if (!aiResponse && executedToolSignatures.size > 0) {
+        console.log("📦 No final message from Gemini, formatting tool results directly");
+        const toolSummaries = Array.from(executedToolSignatures.entries()).map(([sig, result]) => {
+          const [funcName] = sig.split(':');
+          if (funcName === 'list_agents' && result.success) {
+            const agentCount = result.agents?.length || 0;
+            return `Found ${agentCount} agents: ${result.summary || ''}`;
+          }
+          return result.success ? `${funcName} completed successfully` : `${funcName} failed: ${result.error}`;
+        }).join('\n');
+        
+        aiResponse = toolSummaries || "Tasks completed.";
+      }
+      
+      // Final fallback
+      if (!aiResponse) {
+        aiResponse = "I've completed all the requested tasks.";
+      }
+      
       console.log("📤 Sending final response to chat:", aiResponse.substring(0, 100) + "...");
       
       return new Response(
