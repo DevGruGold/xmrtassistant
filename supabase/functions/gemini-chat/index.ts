@@ -495,6 +495,44 @@ Please analyze the error, fix the code, and provide the corrected version. Remem
         } else {
           // Success!
           console.log(`✅ Tool executed successfully`);
+          
+          // If this was a Python execution, check for failures and delegate to background agent
+          if (toolCall.function.name === 'execute_python' && result.success === false) {
+            console.log('🔧 Python execution failed, delegating to background fixer agent');
+            
+            // Get the execution ID from the database (most recent failed execution)
+            const { data: failedExec } = await supabase
+              .from('eliza_python_executions')
+              .select('id')
+              .eq('exit_code', 1)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (failedExec) {
+              // Trigger the python-fixer agent in the background (don't await)
+              supabase.functions.invoke('python-fixer-agent', {
+                body: { execution_id: failedExec.id }
+              }).then(() => {
+                console.log('🤖 Background agent started to fix Python code');
+              }).catch((err: any) => {
+                console.error('Failed to trigger fixer agent:', err);
+              });
+              
+              // Log that an agent is working on it
+              await supabase.from('eliza_activity_log').insert({
+                activity_type: 'python_fix_delegated',
+                title: '🤖 Agent Assigned to Fix Python Code',
+                description: `A background agent has been assigned to analyze and fix the failed Python execution. I'll notify you once it's resolved.`,
+                status: 'in_progress',
+                metadata: {
+                  execution_id: failedExec.id,
+                  error: result.error
+                }
+              });
+            }
+          }
+          
           results.push(result);
           break;
         }

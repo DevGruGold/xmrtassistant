@@ -57,6 +57,9 @@ verify_jwt = false
 [functions.python-executor]
 verify_jwt = false
 
+[functions.python-fixer-agent]
+verify_jwt = false
+
 [functions.github-integration]
 verify_jwt = false
 
