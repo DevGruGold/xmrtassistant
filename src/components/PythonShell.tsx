@@ -1,59 +1,55 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Play, Terminal, Trash2, Sparkles } from 'lucide-react';
+import { Terminal, Sparkles, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { pythonExecutor } from '@/services/pythonExecutorService';
 import { supabase } from '@/integrations/supabase/client';
 
-interface PythonExecution {
+interface ActivityLog {
   id: string;
-  code: string;
-  output: string | null;
-  error: string | null;
-  exit_code: number;
-  execution_time_ms: number | null;
-  source: string;
-  purpose: string | null;
+  activity_type: string;
+  title: string;
+  description: string;
+  metadata: any;
+  status: string;
   created_at: string;
 }
 
 export const PythonShell = () => {
-  const [code, setCode] = useState('# Eliza\'s Python Shell\nprint("Hello from autonomous shell")');
-  const [elizaExecutions, setElizaExecutions] = useState<PythonExecution[]>([]);
-  const [isExecuting, setIsExecuting] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load and monitor Eliza's Python executions from database
+  // Load and monitor ALL of Eliza's background work
   useEffect(() => {
-    const fetchExecutions = async () => {
+    const fetchActivity = async () => {
+      setIsLoading(true);
       const { data, error } = await supabase
-        .from('eliza_python_executions')
+        .from('eliza_activity_log')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (!error && data) {
-        setElizaExecutions(data);
+        setActivityLogs(data);
       }
+      setIsLoading(false);
     };
 
-    fetchExecutions();
+    fetchActivity();
 
-    // Set up real-time subscription
+    // Set up real-time subscription to see ALL background work
     const channel = supabase
-      .channel('eliza-python-executions')
+      .channel('eliza-activity-log')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'eliza_python_executions'
+          table: 'eliza_activity_log'
         },
         (payload) => {
-          console.log('🐍 New Python execution from Eliza:', payload);
-          setElizaExecutions(prev => [payload.new as PythonExecution, ...prev].slice(0, 50));
+          console.log('🤖 New activity from Eliza:', payload);
+          setActivityLogs(prev => [payload.new as ActivityLog, ...prev].slice(0, 50));
         }
       )
       .subscribe();
@@ -63,17 +59,32 @@ export const PythonShell = () => {
     };
   }, []);
 
-  const executeCode = async () => {
-    if (!code.trim()) return;
-    
-    setIsExecuting(true);
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'python_execution':
+        return '🐍';
+      case 'agent_management':
+        return '🤖';
+      case 'github_integration':
+        return '🔧';
+      case 'task_assignment':
+        return '📋';
+      default:
+        return '⚡';
+    }
+  };
 
-    const result = await pythonExecutor.executeCode({
-      code,
-      silent: false
-    });
-
-    setIsExecuting(false);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-mining-active/20 text-mining-active border-mining-active';
+      case 'failed':
+        return 'bg-destructive/20 text-destructive border-destructive';
+      case 'in_progress':
+        return 'bg-mining-info/20 text-mining-info border-mining-info';
+      default:
+        return 'bg-secondary/20 text-secondary-foreground border-border';
+    }
   };
 
   return (
@@ -82,75 +93,62 @@ export const PythonShell = () => {
         <CardTitle className="flex items-center justify-between text-lg">
           <div className="flex items-center gap-2">
             <Terminal className="h-5 w-5 text-primary" />
-            Eliza's Autonomous Python Shell
+            Eliza's Background Work
           </div>
-          {elizaExecutions.length > 0 && (
+          {activityLogs.length > 0 && (
             <Badge variant="default" className="gap-1">
               <Sparkles className="h-3 w-3" />
-              {elizaExecutions.length} executions
+              {activityLogs.length} activities
             </Badge>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Eliza's Activity Stream - Read Only */}
-        <div className="space-y-2">
-          <span className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Autonomous Activity Stream
-          </span>
-          <ScrollArea className="h-[400px] rounded-md border bg-secondary/30 p-4">
-            <div className="font-mono text-sm space-y-4">
-              {elizaExecutions.length === 0 ? (
-                <p className="text-muted-foreground italic">Waiting for Eliza's autonomous work...</p>
-              ) : (
-                elizaExecutions.map((execution) => (
-                  <div
-                    key={execution.id}
-                    className="p-3 rounded-lg border border-border bg-card/50 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="text-xs bg-mining-active/20 text-mining-active border-mining-active">
-                        🤖 Eliza
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(execution.created_at).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    
-                    {execution.purpose && (
-                      <p className="text-xs text-primary">Purpose: {execution.purpose}</p>
-                    )}
-                    
-                    <div className="bg-secondary/50 p-2 rounded text-xs">
-                      <pre className="whitespace-pre-wrap">{execution.code}</pre>
-                    </div>
-                    
-                    {execution.output && (
-                      <div className="text-xs text-foreground">
-                        <span className="text-muted-foreground">Output:</span>
-                        <pre className="whitespace-pre-wrap mt-1">{execution.output}</pre>
-                      </div>
-                    )}
-                    
-                    {execution.error && (
-                      <div className="text-xs text-destructive">
-                        <span className="text-muted-foreground">Error:</span>
-                        <pre className="whitespace-pre-wrap mt-1">{execution.error}</pre>
-                      </div>
-                    )}
-                    
-                    {execution.execution_time_ms && (
-                      <span className="text-xs text-muted-foreground">
-                        Executed in {execution.execution_time_ms}ms
-                      </span>
-                    )}
-                  </div>
-                ))
-              )}
+      <CardContent>
+        <ScrollArea className="h-[500px] rounded-md border bg-secondary/30 p-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          </ScrollArea>
-        </div>
+          ) : activityLogs.length === 0 ? (
+            <p className="text-muted-foreground italic text-center py-8">
+              Waiting for Eliza's autonomous work...
+            </p>
+          ) : (
+            <div className="font-mono text-sm space-y-3">
+              {activityLogs.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="p-3 rounded-lg border border-border bg-card/50 space-y-2 animate-fade-in"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getActivityIcon(activity.activity_type)}</span>
+                      <Badge variant="outline" className={`text-xs ${getStatusColor(activity.status)}`}>
+                        {activity.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(activity.created_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-primary">{activity.title}</p>
+                    <p className="text-xs text-muted-foreground">{activity.description}</p>
+                  </div>
+                  
+                  {activity.metadata && Object.keys(activity.metadata).length > 0 && (
+                    <div className="bg-secondary/50 p-2 rounded text-xs">
+                      <pre className="whitespace-pre-wrap text-foreground/80">
+                        {JSON.stringify(activity.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
       </CardContent>
     </Card>
   );

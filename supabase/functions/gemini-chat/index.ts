@@ -257,8 +257,15 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
       console.log(`🔧 Executing tool: ${functionName}`, args);
       
       let result;
+      let activityType = functionName;
+      let activityTitle = functionName;
+      let activityDescription = '';
       
       if (functionName === 'execute_python') {
+        activityType = 'python_execution';
+        activityTitle = args.purpose || 'Python Code Execution';
+        activityDescription = `Executing Python code: ${args.code.substring(0, 100)}${args.code.length > 100 ? '...' : ''}`;
+        
         const { data, error } = await supabase.functions.invoke('python-executor', {
           body: { 
             code: args.code,
@@ -274,6 +281,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'list_agents') {
+        activityType = 'agent_management';
+        activityTitle = 'List All Agents';
+        activityDescription = 'Retrieving current agent statuses and workloads';
+        
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
             action: 'list_agents',
@@ -289,6 +300,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'list_issues') {
+        activityType = 'github_integration';
+        activityTitle = `List GitHub Issues: ${args.repo || 'xmrt-ecosystem'}`;
+        activityDescription = `Fetching issues from repository: ${args.repo || 'xmrt-ecosystem'}`;
+        
         const { data, error } = await supabase.functions.invoke('github-integration', {
           body: { 
             action: 'list_issues',
@@ -304,6 +319,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'spawn_agent') {
+        activityType = 'agent_management';
+        activityTitle = `Spawn Agent: ${args.name}`;
+        activityDescription = `Creating new agent with role: ${args.role}`;
+        
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
             action: 'spawn_agent',
@@ -323,6 +342,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'update_agent_status') {
+        activityType = 'agent_management';
+        activityTitle = 'Update Agent Status';
+        activityDescription = `Changing agent ${args.agent_id} status to: ${args.status}`;
+        
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
             action: 'update_agent_status',
@@ -341,6 +364,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'assign_task') {
+        activityType = 'task_assignment';
+        activityTitle = `Assign Task: ${args.title}`;
+        activityDescription = `Priority ${args.priority || 5}: ${args.description.substring(0, 100)}`;
+        
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
             action: 'assign_task',
@@ -364,6 +391,10 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
           result = { success: true, data };
         }
       } else if (functionName === 'update_task_status') {
+        activityType = 'task_assignment';
+        activityTitle = 'Update Task Status';
+        activityDescription = `Task ${args.task_id}: ${args.status} - ${args.stage}`;
+        
         const { data, error } = await supabase.functions.invoke('agent-manager', {
           body: { 
             action: 'update_task_status',
@@ -386,9 +417,36 @@ async function executeToolCalls(toolCalls: any[], supabase: any) {
         result = { success: false, error: `Unknown function: ${functionName}` };
       }
       
+      // Log ALL function calls to activity log for real-time visualization
+      await supabase
+        .from('eliza_activity_log')
+        .insert({
+          activity_type: activityType,
+          title: activityTitle,
+          description: activityDescription,
+          metadata: {
+            function: functionName,
+            args: args,
+            result: result
+          },
+          status: result.success ? 'completed' : 'failed'
+        });
+      
       results.push(result);
     } catch (error) {
       console.error('❌ Tool execution error:', error);
+      
+      // Log the error
+      await supabase
+        .from('eliza_activity_log')
+        .insert({
+          activity_type: 'error',
+          title: 'Function Execution Error',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          metadata: { error: error },
+          status: 'failed'
+        });
+      
       results.push({ success: false, error: error.message });
     }
   }
