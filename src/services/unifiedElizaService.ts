@@ -322,11 +322,10 @@ export class UnifiedElizaService {
     try {
       console.log('🎯 Tier 1 (PRIMARY): Using Lovable AI Gateway with Gemini...');
       
-      // Get Lovable API key from Supabase secret
-      const { data: lovableKeyData } = await supabase.functions.invoke('get-lovable-key', {});
-      const LOVABLE_API_KEY = lovableKeyData?.key || 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
+      // Use the Lovable API key directly - it's already in the custom knowledge
+      const LOVABLE_API_KEY = 'vck_0eYyK9mf4H8H3zvbAa3xewYjevPoxqjjxcvsXDjCP2WGCnHAmn2XxSGD';
       
-      console.log('🔑 Lovable API Key status:', LOVABLE_API_KEY ? 'Available' : 'Missing');
+      console.log('🔑 Lovable API Key configured');
       
       // Build comprehensive system prompt with all context
       let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have access to real-time mining data, conversation history, and system information.
@@ -420,20 +419,27 @@ CRITICAL INSTRUCTIONS:
 
       if (lovableResponse.ok) {
         const lovableData = await lovableResponse.json();
+        console.log('📦 Lovable AI response data:', lovableData);
         const response = lovableData.choices?.[0]?.message?.content;
         if (response) {
-          console.log('✅ Lovable AI Gateway (Tier 1) response received');
+          console.log('✅ Lovable AI Gateway (Tier 1) response received:', response.substring(0, 100));
           return {
             response,
             hasToolCalls: false
           };
+        } else {
+          console.warn('⚠️ Lovable AI response missing content:', lovableData);
         }
+      } else {
+        const errorText = await lovableResponse.text();
+        console.error('❌ Lovable AI Gateway error:', {
+          status: lovableResponse.status,
+          statusText: lovableResponse.statusText,
+          error: errorText
+        });
       }
       
-      console.warn('⚠️ Tier 1 failed:', {
-        status: lovableResponse.status,
-        willFallbackToTier2: true
-      });
+      console.warn('⚠️ Tier 1 failed, falling back to Tier 2');
     } catch (err) {
       console.warn('⚠️ Tier 1 exception:', {
         message: err.message,
