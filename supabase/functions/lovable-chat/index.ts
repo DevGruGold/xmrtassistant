@@ -103,6 +103,9 @@ You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_
 - For HTTP requests: Use urllib.request.urlopen() or http.client
 - For JSON: Use the built-in json module
 - Example: Replace requests.get(url) with urllib.request.urlopen(url)
+- **F-STRING SYNTAX**: When using f-strings with dict keys, use SINGLE quotes inside DOUBLE quotes
+  - ❌ WRONG: f"Name: {data["name"]}" (syntax error)
+  - ✅ RIGHT: f"Name: {data['name']}" or f'Name: {data["name"]}'
 
 🔄 WEBHOOK AUTOMATION:
 - vectorize-memory: Triggered on new memory contexts (auto-embeddings)
@@ -276,11 +279,12 @@ INTERACTION PRINCIPLES:
         if (execError || !execResult.success) {
           console.error('❌ Python execution failed:', execError || execResult);
           
-          // Return error to user
+          // Return error with code shown to user
+          const errorMessage = execResult?.error || execError?.message || 'Unknown error';
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I attempted to execute the Python code, but encountered an error:\n\n${execResult?.error || execError?.message}\n\nThe autonomous code-fixer will attempt to fix this automatically. You can check the Python shell for updates.`,
+              response: `I attempted to execute this Python code:\n\n\`\`\`python\n${args.code}\n\`\`\`\n\n**Error encountered:**\n${errorMessage}\n\nThe autonomous code-fixer is now working on fixing this. I'll share the results as soon as it succeeds!`,
               hasToolCalls: true
             }),
             { 
@@ -291,12 +295,14 @@ INTERACTION PRINCIPLES:
         
         console.log('✅ Python code executed successfully');
         
-        // Return success with output
-        const output = execResult.output || '(No output)';
+        // Return success with code and output shown
+        const output = execResult.output?.trim() || '(No output generated)';
+        const purposeText = args.purpose ? `**Purpose:** ${args.purpose}\n\n` : '';
+        
         return new Response(
           JSON.stringify({
             success: true,
-            response: `✅ Python code executed successfully!\n\n${args.purpose ? `**Purpose:** ${args.purpose}\n\n` : ''}**Output:**\n${output}`,
+            response: `✅ Successfully executed Python code!\n\n${purposeText}**Code:**\n\`\`\`python\n${args.code}\n\`\`\`\n\n**Output:**\n${output}`,
             hasToolCalls: true,
             executionResult: execResult
           }),

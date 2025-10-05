@@ -243,26 +243,25 @@ with urllib.request.urlopen(req) as response:
     const { data: sessions } = await supabase
       .from('conversation_sessions')
       .select('id')
-      .eq('session_key', 'eliza-system')
       .order('created_at', { ascending: false })
       .limit(1);
 
     if (sessions && sessions.length > 0) {
-      // Create a system message with the actual output that Eliza was trying to get
-      const outputMessage = execResult.output 
-        ? `✅ Python execution succeeded. Output:\n${execResult.output}` 
-        : '✅ Python code executed successfully (no output)';
+      // Create an assistant message with the actual output that Eliza was trying to get
+      const outputMessage = execResult.output?.trim()
+        ? `Here are the results from the fixed Python code:\n\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n**Output:**\n${execResult.output}` 
+        : `The Python code executed successfully:\n\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n(No output generated)`;
       
       await supabase.from('conversation_messages').insert({
         session_id: sessions[0].id,
-        message_type: 'system',
-        content: `AUTONOMOUS CODE FIX COMPLETE\n\nOriginal Purpose: ${execution.purpose || 'Unknown'}\n\n${outputMessage}\n\n🔧 The code was automatically fixed and executed. Original error was: ${execution.error?.split('\n')[0]}`,
+        message_type: 'assistant',
+        content: outputMessage,
         metadata: {
           source: 'python-fixer-agent',
           fix_execution_id: successExec?.id,
           original_execution_id: execution_id,
-          output: execResult.output,
-          fixed_code: fixedCode.substring(0, 500) // First 500 chars for reference
+          original_purpose: execution.purpose,
+          auto_fixed: true
         }
       });
     }
