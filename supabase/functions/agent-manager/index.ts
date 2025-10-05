@@ -29,6 +29,27 @@ serve(async (req) => {
         break;
 
       case 'spawn_agent':
+        // Check if agent with this name already exists
+        const { data: existingAgent, error: checkError } = await supabase
+          .from('agents')
+          .select('*')
+          .eq('name', data.name)
+          .maybeSingle();
+        
+        if (checkError) throw checkError;
+        
+        // If agent already exists, return it instead of creating duplicate
+        if (existingAgent) {
+          console.log('Agent already exists, returning existing:', existingAgent);
+          result = {
+            ...existingAgent,
+            message: 'Agent already exists with this name',
+            wasExisting: true
+          };
+          break;
+        }
+        
+        // Create new agent
         const { data: newAgent, error: spawnError } = await supabase
           .from('agents')
           .insert({
@@ -391,6 +412,54 @@ serve(async (req) => {
         
         if (taskDetailsError) throw taskDetailsError;
         result = taskDetails;
+        break;
+
+      case 'cleanup_duplicate_agents':
+        // Find all duplicate agents (same name)
+        const { data: allAgents, error: fetchError } = await supabase
+          .from('agents')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (fetchError) throw fetchError;
+        
+        // Group by name and keep only the oldest
+        const agentsByName = new Map();
+        const duplicatesToDelete = [];
+        
+        for (const agent of allAgents) {
+          if (!agentsByName.has(agent.name)) {
+            agentsByName.set(agent.name, agent);
+          } else {
+            duplicatesToDelete.push(agent.id);
+          }
+        }
+        
+        // Delete duplicates
+        if (duplicatesToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('agents')
+            .delete()
+            .in('id', duplicatesToDelete);
+          
+          if (deleteError) throw deleteError;
+          
+          // Log the cleanup
+          await supabase.from('eliza_activity_log').insert({
+            activity_type: 'cleanup',
+            title: '🧹 Cleaned up duplicate agents',
+            description: `Removed ${duplicatesToDelete.length} duplicate agents`,
+            metadata: { deleted_ids: duplicatesToDelete },
+            status: 'completed'
+          });
+        }
+        
+        result = { 
+          success: true, 
+          duplicatesRemoved: duplicatesToDelete.length,
+          deletedIds: duplicatesToDelete
+        };
+        console.log('Duplicate agents cleaned up:', duplicatesToDelete);
         break;
 
       default:
