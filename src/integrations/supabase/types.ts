@@ -242,6 +242,72 @@ export type Database = {
           },
         ]
       }
+      eliza_activity_log: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      eliza_python_executions: {
+        Row: {
+          code: string
+          created_at: string | null
+          error: string | null
+          execution_time_ms: number | null
+          exit_code: number | null
+          id: string
+          output: string | null
+          purpose: string | null
+          source: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          error?: string | null
+          execution_time_ms?: number | null
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          purpose?: string | null
+          source?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          error?: string | null
+          execution_time_ms?: number | null
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          purpose?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       entity_relationships: {
         Row: {
           created_at: string
@@ -286,6 +352,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      faucet_claims: {
+        Row: {
+          amount: number
+          claimed_at: string
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          status: string
+          transaction_hash: string | null
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          amount: number
+          claimed_at?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          status?: string
+          transaction_hash?: string | null
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          amount?: number
+          claimed_at?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          status?: string
+          transaction_hash?: string | null
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
+      faucet_config: {
+        Row: {
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
       }
       interaction_patterns: {
         Row: {

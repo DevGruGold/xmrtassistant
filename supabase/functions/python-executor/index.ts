@@ -1,6 +1,12 @@
 import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
+
+// Initialize Supabase client for logging executions
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -9,7 +15,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { code, language = 'python', version = '3.10.0', stdin = '', args = [] } = await req.json();
+    const { code, language = 'python', version = '3.10.0', stdin = '', args = [], purpose = '' } = await req.json();
 
     if (!code) {
       return new Response(
@@ -22,6 +28,7 @@ Deno.serve(async (req) => {
     }
 
     console.log('Executing Python code:', code.substring(0, 100) + '...');
+    const startTime = Date.now();
 
     // Execute code using Piston API
     const response = await fetch(`${PISTON_API_URL}/execute`, {
@@ -60,12 +67,46 @@ Deno.serve(async (req) => {
     }
 
     const result = await response.json();
+    const executionTime = Date.now() - startTime;
     
     console.log('Execution result:', {
       stdout: result.run?.stdout?.substring(0, 100),
       stderr: result.run?.stderr?.substring(0, 100),
       code: result.run?.code
     });
+
+    // Log execution to database for visualization
+    const logResult = await supabase
+      .from('eliza_python_executions')
+      .insert({
+        code,
+        output: result.run?.stdout || null,
+        error: result.run?.stderr || null,
+        exit_code: result.run?.code || 0,
+        execution_time_ms: executionTime,
+        source: 'eliza',
+        purpose: purpose || null
+      });
+
+    if (logResult.error) {
+      console.error('Failed to log execution:', logResult.error);
+    }
+
+    // Also log to activity log
+    await supabase
+      .from('eliza_activity_log')
+      .insert({
+        activity_type: 'python_execution',
+        title: purpose || 'Python Code Execution',
+        description: code.substring(0, 150) + (code.length > 150 ? '...' : ''),
+        metadata: {
+          language,
+          version,
+          execution_time_ms: executionTime,
+          exit_code: result.run?.code || 0
+        },
+        status: result.run?.code === 0 ? 'completed' : 'failed'
+      });
 
     return new Response(
       JSON.stringify({

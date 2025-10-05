@@ -51,6 +51,15 @@ serve(async (req) => {
           rationale: data.rationale || 'Agent spawned for task delegation',
         });
         
+        // Log to activity log
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'agent_spawned',
+          title: `Spawned Agent: ${newAgent.name}`,
+          description: `Role: ${newAgent.role}`,
+          metadata: { agent_id: newAgent.id, skills: newAgent.skills },
+          status: 'completed'
+        });
+        
         result = newAgent;
         console.log('New agent spawned:', newAgent);
         break;
@@ -92,6 +101,20 @@ serve(async (req) => {
           .update({ status: 'BUSY' })
           .eq('id', data.assignee_agent_id);
         
+        // Log to activity log
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'task_created',
+          title: `Created Task: ${task.title}`,
+          description: task.description,
+          metadata: {
+            task_id: task.id,
+            assignee: data.assignee_agent_id,
+            category: task.category,
+            stage: task.stage
+          },
+          status: 'completed'
+        });
+        
         result = task;
         console.log('Task assigned:', task);
         break;
@@ -119,6 +142,21 @@ serve(async (req) => {
           .single();
         
         if (taskUpdateError) throw taskUpdateError;
+        
+        // Log to activity log
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'task_updated',
+          title: `Updated Task: ${updatedTask.title}`,
+          description: `Status: ${data.status}, Stage: ${data.stage}`,
+          metadata: {
+            task_id: updatedTask.id,
+            old_status: data.old_status,
+            new_status: data.status,
+            stage: data.stage
+          },
+          status: 'completed'
+        });
+        
         result = updatedTask;
         break;
 

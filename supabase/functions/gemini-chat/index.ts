@@ -1,9 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Initialize Supabase client for logging Eliza's activities
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -220,12 +226,15 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
   USE THIS to browse websites, extract data, research current information
 • python-executor - Execute REAL Python code in sandboxed environment (Piston API)
   USE THIS to write and run ACTUAL Python scripts (pandas, numpy, requests, beautifulsoup4 available)
+  CRITICAL: All Python executions are AUTOMATICALLY logged to the database and visible in the Python Shell UI
   IMPORTANT: You have a PERSISTENT Python shell for background work:
     - Write multi-step analyses that run in background
     - Store intermediate results between executions
     - Run long-running data processing tasks
     - ALWAYS tell users estimated completion time (e.g., "This will take ~30 seconds")
-  NEVER show code in chat - execute it silently and report results
+    - Include a "purpose" field describing what you're doing
+  NEVER show code in chat - execute it silently via edge function, system will log it automatically
+  ALWAYS use python-executor edge function for ANY code execution
 
 **GITHUB INTEGRATION & CODE MANAGEMENT:**
 • github-integration - FULL GitHub control (issues, PRs, discussions, commits, code search)
@@ -236,7 +245,13 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 **AGENT COORDINATION & TASK DELEGATION:**
 • agent-manager - Spawn and manage AI agents, delegate tasks, coordinate workflows
   Actions: spawn_agent, assign_task, list_agents, update_agent_status, get_agent_workload, log_decision
+  CRITICAL: All task creation and agent actions are AUTOMATICALLY logged to the database and visible in Task Visualizer
   USE THIS to create specialized agents for complex tasks, delegate work, track agent performance
+  WHEN TO SPAWN AGENTS:
+    - Multi-step complex tasks requiring different expertise
+    - Parallel work that can be done simultaneously
+    - Long-running monitoring or automation tasks
+    - Code review, testing, or quality assurance workflows
 
 **SPEECH PROCESSING:**
 • speech-to-text - Convert voice input to text for voice interactions

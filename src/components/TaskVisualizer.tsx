@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle } from 'lucide-react';
+import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Task {
   id: string;
   title: string;
   description: string;
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  status: string;
   stage: string;
-  assigned_to: string;
+  assignee_agent_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -19,7 +19,17 @@ interface Task {
 interface Agent {
   id: string;
   name: string;
-  status: 'IDLE' | 'BUSY' | 'OFFLINE';
+  status: string;
+}
+
+interface ElizaActivity {
+  id: string;
+  activity_type: string;
+  title: string;
+  description: string | null;
+  metadata: any;
+  status: string;
+  created_at: string;
 }
 
 const STAGE_COLORS = {
@@ -42,26 +52,41 @@ const STATUS_CONFIG = {
 export const TaskVisualizer = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [activities, setActivities] = useState<ElizaActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = async () => {
     try {
-      // Fetch tasks
-      const { data: tasksData, error: tasksError } = await supabase.functions.invoke('agent-manager', {
-        body: { action: 'list_tasks' }
-      });
+      // Fetch activity log
+      const { data: activityData, error: activityError } = await supabase
+        .from('eliza_activity_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      if (!tasksError && tasksData?.tasks) {
-        setTasks(tasksData.tasks);
+      if (!activityError && activityData) {
+        setActivities(activityData);
+      }
+
+      // Fetch tasks
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(20);
+
+      if (!tasksError && tasksData) {
+        setTasks(tasksData);
       }
 
       // Fetch agents
-      const { data: agentsData, error: agentsError } = await supabase.functions.invoke('agent-manager', {
-        body: { action: 'list_agents' }
-      });
+      const { data: agentsData, error: agentsError } = await supabase
+        .from('agents')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (!agentsError && agentsData?.agents) {
-        setAgents(agentsData.agents);
+      if (!agentsError && agentsData) {
+        setAgents(agentsData);
       }
     } catch (error) {
       console.error('Error fetching task data:', error);
@@ -73,7 +98,23 @@ export const TaskVisualizer = () => {
   useEffect(() => {
     fetchData();
     
-    // Set up real-time subscriptions for tasks and agents
+    // Set up real-time subscriptions
+    const activityChannel = supabase
+      .channel('eliza-activity-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'eliza_activity_log'
+        },
+        (payload) => {
+          console.log('📋 New activity from Eliza:', payload);
+          setActivities(prev => [payload.new as ElizaActivity, ...prev].slice(0, 50));
+        }
+      )
+      .subscribe();
+
     const tasksChannel = supabase
       .channel('tasks-changes')
       .on(
@@ -85,7 +126,7 @@ export const TaskVisualizer = () => {
         },
         (payload) => {
           console.log('📋 Task change detected:', payload);
-          fetchData(); // Refetch to get complete data
+          fetchData();
         }
       )
       .subscribe();
@@ -101,16 +142,13 @@ export const TaskVisualizer = () => {
         },
         (payload) => {
           console.log('🤖 Agent change detected:', payload);
-          fetchData(); // Refetch to get complete data
+          fetchData();
         }
       )
       .subscribe();
     
-    // Also poll every 10 seconds as backup
-    const interval = setInterval(fetchData, 10000);
-    
     return () => {
-      clearInterval(interval);
+      supabase.removeChannel(activityChannel);
       supabase.removeChannel(tasksChannel);
       supabase.removeChannel(agentsChannel);
     };
@@ -118,7 +156,18 @@ export const TaskVisualizer = () => {
 
   const getAgentName = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId);
-    return agent?.name || 'Unknown Agent';
+    return agent?.name || agentId || 'Eliza';
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'python_execution': return '🐍';
+      case 'task_created': return '📋';
+      case 'task_updated': return '✏️';
+      case 'agent_spawned': return '🤖';
+      case 'github_action': return '📦';
+      default: return '✨';
+    }
   };
 
   const getStageColor = (stage: string) => {
@@ -134,6 +183,45 @@ export const TaskVisualizer = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Eliza's Activity Stream */}
+        <div className="mb-4 p-3 rounded-lg bg-secondary/30">
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Eliza's Recent Activity ({activities.length})
+          </h3>
+          <ScrollArea className="h-[200px]">
+            <div className="space-y-2">
+              {activities.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">Waiting for Eliza's autonomous activity...</p>
+              ) : (
+                activities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="p-2 rounded-md bg-card/50 border border-border flex items-start gap-2 text-sm"
+                  >
+                    <span className="text-lg">{getActivityIcon(activity.activity_type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{activity.title}</div>
+                      {activity.description && (
+                        <div className="text-xs text-muted-foreground truncate">{activity.description}</div>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {new Date(activity.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <Badge
+                      variant={activity.status === 'completed' ? 'default' : activity.status === 'failed' ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {activity.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
         {/* Active Agents */}
         <div className="mb-4 p-3 rounded-lg bg-secondary/30">
           <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
@@ -204,7 +292,7 @@ export const TaskVisualizer = () => {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <User className="h-3 w-3" />
-                        {getAgentName(task.assigned_to)}
+                        {getAgentName(task.assignee_agent_id)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
