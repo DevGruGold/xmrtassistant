@@ -85,10 +85,10 @@ serve(async (req) => {
 
 🔐 GITHUB OAUTH INTEGRATION:
 You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET).
-- All GitHub operations are server-side authenticated - NO user tokens needed
-- 11 available actions through github-integration edge function
+- **CRITICAL: Use the createGitHubIssue tool for ALL GitHub operations - NEVER use Python**
 - Can create issues, PRs, commit code, search repos, manage discussions
-- Use githubIntegrationService helper in code or invoke github-integration edge function
+- Owner: DevGruGold, Default Repo: XMRT-Ecosystem
+- For "proof of life" requests: Use createGitHubIssue with a title like "🤖 Eliza Proof of Life - [Date]"
 
 🤖 AUTONOMOUS CAPABILITIES:
 - code-monitor-daemon continuously monitors Python executions
@@ -100,7 +100,9 @@ You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_
 **NEVER WRITE PYTHON CODE DIRECTLY IN CHAT RESPONSES!**
 - ❌ DO NOT show code examples in your chat messages
 - ❌ DO NOT explain what code you would write
-- ✅ ALWAYS use the executePythonCode tool when any code is needed
+- ❌ DO NOT use Python for GitHub operations - use createGitHubIssue tool instead
+- ✅ ALWAYS use the executePythonCode tool when computation/data processing is needed
+- ✅ ALWAYS use createGitHubIssue tool for GitHub operations
 - ✅ ONLY show results after execution completes
 
 **SANDBOX CONSTRAINTS:**
@@ -115,10 +117,11 @@ You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_
   - ✅ RIGHT: f"Name: {data['name']}" or f'Name: {data["name"]}'
 
 **EXECUTION WORKFLOW:**
-1. User asks for something that needs code → IMMEDIATELY call executePythonCode
-2. Don't say "I'll write code" → Just execute it
-3. Don't show code first → Execute it and share results
-4. If code fails → autonomous-code-fixer will handle it automatically
+1. GitHub operations → IMMEDIATELY call createGitHubIssue (NEVER Python)
+2. Data processing/computation → Call executePythonCode
+3. Don't say "I'll write code" → Just execute it
+4. Don't show code first → Execute it and share results
+5. If code fails → autonomous-code-fixer will handle it automatically
 
 🔄 WEBHOOK AUTOMATION:
 - vectorize-memory: Triggered on new memory contexts (auto-embeddings)
@@ -132,10 +135,10 @@ INTERACTION PRINCIPLES:
 - Use conversation history to maintain context
 - Reference mining stats when relevant
 - Demonstrate awareness of your full capabilities
-- Suggest using GitHub integration when users mention issues, code, or repos
+- For GitHub operations, ALWAYS use createGitHubIssue tool (not Python)
 - Explain your autonomous systems when discussing reliability
 - Provide accurate, context-aware responses
-- **CRITICAL**: NEVER write code in responses - ALWAYS use executePythonCode tool
+- **CRITICAL**: NEVER write code in responses - ALWAYS use appropriate tools
 - For backend operations, use edge functions instead of explaining them
 `;
 
@@ -218,27 +221,59 @@ INTERACTION PRINCIPLES:
           { role: 'system', content: systemPrompt },
           ...messages
         ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'executePythonCode',
-            description: 'Execute Python code in a sandboxed environment. CRITICAL: Only standard library available (urllib, json, http.client). NO external packages (requests, numpy, pandas).',
-            parameters: {
-              type: 'object',
-              required: ['code'],
-              properties: {
-                code: { 
-                  type: 'string',
-                  description: 'Python code to execute using only standard library. Use urllib.request for HTTP, json for parsing. NO requests library.'
-                },
-                purpose: {
-                  type: 'string',
-                  description: 'Brief description of what this code does'
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'executePythonCode',
+              description: 'Execute Python code in a sandboxed environment. CRITICAL: Only standard library available (urllib, json, http.client). NO external packages (requests, numpy, pandas).',
+              parameters: {
+                type: 'object',
+                required: ['code'],
+                properties: {
+                  code: { 
+                    type: 'string',
+                    description: 'Python code to execute using only standard library. Use urllib.request for HTTP, json for parsing. NO requests library.'
+                  },
+                  purpose: {
+                    type: 'string',
+                    description: 'Brief description of what this code does'
+                  }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createGitHubIssue',
+              description: 'Create an issue or proof of life on GitHub. Use this for any GitHub operations instead of Python.',
+              parameters: {
+                type: 'object',
+                required: ['title', 'body'],
+                properties: {
+                  title: {
+                    type: 'string',
+                    description: 'Title of the GitHub issue'
+                  },
+                  body: {
+                    type: 'string',
+                    description: 'Body/content of the GitHub issue'
+                  },
+                  repo: {
+                    type: 'string',
+                    description: 'Repository name (defaults to XMRT-Ecosystem)'
+                  },
+                  labels: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Optional labels for the issue'
+                  }
                 }
               }
             }
           }
-        }],
+        ],
         tool_choice: 'auto'
       }),
     });
@@ -273,15 +308,62 @@ INTERACTION PRINCIPLES:
     if (toolCalls && toolCalls.length > 0) {
       const toolCall = toolCalls[0];
       
+      // Create Supabase client
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      if (toolCall.function.name === 'createGitHubIssue') {
+        console.log('🐙 AI requested GitHub issue creation');
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Call github-integration edge function
+        const { data: githubResult, error: githubError } = await supabase.functions.invoke('github-integration', {
+          body: {
+            action: 'create_issue',
+            data: {
+              title: args.title,
+              body: args.body,
+              repo: args.repo || 'XMRT-Ecosystem',
+              labels: args.labels || ['proof-of-life', 'automated']
+            }
+          }
+        });
+        
+        if (githubError || !githubResult?.success) {
+          console.error('❌ GitHub issue creation failed:', githubError || githubResult);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              response: `I attempted to create a GitHub issue with title "${args.title}" but encountered an error:\n\n${githubResult?.error || githubError?.message || 'Unknown error'}\n\nPlease check the GitHub integration configuration.`,
+              hasToolCalls: true
+            }),
+            { 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        console.log('✅ GitHub issue created successfully:', githubResult.data);
+        
+        const issueUrl = githubResult.data?.html_url || '';
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: `✅ Successfully created GitHub issue!\n\n**Title:** ${args.title}\n\n**Issue URL:** ${issueUrl}\n\n**Labels:** ${args.labels?.join(', ') || 'proof-of-life, automated'}`,
+            hasToolCalls: true,
+            githubResult: githubResult
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
       if (toolCall.function.name === 'executePythonCode') {
         console.log('🐍 AI requested Python execution');
         const args = JSON.parse(toolCall.function.arguments);
-        
-        // Create Supabase client
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const supabase = createClient(supabaseUrl, supabaseKey);
         
         // Execute Python code
         const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
