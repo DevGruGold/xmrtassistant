@@ -164,6 +164,21 @@ serve(async (req) => {
                 required: ['task_id', 'status']
               }
             }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'playwright_browse',
+              description: 'Browse the web, search for information, or scrape URLs using intelligent web automation. Returns structured data from web pages.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  url: { type: 'string', description: 'Direct URL to browse/scrape (optional if query is provided)' },
+                  query: { type: 'string', description: 'Search query for web search (optional if url is provided)' },
+                  action: { type: 'string', enum: ['browse', 'search', 'scrape'], description: 'Type of browsing action (default: browse)' }
+                }
+              }
+            }
           }
         ],
         tool_choice: 'auto'
@@ -811,17 +826,26 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     }
   } else if (functionName === 'playwright_browse') {
     activityType = 'web_browsing';
-    activityTitle = `Browse Web: ${args.url}`;
-    activityDescription = `Browsing and extracting data from: ${args.url}`;
+    activityTitle = `Browse Web: ${args.url || args.query}`;
+    activityDescription = `Browsing and extracting data from: ${args.url || args.query}`;
     
-    console.log(`🌐 Browsing URL with Playwright: ${args.url}`);
+    console.log(`🌐 Browsing with Playwright:`, args);
     
-    // For now, return a helpful error since playwright edge function doesn't exist yet
-    // In the future, this should call a real playwright browsing service
-    result = { 
-      success: false, 
-      error: 'Playwright browsing is not yet implemented. Please use call_edge_function with github-integration or other available edge functions instead.' 
-    };
+    const { data, error } = await supabase.functions.invoke('playwright-browse', {
+      body: {
+        url: args.url,
+        query: args.query,
+        action: args.action || 'browse'
+      }
+    });
+    
+    if (error) {
+      console.error(`❌ Playwright browse failed:`, error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log(`✅ Playwright browse succeeded`);
+      result = { success: true, data };
+    }
   } else {
     result = { success: false, error: `Unknown function: ${functionName}` };
   }
