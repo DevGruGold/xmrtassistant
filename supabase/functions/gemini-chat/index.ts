@@ -507,16 +507,9 @@ Please analyze the error and fix the code. CRITICAL RULES:
             }
           }
           
-          // No more retries or not a python execution, return the error
-          results.push(result);
-          break;
-        } else {
-          // Success!
-          console.log(`✅ Tool executed successfully`);
-          
-          // If this was a Python execution, check for failures and delegate to background agent
-          if (toolCall.function.name === 'execute_python' && result.success === false) {
-            console.log('🔧 Python execution failed, delegating to background fixer agent');
+          // No more retries - if this was a Python execution, delegate to background agent
+          if (functionName === 'execute_python' && !result.success) {
+            console.log('🔧 Python execution failed after retries, delegating to background fixer agent');
             
             // Get the execution ID from the database (most recent failed execution)
             const { data: failedExec } = await supabase
@@ -545,12 +538,17 @@ Please analyze the error and fix the code. CRITICAL RULES:
                 status: 'in_progress',
                 metadata: {
                   execution_id: failedExec.id,
-                  error: result.error
+                  error: lastError
                 }
               });
             }
           }
           
+          results.push(result);
+          break;
+        } else {
+          // Success!
+          console.log(`✅ Tool executed successfully`);
           results.push(result);
           break;
         }
