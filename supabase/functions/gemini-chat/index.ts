@@ -229,7 +229,7 @@ serve(async (req) => {
         // Return tool results as plain text if final call fails
         const aiResponse = `I executed the requested functions. Results: ${JSON.stringify(toolResults, null, 2)}`;
         return new Response(
-          JSON.stringify({ success: true, response: aiResponse }),
+          JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -239,12 +239,12 @@ serve(async (req) => {
       const aiResponse = finalMessage?.content || "I've completed the requested action.";
       
       return new Response(
-        JSON.stringify({ success: true, response: aiResponse }),
+        JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // If no tool calls, just return the content
+    // If no tool calls, just return the conversational content directly
     const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
     return new Response(

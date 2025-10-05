@@ -175,7 +175,7 @@ I'll provide the best response I can with the available information below...
       }
       
       try {
-        const response = await this.generateOpenAIResponse(userInput, {
+        const result = await this.generateOpenAIResponse(userInput, {
           userContext,
           miningStats,
           xmrtContext,
@@ -187,10 +187,14 @@ I'll provide the best response I can with the available information below...
         });
         
         console.log('✅ Eliza: Generated OpenAI response');
-        console.log('📏 Response length:', response.length);
-        console.log('🔍 Response preview:', response.substring(0, 200) + '...');
+        console.log('📏 Response length:', result.response.length);
+        console.log('🔍 Response preview:', result.response.substring(0, 200) + '...');
+        console.log('🔧 Has tool calls:', result.hasToolCalls);
         
-        return response;
+        // Store the hasToolCalls flag for the frontend to use
+        (window as any).__lastElizaHasToolCalls = result.hasToolCalls;
+        
+        return result.response;
         
       } catch (error: any) {
         console.error('❌ OpenAI API call failed:', error);
@@ -233,7 +237,7 @@ I'll provide the best response I can with the available information below...
   }
 
   // Generate response using Gemini via Lovable AI Gateway
-  private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<string> {
+  private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<{ response: string; hasToolCalls: boolean }> {
     const {
       userContext,
       miningStats,
@@ -319,8 +323,11 @@ I'll provide the best response I can with the available information below...
       throw new Error(data?.error || error?.message || 'Gemini API request failed');
     }
 
-    console.log('✅ Gemini response received');
-    return data.response;
+    console.log('✅ Gemini response received', { hasToolCalls: data.hasToolCalls });
+    return {
+      response: data.response,
+      hasToolCalls: data.hasToolCalls || false
+    };
   }
 
   // Reset OpenAI instance to force re-initialization with new API key
