@@ -573,9 +573,19 @@ serve(async (req) => {
                     required: ['task_id', 'status']
                   }
                 }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'check_system_status',
+              description: 'Perform comprehensive system health check including agents, tasks, mining, database, and Render service status. Returns detailed status report with health score.',
+              parameters: {
+                type: 'object',
+                properties: {}
               }
-            ],
-            tool_choice: 'auto'
+            }
+          }
+        ],
           }),
         });
         
@@ -1564,6 +1574,24 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
       console.log('🧹 Cleanup complete:', data);
       result = { success: true, data };
     }
+  } else if (functionName === 'check_system_status') {
+    activityType = 'system_diagnostics';
+    activityTitle = '🔍 Comprehensive System Health Check';
+    activityDescription = 'Checking all system components: database, agents, tasks, mining, and Render service';
+    
+    console.log('🔍 Running comprehensive system status check...');
+    
+    const { data, error } = await supabase.functions.invoke('system-status', {
+      body: {}
+    });
+    
+    if (error) {
+      console.error('❌ System status check failed:', error);
+      result = { success: false, error: error.message };
+    } else {
+      console.log('✅ System status check complete:', data);
+      result = { success: true, status: data.status };
+    }
   } else if (functionName === 'cleanup_duplicate_agents') {
     activityType = 'system_maintenance';
     activityTitle = 'Clean Up Duplicate Agents';
@@ -1865,6 +1893,13 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 • mining-proxy - Current mining stats (hash rate, shares, earnings)
 • supportxmr-proxy - Detailed pool information and worker statistics
 
+**SYSTEM HEALTH & DIAGNOSTICS:**
+• system-status - Comprehensive system health check (USE THIS for status reports!)
+  Returns detailed analysis of: database health, agent status, task pipeline, mining stats,
+  Render service status, activity logs, and overall health score
+  USE THIS to diagnose issues, provide status updates, or health reports
+• check_system_status() - Tool to call system-status and report findings to user
+
 **XMRT FAUCET MANAGEMENT:**
 • check-faucet-eligibility - Verify user eligibility for token claims
 • claim-faucet-tokens - Process XMRT token distributions
@@ -1888,6 +1923,10 @@ You understand the entire DevGruGold ecosystem (github.com/DevGruGold) including
 10. **Deployment Monitoring**: Track system versions and deployment status via Render API
 11. **Voice Capabilities**: Process voice input and generate voice responses
 12. **Decision Logging**: Record all important decisions for transparency and accountability
+13. **System Health Monitoring**: Comprehensive diagnostics of all system components (database, agents, tasks, mining, deployments)
+    - Call check_system_status() to get full health report with scores and component status
+    - Proactively monitor for degraded or unhealthy components
+    - Report issues and suggest fixes when health score drops below 80%
 
 Current User Status: ${userContext?.isFounder ? '👑 Project Founder (Joseph Andrew Lee)' : '🌟 Community Member'} | IP: ${userContext?.ip || 'unknown'}
 ${contextSection}

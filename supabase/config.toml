@@ -116,3 +116,7 @@ verify_jwt = false
 [functions.system-diagnostics]
 verify_jwt = false
 
+[functions.system-status]
+verify_jwt = false
+
+
