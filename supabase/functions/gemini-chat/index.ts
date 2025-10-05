@@ -961,7 +961,19 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     
     if (error) {
       console.error('❌ Task assignment failed:', error);
-      result = { success: false, error: error.message };
+      
+      // Check for foreign key constraint error (agent doesn't exist)
+      const errorStr = JSON.stringify(error);
+      if (errorStr.includes('23503') || errorStr.includes('foreign key constraint') || errorStr.includes('not present in table')) {
+        result = { 
+          success: false, 
+          error: `AGENT DOES NOT EXIST. Agent ID "${args.assignee_agent_id}" was not found. You must first call list_agents() to get valid agent IDs, or spawn_agent() to create a new agent. Never use made-up agent IDs.`,
+          agent_id: args.assignee_agent_id,
+          suggestion: 'Call list_agents() first to see existing agents, or call spawn_agent() to create a new one.'
+        };
+      } else {
+        result = { success: false, error: error.message || 'Task assignment failed', data };
+      }
     } else {
       console.log('✅ Task assigned:', data);
       result = { success: true, data };
@@ -1102,7 +1114,19 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     
     if (error) {
       console.error('❌ Task reassignment failed:', error);
-      result = { success: false, error: error.message };
+      
+      // Check for foreign key constraint error
+      const errorStr = JSON.stringify(error);
+      if (errorStr.includes('23503') || errorStr.includes('foreign key constraint') || errorStr.includes('not present in table')) {
+        result = { 
+          success: false, 
+          error: `AGENT DOES NOT EXIST. Agent ID "${args.new_assignee_id}" was not found. You must first call list_agents() to get valid agent IDs. Never use made-up agent IDs.`,
+          agent_id: args.new_assignee_id,
+          suggestion: 'Call list_agents() first to see existing agents'
+        };
+      } else {
+        result = { success: false, error: error.message };
+      }
     } else {
       console.log('✅ Task reassigned:', data);
       result = { success: true, data };
