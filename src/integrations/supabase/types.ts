@@ -873,10 +873,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      batch_vectorize_memories: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       check_session_ownership: {
         Args: { request_metadata: Json; session_uuid: string }
         Returns: boolean
