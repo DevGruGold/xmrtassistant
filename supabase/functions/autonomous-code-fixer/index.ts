@@ -38,6 +38,47 @@ serve(async (req) => {
       });
     }
 
+    // Check for repeated failures of the same code pattern (stuck in loop detection)
+    const { data: recentFailedFixes } = await supabase
+      .from('eliza_python_executions')
+      .select('code, error')
+      .eq('exit_code', 1)
+      .eq('source', 'python-fixer-agent')
+      .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
+      .limit(30);
+
+    if (recentFailedFixes && recentFailedFixes.length > 15) {
+      // Check if the same code keeps failing (first 300 chars to identify pattern)
+      const codePatterns = new Map<string, number>();
+      recentFailedFixes.forEach((f: any) => {
+        const pattern = f.code?.substring(0, 300) || 'unknown';
+        codePatterns.set(pattern, (codePatterns.get(pattern) || 0) + 1);
+      });
+
+      const maxRepeats = Math.max(...Array.from(codePatterns.values()));
+      if (maxRepeats > 10) {
+        console.log(`🛑 LOOP DETECTED: Same code pattern failed ${maxRepeats} times. Pausing fixer.`);
+        
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'code_monitoring',
+          title: '🛑 Auto-Fixer Paused - Loop Detected',
+          description: `Same code pattern failed ${maxRepeats} times. Likely missing environment variables or unfixable issue.`,
+          status: 'warning',
+          metadata: { repeated_failures: maxRepeats, last_hour_failures: recentFailedFixes.length }
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Auto-fixer paused - detected repeated failures of same code',
+          fixed: 0,
+          repeated_failures: maxRepeats,
+          paused: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Find all failed Python executions that haven't been fixed yet
     // Only look at failures from the last 24 hours to avoid reprocessing ancient failures
     const { data: failedExecutions, error: fetchError } = await supabase
