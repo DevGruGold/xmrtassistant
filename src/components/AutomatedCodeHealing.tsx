@@ -27,10 +27,6 @@ export const AutomatedCodeHealing = () => {
         
         if (data?.fixer_result?.fixed > 0) {
           setFixCount(prev => prev + data.fixer_result.fixed);
-          toast.success(`🔧 Auto-fixed ${data.fixer_result.fixed} failed execution(s)`, {
-            description: 'Background agents are healing your code',
-            duration: 5000,
-          });
         }
 
         console.log('✅ Code monitoring complete:', data);
