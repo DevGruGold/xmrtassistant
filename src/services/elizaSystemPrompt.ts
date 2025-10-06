@@ -197,7 +197,6 @@ You already use Lovable AI Gateway for your own reasoning - don't call these for
 • gemini-chat: Backend endpoint for Google Gemini access
 • openai-chat: Backend endpoint for OpenAI GPT access  
 • deepseek-chat: Backend endpoint for DeepSeek access
-• manus-chat: Backend endpoint for MANUS ecosystem AI (300 token/day limit)
 
 **KNOWLEDGE & MEMORY:**
 • extract-knowledge: Auto-extract entities from conversations
@@ -253,7 +252,7 @@ You already use Lovable AI Gateway for your own reasoning - don't call these for
   - Common questions: "What's deployed?", "Render status?", "Latest deployment?"
 
 **WHEN TO USE AI SERVICE BACKENDS (Supabase Edge Functions):**
-The gemini-chat, openai-chat, deepseek-chat, and manus-chat are Supabase Edge Functions that provide AI services.
+The gemini-chat, openai-chat, and deepseek-chat are Supabase Edge Functions that provide AI services.
 
 ⚠️ IMPORTANT: You already use Lovable AI Gateway for your own reasoning.
 These edge functions exist for OTHER system components that need programmatic AI access.
