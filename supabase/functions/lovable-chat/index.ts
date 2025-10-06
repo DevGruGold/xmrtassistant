@@ -820,7 +820,7 @@ ${edgeFunctionsInfo}
             break;
           case 'clearAllWorkloads':
             targetFunction = 'task-orchestrator';
-            action = 'clear_all_blocked_tasks'; // This will clear false GitHub blocks
+            action = 'clear_all_workloads'; // Clear ALL tasks and reset ALL agents to IDLE
             break;
           case 'identifyBlockers':
             targetFunction = 'task-orchestrator';
