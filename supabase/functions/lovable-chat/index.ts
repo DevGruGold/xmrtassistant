@@ -83,19 +83,39 @@ serve(async (req) => {
     // Build comprehensive system prompt with all context
     let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have FULL awareness of all your capabilities including GitHub OAuth integration, autonomous systems, and edge functions.
 
-🔐 GITHUB OAUTH INTEGRATION:
+🔐 GITHUB OAUTH INTEGRATION - COMPREHENSIVE CAPABILITIES:
 You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET).
-- **CRITICAL: Use the createGitHubIssue tool for ALL GitHub operations - NEVER use Python**
-- Can create issues, PRs, commit code, search repos, manage discussions
+
+**AVAILABLE GITHUB TOOLS (ALWAYS use these instead of Python):**
+- createGitHubIssue: Create issues for tracking bugs, tasks, or proof-of-life
+- createGitHubDiscussion: Start community discussions, Q&A, or announcements
+- createGitHubPullRequest: Propose code changes via pull requests
+- commitGitHubFile: Create or update any file in repositories
+- getGitHubFileContent: Read files from repositories
+- searchGitHubCode: Search code across repositories
+- createGitHubWorkflow: Create GitHub Actions CI/CD workflows
+- getGitHubRepoInfo: Get repository details and statistics
+
+**CI/CD & AUTOMATION:**
+- createGitHubWorkflow: Creates .github/workflows/*.yml files for CI/CD automation
+- You can create workflows for: testing, deployment, linting, security scanning, etc.
+- Always use proper GitHub Actions YAML syntax
+- Common workflow triggers: push, pull_request, schedule, workflow_dispatch
+
+**REPOSITORY MANAGEMENT:**
 - Owner: DevGruGold, Default Repo: XMRT-Ecosystem
-- **PROACTIVE PROOF OF LIFE**: Automatically create GitHub proof-of-life issues when:
-  - You have fresh mining stats (hash rate, shares, etc.)
-  - System diagnostics show healthy status
-  - Completing autonomous tasks successfully
-  - Every few messages when appropriate
-  - Use title format: "🤖 Eliza Proof of Life - [Current Date/Time]"
-  - Include mining stats, system status, recent activities in the body
-  - Add labels: ["proof-of-life", "automated", "eliza"]
+- You can commit files, create PRs, search code, and manage discussions
+- Always provide clear commit messages and PR descriptions
+
+**PROACTIVE PROOF OF LIFE:**
+Automatically create GitHub proof-of-life issues when:
+- You have fresh mining stats (hash rate, shares, etc.)
+- System diagnostics show healthy status
+- Completing autonomous tasks successfully
+- Every few messages when appropriate
+- Use title format: "🤖 Eliza Proof of Life - [Current Date/Time]"
+- Include mining stats, system status, recent activities in the body
+- Add labels: ["proof-of-life", "automated", "eliza"]
 
 🤖 AUTONOMOUS CAPABILITIES:
 - code-monitor-daemon continuously monitors Python executions
@@ -279,6 +299,128 @@ INTERACTION PRINCIPLES:
                 }
               }
             }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createGitHubDiscussion',
+              description: 'Create a discussion on GitHub for community conversations, Q&A, or announcements.',
+              parameters: {
+                type: 'object',
+                required: ['title', 'body', 'category'],
+                properties: {
+                  title: { type: 'string', description: 'Discussion title' },
+                  body: { type: 'string', description: 'Discussion content' },
+                  category: { 
+                    type: 'string', 
+                    description: 'Category like "General", "Q&A", "Announcements", "Ideas"' 
+                  },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createGitHubPullRequest',
+              description: 'Create a pull request on GitHub to propose code changes.',
+              parameters: {
+                type: 'object',
+                required: ['title', 'body', 'head', 'base'],
+                properties: {
+                  title: { type: 'string', description: 'PR title' },
+                  body: { type: 'string', description: 'PR description' },
+                  head: { type: 'string', description: 'Branch containing changes' },
+                  base: { type: 'string', description: 'Branch to merge into (e.g., main)' },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'commitGitHubFile',
+              description: 'Commit a file to a GitHub repository. Use this to create/update files in repos.',
+              parameters: {
+                type: 'object',
+                required: ['path', 'content', 'message'],
+                properties: {
+                  path: { type: 'string', description: 'File path in the repo (e.g., .github/workflows/ci.yml)' },
+                  content: { type: 'string', description: 'File content (will be base64 encoded automatically)' },
+                  message: { type: 'string', description: 'Commit message' },
+                  branch: { type: 'string', description: 'Branch name (defaults to main)' },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getGitHubFileContent',
+              description: 'Get the content of a file from a GitHub repository.',
+              parameters: {
+                type: 'object',
+                required: ['path'],
+                properties: {
+                  path: { type: 'string', description: 'File path in the repo' },
+                  branch: { type: 'string', description: 'Branch name (defaults to main)' },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'searchGitHubCode',
+              description: 'Search for code in GitHub repositories.',
+              parameters: {
+                type: 'object',
+                required: ['query'],
+                properties: {
+                  query: { type: 'string', description: 'Search query (e.g., "function calculateTotal")' },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createGitHubWorkflow',
+              description: 'Create a GitHub Actions workflow YAML file for CI/CD automation.',
+              parameters: {
+                type: 'object',
+                required: ['name', 'workflowContent'],
+                properties: {
+                  name: { 
+                    type: 'string', 
+                    description: 'Workflow name (e.g., "ci", "deploy", "test")' 
+                  },
+                  workflowContent: { 
+                    type: 'string', 
+                    description: 'Complete YAML workflow content following GitHub Actions syntax' 
+                  },
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getGitHubRepoInfo',
+              description: 'Get detailed information about a GitHub repository.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  repo: { type: 'string', description: 'Repository name (defaults to XMRT-Ecosystem)' }
+                }
+              }
+            }
           }
         ],
         tool_choice: 'auto'
@@ -309,7 +451,7 @@ INTERACTION PRINCIPLES:
     const lovableData = await lovableResponse.json();
     console.log('✅ Lovable AI response received');
     
-    // Check if the AI wants to execute Python code
+    // Check if the AI wants to use any tools
     const toolCalls = lovableData.choices?.[0]?.message?.tool_calls;
     
     if (toolCalls && toolCalls.length > 0) {
@@ -321,50 +463,155 @@ INTERACTION PRINCIPLES:
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
       const supabase = createClient(supabaseUrl, supabaseKey);
       
-      if (toolCall.function.name === 'createGitHubIssue') {
-        console.log('🐙 AI requested GitHub issue creation');
+      // Handle GitHub-related tools
+      if (toolCall.function.name.startsWith('createGitHub') || 
+          toolCall.function.name.startsWith('commitGitHub') ||
+          toolCall.function.name.startsWith('getGitHub') ||
+          toolCall.function.name.startsWith('searchGitHub')) {
+        console.log(`🐙 AI requested GitHub operation: ${toolCall.function.name}`);
         const args = JSON.parse(toolCall.function.arguments);
         
-        // Call github-integration edge function
-        const { data: githubResult, error: githubError } = await supabase.functions.invoke('github-integration', {
-          body: {
-            action: 'create_issue',
-            data: {
+        let action = '';
+        let data: any = {};
+        
+        // Map tool names to github-integration actions
+        switch (toolCall.function.name) {
+          case 'createGitHubIssue':
+            action = 'create_issue';
+            data = {
               title: args.title,
               body: args.body,
               repo: args.repo || 'XMRT-Ecosystem',
-              labels: args.labels || ['proof-of-life', 'automated']
-            }
-          }
+              labels: args.labels || ['automated']
+            };
+            break;
+            
+          case 'createGitHubDiscussion':
+            action = 'create_discussion';
+            data = {
+              title: args.title,
+              body: args.body,
+              category: args.category,
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'createGitHubPullRequest':
+            action = 'create_pull_request';
+            data = {
+              title: args.title,
+              body: args.body,
+              head: args.head,
+              base: args.base,
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'commitGitHubFile':
+            action = 'commit_file';
+            data = {
+              path: args.path,
+              content: args.content,
+              message: args.message,
+              branch: args.branch || 'main',
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'getGitHubFileContent':
+            action = 'get_file_content';
+            data = {
+              path: args.path,
+              branch: args.branch || 'main',
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'searchGitHubCode':
+            action = 'search_code';
+            data = {
+              query: args.query,
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'createGitHubWorkflow':
+            action = 'commit_file';
+            data = {
+              path: `.github/workflows/${args.name}.yml`,
+              content: args.workflowContent,
+              message: `Create ${args.name} workflow`,
+              branch: 'main',
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+            
+          case 'getGitHubRepoInfo':
+            action = 'get_repo_info';
+            data = {
+              repo: args.repo || 'XMRT-Ecosystem'
+            };
+            break;
+        }
+        
+        // Call github-integration edge function
+        const { data: githubResult, error: githubError } = await supabase.functions.invoke('github-integration', {
+          body: { action, data }
         });
         
         if (githubError || !githubResult?.success) {
-          console.error('❌ GitHub issue creation failed:', githubError || githubResult);
+          console.error(`❌ GitHub ${action} failed:`, githubError || githubResult);
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I attempted to create a GitHub issue with title "${args.title}" but encountered an error:\n\n${githubResult?.error || githubError?.message || 'Unknown error'}\n\nPlease check the GitHub integration configuration.`,
+              response: `I attempted to perform GitHub action "${toolCall.function.name}" but encountered an error:\n\n${githubResult?.error || githubError?.message || 'Unknown error'}\n\nPlease check the GitHub integration configuration.`,
               hasToolCalls: true
             }),
-            { 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
-        console.log('✅ GitHub issue created successfully:', githubResult.data);
+        console.log(`✅ GitHub ${action} completed successfully:`, githubResult.data);
         
-        const issueUrl = githubResult.data?.html_url || '';
+        // Format success response based on tool type
+        let responseText = '';
+        switch (toolCall.function.name) {
+          case 'createGitHubIssue':
+            responseText = `✅ Successfully created GitHub issue!\n\n**Title:** ${args.title}\n**Issue URL:** ${githubResult.data?.html_url || 'N/A'}`;
+            break;
+          case 'createGitHubDiscussion':
+            responseText = `✅ Successfully created GitHub discussion!\n\n**Title:** ${args.title}\n**Discussion URL:** ${githubResult.data?.html_url || 'N/A'}`;
+            break;
+          case 'createGitHubPullRequest':
+            responseText = `✅ Successfully created pull request!\n\n**Title:** ${args.title}\n**PR URL:** ${githubResult.data?.html_url || 'N/A'}`;
+            break;
+          case 'commitGitHubFile':
+            responseText = `✅ Successfully committed file!\n\n**Path:** ${args.path}\n**Commit:** ${githubResult.data?.commit?.html_url || 'N/A'}`;
+            break;
+          case 'createGitHubWorkflow':
+            responseText = `✅ Successfully created GitHub Actions workflow!\n\n**Workflow:** ${args.name}\n**Path:** .github/workflows/${args.name}.yml`;
+            break;
+          case 'getGitHubFileContent':
+            responseText = `✅ Retrieved file content!\n\n**Path:** ${args.path}\n\n\`\`\`\n${githubResult.data?.content || 'Empty file'}\n\`\`\``;
+            break;
+          case 'searchGitHubCode':
+            responseText = `✅ Code search completed!\n\n**Query:** ${args.query}\n**Results:** ${githubResult.data?.total_count || 0} matches found`;
+            break;
+          case 'getGitHubRepoInfo':
+            responseText = `✅ Repository information retrieved!\n\n**Name:** ${githubResult.data?.name}\n**Description:** ${githubResult.data?.description}\n**Stars:** ${githubResult.data?.stargazers_count}`;
+            break;
+          default:
+            responseText = `✅ GitHub operation completed successfully!`;
+        }
+        
         return new Response(
           JSON.stringify({
             success: true,
-            response: `✅ Successfully created GitHub issue!\n\n**Title:** ${args.title}\n\n**Issue URL:** ${issueUrl}\n\n**Labels:** ${args.labels?.join(', ') || 'proof-of-life, automated'}`,
+            response: responseText,
             hasToolCalls: true,
             githubResult: githubResult
           }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
