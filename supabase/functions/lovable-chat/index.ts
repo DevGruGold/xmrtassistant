@@ -162,10 +162,20 @@ When user asks about agents/tasks → IMMEDIATELY invoke the tool:
 
 - listAgents → Shows all 8 agents with status (IDLE/BUSY), roles, skills
 - listTasks → Shows all tasks with filters (PENDING, BLOCKED, IN_PROGRESS, etc.)
+- assignTask → Create and assign a new task to a specific agent (primary way to delegate work)
 - clearAllWorkloads → Resets all agents to IDLE, clears task queues
 - identifyBlockers → Gets SPECIFIC blocking reasons with suggested actions
 - clearBlockedTasks → Removes false GitHub access blocks
 - autoAssignTasks → Auto-distributes pending tasks to idle agents by priority
+
+**CRITICAL: Creating Tasks for Agents:**
+When you want an agent to work on something, use assignTask with:
+- agentId: The agent's ID (e.g., "agent-codebase-architect")
+- title: Clear task title
+- description: Detailed requirements
+- category: development, security, community, governance, infrastructure, documentation, research, or testing
+- priority: 1-10 (default 5)
+- stage: PLANNING, RESEARCH, IMPLEMENTATION, TESTING, or REVIEW
 
 **AGENT WORKFLOW BEST PRACTICES:**
 1. When asked "what are my agents doing?" → Call listAgents (not "I'll check")
@@ -577,6 +587,47 @@ ${edgeFunctionsInfo}
           {
             type: 'function',
             function: {
+              name: 'assignTask',
+              description: 'Create and assign a new task to a specific agent. Use this to delegate work to your agent team.',
+              parameters: {
+                type: 'object',
+                required: ['agentId', 'title', 'description', 'category'],
+                properties: {
+                  agentId: {
+                    type: 'string',
+                    description: 'ID of the agent to assign this task to (e.g., agent-codebase-architect)'
+                  },
+                  title: {
+                    type: 'string',
+                    description: 'Clear, concise task title'
+                  },
+                  description: {
+                    type: 'string',
+                    description: 'Detailed task description with requirements and context'
+                  },
+                  category: {
+                    type: 'string',
+                    description: 'Task category: development, security, community, governance, infrastructure, documentation, research, testing'
+                  },
+                  repo: {
+                    type: 'string',
+                    description: 'Target repository (defaults to xmrt-ecosystem)'
+                  },
+                  priority: {
+                    type: 'number',
+                    description: 'Task priority from 1 (lowest) to 10 (highest), default 5'
+                  },
+                  stage: {
+                    type: 'string',
+                    description: 'Initial task stage: PLANNING, RESEARCH, IMPLEMENTATION, TESTING, REVIEW (defaults to PLANNING)'
+                  }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
               name: 'createGitHubWorkflow',
               description: 'Create a GitHub Actions workflow YAML file for CI/CD automation.',
               parameters: {
@@ -799,7 +850,7 @@ ${edgeFunctionsInfo}
       }
       
       // Handle agent management tools
-      if (['listAgents', 'listTasks', 'clearAllWorkloads', 'identifyBlockers', 'clearBlockedTasks', 'autoAssignTasks'].includes(toolCall.function.name)) {
+      if (['listAgents', 'listTasks', 'clearAllWorkloads', 'identifyBlockers', 'clearBlockedTasks', 'autoAssignTasks', 'assignTask'].includes(toolCall.function.name)) {
         console.log(`🤖 AI requested agent management: ${toolCall.function.name}`);
         const args = JSON.parse(toolCall.function.arguments || '{}');
         
@@ -833,6 +884,19 @@ ${edgeFunctionsInfo}
           case 'autoAssignTasks':
             targetFunction = 'task-orchestrator';
             action = 'auto_assign_tasks';
+            break;
+          case 'assignTask':
+            targetFunction = 'agent-manager';
+            action = 'assign_task';
+            data = {
+              assignee_agent_id: args.agentId,
+              title: args.title,
+              description: args.description,
+              category: args.category,
+              repo: args.repo || 'xmrt-ecosystem',
+              priority: args.priority || 5,
+              stage: args.stage || 'PLANNING'
+            };
             break;
         }
         
@@ -939,6 +1003,20 @@ ${edgeFunctionsInfo}
           case 'autoAssignTasks':
             responseText = `✅ **Auto-assignment complete!**\n\n`;
             responseText += `${result.assignments || 0} tasks assigned to idle agents.`;
+            break;
+            
+          case 'assignTask':
+            const taskData = result.data || result;
+            responseText = `✅ **Task Created Successfully!**\n\n`;
+            responseText += `**Title:** ${taskData.title}\n`;
+            responseText += `**Assigned to:** ${args.agentId}\n`;
+            responseText += `**Category:** ${taskData.category}\n`;
+            responseText += `**Priority:** ${taskData.priority}\n`;
+            responseText += `**Stage:** ${taskData.stage}\n`;
+            responseText += `**Status:** ${taskData.status}`;
+            if (taskData.wasExisting) {
+              responseText += `\n\n⚠️ Note: Task already existed with this title and agent`;
+            }
             break;
         }
         
