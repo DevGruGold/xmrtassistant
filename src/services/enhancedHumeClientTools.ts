@@ -606,27 +606,16 @@ Integration monitoring systems continue autonomous coordination.`;
       
       console.log('🐍 Executing Python code:', purpose || 'User request');
       
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/python-executor`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
-          },
-          body: JSON.stringify({ 
-            code, 
-            purpose: purpose || 'Code execution via voice/chat'
-          })
+      const { data, error } = await supabase.functions.invoke('python-executor', {
+        body: { 
+          code, 
+          purpose: purpose || 'Code execution via voice/chat'
         }
-      );
+      });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Python execution failed');
-      }
+      if (error) throw error;
       
-      const result = await response.json();
+      const result = data;
       
       if (result.exitCode === 0) {
         return `✅ Python code executed successfully!
