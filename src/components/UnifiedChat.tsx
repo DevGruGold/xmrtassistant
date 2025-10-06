@@ -8,12 +8,13 @@ import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
-import { Send, Volume2, VolumeX, Trash2, Key } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { ManusTokenDisplay } from './ManusTokenDisplay';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -78,6 +79,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
   
   // Manus AI approval state
   const [manusApproval, setManusApproval] = useState<any>(null);
@@ -214,6 +216,107 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     
     initialize();
   }, []);
+
+  // Set up realtime subscription for live message updates from autonomous agents
+  useEffect(() => {
+    let channel: RealtimeChannel;
+
+    const setupRealtime = async () => {
+      if (!userContext?.ip) {
+        console.log('⏸️ Waiting for user context before setting up realtime');
+        return;
+      }
+
+      console.log('🔴 Setting up realtime subscription for autonomous agent updates');
+      
+      // Subscribe to Python executions (auto-fixed code results)
+      channel = supabase
+        .channel('autonomous-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'eliza_python_executions',
+            filter: `source=eq.python-fixer-agent`
+          },
+          (payload) => {
+            console.log('🤖 Auto-fixed code result:', payload);
+            const execution = payload.new;
+            
+            if (execution.exit_code === 0 && execution.output) {
+              // Show successful autonomous fix in chat
+              const message: UnifiedMessage = {
+                id: `auto-fix-${execution.id}`,
+                content: `✅ **Auto-healed Code Result:**\n\n${execution.output}`,
+                sender: 'assistant',
+                timestamp: new Date(execution.created_at)
+              };
+              
+              setMessages(prev => {
+                if (prev.some(m => m.id === message.id)) return prev;
+                return [...prev, message];
+              });
+
+              if (voiceEnabled && audioInitialized) {
+                enhancedTTS.speak('I successfully fixed and executed the code.');
+              }
+
+              toast({
+                title: "Code Auto-Healed",
+                description: "Autonomous agent fixed the code successfully",
+              });
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'eliza_activity_log',
+            filter: `activity_type=in.(python_fix_success,code_monitoring)`
+          },
+          (payload) => {
+            console.log('📊 Activity log update:', payload);
+            const activity = payload.new;
+            
+            toast({
+              title: activity.title,
+              description: activity.description?.substring(0, 100) || 'Autonomous system update',
+              duration: 4000,
+            });
+          }
+        )
+        .subscribe((status) => {
+          console.log('🔴 Realtime subscription status:', status);
+          setRealtimeConnected(status === 'SUBSCRIBED');
+          
+          if (status === 'SUBSCRIBED') {
+            toast({
+              title: "Live Updates Active",
+              description: "Watching autonomous agents and code healing",
+              duration: 3000,
+            });
+          } else if (status === 'CHANNEL_ERROR') {
+            toast({
+              title: "Connection Issue",
+              description: "Live updates temporarily unavailable",
+              variant: "destructive",
+            });
+          }
+        });
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) {
+        console.log('🔴 Cleaning up realtime subscription');
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [userContext?.ip, voiceEnabled, audioInitialized]);
 
   // Generate immediate greeting when user context is available
   useEffect(() => {
@@ -897,6 +1000,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Realtime Connection Indicator */}
+            {realtimeConnected && (
+              <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+                <Wifi className="h-3 w-3" />
+                <span>Live</span>
+              </Badge>
+            )}
+            
             {/* API Key Button */}
             <Button
               onClick={() => setShowAPIKeyInput(true)}
