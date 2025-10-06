@@ -41,14 +41,6 @@ export const AutomatedCodeHealing = () => {
             remaining: result.remaining || 0,
             sessionFixed: prev.sessionFixed + (result.fixed || 0)
           }));
-
-          // Only show toast for significant progress
-          if (result.fixed > 0) {
-            toast.success(`Fixed ${result.fixed} code issue${result.fixed > 1 ? 's' : ''}`, {
-              description: `${result.remaining} remaining`,
-              duration: 3000
-            });
-          }
         }
 
         console.log('✅ Code monitoring complete:', data);
