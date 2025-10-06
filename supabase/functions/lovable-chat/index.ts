@@ -81,7 +81,24 @@ serve(async (req) => {
 `;
     
     // Build comprehensive system prompt with all context
-    let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have FULL awareness of all your capabilities including GitHub OAuth integration, autonomous systems, and edge functions.
+    let systemPrompt = `You are Eliza, an advanced AI assistant for the XMRT-DAO ecosystem. You have FULL awareness of all your capabilities including GitHub OAuth integration, autonomous systems, agent orchestration, and edge functions.
+
+🤖 AGENT & TASK ORCHESTRATION TOOLS - YOUR PRIMARY MANAGEMENT INTERFACE:
+You have complete control over the multi-agent task management system. ALWAYS use these tools instead of describing what you would do.
+
+**AVAILABLE AGENT MANAGEMENT TOOLS:**
+- listAgents: Get current status of all AI agents (IDLE/BUSY, roles, skills)
+- listTasks: View all tasks with filters for status (PENDING, BLOCKED, etc.) or agent
+- clearAllWorkloads: Clear all agent workloads and set them to IDLE
+- identifyBlockers: Get detailed reasons why tasks are blocked with suggested actions
+- clearBlockedTasks: Clear tasks falsely blocked by GitHub access issues
+- autoAssignTasks: Automatically assign pending tasks to idle agents by priority
+
+**CRITICAL: When users ask about agents or tasks:**
+- ❌ DON'T say "I'll check" or "I'll prepare" - IMMEDIATELY call the tools
+- ✅ DO call listAgents or listTasks right away to get real-time data
+- ✅ DO use clearAllWorkloads when asked to clear agent tasks
+- ✅ DO use identifyBlockers to understand specific blocking reasons
 
 🔐 GITHUB OAUTH INTEGRATION - COMPREHENSIVE CAPABILITIES:
 You have complete GitHub access via OAuth App (GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET).
@@ -390,6 +407,75 @@ INTERACTION PRINCIPLES:
           {
             type: 'function',
             function: {
+              name: 'listAgents',
+              description: 'List all AI agents in the system with their status, roles, and skills.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'listTasks',
+              description: 'List all tasks in the system. Can filter by status or agent.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  status: { type: 'string', description: 'Filter by status: PENDING, IN_PROGRESS, COMPLETED, FAILED, BLOCKED' },
+                  agentId: { type: 'string', description: 'Filter by agent ID' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'clearAllWorkloads',
+              description: 'Clear all tasks from all agents. Sets all agents to IDLE and clears their task queues.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'identifyBlockers',
+              description: 'Identify all blocked tasks and get specific reasons why they are blocked with suggested actions.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'clearBlockedTasks',
+              description: 'Clear all tasks that are blocked due to false GitHub access blocks.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'autoAssignTasks',
+              description: 'Automatically assign pending tasks to idle agents based on priority.',
+              parameters: {
+                type: 'object',
+                properties: {}
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
               name: 'createGitHubWorkflow',
               description: 'Create a GitHub Actions workflow YAML file for CI/CD automation.',
               parameters: {
@@ -397,7 +483,7 @@ INTERACTION PRINCIPLES:
                 required: ['name', 'workflowContent'],
                 properties: {
                   name: { 
-                    type: 'string', 
+                    type: 'string',
                     description: 'Workflow name (e.g., "ci", "deploy", "test")' 
                   },
                   workflowContent: { 
@@ -610,6 +696,134 @@ INTERACTION PRINCIPLES:
             response: responseText,
             hasToolCalls: true,
             githubResult: githubResult
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Handle agent management tools
+      if (['listAgents', 'listTasks', 'clearAllWorkloads', 'identifyBlockers', 'clearBlockedTasks', 'autoAssignTasks'].includes(toolCall.function.name)) {
+        console.log(`🤖 AI requested agent management: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        
+        let action = '';
+        let targetFunction = '';
+        let data: any = {};
+        
+        // Map tool names to edge function calls
+        switch (toolCall.function.name) {
+          case 'listAgents':
+            targetFunction = 'agent-manager';
+            action = 'list_agents';
+            break;
+          case 'listTasks':
+            targetFunction = 'agent-manager';
+            action = 'list_tasks';
+            data = args;
+            break;
+          case 'clearAllWorkloads':
+            targetFunction = 'task-orchestrator';
+            action = 'clear_all_blocked_tasks'; // This will clear false GitHub blocks
+            break;
+          case 'identifyBlockers':
+            targetFunction = 'task-orchestrator';
+            action = 'identify_blockers';
+            break;
+          case 'clearBlockedTasks':
+            targetFunction = 'task-orchestrator';
+            action = 'clear_all_blocked_tasks';
+            break;
+          case 'autoAssignTasks':
+            targetFunction = 'task-orchestrator';
+            action = 'auto_assign_tasks';
+            break;
+        }
+        
+        // Call the appropriate edge function
+        const { data: result, error: agentError } = await supabase.functions.invoke(targetFunction, {
+          body: { action, data }
+        });
+        
+        if (agentError || !result?.success) {
+          console.error(`❌ ${toolCall.function.name} failed:`, agentError || result);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              response: `I attempted to ${toolCall.function.name} but encountered an error:\n\n${result?.error || agentError?.message || 'Unknown error'}\n\nPlease check the agent management system.`,
+              hasToolCalls: true
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        console.log(`✅ ${toolCall.function.name} completed successfully`);
+        
+        // Format success response based on tool type
+        let responseText = '';
+        switch (toolCall.function.name) {
+          case 'listAgents':
+            const agents = result.agents || [];
+            responseText = `🤖 **Agent Status Report:**\n\n`;
+            if (agents.length === 0) {
+              responseText += 'No agents currently deployed.';
+            } else {
+              agents.forEach((agent: any) => {
+                const statusIcon = agent.status === 'IDLE' ? '🟢' : '🔴';
+                responseText += `${statusIcon} **${agent.name}** (${agent.role})\n`;
+                responseText += `   Status: ${agent.status}\n`;
+                responseText += `   Skills: ${agent.skills?.join(', ') || 'None'}\n\n`;
+              });
+            }
+            break;
+            
+          case 'listTasks':
+            const tasks = result.tasks || [];
+            responseText = `📋 **Task Queue** (${tasks.length} tasks):\n\n`;
+            if (tasks.length === 0) {
+              responseText += 'No tasks found.';
+            } else {
+              tasks.forEach((task: any) => {
+                const statusIcon = task.status === 'COMPLETED' ? '✅' : task.status === 'FAILED' ? '❌' : task.status === 'BLOCKED' ? '🚫' : '🔄';
+                responseText += `${statusIcon} **${task.title}**\n`;
+                responseText += `   Status: ${task.status} | Priority: ${task.priority}/10\n`;
+                responseText += `   Repo: ${task.repo} | Assignee: ${task.assignee_agent_id || 'Unassigned'}\n\n`;
+              });
+            }
+            break;
+            
+          case 'clearAllWorkloads':
+          case 'clearBlockedTasks':
+            responseText = `✅ **Workload cleared successfully!**\n\n`;
+            responseText += `Cleared ${result.cleared_count || 0} blocked tasks.\n`;
+            responseText += `All agents are now available for new assignments.`;
+            break;
+            
+          case 'identifyBlockers':
+            responseText = `🔍 **Blocker Analysis:**\n\n`;
+            if (result.blocked_count === 0) {
+              responseText += '✅ No blocked tasks found. All systems flowing smoothly!';
+            } else {
+              responseText += `Found ${result.blocked_count} blocked tasks:\n\n`;
+              result.blockers?.forEach((blocker: any) => {
+                responseText += `🚫 **${blocker.title}**\n`;
+                responseText += `   Reason: ${blocker.reason}\n`;
+                responseText += `   Action: ${blocker.suggested_action}\n\n`;
+              });
+            }
+            break;
+            
+          case 'autoAssignTasks':
+            responseText = `✅ **Auto-assignment complete!**\n\n`;
+            responseText += `${result.assignments || 0} tasks assigned to idle agents.`;
+            break;
+        }
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: responseText,
+            hasToolCalls: true,
+            agentResult: result
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
