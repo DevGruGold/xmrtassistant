@@ -417,6 +417,274 @@ serve(async (req) => {
         );
         break;
 
+      case 'update_issue':
+        if (!data.issue_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: issue_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        const updateBody: any = {};
+        if (data.title) updateBody.title = data.title;
+        if (data.body !== undefined) updateBody.body = data.body;
+        if (data.state) updateBody.state = data.state;
+        if (data.labels) updateBody.labels = data.labels;
+        if (data.assignees) updateBody.assignees = data.assignees;
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues/${data.issue_number}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(updateBody),
+          }
+        );
+        break;
+
+      case 'close_issue':
+        if (!data.issue_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: issue_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues/${data.issue_number}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ state: 'closed' }),
+          }
+        );
+        break;
+
+      case 'add_comment':
+        if (!data.issue_number || !data.comment) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: issue_number, comment' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues/${data.issue_number}/comments`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ body: data.comment }),
+          }
+        );
+        break;
+
+      case 'merge_pull_request':
+        if (!data.pull_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: pull_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/pulls/${data.pull_number}/merge`,
+          {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({
+              commit_title: data.commit_title,
+              commit_message: data.commit_message,
+              merge_method: data.merge_method || 'merge', // merge, squash, or rebase
+            }),
+          }
+        );
+        break;
+
+      case 'close_pull_request':
+        if (!data.pull_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: pull_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/pulls/${data.pull_number}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ state: 'closed' }),
+          }
+        );
+        break;
+
+      case 'delete_file':
+        if (!data.path || !data.message) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: path, message' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        // Get file SHA first (required for deletion)
+        let deleteFileSha = data.sha;
+        if (!deleteFileSha) {
+          const existingFileForDelete = await fetch(
+            `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}${data.branch ? `?ref=${data.branch}` : ''}`,
+            { headers }
+          );
+          
+          if (existingFileForDelete.ok) {
+            const existingData = await existingFileForDelete.json();
+            deleteFileSha = existingData.sha;
+          } else {
+            return new Response(
+              JSON.stringify({ 
+                success: false, 
+                error: `File not found: ${data.path}` 
+              }),
+              { 
+                status: 404,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}`,
+          {
+            method: 'DELETE',
+            headers,
+            body: JSON.stringify({
+              message: data.message,
+              sha: deleteFileSha,
+              branch: data.branch || 'main',
+            }),
+          }
+        );
+        break;
+
+      case 'list_files':
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data?.repo || GITHUB_REPO}/contents/${data?.path || ''}${data?.branch ? `?ref=${data.branch}` : ''}`,
+          { headers }
+        );
+        break;
+
+      case 'create_branch':
+        if (!data.branch_name || !data.from_branch) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: branch_name, from_branch' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        // Get the SHA of the source branch
+        const refResult = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/git/refs/heads/${data.from_branch}`,
+          { headers }
+        );
+        
+        if (!refResult.ok) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Source branch not found: ${data.from_branch}` 
+            }),
+            { 
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        const refData = await refResult.json();
+        const sha = refData.object.sha;
+        
+        // Create new branch
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/git/refs`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              ref: `refs/heads/${data.branch_name}`,
+              sha: sha,
+            }),
+          }
+        );
+        break;
+
+      case 'get_branch_info':
+        if (!data.branch_name) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: branch_name' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/branches/${data.branch_name}`,
+          { headers }
+        );
+        break;
+
+      case 'list_branches':
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data?.repo || GITHUB_REPO}/branches?per_page=${data?.per_page || 30}`,
+          { headers }
+        );
+        break;
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
