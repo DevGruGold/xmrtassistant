@@ -38,44 +38,57 @@ serve(async (req) => {
       });
     }
 
-    // Check for repeated failures of the same code pattern (stuck in loop detection)
+    // Check for repeated failures of the same code pattern and DELETE them if excessive
     const { data: recentFailedFixes } = await supabase
       .from('eliza_python_executions')
-      .select('code, error')
+      .select('id, code, error, created_at')
       .eq('exit_code', 1)
       .eq('source', 'python-fixer-agent')
       .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
-      .limit(30);
+      .limit(50);
 
     if (recentFailedFixes && recentFailedFixes.length > 15) {
       // Check if the same code keeps failing (first 300 chars to identify pattern)
-      const codePatterns = new Map<string, number>();
+      const codePatternMap = new Map<string, any[]>();
       recentFailedFixes.forEach((f: any) => {
         const pattern = f.code?.substring(0, 300) || 'unknown';
-        codePatterns.set(pattern, (codePatterns.get(pattern) || 0) + 1);
+        if (!codePatternMap.has(pattern)) {
+          codePatternMap.set(pattern, []);
+        }
+        codePatternMap.get(pattern)!.push(f);
       });
 
-      const maxRepeats = Math.max(...Array.from(codePatterns.values()));
-      if (maxRepeats > 10) {
-        console.log(`🛑 LOOP DETECTED: Same code pattern failed ${maxRepeats} times. Pausing fixer.`);
-        
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'code_monitoring',
-          title: '🛑 Auto-Fixer Paused - Loop Detected',
-          description: `Same code pattern failed ${maxRepeats} times. Likely missing environment variables or unfixable issue.`,
-          status: 'warning',
-          metadata: { repeated_failures: maxRepeats, last_hour_failures: recentFailedFixes.length }
-        });
+      // Find patterns that have failed more than 20 times
+      for (const [pattern, failures] of codePatternMap.entries()) {
+        if (failures.length > 20) {
+          console.log(`🗑️ DELETING ${failures.length} failed executions of same code pattern (exceeded 20 failures)`);
+          
+          // Delete all failed executions for this pattern
+          const idsToDelete = failures.map(f => f.id);
+          const { error: deleteError } = await supabase
+            .from('eliza_python_executions')
+            .delete()
+            .in('id', idsToDelete);
 
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'Auto-fixer paused - detected repeated failures of same code',
-          fixed: 0,
-          repeated_failures: maxRepeats,
-          paused: true
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+          if (deleteError) {
+            console.error('Failed to delete failed executions:', deleteError);
+          } else {
+            console.log(`✅ Deleted ${idsToDelete.length} unfixable failed executions`);
+            
+            // Log the cleanup action
+            await supabase.from('eliza_activity_log').insert({
+              activity_type: 'code_monitoring',
+              title: '🗑️ Cleaned Up Unfixable Code',
+              description: `Deleted ${idsToDelete.length} failed executions of the same code pattern (failed ${failures.length} times). Likely missing environment variables or unfixable issue.`,
+              status: 'completed',
+              metadata: { 
+                deleted_count: idsToDelete.length, 
+                failure_count: failures.length,
+                code_preview: pattern.substring(0, 100)
+              }
+            });
+          }
+        }
       }
     }
 
