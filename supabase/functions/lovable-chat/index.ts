@@ -625,6 +625,658 @@ ${edgeFunctionsInfo}
               }
             }
           },
+          // Phase 1: Enhanced Agent & Task CRUD
+          {
+            type: 'function',
+            function: {
+              name: 'updateAgentSkills',
+              description: 'Add or remove skills from an agent',
+              parameters: {
+                type: 'object',
+                required: ['agentId', 'skills'],
+                properties: {
+                  agentId: { type: 'string' },
+                  skills: { type: 'array', items: { type: 'string' }, description: 'Array of skills to set' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateAgentRole',
+              description: 'Change an agent\'s role',
+              parameters: {
+                type: 'object',
+                required: ['agentId', 'role'],
+                properties: {
+                  agentId: { type: 'string' },
+                  role: { type: 'string', description: 'New role description' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'deleteAgent',
+              description: 'Remove an agent from the system',
+              parameters: {
+                type: 'object',
+                required: ['agentId'],
+                properties: {
+                  agentId: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'searchAgents',
+              description: 'Find agents by skills, role, or status',
+              parameters: {
+                type: 'object',
+                properties: {
+                  skills: { type: 'array', items: { type: 'string' } },
+                  role: { type: 'string' },
+                  status: { type: 'string', enum: ['IDLE', 'BUSY', 'WORKING', 'ERROR'] }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateTaskPriority',
+              description: 'Change task priority (1-10)',
+              parameters: {
+                type: 'object',
+                required: ['taskId', 'priority'],
+                properties: {
+                  taskId: { type: 'string' },
+                  priority: { type: 'number', minimum: 1, maximum: 10 }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateTaskDescription',
+              description: 'Modify task details',
+              parameters: {
+                type: 'object',
+                required: ['taskId', 'description'],
+                properties: {
+                  taskId: { type: 'string' },
+                  description: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateTaskStage',
+              description: 'Move task between stages',
+              parameters: {
+                type: 'object',
+                required: ['taskId', 'stage'],
+                properties: {
+                  taskId: { type: 'string' },
+                  stage: { type: 'string', enum: ['PLANNING', 'RESEARCH', 'IMPLEMENTATION', 'TESTING', 'REVIEW'] }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateTaskCategory',
+              description: 'Change task category',
+              parameters: {
+                type: 'object',
+                required: ['taskId', 'category'],
+                properties: {
+                  taskId: { type: 'string' },
+                  category: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'searchTasks',
+              description: 'Find tasks by various criteria',
+              parameters: {
+                type: 'object',
+                properties: {
+                  category: { type: 'string' },
+                  repo: { type: 'string' },
+                  stage: { type: 'string' },
+                  minPriority: { type: 'number' },
+                  maxPriority: { type: 'number' },
+                  status: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'bulkUpdateTasks',
+              description: 'Update multiple tasks at once',
+              parameters: {
+                type: 'object',
+                required: ['taskIds', 'updates'],
+                properties: {
+                  taskIds: { type: 'array', items: { type: 'string' } },
+                  updates: {
+                    type: 'object',
+                    properties: {
+                      status: { type: 'string' },
+                      priority: { type: 'number' },
+                      stage: { type: 'string' },
+                      assignee_agent_id: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'rebalanceWorkload',
+              description: 'Distribute tasks evenly across agents',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'analyzeBottlenecks',
+              description: 'Identify workflow bottlenecks',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          // Phase 2: Knowledge & Memory Tools
+          {
+            type: 'function',
+            function: {
+              name: 'storeKnowledge',
+              description: 'Store new knowledge entity',
+              parameters: {
+                type: 'object',
+                required: ['name', 'type', 'description'],
+                properties: {
+                  name: { type: 'string' },
+                  type: { type: 'string', description: 'Entity type: concept, tool, skill, person, etc.' },
+                  description: { type: 'string' },
+                  confidence: { type: 'number', minimum: 0, maximum: 1 },
+                  metadata: { type: 'object' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'searchKnowledge',
+              description: 'Search knowledge entities',
+              parameters: {
+                type: 'object',
+                properties: {
+                  searchTerm: { type: 'string' },
+                  entityType: { type: 'string' },
+                  minConfidence: { type: 'number' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createRelationship',
+              description: 'Link two knowledge entities',
+              parameters: {
+                type: 'object',
+                required: ['sourceId', 'targetId', 'type'],
+                properties: {
+                  sourceId: { type: 'string' },
+                  targetId: { type: 'string' },
+                  type: { type: 'string', description: 'Relationship type: related_to, depends_on, part_of, etc.' },
+                  strength: { type: 'number', minimum: 0, maximum: 1 }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getRelatedEntities',
+              description: 'Find entities related to a specific entity',
+              parameters: {
+                type: 'object',
+                required: ['entityId'],
+                properties: {
+                  entityId: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'updateEntityConfidence',
+              description: 'Adjust knowledge entity confidence score',
+              parameters: {
+                type: 'object',
+                required: ['entityId', 'newConfidence'],
+                properties: {
+                  entityId: { type: 'string' },
+                  newConfidence: { type: 'number', minimum: 0, maximum: 1 }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'storeLearningPattern',
+              description: 'Save learned pattern',
+              parameters: {
+                type: 'object',
+                required: ['type', 'data'],
+                properties: {
+                  type: { type: 'string' },
+                  data: { type: 'object' },
+                  confidence: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getLearningPatterns',
+              description: 'Retrieve learning patterns',
+              parameters: {
+                type: 'object',
+                required: ['type'],
+                properties: {
+                  type: { type: 'string' },
+                  minConfidence: { type: 'number' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'storeMemory',
+              description: 'Save important conversation context',
+              parameters: {
+                type: 'object',
+                required: ['userId', 'sessionId', 'content', 'contextType'],
+                properties: {
+                  userId: { type: 'string' },
+                  sessionId: { type: 'string' },
+                  content: { type: 'string' },
+                  contextType: { type: 'string' },
+                  importanceScore: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'searchMemories',
+              description: 'Find relevant memories',
+              parameters: {
+                type: 'object',
+                required: ['userId'],
+                properties: {
+                  userId: { type: 'string' },
+                  contextType: { type: 'string' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'summarizeConversation',
+              description: 'Generate conversation summary',
+              parameters: {
+                type: 'object',
+                required: ['sessionId', 'messages'],
+                properties: {
+                  sessionId: { type: 'string' },
+                  messages: { type: 'array' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getConversationHistory',
+              description: 'Retrieve past messages',
+              parameters: {
+                type: 'object',
+                required: ['sessionId'],
+                properties: {
+                  sessionId: { type: 'string' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          // Phase 3: System Monitoring & Infrastructure
+          {
+            type: 'function',
+            function: {
+              name: 'getSystemStatus',
+              description: 'Get comprehensive system health',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getSystemDiagnostics',
+              description: 'Get detailed resource usage',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'monitorEcosystem',
+              description: 'Check all services health',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'cleanupDuplicateTasks',
+              description: 'Remove duplicate tasks',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getDeploymentInfo',
+              description: 'Get current deployment details',
+              parameters: {
+                type: 'object',
+                properties: {
+                  serviceId: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getServiceStatus',
+              description: 'Get service health and uptime',
+              parameters: {
+                type: 'object',
+                properties: {
+                  serviceId: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getDeploymentLogs',
+              description: 'Get recent deployment logs',
+              parameters: {
+                type: 'object',
+                properties: {
+                  serviceId: { type: 'string' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'listDeployments',
+              description: 'Get deployment history',
+              parameters: {
+                type: 'object',
+                properties: {
+                  serviceId: { type: 'string' },
+                  limit: { type: 'number' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getMiningStats',
+              description: 'Get current hashrate and pool stats',
+              parameters: { type: 'object', properties: {} }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getWorkerStatus',
+              description: 'Get individual worker information',
+              parameters: {
+                type: 'object',
+                properties: {
+                  workerId: { type: 'string' }
+                }
+              }
+            }
+          },
+          // Phase 4: Python Execution & Voice
+          {
+            type: 'function',
+            function: {
+              name: 'executePython',
+              description: 'Run Python code with stdlib',
+              parameters: {
+                type: 'object',
+                required: ['code'],
+                properties: {
+                  code: { type: 'string' },
+                  purpose: { type: 'string' },
+                  source: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getPythonExecutions',
+              description: 'View execution history',
+              parameters: {
+                type: 'object',
+                properties: {
+                  limit: { type: 'number' },
+                  source: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'speakText',
+              description: 'Convert text to speech',
+              parameters: {
+                type: 'object',
+                required: ['text'],
+                properties: {
+                  text: { type: 'string' },
+                  voice: { type: 'string', enum: ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'] },
+                  speed: { type: 'number', minimum: 0.25, maximum: 4.0 }
+                }
+              }
+            }
+          },
+          // Phase 5: Enhanced GitHub Integration
+          {
+            type: 'function',
+            function: {
+              name: 'updateGitHubIssue',
+              description: 'Edit GitHub issue title or body',
+              parameters: {
+                type: 'object',
+                required: ['issueNumber'],
+                properties: {
+                  issueNumber: { type: 'number' },
+                  title: { type: 'string' },
+                  body: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'closeGitHubIssue',
+              description: 'Close a GitHub issue',
+              parameters: {
+                type: 'object',
+                required: ['issueNumber'],
+                properties: {
+                  issueNumber: { type: 'number' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'addIssueComment',
+              description: 'Add comment to issue or PR',
+              parameters: {
+                type: 'object',
+                required: ['issueNumber', 'comment'],
+                properties: {
+                  issueNumber: { type: 'number' },
+                  comment: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'mergePullRequest',
+              description: 'Merge an approved PR',
+              parameters: {
+                type: 'object',
+                required: ['pullNumber'],
+                properties: {
+                  pullNumber: { type: 'number' },
+                  mergeMethod: { type: 'string', enum: ['merge', 'squash', 'rebase'] },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'closePullRequest',
+              description: 'Close a PR without merging',
+              parameters: {
+                type: 'object',
+                required: ['pullNumber'],
+                properties: {
+                  pullNumber: { type: 'number' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'deleteGitHubFile',
+              description: 'Remove file from repository',
+              parameters: {
+                type: 'object',
+                required: ['path', 'message'],
+                properties: {
+                  path: { type: 'string' },
+                  message: { type: 'string' },
+                  branch: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'listRepositoryFiles',
+              description: 'Browse repository structure',
+              parameters: {
+                type: 'object',
+                properties: {
+                  path: { type: 'string' },
+                  branch: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'createBranch',
+              description: 'Create new branch',
+              parameters: {
+                type: 'object',
+                required: ['branchName', 'fromBranch'],
+                properties: {
+                  branchName: { type: 'string' },
+                  fromBranch: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'getBranchInfo',
+              description: 'Get branch details',
+              parameters: {
+                type: 'object',
+                required: ['branchName'],
+                properties: {
+                  branchName: { type: 'string' },
+                  repo: { type: 'string' }
+                }
+              }
+            }
+          },
           {
             type: 'function',
             function: {
@@ -850,7 +1502,13 @@ ${edgeFunctionsInfo}
       }
       
       // Handle agent management tools
-      if (['listAgents', 'listTasks', 'clearAllWorkloads', 'identifyBlockers', 'clearBlockedTasks', 'autoAssignTasks', 'assignTask'].includes(toolCall.function.name)) {
+      // Enhanced Agent & Task Management Tools
+      const agentTaskTools = ['listAgents', 'listTasks', 'clearAllWorkloads', 'identifyBlockers', 'clearBlockedTasks', 'autoAssignTasks', 'assignTask',
+        'updateAgentSkills', 'updateAgentRole', 'deleteAgent', 'searchAgents',
+        'updateTaskPriority', 'updateTaskDescription', 'updateTaskStage', 'updateTaskCategory', 'searchTasks', 'bulkUpdateTasks',
+        'rebalanceWorkload', 'analyzeBottlenecks'];
+      
+      if (agentTaskTools.includes(toolCall.function.name)) {
         console.log(`🤖 AI requested agent management: ${toolCall.function.name}`);
         const args = JSON.parse(toolCall.function.arguments || '{}');
         
@@ -897,6 +1555,64 @@ ${edgeFunctionsInfo}
               priority: args.priority || 5,
               stage: args.stage || 'PLANNING'
             };
+            break;
+          case 'updateAgentSkills':
+            targetFunction = 'agent-manager';
+            action = 'update_agent_skills';
+            data = { agent_id: args.agentId, skills: args.skills };
+            break;
+          case 'updateAgentRole':
+            targetFunction = 'agent-manager';
+            action = 'update_agent_role';
+            data = { agent_id: args.agentId, role: args.role };
+            break;
+          case 'deleteAgent':
+            targetFunction = 'agent-manager';
+            action = 'delete_agent';
+            data = { agent_id: args.agentId };
+            break;
+          case 'searchAgents':
+            targetFunction = 'agent-manager';
+            action = 'search_agents';
+            data = { skills: args.skills, role: args.role, status: args.status };
+            break;
+          case 'updateTaskPriority':
+            targetFunction = 'agent-manager';
+            action = 'update_task';
+            data = { task_id: args.taskId, updates: { priority: args.priority } };
+            break;
+          case 'updateTaskDescription':
+            targetFunction = 'agent-manager';
+            action = 'update_task';
+            data = { task_id: args.taskId, updates: { description: args.description } };
+            break;
+          case 'updateTaskStage':
+            targetFunction = 'agent-manager';
+            action = 'update_task';
+            data = { task_id: args.taskId, updates: { stage: args.stage } };
+            break;
+          case 'updateTaskCategory':
+            targetFunction = 'agent-manager';
+            action = 'update_task';
+            data = { task_id: args.taskId, updates: { category: args.category } };
+            break;
+          case 'searchTasks':
+            targetFunction = 'agent-manager';
+            action = 'search_tasks';
+            data = { category: args.category, repo: args.repo, stage: args.stage, min_priority: args.minPriority, max_priority: args.maxPriority, status: args.status };
+            break;
+          case 'bulkUpdateTasks':
+            targetFunction = 'agent-manager';
+            action = 'bulk_update_tasks';
+            data = { task_ids: args.taskIds, updates: args.updates };
+            break;
+          case 'rebalanceWorkload':
+            targetFunction = 'task-orchestrator';
+            action = 'rebalance_workload';
+            break;
+          case 'analyzeBottlenecks':
+            targetFunction = 'task-orchestrator';
+            action = 'performance_report';
             break;
         }
         
@@ -1029,6 +1745,265 @@ ${edgeFunctionsInfo}
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+      
+      // Knowledge & Memory Tools
+      const knowledgeTools = ['storeKnowledge', 'searchKnowledge', 'createRelationship', 'getRelatedEntities', 'updateEntityConfidence', 'storeLearningPattern', 'getLearningPatterns'];
+      if (knowledgeTools.includes(toolCall.function.name)) {
+        console.log(`🧠 AI requested knowledge management: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        let action = '';
+        let data = {};
+        
+        switch (toolCall.function.name) {
+          case 'storeKnowledge':
+            action = 'store_knowledge';
+            data = { name: args.name, type: args.type, description: args.description, confidence: args.confidence, metadata: args.metadata };
+            break;
+          case 'searchKnowledge':
+            action = 'search_knowledge';
+            data = { search_term: args.searchTerm, entity_type: args.entityType, min_confidence: args.minConfidence, limit: args.limit };
+            break;
+          case 'createRelationship':
+            action = 'create_relationship';
+            data = { source_id: args.sourceId, target_id: args.targetId, type: args.type, strength: args.strength };
+            break;
+          case 'getRelatedEntities':
+            action = 'get_related_entities';
+            data = { entity_id: args.entityId };
+            break;
+          case 'updateEntityConfidence':
+            action = 'update_entity_confidence';
+            data = { entity_id: args.entityId, new_confidence: args.newConfidence };
+            break;
+          case 'storeLearningPattern':
+            action = 'store_learning_pattern';
+            data = { type: args.type, data: args.data, confidence: args.confidence };
+            break;
+          case 'getLearningPatterns':
+            action = 'get_patterns';
+            data = { type: args.type, min_confidence: args.minConfidence, limit: args.limit };
+            break;
+        }
+        
+        const { data: kmResult, error: kmError } = await supabase.functions.invoke('knowledge-manager', { body: { action, data } });
+        
+        if (kmError) throw kmError;
+        
+        return new Response(
+          JSON.stringify({ success: true, response: `✅ Knowledge operation complete: ${toolCall.function.name}`, data: kmResult }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Memory & Conversation Tools
+      const memoryTools = ['storeMemory', 'searchMemories', 'summarizeConversation', 'getConversationHistory'];
+      if (memoryTools.includes(toolCall.function.name)) {
+        console.log(`💾 AI requested memory operation: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        
+        if (toolCall.function.name === 'storeMemory') {
+          const { error: memError } = await supabase.from('memory_contexts').insert({
+            user_id: args.userId,
+            session_id: args.sessionId,
+            content: args.content,
+            context_type: args.contextType,
+            importance_score: args.importanceScore || 0.5
+          });
+          
+          if (memError) throw memError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Memory stored' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'searchMemories') {
+          let query = supabase.from('memory_contexts').select('*').eq('user_id', args.userId);
+          if (args.contextType) query = query.eq('context_type', args.contextType);
+          const { data: memories, error: memError } = await query.order('importance_score', { ascending: false }).limit(args.limit || 10);
+          
+          if (memError) throw memError;
+          return new Response(JSON.stringify({ success: true, response: `Found ${memories?.length || 0} memories`, data: memories }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'summarizeConversation') {
+          const { data: summary, error: sumError } = await supabase.functions.invoke('summarize-conversation', {
+            body: { session_id: args.sessionId, messages: args.messages }
+          });
+          
+          if (sumError) throw sumError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Conversation summarized', summary }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'getConversationHistory') {
+          const { data: messages, error: msgError } = await supabase
+            .from('conversation_messages')
+            .select('*')
+            .eq('session_id', args.sessionId)
+            .order('timestamp', { ascending: true })
+            .limit(args.limit || 50);
+          
+          if (msgError) throw msgError;
+          return new Response(JSON.stringify({ success: true, response: `Retrieved ${messages?.length || 0} messages`, data: messages }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+      
+      // System Monitoring Tools
+      const systemTools = ['getSystemStatus', 'getSystemDiagnostics', 'monitorEcosystem', 'cleanupDuplicateTasks'];
+      if (systemTools.includes(toolCall.function.name)) {
+        console.log(`🔍 AI requested system monitoring: ${toolCall.function.name}`);
+        
+        if (toolCall.function.name === 'getSystemStatus') {
+          const { data: status, error: statusError } = await supabase.functions.invoke('system-status', { body: {} });
+          if (statusError) throw statusError;
+          return new Response(JSON.stringify({ success: true, response: '✅ System status retrieved', data: status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'getSystemDiagnostics') {
+          const { data: diag, error: diagError } = await supabase.functions.invoke('system-diagnostics', { body: {} });
+          if (diagError) throw diagError;
+          return new Response(JSON.stringify({ success: true, response: '✅ System diagnostics retrieved', data: diag }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'monitorEcosystem') {
+          const { data: eco, error: ecoError } = await supabase.functions.invoke('ecosystem-monitor', { body: {} });
+          if (ecoError) throw ecoError;
+          return new Response(JSON.stringify({ success: true, response: `🏥 Ecosystem Status: ${eco.overall_status}`, data: eco }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'cleanupDuplicateTasks') {
+          const { data: cleanup, error: cleanError } = await supabase.functions.invoke('cleanup-duplicate-tasks', { body: {} });
+          if (cleanError) throw cleanError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Duplicate tasks cleaned', data: cleanup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+      
+      // Render API Tools
+      const renderTools = ['getDeploymentInfo', 'getServiceStatus', 'getDeploymentLogs', 'listDeployments'];
+      if (renderTools.includes(toolCall.function.name)) {
+        console.log(`🚀 AI requested deployment info: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        let action = '';
+        
+        switch (toolCall.function.name) {
+          case 'getDeploymentInfo': action = 'get_deployment_info'; break;
+          case 'getServiceStatus': action = 'get_service_status'; break;
+          case 'getDeploymentLogs': action = 'get_deployment_logs'; break;
+          case 'listDeployments': action = 'get_deployments'; break;
+        }
+        
+        const { data: renderData, error: renderError } = await supabase.functions.invoke('render-api', {
+          body: { action, service_id: args.serviceId, limit: args.limit }
+        });
+        
+        if (renderError) throw renderError;
+        return new Response(JSON.stringify({ success: true, response: '✅ Deployment data retrieved', data: renderData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      // Mining Tools
+      const miningTools = ['getMiningStats', 'getWorkerStatus'];
+      if (miningTools.includes(toolCall.function.name)) {
+        console.log(`⛏️ AI requested mining info: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        
+        if (toolCall.function.name === 'getMiningStats') {
+          const { data: mining, error: miningError } = await supabase.functions.invoke('mining-proxy', { body: {} });
+          if (miningError) throw miningError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Mining stats retrieved', data: mining }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'getWorkerStatus') {
+          const { data: worker, error: workerError } = await supabase
+            .from('worker_registrations')
+            .select('*')
+            .eq('worker_id', args.workerId)
+            .single();
+          
+          if (workerError) throw workerError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Worker status retrieved', data: worker }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+      
+      // Python & Voice Tools
+      if (['executePython', 'getPythonExecutions'].includes(toolCall.function.name)) {
+        console.log(`🐍 AI requested Python execution: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        
+        if (toolCall.function.name === 'executePython') {
+          const { data: pyResult, error: pyError } = await supabase.functions.invoke('python-executor', {
+            body: { code: args.code, purpose: args.purpose, source: args.source || 'eliza' }
+          });
+          
+          if (pyError) throw pyError;
+          return new Response(JSON.stringify({ success: true, response: '✅ Python executed', data: pyResult }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        
+        } else if (toolCall.function.name === 'getPythonExecutions') {
+          const { data: execs, error: execError } = await supabase
+            .from('eliza_python_executions')
+            .select('*')
+            .eq('source', args.source || 'eliza')
+            .order('created_at', { ascending: false })
+            .limit(args.limit || 20);
+          
+          if (execError) throw execError;
+          return new Response(JSON.stringify({ success: true, response: `Retrieved ${execs?.length || 0} executions`, data: execs }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+      
+      if (toolCall.function.name === 'speakText') {
+        console.log(`🔊 AI requested TTS: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('openai-tts', {
+          body: { text: args.text, voice: args.voice || 'alloy', speed: args.speed || 1.0 }
+        });
+        
+        if (ttsError) throw ttsError;
+        return new Response(JSON.stringify({ success: true, response: '✅ Speech generated', data: ttsData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      // Enhanced GitHub Tools
+      const enhancedGitHubTools = ['updateGitHubIssue', 'closeGitHubIssue', 'addIssueComment', 'mergePullRequest', 'closePullRequest', 'deleteGitHubFile', 'listRepositoryFiles', 'createBranch', 'getBranchInfo'];
+      if (enhancedGitHubTools.includes(toolCall.function.name)) {
+        console.log(`🔧 AI requested enhanced GitHub operation: ${toolCall.function.name}`);
+        const args = JSON.parse(toolCall.function.arguments || '{}');
+        let action = '';
+        let ghData = {};
+        
+        switch (toolCall.function.name) {
+          case 'updateGitHubIssue':
+            action = 'update_issue';
+            ghData = { issue_number: args.issueNumber, title: args.title, body: args.body, repo: args.repo };
+            break;
+          case 'closeGitHubIssue':
+            action = 'close_issue';
+            ghData = { issue_number: args.issueNumber, repo: args.repo };
+            break;
+          case 'addIssueComment':
+            action = 'comment_on_issue';
+            ghData = { issue_number: args.issueNumber, comment: args.comment, repo: args.repo };
+            break;
+          case 'mergePullRequest':
+            action = 'merge_pull_request';
+            ghData = { pull_number: args.pullNumber, merge_method: args.mergeMethod || 'merge', repo: args.repo };
+            break;
+          case 'closePullRequest':
+            action = 'close_pull_request';
+            ghData = { pull_number: args.pullNumber, repo: args.repo };
+            break;
+          case 'deleteGitHubFile':
+            action = 'delete_file';
+            ghData = { path: args.path, message: args.message, branch: args.branch, repo: args.repo };
+            break;
+          case 'listRepositoryFiles':
+            action = 'list_files';
+            ghData = { path: args.path, branch: args.branch, repo: args.repo };
+            break;
+          case 'createBranch':
+            action = 'create_branch';
+            ghData = { branch_name: args.branchName, from_branch: args.fromBranch, repo: args.repo };
+            break;
+          case 'getBranchInfo':
+            action = 'get_branch';
+            ghData = { branch_name: args.branchName, repo: args.repo };
+            break;
+        }
+        
+        const { data: ghResult, error: ghError } = await supabase.functions.invoke('github-integration', { body: { action, ...ghData } });
+        
+        if (ghError) throw ghError;
+        return new Response(JSON.stringify({ success: true, response: `✅ GitHub operation complete: ${toolCall.function.name}`, data: ghResult }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
       if (toolCall.function.name === 'executePythonCode') {

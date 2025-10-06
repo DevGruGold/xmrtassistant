@@ -315,6 +315,90 @@ serve(async (req) => {
         result = decision;
         break;
 
+      case 'update_agent_skills':
+        const { data: updatedAgent, error: updateSkillsError } = await supabase
+          .from('agents')
+          .update({ skills: data.skills })
+          .eq('id', data.agent_id)
+          .select()
+          .single();
+        
+        if (updateSkillsError) throw updateSkillsError;
+        result = { success: true, agent: updatedAgent };
+        break;
+
+      case 'update_agent_role':
+        const { data: updatedRoleAgent, error: updateRoleError } = await supabase
+          .from('agents')
+          .update({ role: data.role })
+          .eq('id', data.agent_id)
+          .select()
+          .single();
+        
+        if (updateRoleError) throw updateRoleError;
+        result = { success: true, agent: updatedRoleAgent };
+        break;
+
+      case 'delete_agent':
+        const { error: deleteAgentError } = await supabase
+          .from('agents')
+          .delete()
+          .eq('id', data.agent_id);
+        
+        if (deleteAgentError) throw deleteAgentError;
+        result = { success: true, message: `Agent ${data.agent_id} deleted` };
+        break;
+
+      case 'search_agents':
+        let agentQuery = supabase.from('agents').select('*');
+        
+        if (data.skills) agentQuery = agentQuery.contains('skills', data.skills);
+        if (data.role) agentQuery = agentQuery.ilike('role', `%${data.role}%`);
+        if (data.status) agentQuery = agentQuery.eq('status', data.status);
+        
+        const { data: searchedAgents, error: searchAgentsError } = await agentQuery;
+        if (searchAgentsError) throw searchAgentsError;
+        result = { success: true, agents: searchedAgents };
+        break;
+
+      case 'update_task':
+        const { data: updatedTask, error: updateTaskError } = await supabase
+          .from('tasks')
+          .update(data.updates)
+          .eq('id', data.task_id)
+          .select()
+          .single();
+        
+        if (updateTaskError) throw updateTaskError;
+        result = { success: true, task: updatedTask };
+        break;
+
+      case 'search_tasks':
+        let taskQuery = supabase.from('tasks').select('*');
+        
+        if (data.category) taskQuery = taskQuery.eq('category', data.category);
+        if (data.repo) taskQuery = taskQuery.eq('repo', data.repo);
+        if (data.stage) taskQuery = taskQuery.eq('stage', data.stage);
+        if (data.status) taskQuery = taskQuery.eq('status', data.status);
+        if (data.min_priority) taskQuery = taskQuery.gte('priority', data.min_priority);
+        if (data.max_priority) taskQuery = taskQuery.lte('priority', data.max_priority);
+        
+        const { data: searchedTasks, error: searchTasksError } = await taskQuery;
+        if (searchTasksError) throw searchTasksError;
+        result = { success: true, tasks: searchedTasks };
+        break;
+
+      case 'bulk_update_tasks':
+        const { data: bulkUpdated, error: bulkError } = await supabase
+          .from('tasks')
+          .update(data.updates)
+          .in('id', data.task_ids)
+          .select();
+        
+        if (bulkError) throw bulkError;
+        result = { success: true, updated_count: bulkUpdated.length, tasks: bulkUpdated };
+        break;
+
       case 'delete_task':
         const { data: deletedTask, error: deleteError } = await supabase
           .from('tasks')
