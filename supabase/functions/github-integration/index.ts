@@ -243,6 +243,19 @@ serve(async (req) => {
         break;
 
       case 'create_pull_request':
+        if (!data.title || !data.head || !data.base) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields for create_pull_request: title, head, base' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
         result = await fetch(
           `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/pulls`,
           {
@@ -250,38 +263,108 @@ serve(async (req) => {
             headers,
             body: JSON.stringify({
               title: data.title,
-              body: data.body,
+              body: data.body || 'No description provided.',
               head: data.head,
               base: data.base || 'main',
+              draft: data.draft || false,
             }),
           }
         );
         break;
 
       case 'get_file_content':
-        result = await fetch(
-          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}`,
+        const fileResult = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}${data.branch ? `?ref=${data.branch}` : ''}`,
           { headers }
         );
+        
+        if (!fileResult.ok) {
+          const errorData = await fileResult.json();
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `File not found: ${data.path}`,
+              details: errorData
+            }),
+            { 
+              status: fileResult.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        const fileData = await fileResult.json();
+        
+        // Decode base64 content for easier reading
+        if (fileData.content && fileData.encoding === 'base64') {
+          try {
+            fileData.decodedContent = atob(fileData.content.replace(/\n/g, ''));
+          } catch (e) {
+            console.warn('Failed to decode file content:', e);
+          }
+        }
+        
+        result = { ok: true, json: async () => fileData };
         break;
 
       case 'commit_file':
+        // First, try to get the existing file to get its SHA (for updates)
+        let fileSha = data.sha;
+        
+        if (!fileSha) {
+          try {
+            const existingFile = await fetch(
+              `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}${data.branch ? `?ref=${data.branch}` : ''}`,
+              { headers }
+            );
+            
+            if (existingFile.ok) {
+              const existingData = await existingFile.json();
+              fileSha = existingData.sha;
+              console.log(`📝 Updating existing file: ${data.path} (SHA: ${fileSha})`);
+            } else {
+              console.log(`📝 Creating new file: ${data.path}`);
+            }
+          } catch (e) {
+            console.log(`📝 Creating new file: ${data.path} (couldn't check if exists)`);
+          }
+        }
+        
+        const commitBody: any = {
+          message: data.message,
+          content: btoa(data.content), // Base64 encode
+          branch: data.branch || 'main',
+        };
+        
+        // Only include SHA if we're updating an existing file
+        if (fileSha) {
+          commitBody.sha = fileSha;
+        }
+        
         result = await fetch(
           `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/contents/${data.path}`,
           {
             method: 'PUT',
             headers,
-            body: JSON.stringify({
-              message: data.message,
-              content: btoa(data.content), // Base64 encode
-              branch: data.branch || 'main',
-              sha: data.sha, // Required for updates
-            }),
+            body: JSON.stringify(commitBody),
           }
         );
         break;
 
       case 'search_code':
+        if (!data.query) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: query' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
         result = await fetch(
           `https://api.github.com/search/code?q=${encodeURIComponent(data.query)}+repo:${GITHUB_OWNER}/${data?.repo || GITHUB_REPO}`,
           { headers }
@@ -292,7 +375,13 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
 
-    const responseData = await result.json();
+    // Handle special case where we manually created the result object
+    let responseData;
+    if (result.json) {
+      responseData = await result.json();
+    } else {
+      responseData = result;
+    }
 
     if (!result.ok) {
       console.error('GitHub API Error:', responseData);
@@ -301,7 +390,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: responseData.message || 'GitHub API request failed',
+          error: responseData.message || responseData.error || 'GitHub API request failed',
           status: result.status,
           needsAuth: result.status === 401,
           details: responseData
@@ -313,7 +402,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`GitHub Integration - Success: ${action}`);
+    console.log(`✅ GitHub Integration - Success: ${action}`);
 
     return new Response(
       JSON.stringify({ success: true, data: responseData }),
