@@ -279,13 +279,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           },
           (payload) => {
             console.log('📊 Activity log update:', payload);
-            const activity = payload.new;
-            
-            toast({
-              title: activity.title,
-              description: activity.description?.substring(0, 100) || 'Autonomous system update',
-              duration: 4000,
-            });
+            // Notifications disabled - check widget in bottom-right corner for progress
           }
         )
         .subscribe((status) => {
