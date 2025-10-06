@@ -991,6 +991,190 @@ Remember: Only Python standard library is available (urllib, json, http.client, 
       return `⚠️ Failed to get task details: ${error.message}`;
     }
   }, []);
+
+  const clearAllWorkloads = useCallback(async (parameters: { confirm: boolean }) => {
+    if (!parameters.confirm) {
+      return `⚠️ **Safety Check:** You must set confirm=true to clear all workloads. This is a destructive operation that will:\n• Delete ALL pending and in-progress tasks\n• Reset ALL agents to IDLE status\n• Cannot be undone\n\nOnly proceed if you're absolutely certain!`;
+    }
+
+    try {
+      // Get all tasks and agents
+      const { data: tasksData } = await supabase.functions.invoke('agent-manager', {
+        body: { action: 'list_tasks' }
+      });
+      
+      const { data: agentsData } = await supabase.functions.invoke('agent-manager', {
+        body: { action: 'list_agents' }
+      });
+
+      const tasks = tasksData?.tasks || [];
+      const agents = agentsData?.agents || [];
+
+      // Delete all tasks
+      let deletedCount = 0;
+      for (const task of tasks) {
+        if (task.status !== 'COMPLETED') {
+          await supabase.functions.invoke('agent-manager', {
+            body: { 
+              action: 'delete_task',
+              data: { taskId: task.id }
+            }
+          });
+          deletedCount++;
+        }
+      }
+
+      // Reset all agents to IDLE
+      let resetCount = 0;
+      for (const agent of agents) {
+        if (agent.status !== 'IDLE') {
+          await supabase.functions.invoke('agent-manager', {
+            body: { 
+              action: 'update_agent_status',
+              data: { agentId: agent.id, status: 'IDLE' }
+            }
+          });
+          resetCount++;
+        }
+      }
+
+      return `✅ **Bulk Workload Clear Complete:**\n\n🗑️ Deleted ${deletedCount} tasks\n🔄 Reset ${resetCount} agents to IDLE\n\nAll systems cleared and ready for new assignments.`;
+    } catch (error) {
+      console.error('Clear all workloads error:', error);
+      return `⚠️ Failed to clear workloads: ${error.message}`;
+    }
+  }, []);
+
+  const assignMultipleAgents = useCallback(async (parameters: { 
+    agentIds: string[]; 
+    title: string; 
+    description: string; 
+    repo: string; 
+    category: string; 
+    priority?: number;
+    coordination?: 'parallel' | 'sequential';
+  }) => {
+    try {
+      const { agentIds, title, description, repo, category, priority = 5, coordination = 'parallel' } = parameters;
+      
+      if (agentIds.length < 2) {
+        return `⚠️ Multi-agent tasks require at least 2 agents. You provided ${agentIds.length}.`;
+      }
+
+      const taskResults = [];
+      
+      if (coordination === 'parallel') {
+        // All agents work on the same task simultaneously
+        for (const agentId of agentIds) {
+          const { data, error } = await supabase.functions.invoke('agent-manager', {
+            body: { 
+              action: 'assign_task',
+              data: {
+                agentId,
+                title: `[TEAM ${agentIds.indexOf(agentId) + 1}/${agentIds.length}] ${title}`,
+                description: `${description}\n\n**Coordination:** Parallel collaboration with ${agentIds.length} agents\n**Team Members:** ${agentIds.join(', ')}`,
+                repo,
+                category,
+                priority
+              }
+            }
+          });
+          
+          if (!error) {
+            taskResults.push({ agentId, taskId: data.task.id, status: 'assigned' });
+          }
+        }
+
+        return `✅ **Multi-Agent Task Created (Parallel Mode):**\n\n📋 Title: ${title}\n👥 Team Size: ${agentIds.length} agents\n⚡ Coordination: All agents work simultaneously\n🔢 Priority: ${priority}/10\n\n**Assigned Tasks:**\n${taskResults.map(r => `• Agent ${r.agentId}: Task ${r.taskId}`).join('\n')}\n\nAll agents are now collaborating on this task in parallel!`;
+        
+      } else {
+        // Sequential: Agents work one after another
+        for (let i = 0; i < agentIds.length; i++) {
+          const agentId = agentIds[i];
+          const isFirst = i === 0;
+          const isLast = i === agentIds.length - 1;
+          const stageDesc = isFirst ? 'INITIAL STAGE' : isLast ? 'FINAL STAGE' : `STAGE ${i + 1}`;
+          
+          const { data, error } = await supabase.functions.invoke('agent-manager', {
+            body: { 
+              action: 'assign_task',
+              data: {
+                agentId,
+                title: `[${stageDesc}] ${title}`,
+                description: `${description}\n\n**Coordination:** Sequential workflow (${i + 1}/${agentIds.length})\n**Previous Agent:** ${i > 0 ? agentIds[i-1] : 'None'}\n**Next Agent:** ${!isLast ? agentIds[i+1] : 'Complete'}`,
+                repo,
+                category,
+                priority,
+                stage: isFirst ? 'PLANNING' : 'PENDING'
+              }
+            }
+          });
+          
+          if (!error) {
+            taskResults.push({ agentId, taskId: data.task.id, stage: i + 1 });
+          }
+        }
+
+        return `✅ **Multi-Agent Task Created (Sequential Mode):**\n\n📋 Title: ${title}\n👥 Team Size: ${agentIds.length} agents\n⚡ Coordination: Agents work in sequence\n🔢 Priority: ${priority}/10\n\n**Workflow Stages:**\n${taskResults.map(r => `${r.stage}. Agent ${r.agentId} (Task ${r.taskId})`).join('\n')}\n\nAgents will complete this task in sequential order!`;
+      }
+    } catch (error) {
+      console.error('Assign multiple agents error:', error);
+      return `⚠️ Failed to assign multi-agent task: ${error.message}`;
+    }
+  }, []);
+
+  const bulkUpdateAgentStatus = useCallback(async (parameters: { agentIds: string[]; status: 'IDLE' | 'BUSY' }) => {
+    try {
+      const { agentIds, status } = parameters;
+      
+      const results = [];
+      for (const agentId of agentIds) {
+        const { error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'update_agent_status',
+            data: { agentId, status }
+          }
+        });
+        
+        results.push({ agentId, success: !error });
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      return `✅ **Bulk Agent Status Update:**\n\n✅ ${successCount}/${agentIds.length} agents updated to ${status}\n${successCount < agentIds.length ? `⚠️ ${agentIds.length - successCount} failed` : ''}`;
+    } catch (error) {
+      console.error('Bulk update agent status error:', error);
+      return `⚠️ Failed to bulk update agents: ${error.message}`;
+    }
+  }, []);
+
+  const bulkDeleteTasks = useCallback(async (parameters: { taskIds: string[]; confirm: boolean }) => {
+    if (!parameters.confirm) {
+      return `⚠️ **Safety Check:** You must set confirm=true to delete ${parameters.taskIds.length} tasks. This cannot be undone!`;
+    }
+
+    try {
+      const { taskIds } = parameters;
+      
+      const results = [];
+      for (const taskId of taskIds) {
+        const { error } = await supabase.functions.invoke('agent-manager', {
+          body: { 
+            action: 'delete_task',
+            data: { taskId }
+          }
+        });
+        
+        results.push({ taskId, success: !error });
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      return `✅ **Bulk Task Deletion:**\n\n🗑️ ${successCount}/${taskIds.length} tasks deleted\n${successCount < taskIds.length ? `⚠️ ${taskIds.length - successCount} failed to delete` : ''}`;
+    } catch (error) {
+      console.error('Bulk delete tasks error:', error);
+      return `⚠️ Failed to bulk delete tasks: ${error.message}`;
+    }
+  }, []);
+
   // ═══════════════════════════════════════════════════════════
   // END AGENT MANAGER & TASK ORCHESTRATION TOOLS
   // ═══════════════════════════════════════════════════════════
@@ -1032,7 +1216,12 @@ Remember: Only Python standard library is available (urllib, json, http.client, 
     getPerformanceReport,
     logAgentDecision,
     updateTaskDetails,
-    getTaskDetails
+    getTaskDetails,
+    // Bulk operations
+    clearAllWorkloads,
+    assignMultipleAgents,
+    bulkUpdateAgentStatus,
+    bulkDeleteTasks
   };
 
   return {

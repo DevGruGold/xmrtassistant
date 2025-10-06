@@ -680,6 +680,73 @@ export const HUME_EVI_CONFIG = {
         required: ["taskId"]
       }
     },
+    {
+      name: "clearAllWorkloads",
+      description: "BULK OPERATION: Clear all tasks from all agents and reset them to IDLE. Use for system reset or emergency clearing.",
+      parameters: {
+        type: "object",
+        properties: {
+          confirm: { type: "boolean", description: "Must be true to confirm this destructive operation" }
+        },
+        required: ["confirm"]
+      }
+    },
+    {
+      name: "assignMultipleAgents",
+      description: "Assign multiple agents to collaborate on a single task. Creates team-based task with coordinated effort.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentIds: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Array of agent IDs to assign to the task" 
+          },
+          title: { type: "string", description: "Task title" },
+          description: { type: "string", description: "Detailed task description" },
+          repo: { type: "string", description: "Repository (e.g., 'XMRT-Ecosystem')" },
+          category: { type: "string", description: "Task category" },
+          priority: { type: "number", description: "Priority 1-10" },
+          coordination: { 
+            type: "string", 
+            description: "How agents should coordinate: 'parallel' (work simultaneously) or 'sequential' (one after another)" 
+          }
+        },
+        required: ["agentIds", "title", "description", "repo", "category"]
+      }
+    },
+    {
+      name: "bulkUpdateAgentStatus",
+      description: "BULK OPERATION: Update status for multiple agents at once. Useful for mass state changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentIds: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Array of agent IDs to update" 
+          },
+          status: { type: "string", enum: ["IDLE", "BUSY"], description: "New status for all agents" }
+        },
+        required: ["agentIds", "status"]
+      }
+    },
+    {
+      name: "bulkDeleteTasks",
+      description: "BULK OPERATION: Delete multiple tasks at once. Useful for cleanup operations.",
+      parameters: {
+        type: "object",
+        properties: {
+          taskIds: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Array of task IDs to delete" 
+          },
+          confirm: { type: "boolean", description: "Must be true to confirm deletion" }
+        },
+        required: ["taskIds", "confirm"]
+      }
+    },
     // ═══════════════════════════════════════════════════════════
     // END AGENT MANAGER & TASK ORCHESTRATION TOOLS
     // ═══════════════════════════════════════════════════════════
