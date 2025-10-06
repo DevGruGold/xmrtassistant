@@ -6,6 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to check if a string is a valid UUID
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,7 +26,7 @@ serve(async (req) => {
     // Create admin client with service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log("Conversation access request:", { action, sessionKey, sessionId });
+    console.log("Conversation access request:", { action, sessionKey, sessionId, isValidUUID: sessionId ? isValidUUID(sessionId) : null });
 
     // Validate session ownership based on session_key
     if (!sessionKey) {
@@ -77,21 +83,32 @@ serve(async (req) => {
 
         // Verify session ownership - handle both UUID and session_key formats
         let session;
-        try {
-          // Try as UUID first
-          const { data } = await supabase
+        
+        // Check if sessionId is a valid UUID first
+        if (isValidUUID(sessionId)) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
-            .select("session_key")
+            .select("id, session_key")
             .eq("id", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by UUID:", error);
+          }
           session = data;
-        } catch (uuidError) {
-          // If UUID fails, try as session_key
-          const { data } = await supabase
+        }
+        
+        // If not found or not a UUID, try as session_key
+        if (!session) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("session_key", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by session_key:", error);
+          }
           session = data;
         }
 
@@ -103,7 +120,7 @@ serve(async (req) => {
         }
 
         // Get messages for this session - use the actual UUID
-        const actualSessionId = session.id || sessionId;
+        const actualSessionId = session.id;
         const { data: messages, error } = await supabase
           .from("conversation_messages")
           .select("*")
@@ -129,19 +146,32 @@ serve(async (req) => {
 
         // Verify session ownership - handle both UUID and session_key formats
         let session;
-        try {
-          const { data } = await supabase
+        
+        // Check if sessionId is a valid UUID first
+        if (isValidUUID(sessionId)) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("id", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by UUID:", error);
+          }
           session = data;
-        } catch (uuidError) {
-          const { data } = await supabase
+        }
+        
+        // If not found or not a UUID, try as session_key
+        if (!session) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("session_key", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by session_key:", error);
+          }
           session = data;
         }
 
@@ -153,7 +183,7 @@ serve(async (req) => {
         }
 
         // Get summaries for this session - use the actual UUID
-        const actualSessionId = session.id || sessionId;
+        const actualSessionId = session.id;
         const { data: summaries, error } = await supabase
           .from("conversation_summaries")
           .select("summary_text, message_count, created_at")
@@ -178,19 +208,32 @@ serve(async (req) => {
 
         // Verify session ownership - handle both UUID and session_key formats
         let session;
-        try {
-          const { data } = await supabase
+        
+        // Check if sessionId is a valid UUID first
+        if (isValidUUID(sessionId)) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("id", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by UUID:", error);
+          }
           session = data;
-        } catch (uuidError) {
-          const { data } = await supabase
+        }
+        
+        // If not found or not a UUID, try as session_key
+        if (!session) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("session_key", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by session_key:", error);
+          }
           session = data;
         }
 
@@ -202,7 +245,7 @@ serve(async (req) => {
         }
 
         // Insert message - use the actual UUID
-        const actualSessionId = session.id || sessionId;
+        const actualSessionId = session.id;
         const { data, error } = await supabase
           .from("conversation_messages")
           .insert({
@@ -230,19 +273,32 @@ serve(async (req) => {
 
         // Verify session ownership - handle both UUID and session_key formats
         let session;
-        try {
-          const { data } = await supabase
+        
+        // Check if sessionId is a valid UUID first
+        if (isValidUUID(sessionId)) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("id", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by UUID:", error);
+          }
           session = data;
-        } catch (uuidError) {
-          const { data } = await supabase
+        }
+        
+        // If not found or not a UUID, try as session_key
+        if (!session) {
+          const { data, error } = await supabase
             .from("conversation_sessions")
             .select("id, session_key")
             .eq("session_key", sessionId)
-            .single();
+            .maybeSingle();
+          
+          if (error) {
+            console.error("Error fetching session by session_key:", error);
+          }
           session = data;
         }
 
@@ -254,7 +310,7 @@ serve(async (req) => {
         }
 
         // Update session - use the actual UUID
-        const actualSessionId = session.id || sessionId;
+        const actualSessionId = session.id;
         const { data, error } = await supabase
           .from("conversation_sessions")
           .update(messageData)
