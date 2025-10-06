@@ -1,7 +1,9 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
-const PISTON_API_URL = 'https://emkc.org/api/v2/piston';
+// Use custom Piston instance if available (with enhanced libraries like pandas, numpy, requests, etc.)
+// Falls back to public emkc.org Piston if CUSTOM_PISTON_URL is not set
+const PISTON_API_URL = Deno.env.get('CUSTOM_PISTON_URL') || 'https://emkc.org/api/v2/piston';
 
 // Initialize Supabase client for logging executions
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -27,7 +29,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Executing Python code:', code.substring(0, 100) + '...');
+    console.log(`Executing Python code via ${PISTON_API_URL}:`, code.substring(0, 100) + '...');
     const startTime = Date.now();
 
     // Execute code using Piston API
