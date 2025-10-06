@@ -305,6 +305,54 @@ serve(async (req) => {
         };
         break;
 
+      case 'clear_all_workloads':
+        // Clear ALL tasks and reset ALL agents to IDLE
+        console.log('🧹 Clearing all workloads...');
+        
+        // Delete all tasks
+        const { error: deleteTasksError, count: deletedCount } = await supabase
+          .from('tasks')
+          .delete()
+          .neq('id', ''); // Delete all rows
+        
+        if (deleteTasksError) {
+          console.error('Error deleting tasks:', deleteTasksError);
+          throw deleteTasksError;
+        }
+        
+        // Reset all agents to IDLE
+        const { error: resetAgentsError, count: resetCount } = await supabase
+          .from('agents')
+          .update({ status: 'IDLE' })
+          .neq('id', ''); // Update all rows
+        
+        if (resetAgentsError) {
+          console.error('Error resetting agents:', resetAgentsError);
+          throw resetAgentsError;
+        }
+        
+        // Log the cleanup
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'cleanup',
+          title: '🧹 Cleared All Workloads',
+          description: `Deleted ${deletedCount || 0} tasks and reset ${resetCount || 0} agents to IDLE`,
+          metadata: { 
+            tasks_deleted: deletedCount || 0,
+            agents_reset: resetCount || 0
+          },
+          status: 'completed'
+        });
+        
+        console.log(`✅ Cleared ${deletedCount} tasks and reset ${resetCount} agents`);
+        
+        result = {
+          success: true,
+          tasks_deleted: deletedCount || 0,
+          agents_reset: resetCount || 0,
+          message: `Successfully cleared ${deletedCount || 0} tasks and reset ${resetCount || 0} agents to IDLE`
+        };
+        break;
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
