@@ -859,7 +859,8 @@ ${edgeFunctionsInfo}
         let responseText = '';
         switch (toolCall.function.name) {
           case 'listAgents':
-            const agents = result.agents || [];
+            // agent-manager returns { success: true, data: agents_array }
+            const agents = result.data || [];
             responseText = `🤖 **Agent Status Report:**\n\n`;
             if (agents.length === 0) {
               responseText += 'No agents currently deployed.';
@@ -868,13 +869,14 @@ ${edgeFunctionsInfo}
                 const statusIcon = agent.status === 'IDLE' ? '🟢' : '🔴';
                 responseText += `${statusIcon} **${agent.name}** (${agent.role})\n`;
                 responseText += `   Status: ${agent.status}\n`;
-                responseText += `   Skills: ${agent.skills?.join(', ') || 'None'}\n\n`;
+                responseText += `   Skills: ${Array.isArray(agent.skills) ? agent.skills.join(', ') : 'None'}\n\n`;
               });
             }
             break;
             
           case 'listTasks':
-            const tasks = result.tasks || [];
+            // agent-manager returns { success: true, data: tasks_array }
+            const tasks = result.data || [];
             responseText = `📋 **Task Queue** (${tasks.length} tasks):\n\n`;
             if (tasks.length === 0) {
               responseText += 'No tasks found.';
