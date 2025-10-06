@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Activity, Hash, Coins, Clock, Zap, TrendingUp } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MiningStats {
   hash: number;
@@ -25,23 +26,16 @@ const LiveMiningStats = () => {
 
   const fetchMiningStats = async () => {
     try {
-      // Add explicit CORS mode and headers for better compatibility
-      const response = await fetch(
-        "https://www.supportxmr.com/api/miner/46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg/stats",
-        {
-          mode: 'cors',
-          headers: {
-            'Accept': 'application/json',
-          },
-          cache: 'no-cache'
-        }
-      );
+      // Use Supabase edge function proxy for better browser compatibility (works on Brave, Chrome, etc.)
+      const { data, error } = await supabase.functions.invoke('mining-proxy');
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch mining stats');
       }
       
-      const data = await response.json();
+      if (!data) {
+        throw new Error('No data returned from mining proxy');
+      }
       
       // Log the raw API response for debugging
       console.log('📊 Raw mining data from SupportXMR API:', data);
