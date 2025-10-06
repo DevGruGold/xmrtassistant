@@ -170,6 +170,14 @@ serve(async (req) => {
 
     console.log(`🔍 Found ${fixableExecutions.length} fixable executions (cleaned ${unfixableCount} unfixable ones)`);
 
+    // Get total count of remaining failed executions for progress tracking
+    const { count: totalFailedCount } = await supabase
+      .from('eliza_python_executions')
+      .select('*', { count: 'exact', head: true })
+      .eq('exit_code', 1)
+      .eq('source', 'eliza')
+      .gte('created_at', new Date(Date.now() - 86400000).toISOString());
+
     const results = [];
     
     for (const execution of fixableExecutions) {
@@ -252,12 +260,33 @@ serve(async (req) => {
     }
 
     const successCount = results.filter(r => r.success).length;
+    const skippedCount = results.filter(r => r.skipped).length;
     console.log(`🎉 Fixed ${successCount} out of ${results.length} executions`);
+
+    // Log comprehensive progress to activity log
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'code_monitoring',
+      title: '🔍 Code Health Monitor',
+      description: `Scanned for failed executions. Fixed: ${successCount}`,
+      status: 'completed',
+      metadata: {
+        total_processed: results.length,
+        fixed_count: successCount,
+        skipped_count: skippedCount,
+        unfixable_deleted: unfixableCount,
+        remaining_failed: (totalFailedCount || 0) - successCount,
+        total_failed_at_start: totalFailedCount
+      }
+    });
 
     return new Response(JSON.stringify({
       success: true,
       message: `Processed ${results.length} failed executions`,
       fixed: successCount,
+      skipped: skippedCount,
+      unfixable_deleted: unfixableCount,
+      remaining: (totalFailedCount || 0) - successCount,
+      total_at_start: totalFailedCount,
       results
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
