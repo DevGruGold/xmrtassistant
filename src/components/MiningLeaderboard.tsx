@@ -24,9 +24,11 @@ export const MiningLeaderboard = () => {
         return;
       }
 
-      // For now, we'll display the global stats as the top worker
-      // In future, this can be expanded to show multiple workers
-      if (data) {
+      if (data?.workers && Array.isArray(data.workers)) {
+        // Display individual workers from the pool
+        setWorkers(data.workers.sort((a, b) => b.hash - a.hash)); // Sort by hashrate
+      } else if (data) {
+        // Fallback to global stats if no workers array
         const workerData: WorkerStats = {
           identifier: data.identifier || 'global',
           hash: data.hash || 0,
