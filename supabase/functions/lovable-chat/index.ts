@@ -360,7 +360,7 @@ INTERACTION PRINCIPLES:
             type: 'function',
             function: {
               name: 'getGitHubFileContent',
-              description: 'Get the content of a file from a GitHub repository.',
+              description: 'Get the content of a file from a GitHub repository. CRITICAL: When retrieving code files (.py, .js, .ts, etc.), you MUST analyze the code and provide a concise summary instead of dumping raw code into chat. Explain what the code does, its structure, and suggest improvements. Only show specific code snippets if directly relevant.',
               parameters: {
                 type: 'object',
                 required: ['path'],
