@@ -383,12 +383,12 @@ INTERACTION PRINCIPLES:
         if (execError || !execResult.success) {
           console.error('❌ Python execution failed:', execError || execResult);
           
-          // Return error with code shown to user
+          // Return error WITHOUT showing code - let autonomous fixer handle it
           const errorMessage = execResult?.error || execError?.message || 'Unknown error';
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I attempted to execute this Python code:\n\n\`\`\`python\n${args.code}\n\`\`\`\n\n**Error encountered:**\n${errorMessage}\n\nThe autonomous code-fixer is now working on fixing this. I'll share the results as soon as it succeeds!`,
+              response: `I ran into an issue while processing your request. My autonomous code-fixing system is working on it now and will have results shortly!`,
               hasToolCalls: true
             }),
             { 
@@ -399,14 +399,13 @@ INTERACTION PRINCIPLES:
         
         console.log('✅ Python code executed successfully');
         
-        // Return success with code and output shown
+        // Return success with ONLY output - no code display
         const output = execResult.output?.trim() || '(No output generated)';
-        const purposeText = args.purpose ? `**Purpose:** ${args.purpose}\n\n` : '';
         
         return new Response(
           JSON.stringify({
             success: true,
-            response: `✅ Successfully executed Python code!\n\n${purposeText}**Code:**\n\`\`\`python\n${args.code}\n\`\`\`\n\n**Output:**\n${output}`,
+            response: `✅ Task completed successfully!\n\n**Result:**\n${output}`,
             hasToolCalls: true,
             executionResult: execResult
           }),
