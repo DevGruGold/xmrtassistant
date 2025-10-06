@@ -36,6 +36,7 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log('Mining stats fetched successfully');
+    console.log('API Response structure:', JSON.stringify(data, null, 2));
 
     // Register/update individual workers
     const workers = [];
@@ -77,8 +78,11 @@ serve(async (req) => {
       }
     }
 
-    // Return workers array or global stats if no workers
-    const responseData = workers.length > 0 ? { workers } : data;
+    // Return both workers array AND original data for frontend compatibility
+    const responseData = {
+      ...data,
+      workers: workers.length > 0 ? workers : undefined
+    };
 
     return new Response(
       JSON.stringify(responseData),
