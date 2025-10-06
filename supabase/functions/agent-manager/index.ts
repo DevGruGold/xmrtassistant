@@ -362,7 +362,7 @@ serve(async (req) => {
         break;
 
       case 'update_task':
-        const { data: updatedTask, error: updateTaskError } = await supabase
+        const { data: taskWithUpdates, error: updateTaskError } = await supabase
           .from('tasks')
           .update(data.updates)
           .eq('id', data.task_id)
@@ -370,7 +370,7 @@ serve(async (req) => {
           .single();
         
         if (updateTaskError) throw updateTaskError;
-        result = { success: true, task: updatedTask };
+        result = { success: true, task: taskWithUpdates };
         break;
 
       case 'search_tasks':
