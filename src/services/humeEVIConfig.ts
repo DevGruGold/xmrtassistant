@@ -49,6 +49,51 @@ You embody the complete philosophical framework including:
 • Emergency Response Protocols: Autonomous activation of safety measures when needed
 • Autonomous Code Healing: Failed Python code is automatically fixed and re-executed using AI
 
+🎯 TASK ORCHESTRATION & AGENT MANAGEMENT MASTERY:
+You have FULL CONTROL over a sophisticated multi-agent task management system. This is your PRIMARY operational capability:
+
+**AGENT MANAGER EDGE FUNCTION (agent-manager):**
+• list_agents: Get all agents and their current status (IDLE, BUSY)
+• spawn_agent: Create new specialized agents with custom skills and roles
+• update_agent_status: Change agent status (IDLE → BUSY or vice versa)
+• assign_task: Create and assign tasks to specific agents
+• list_tasks: View all tasks across the entire system
+• update_task_status: Change task status (PENDING → IN_PROGRESS → COMPLETED/FAILED)
+• report_progress: Log agent progress updates
+• request_assignment: Let agents request work from the queue
+• get_agent_workload: Check how many tasks an agent has
+• log_decision: Record strategic decisions made by agents
+• delete_task: Remove completed or obsolete tasks
+• reassign_task: Move tasks between agents for workload balancing
+• update_task_details: Modify task priority, description, stage, etc.
+• get_task_details: Get comprehensive info about any task
+
+**TASK ORCHESTRATOR EDGE FUNCTION (task-orchestrator):**
+• auto_assign_tasks: Automatically match pending tasks to idle agents by priority
+• rebalance_workload: Analyze and redistribute tasks across agents for optimal efficiency
+• identify_blockers: Find and flag all blocked tasks that need intervention
+• performance_report: Generate analytics on agent productivity (24hr window)
+
+**TASK WORKFLOW & BEST PRACTICES:**
+1. CREATE → Use assign_task with clear title, description, repo, category, priority (1-10)
+2. MONITOR → Use list_tasks and get_agent_workload to track progress
+3. DELEGATE → Use auto_assign_tasks or manually assign to specific agents
+4. OPTIMIZE → Use rebalance_workload when agents have uneven loads
+5. RESOLVE → Use identify_blockers to find stuck tasks, then reassign_task or update_task_details
+6. ANALYZE → Use performance_report for insights on agent efficiency
+
+**STRATEGIC DECISION-MAKING:**
+• Spawn specialized agents for different repos (XMRT-Ecosystem, party-favor-autonomous-cms, etc.)
+• Balance workloads: If Agent A has 5 tasks and Agent B has 0, use reassign_task
+• Prioritize critical tasks: Set priority 9-10 for urgent work, 1-3 for backlog
+• Track blockers: Regularly run identify_blockers to catch dependencies
+• Log all major decisions: Use log_decision to maintain audit trail
+
+**TASK STAGES:** PLANNING → RESEARCH → IMPLEMENTATION → TESTING → REVIEW → COMPLETED
+**TASK STATUSES:** PENDING, IN_PROGRESS, COMPLETED, FAILED, BLOCKED
+
+YOU SHOULD USE THESE CAPABILITIES FREQUENTLY - This is your primary way of managing the ecosystem autonomously!
+
 🐍 PYTHON EXECUTION CONSTRAINTS (CRITICAL):
 **The Python sandbox ONLY has standard library - NO pip packages available**
 • ❌ CANNOT use: requests, numpy, pandas, beautifulsoup4, or any external libraries
@@ -444,6 +489,200 @@ export const HUME_EVI_CONFIG = {
         required: []
       }
     },
+    // ═══════════════════════════════════════════════════════════
+    // AGENT MANAGER & TASK ORCHESTRATION TOOLS (PRIMARY USAGE)
+    // ═══════════════════════════════════════════════════════════
+    {
+      name: "listAgents",
+      description: "List all agents in the system with their status, skills, and roles. Use this to see your team.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "spawnAgent",
+      description: "Create a new specialized agent with custom skills and role. Spawn agents for specific repos or tasks.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Agent name (e.g., 'GitHub-Expert-1')" },
+          role: { type: "string", description: "Agent role (e.g., 'code_reviewer', 'security_analyst')" },
+          skills: { 
+            type: "array", 
+            items: { type: "string" },
+            description: "Array of skills (e.g., ['python', 'github_api', 'security_audit'])" 
+          }
+        },
+        required: ["name", "role", "skills"]
+      }
+    },
+    {
+      name: "updateAgentStatus",
+      description: "Update agent status to IDLE or BUSY. Use when manually managing agent availability.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: { type: "string", description: "Agent ID to update" },
+          status: { type: "string", enum: ["IDLE", "BUSY"], description: "New status" }
+        },
+        required: ["agentId", "status"]
+      }
+    },
+    {
+      name: "assignTask",
+      description: "Create and assign a new task to a specific agent. This is how you delegate work.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: { type: "string", description: "Agent ID to assign task to" },
+          title: { type: "string", description: "Task title" },
+          description: { type: "string", description: "Detailed task description" },
+          repo: { type: "string", description: "Repository (e.g., 'XMRT-Ecosystem')" },
+          category: { type: "string", description: "Task category (e.g., 'bug_fix', 'feature', 'security')" },
+          priority: { type: "number", description: "Priority 1-10 (10=urgent, 1=low)" }
+        },
+        required: ["agentId", "title", "description", "repo", "category"]
+      }
+    },
+    {
+      name: "listTasks",
+      description: "Get all tasks in the system. Use filters to find specific tasks by status, agent, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "BLOCKED"], description: "Filter by status" },
+          agentId: { type: "string", description: "Filter by assigned agent" }
+        },
+        required: []
+      }
+    },
+    {
+      name: "updateTaskStatus",
+      description: "Update task status and stage. Use to move tasks through workflow (PLANNING → RESEARCH → IMPLEMENTATION → TESTING → REVIEW → COMPLETED).",
+      parameters: {
+        type: "object",
+        properties: {
+          taskId: { type: "string", description: "Task ID to update" },
+          status: { type: "string", enum: ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "BLOCKED"] },
+          stage: { type: "string", enum: ["PLANNING", "RESEARCH", "IMPLEMENTATION", "TESTING", "REVIEW", "COMPLETED"] },
+          blockingReason: { type: "string", description: "If BLOCKED status, explain why" }
+        },
+        required: ["taskId", "status"]
+      }
+    },
+    {
+      name: "reassignTask",
+      description: "Move a task from one agent to another. Use for workload balancing or skill matching.",
+      parameters: {
+        type: "object",
+        properties: {
+          taskId: { type: "string", description: "Task ID to reassign" },
+          newAgentId: { type: "string", description: "New agent to assign task to" }
+        },
+        required: ["taskId", "newAgentId"]
+      }
+    },
+    {
+      name: "deleteTask",
+      description: "Delete a task. Use for completed or obsolete tasks to keep the queue clean.",
+      parameters: {
+        type: "object",
+        properties: {
+          taskId: { type: "string", description: "Task ID to delete" }
+        },
+        required: ["taskId"]
+      }
+    },
+    {
+      name: "getAgentWorkload",
+      description: "Get all active tasks assigned to a specific agent. Use to check if agent is overloaded.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: { type: "string", description: "Agent ID to check workload" }
+        },
+        required: ["agentId"]
+      }
+    },
+    {
+      name: "autoAssignTasks",
+      description: "Automatically assign all pending tasks to idle agents by priority. Use regularly to keep work flowing.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "rebalanceWorkload",
+      description: "Analyze task distribution across all agents and get recommendations for rebalancing.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "identifyBlockers",
+      description: "Find all blocked tasks in the system. Use to identify tasks needing intervention.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "getPerformanceReport",
+      description: "Get agent performance metrics for the last 24 hours (completed/failed tasks, success rate).",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: "logAgentDecision",
+      description: "Record strategic decisions made by agents for audit trail and learning.",
+      parameters: {
+        type: "object",
+        properties: {
+          agentId: { type: "string", description: "Agent making the decision" },
+          decision: { type: "string", description: "The decision made" },
+          rationale: { type: "string", description: "Why this decision was made" }
+        },
+        required: ["agentId", "decision", "rationale"]
+      }
+    },
+    {
+      name: "updateTaskDetails",
+      description: "Update task priority, description, stage, or other details without changing status.",
+      parameters: {
+        type: "object",
+        properties: {
+          taskId: { type: "string", description: "Task ID to update" },
+          priority: { type: "number", description: "New priority 1-10" },
+          description: { type: "string", description: "Updated description" },
+          stage: { type: "string", description: "Updated stage" }
+        },
+        required: ["taskId"]
+      }
+    },
+    {
+      name: "getTaskDetails",
+      description: "Get comprehensive information about a specific task.",
+      parameters: {
+        type: "object",
+        properties: {
+          taskId: { type: "string", description: "Task ID to query" }
+        },
+        required: ["taskId"]
+      }
+    },
+    // ═══════════════════════════════════════════════════════════
+    // END AGENT MANAGER & TASK ORCHESTRATION TOOLS
+    // ═══════════════════════════════════════════════════════════
     {
       name: "getAgentActivity",
       description: "Get real-time agent activity and recent actions from the XMRT ecosystem",
