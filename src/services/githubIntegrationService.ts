@@ -189,16 +189,13 @@ class GitHubIntegrationService {
    * Get file content from repository
    * @param path - File path in repository
    * @param repo - Repository name (optional)
-   * @returns File content (base64 decoded automatically)
+   * @returns File content with user-friendly summary
    */
-  async getFileContent(path: string, repo?: string): Promise<GitHubFileContent> {
+  async getFileContent(path: string, repo?: string): Promise<GitHubFileContent & { userFriendly?: any }> {
     const result = await this.callGitHubFunction('get_file_content', { repo, path });
     
-    // Decode base64 content if present
-    if (result.content && result.encoding === 'base64') {
-      result.decodedContent = atob(result.content.replace(/\n/g, ''));
-    }
-    
+    // The edge function already handles decoding and formatting
+    // Return the formatted result directly
     return result;
   }
 
@@ -206,7 +203,7 @@ class GitHubIntegrationService {
    * Commit a file to repository (create or update)
    * @param path - File path in repository
    * @param message - Commit message
-   * @param content - File content (will be base64 encoded automatically)
+   * @param content - File content (will be base64 encoded by edge function)
    * @param branch - Branch name (default: main)
    * @param sha - File SHA for updates (required when updating existing file)
    * @param repo - Repository name (optional)
@@ -219,14 +216,12 @@ class GitHubIntegrationService {
     sha?: string,
     repo?: string
   ): Promise<any> {
-    // Base64 encode content
-    const encodedContent = btoa(content);
-    
+    // Edge function handles encoding and formatting
     return this.callGitHubFunction('commit_file', {
       repo,
       path,
       message,
-      content: encodedContent,
+      content, // Send raw content, edge function will encode
       branch,
       sha
     });

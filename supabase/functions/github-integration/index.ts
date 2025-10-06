@@ -295,10 +295,29 @@ serve(async (req) => {
         
         const fileData = await fileResult.json();
         
-        // Decode base64 content for easier reading
+        // Decode base64 content and format for user display
         if (fileData.content && fileData.encoding === 'base64') {
           try {
-            fileData.decodedContent = atob(fileData.content.replace(/\n/g, ''));
+            const decodedContent = atob(fileData.content.replace(/\n/g, ''));
+            const lines = decodedContent.split('\n').length;
+            const sizeKB = (decodedContent.length / 1024).toFixed(2);
+            
+            // Return user-friendly summary instead of raw data
+            fileData.userFriendly = {
+              summary: `📄 Retrieved file: **${fileData.name}**\n\n` +
+                       `📁 Path: \`${fileData.path}\`\n` +
+                       `📏 Size: ${sizeKB} KB (${lines} lines)\n` +
+                       `🔗 [View on GitHub](${fileData.html_url || `https://github.com/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/blob/${data.branch || 'main'}/${data.path}`})`,
+              content: decodedContent,
+              metadata: {
+                lines,
+                sizeKB,
+                path: fileData.path,
+                name: fileData.name
+              }
+            };
+            // Keep raw content for programmatic access
+            fileData.decodedContent = decodedContent;
           } catch (e) {
             console.warn('Failed to decode file content:', e);
           }
@@ -310,6 +329,7 @@ serve(async (req) => {
       case 'commit_file':
         // First, try to get the existing file to get its SHA (for updates)
         let fileSha = data.sha;
+        let isUpdate = false;
         
         if (!fileSha) {
           try {
@@ -321,6 +341,7 @@ serve(async (req) => {
             if (existingFile.ok) {
               const existingData = await existingFile.json();
               fileSha = existingData.sha;
+              isUpdate = true;
               console.log(`📝 Updating existing file: ${data.path} (SHA: ${fileSha})`);
             } else {
               console.log(`📝 Creating new file: ${data.path}`);
@@ -349,6 +370,31 @@ serve(async (req) => {
             body: JSON.stringify(commitBody),
           }
         );
+        
+        // Add user-friendly formatting to commit result
+        if (result.ok) {
+          const commitData = await result.json();
+          const contentLines = data.content.split('\n').length;
+          const contentSize = (data.content.length / 1024).toFixed(2);
+          
+          commitData.userFriendly = {
+            summary: `✅ **${isUpdate ? 'Updated' : 'Created'} file successfully**\n\n` +
+                     `📄 File: \`${data.path}\`\n` +
+                     `📏 Size: ${contentSize} KB (${contentLines} lines)\n` +
+                     `🌿 Branch: \`${data.branch || 'main'}\`\n` +
+                     `💬 Commit: "${data.message}"\n` +
+                     `🔗 [View commit](${commitData.commit?.html_url || `https://github.com/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}`})`,
+            action: isUpdate ? 'updated' : 'created',
+            metadata: {
+              path: data.path,
+              branch: data.branch || 'main',
+              lines: contentLines,
+              sizeKB: contentSize
+            }
+          };
+          
+          result = { ok: true, json: async () => commitData };
+        }
         break;
 
       case 'search_code':
