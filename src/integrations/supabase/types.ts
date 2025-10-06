@@ -881,6 +881,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      match_knowledge_entities: {
+        Args: { match_count?: number; search_query: string }
+        Returns: {
+          confidence_score: number
+          description: string
+          entity_name: string
+          entity_type: string
+          id: string
+          metadata: Json
+        }[]
+      }
       reset_manus_tokens: {
         Args: Record<PropertyKey, never>
         Returns: undefined
