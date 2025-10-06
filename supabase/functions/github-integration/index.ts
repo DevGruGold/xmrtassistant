@@ -118,11 +118,36 @@ serve(async (req) => {
         break;
 
       case 'create_discussion':
-        if (!data || !data.repository_id || !data.category_id || !data.title || !data.body) {
+        // Step 1: Get repository ID and available discussion categories
+        const repoInfoQuery = await fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query: `
+              query {
+                repository(owner: "${GITHUB_OWNER}", name: "${data.repo || GITHUB_REPO}") {
+                  id
+                  discussionCategories(first: 20) {
+                    nodes {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            `,
+          }),
+        });
+        
+        const repoInfo = await repoInfoQuery.json();
+        console.log('📦 Repository info for discussion:', repoInfo);
+        
+        if (repoInfo.errors) {
           return new Response(
             JSON.stringify({ 
               success: false, 
-              error: 'Missing required fields for create_discussion: repository_id, category_id, title, body' 
+              error: 'Failed to fetch repository info',
+              details: repoInfo.errors
             }),
             { 
               status: 400,
@@ -130,7 +155,52 @@ serve(async (req) => {
             }
           );
         }
-        // GraphQL mutation for creating discussion
+        
+        const repository = repoInfo.data?.repository;
+        if (!repository) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: `Repository ${GITHUB_OWNER}/${data.repo || GITHUB_REPO} not found or discussions not enabled`
+            }),
+            { 
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        const repositoryId = repository.id;
+        const categories = repository.discussionCategories.nodes;
+        
+        // Step 2: Find matching category (case-insensitive match)
+        const categoryName = (data.category || 'General').toLowerCase();
+        const matchedCategory = categories.find(
+          (cat: any) => cat.name.toLowerCase() === categoryName
+        ) || categories.find(
+          (cat: any) => cat.name.toLowerCase().includes('general')
+        ) || categories[0]; // Fallback to first category
+        
+        if (!matchedCategory) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'No discussion categories available. Please enable discussions on the repository.',
+              availableCategories: categories.map((c: any) => c.name)
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        console.log(`📝 Creating discussion in category: ${matchedCategory.name} (${matchedCategory.id})`);
+        
+        // Step 3: Create the discussion with escaped strings
+        const discussionTitle = (data.title || 'Untitled Discussion').replace(/"/g, '\\"');
+        const discussionBody = (data.body || 'No description provided.').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+        
         result = await fetch('https://api.github.com/graphql', {
           method: 'POST',
           headers,
@@ -138,14 +208,18 @@ serve(async (req) => {
             query: `
               mutation {
                 createDiscussion(input: {
-                  repositoryId: "${data.repository_id}",
-                  categoryId: "${data.category_id}",
-                  title: "${data.title}",
-                  body: "${data.body}"
+                  repositoryId: "${repositoryId}",
+                  categoryId: "${matchedCategory.id}",
+                  title: "${discussionTitle}",
+                  body: "${discussionBody}"
                 }) {
                   discussion {
                     id
                     title
+                    url
+                    category {
+                      name
+                    }
                   }
                 }
               }
