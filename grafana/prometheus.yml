@@ -1,0 +1,48 @@
+# Prometheus configuration for Eliza AI monitoring
+global:
+  scrape_interval: 15s # Scrape targets every 15 seconds
+  evaluation_interval: 15s # Evaluate rules every 15 seconds
+  external_labels:
+    monitor: 'eliza-ai-monitor'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Eliza metrics endpoint
+  - job_name: 'eliza-ecosystem'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: '/functions/v1/prometheus-metrics'
+    scheme: https
+    static_configs:
+      - targets: ['vawouugtzwmejxqkeqqj.supabase.co']
+    bearer_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhd291dWd0endtZWp4cWtlcXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3Njk3MTIsImV4cCI6MjA2ODM0NTcxMn0.qtZk3zk5RMqzlPNhxCkTM6fyVQX5ULGt7nna_XOUr00'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'eliza-production'
+
+  # System health monitoring
+  - job_name: 'eliza-system-health'
+    scrape_interval: 60s
+    scrape_timeout: 15s
+    metrics_path: '/functions/v1/ecosystem-monitor'
+    scheme: https
+    static_configs:
+      - targets: ['vawouugtzwmejxqkeqqj.supabase.co']
+    bearer_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZhd291dWd0endtZWp4cWtlcXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3Njk3MTIsImV4cCI6MjA2ODM0NTcxMn0.qtZk3zk5RMqzlPNhxCkTM6fyVQX5ULGt7nna_XOUr00'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'eliza_.*'
+        action: keep
