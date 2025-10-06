@@ -101,29 +101,78 @@ serve(async (req) => {
       .eq('source', 'eliza') // Only fix Eliza's executions
       .gte('created_at', new Date(Date.now() - 86400000).toISOString()) // Last 24 hours
       .order('created_at', { ascending: false })
-      .limit(5); // Reduced from 10 to 5 to prevent overwhelming
+      .limit(5);
+    
+    // CRITICAL: Filter out unfixable errors (environment variables, missing dependencies, etc.)
+    const fixableExecutions = (failedExecutions || []).filter((exec: any) => {
+      const errorLower = (exec.error || exec.output || '').toLowerCase();
+      const codeLower = (exec.code || '').toLowerCase();
+      
+      // Don't try to fix environment variable issues - these can't be fixed with code changes
+      if (errorLower.includes('supabase_url') || errorLower.includes('supabase_key') ||
+          errorLower.includes('environment variable') || errorLower.includes('env var')) {
+        return false;
+      }
+      
+      // Don't try to fix missing system dependencies
+      if (errorLower.includes('no module named') || errorLower.includes('modulenotfounderror')) {
+        return false;
+      }
+      
+      // Don't try to fix network/API issues that are transient
+      if (errorLower.includes('connection refused') || errorLower.includes('timeout') ||
+          errorLower.includes('unreachable') || errorLower.includes('network')) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // Delete unfixable executions immediately to prevent clutter
+    const unfixableCount = (failedExecutions?.length || 0) - fixableExecutions.length;
+    if (unfixableCount > 0) {
+      const unfixableIds = (failedExecutions || [])
+        .filter((exec: any) => !fixableExecutions.includes(exec))
+        .map((exec: any) => exec.id);
+      
+      await supabase
+        .from('eliza_python_executions')
+        .delete()
+        .in('id', unfixableIds);
+      
+      console.log(`🗑️ Deleted ${unfixableCount} unfixable executions (env vars, missing deps, network issues)`);
+      
+      await supabase.from('eliza_activity_log').insert({
+        activity_type: 'code_monitoring',
+        title: '🗑️ Cleaned Up Unfixable Errors',
+        description: `Deleted ${unfixableCount} executions with unfixable errors (missing env vars, dependencies, or network issues)`,
+        status: 'completed',
+        metadata: { deleted_count: unfixableCount }
+      });
+    }
 
     if (fetchError) {
       console.error('Failed to fetch executions:', fetchError);
       throw fetchError;
     }
 
-    if (!failedExecutions || failedExecutions.length === 0) {
-      console.log('✅ No recent failed executions found - all code is working!');
+    if (fixableExecutions.length === 0) {
+      console.log('✅ No fixable executions found - all issues are environmental or already handled');
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'No failed executions to fix',
-        fixed: 0
+        message: 'No fixable executions found',
+        fixed: 0,
+        unfixable_cleaned: unfixableCount
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`🔍 Found ${failedExecutions.length} failed executions to fix`);
+    console.log(`🔍 Found ${fixableExecutions.length} fixable executions (cleaned ${unfixableCount} unfixable ones)`);
 
     const results = [];
     
-    for (const execution of failedExecutions) {
+    for (const execution of fixableExecutions) {
       console.log(`🔧 Attempting to fix execution ${execution.id}...`);
       
       // Check if this exact execution has already been attempted (successful or not)
