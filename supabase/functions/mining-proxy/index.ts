@@ -17,10 +17,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const minerAddress = '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg';
-    const apiUrl = `https://www.supportxmr.com/api/miner/${minerAddress}/stats/allWorkers`;
+    const minerAddress = Deno.env.get('MINER_WALLET_ADDRESS') || '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg';
+    const apiUrl = `https://supportxmr.com/api/miner/${minerAddress}/stats`;
     
-    console.log('Fetching real mining stats from SupportXMR:', apiUrl);
+    console.log('Fetching mining stats from SupportXMR:', apiUrl);
+    console.log('Using miner address:', minerAddress);
     
     const response = await fetch(apiUrl, {
       headers: {
@@ -36,13 +37,16 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log('Mining stats fetched successfully');
-    console.log('API Response structure:', JSON.stringify(data, null, 2));
+    console.log('Full API Response:', JSON.stringify(data, null, 2));
 
-    // Register/update individual workers
+    // The SupportXMR API returns data in format: { "amtDue": ..., "amtPaid": ..., "hash": ..., etc. }
+    // Not in a nested structure. Let's adapt to whatever structure comes back.
+    
+    // Register/update individual workers from perWorkerStats if it exists
     const workers = [];
     if (data.perWorkerStats && Array.isArray(data.perWorkerStats)) {
       for (const worker of data.perWorkerStats) {
-        const workerId = worker.identifier || worker.id || 'unknown';
+        const workerId = worker.identifier || worker.identifer || worker.id || 'unknown';
         
         // Register or update worker in database
         const { error: upsertError } = await supabase
@@ -56,7 +60,7 @@ serve(async (req) => {
               hash_rate: worker.hash || 0,
               valid_shares: worker.validShares || 0,
               invalid_shares: worker.invalidShares || 0,
-              last_hash_time: worker.lastHash || 0,
+              last_hash_time: worker.lastHash || worker.lts || 0,
             }
           }, {
             onConflict: 'worker_id'
@@ -73,7 +77,7 @@ serve(async (req) => {
           hash: worker.hash || 0,
           validShares: worker.validShares || 0,
           invalidShares: worker.invalidShares || 0,
-          lastHash: worker.lastHash || 0,
+          lastHash: worker.lastHash || worker.lts || 0,
         });
       }
     }
