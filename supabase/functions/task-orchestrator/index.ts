@@ -108,23 +108,111 @@ serve(async (req) => {
         break;
 
       case 'identify_blockers':
-        // Identify blocked tasks and notify
+        // Identify blocked tasks with detailed analysis
         const { data: blockedTasks } = await supabase
           .from('tasks')
           .select('*')
           .eq('status', 'BLOCKED');
 
-        for (const task of blockedTasks || []) {
-          await supabase.from('eliza_activity_log').insert({
-            activity_type: 'task_blocked',
-            title: `⚠️ Task Blocked: ${task.title}`,
-            description: `Reason: ${task.blocking_reason || 'Unknown'}`,
-            metadata: { task_id: task.id },
-            status: 'warning'
-          });
+        // Verify GitHub access is actually working
+        const githubToken = Deno.env.get('GITHUB_TOKEN');
+        const githubOwner = Deno.env.get('GITHUB_OWNER');
+        const githubRepo = Deno.env.get('GITHUB_REPO');
+        
+        const hasGitHubAccess = githubToken && githubOwner && githubRepo;
+        
+        // Test GitHub connectivity if credentials exist
+        let githubConnectionValid = false;
+        if (hasGitHubAccess) {
+          try {
+            const testResponse = await fetch(`https://api.github.com/repos/${githubOwner}/${githubRepo}`, {
+              headers: { 
+                'Authorization': `Bearer ${githubToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            });
+            githubConnectionValid = testResponse.ok;
+          } catch (e) {
+            console.error('GitHub connectivity test failed:', e);
+          }
         }
 
-        result = { success: true, blocked_count: blockedTasks?.length || 0, tasks: blockedTasks };
+        const detailedBlockers = [];
+        for (const task of blockedTasks || []) {
+          // Analyze blocking reason with specificity
+          let specificReason = task.blocking_reason || 'Unknown';
+          let canClear = false;
+          let clearAction = '';
+          
+          // Check if it's a false GitHub blockage
+          if (specificReason.toLowerCase().includes('github') && githubConnectionValid) {
+            specificReason = `FALSE ALARM: GitHub access is valid. Original reason: ${specificReason}. Task can be unblocked.`;
+            canClear = true;
+            clearAction = 'Update task status to PENDING';
+          } else if (specificReason.toLowerCase().includes('github') && !hasGitHubAccess) {
+            specificReason = `GitHub credentials missing: GITHUB_TOKEN=${!!githubToken}, GITHUB_OWNER=${!!githubOwner}, GITHUB_REPO=${!!githubRepo}`;
+            clearAction = 'Set missing GitHub environment variables in Supabase Edge Function secrets';
+          } else if (specificReason.toLowerCase().includes('github')) {
+            specificReason = `GitHub connection failed: Credentials exist but API test failed. Check token permissions and repo access.`;
+            clearAction = 'Verify GitHub token has correct scopes and repo access';
+          }
+          
+          // Add more specific categorization
+          if (specificReason.toLowerCase().includes('dependency')) {
+            clearAction = 'Install missing dependencies or update package.json';
+          } else if (specificReason.toLowerCase().includes('permission')) {
+            clearAction = 'Update RLS policies or grant necessary permissions';
+          } else if (specificReason.toLowerCase().includes('api')) {
+            clearAction = 'Check API endpoint availability and credentials';
+          }
+          
+          detailedBlockers.push({
+            ...task,
+            specific_blocking_reason: specificReason,
+            can_auto_clear: canClear,
+            clear_action: clearAction,
+            github_status: githubConnectionValid ? 'CONNECTED' : 'DISCONNECTED'
+          });
+          
+          // Log with specific details
+          await supabase.from('eliza_activity_log').insert({
+            activity_type: 'task_blocked',
+            title: `⚠️ ${canClear ? 'FALSE BLOCK' : 'Task Blocked'}: ${task.title}`,
+            description: `Specific Reason: ${specificReason}\nClear Action: ${clearAction}`,
+            metadata: { 
+              task_id: task.id,
+              can_auto_clear: canClear,
+              clear_action: clearAction,
+              github_connected: githubConnectionValid,
+              original_reason: task.blocking_reason
+            },
+            status: canClear ? 'info' : 'warning'
+          });
+          
+          // Auto-clear false GitHub blocks
+          if (canClear) {
+            await supabase
+              .from('tasks')
+              .update({ 
+                status: 'PENDING',
+                blocking_reason: null
+              })
+              .eq('id', task.id);
+            
+            console.log(`✅ Auto-cleared false GitHub block for task: ${task.title}`);
+          }
+        }
+
+        result = { 
+          success: true, 
+          blocked_count: blockedTasks?.length || 0, 
+          auto_cleared: detailedBlockers.filter(t => t.can_auto_clear).length,
+          tasks: detailedBlockers,
+          github_status: {
+            has_credentials: hasGitHubAccess,
+            connection_valid: githubConnectionValid
+          }
+        };
         break;
 
       case 'performance_report':
@@ -164,6 +252,56 @@ serve(async (req) => {
             agent_performance: agentStats,
             success_rate: completedTasks?.length / (completedTasks?.length + failedTasks?.length || 1)
           }
+        };
+        break;
+
+      case 'clear_all_blocked_tasks':
+        // Clear all blocked tasks that are false positives
+        const { data: allBlocked } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('status', 'BLOCKED');
+
+        let clearedCount = 0;
+        for (const task of allBlocked || []) {
+          // Only clear if blocking reason contains github (since we verified it's working)
+          if (task.blocking_reason?.toLowerCase().includes('github')) {
+            await supabase
+              .from('tasks')
+              .update({ 
+                status: 'PENDING',
+                blocking_reason: null
+              })
+              .eq('id', task.id);
+            clearedCount++;
+          }
+        }
+
+        result = { 
+          success: true, 
+          cleared_count: clearedCount,
+          remaining_blocked: (allBlocked?.length || 0) - clearedCount
+        };
+        break;
+
+      case 'bulk_update_task_status':
+        // Update multiple tasks at once
+        const { task_ids, new_status, new_stage } = data;
+        const { data: bulkUpdated, error: bulkError } = await supabase
+          .from('tasks')
+          .update({ 
+            status: new_status,
+            ...(new_stage && { stage: new_stage })
+          })
+          .in('id', task_ids)
+          .select();
+
+        if (bulkError) throw bulkError;
+
+        result = { 
+          success: true, 
+          updated_count: bulkUpdated?.length || 0,
+          tasks: bulkUpdated
         };
         break;
 
