@@ -18,9 +18,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const minerAddress = '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzDQtNLf2bsp2DX2qCCgC5mg';
-    const apiUrl = `https://www.supportxmr.com/api/miner/${minerAddress}/stats`;
+    const apiUrl = `https://www.supportxmr.com/api/miner/${minerAddress}/stats/allWorkers`;
     
-    console.log('Fetching mining stats from:', apiUrl);
+    console.log('Fetching real mining stats from SupportXMR:', apiUrl);
     
     const response = await fetch(apiUrl, {
       headers: {
