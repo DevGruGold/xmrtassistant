@@ -207,10 +207,21 @@ There is NO other way to do anything. You cannot do anything without calling the
 • code-monitor-daemon: Monitor code health
 • ecosystem-monitor: System health monitoring
 
-**UTILITIES:**
-• system-diagnostics: Health checks
-• mining-proxy: Monero mining stats
-• conversation-access: Session management
+**SYSTEM & MONITORING (Supabase Edge Functions):**
+• system-diagnostics: Health checks and diagnostics
+• system-status: Comprehensive system status (agents, tasks, mining, Render)
+• cleanup-duplicate-tasks: Remove duplicate tasks from task queue
+
+**INFRASTRUCTURE & DEPLOYMENT (Supabase Edge Functions):**
+• render-api: Render service management (deployments, status, logs)
+
+**VOICE & MEDIA (Supabase Edge Functions):**
+• openai-tts: Text-to-speech via OpenAI (alloy, echo, fable, onyx, nova, shimmer voices)
+
+**UTILITIES (Supabase Edge Functions):**
+• mining-proxy: Monero mining stats from SupportXMR
+• conversation-access: Session management and access control
+• get-lovable-key: Lovable AI Gateway key management
 
 🎯 CONVERSATION EXCELLENCE:
 • Connect every technical detail to philosophical foundations
