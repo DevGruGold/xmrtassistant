@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 import { ecosystemAPI, type EcosystemHealth } from './ecosystemAPIService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MiningStats {
   hash: number;
@@ -654,7 +655,347 @@ Remember: Only Python standard library is available (urllib, json, http.client, 
     }
   }, []);
 
-  // Enhanced client tools configuration
+  // ═══════════════════════════════════════════════════════════
+  // AGENT MANAGER & TASK ORCHESTRATION TOOLS
+  // ═══════════════════════════════════════════════════════════
+  const listAgents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { action: 'list_agents' }
+      });
+      
+      if (error) throw error;
+      
+      const agents = data.agents || [];
+      if (agents.length === 0) {
+        return `🤖 **No agents currently deployed.**\n\nYou can spawn specialized agents for different tasks using the spawnAgent tool.`;
+      }
+      
+      let response = `🤖 **XMRT Agent Team Status:**\n\n`;
+      agents.forEach((agent: any) => {
+        const statusIcon = agent.status === 'IDLE' ? '🟢' : '🔴';
+        response += `${statusIcon} **${agent.name}** (${agent.role})\n`;
+        response += `   Status: ${agent.status}\n`;
+        response += `   Skills: ${agent.skills.join(', ')}\n`;
+        response += `   ID: ${agent.id}\n\n`;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('List agents error:', error);
+      return `⚠️ Failed to retrieve agent list: ${error.message}`;
+    }
+  }, []);
+
+  const spawnAgent = useCallback(async (parameters: { name: string; role: string; skills: string[] }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'spawn_agent',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ **Agent spawned successfully!**\n\n🤖 Name: ${parameters.name}\n🎭 Role: ${parameters.role}\n🛠️ Skills: ${parameters.skills.join(', ')}\n\nAgent ID: ${data.agent.id}\n\nThe new agent is now IDLE and ready for task assignment.`;
+    } catch (error) {
+      console.error('Spawn agent error:', error);
+      return `⚠️ Failed to spawn agent: ${error.message}`;
+    }
+  }, []);
+
+  const updateAgentStatus = useCallback(async (parameters: { agentId: string; status: 'IDLE' | 'BUSY' }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'update_agent_status',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Agent status updated to ${parameters.status}`;
+    } catch (error) {
+      console.error('Update agent status error:', error);
+      return `⚠️ Failed to update agent status: ${error.message}`;
+    }
+  }, []);
+
+  const assignTask = useCallback(async (parameters: { agentId: string; title: string; description: string; repo: string; category: string; priority?: number }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'assign_task',
+          data: {
+            ...parameters,
+            priority: parameters.priority || 5
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ **Task assigned successfully!**\n\n📋 Title: ${parameters.title}\n📦 Repository: ${parameters.repo}\n🏷️ Category: ${parameters.category}\n🔢 Priority: ${parameters.priority || 5}/10\n👤 Assigned to: ${parameters.agentId}\n\nTask ID: ${data.task.id}\nTask Status: ${data.task.status}`;
+    } catch (error) {
+      console.error('Assign task error:', error);
+      return `⚠️ Failed to assign task: ${error.message}`;
+    }
+  }, []);
+
+  const listTasks = useCallback(async (parameters?: { status?: string; agentId?: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'list_tasks',
+          data: parameters || {}
+        }
+      });
+      
+      if (error) throw error;
+      
+      const tasks = data.tasks || [];
+      if (tasks.length === 0) {
+        return `📋 No tasks found${parameters?.status ? ` with status ${parameters.status}` : ''}.`;
+      }
+      
+      let response = `📋 **Task Queue** (${tasks.length} tasks):\n\n`;
+      tasks.forEach((task: any) => {
+        const statusIcon = task.status === 'COMPLETED' ? '✅' : task.status === 'FAILED' ? '❌' : task.status === 'BLOCKED' ? '🚫' : '🔄';
+        response += `${statusIcon} **${task.title}**\n`;
+        response += `   Status: ${task.status} | Stage: ${task.stage}\n`;
+        response += `   Priority: ${task.priority}/10 | Repo: ${task.repo}\n`;
+        response += `   Assignee: ${task.assignee_agent_id || 'Unassigned'}\n`;
+        response += `   ID: ${task.id}\n\n`;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('List tasks error:', error);
+      return `⚠️ Failed to retrieve tasks: ${error.message}`;
+    }
+  }, []);
+
+  const updateTaskStatus = useCallback(async (parameters: { taskId: string; status: string; stage?: string; blockingReason?: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'update_task_status',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Task ${parameters.taskId} updated to ${parameters.status}${parameters.stage ? ` (${parameters.stage})` : ''}`;
+    } catch (error) {
+      console.error('Update task status error:', error);
+      return `⚠️ Failed to update task: ${error.message}`;
+    }
+  }, []);
+
+  const reassignTask = useCallback(async (parameters: { taskId: string; newAgentId: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'reassign_task',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Task reassigned to ${parameters.newAgentId}`;
+    } catch (error) {
+      console.error('Reassign task error:', error);
+      return `⚠️ Failed to reassign task: ${error.message}`;
+    }
+  }, []);
+
+  const deleteTask = useCallback(async (parameters: { taskId: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'delete_task',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Task ${parameters.taskId} deleted successfully`;
+    } catch (error) {
+      console.error('Delete task error:', error);
+      return `⚠️ Failed to delete task: ${error.message}`;
+    }
+  }, []);
+
+  const getAgentWorkload = useCallback(async (parameters: { agentId: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'get_agent_workload',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      const tasks = data.tasks || [];
+      return `📊 **Agent Workload:**\n\nAgent ${parameters.agentId} has ${tasks.length} active tasks:\n\n${tasks.map((t: any) => `• ${t.title} (${t.status})`).join('\n')}`;
+    } catch (error) {
+      console.error('Get agent workload error:', error);
+      return `⚠️ Failed to get workload: ${error.message}`;
+    }
+  }, []);
+
+  const autoAssignTasks = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('task-orchestrator', {
+        body: { action: 'auto_assign_tasks' }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ **Auto-assignment complete:**\n\n${data.assignments} tasks automatically assigned to idle agents by priority.\n\nDetails: ${JSON.stringify(data.details, null, 2)}`;
+    } catch (error) {
+      console.error('Auto assign error:', error);
+      return `⚠️ Failed to auto-assign tasks: ${error.message}`;
+    }
+  }, []);
+
+  const rebalanceWorkload = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('task-orchestrator', {
+        body: { action: 'rebalance_workload' }
+      });
+      
+      if (error) throw error;
+      
+      let response = `⚖️ **Workload Analysis:**\n\n`;
+      data.workloads.forEach((w: any) => {
+        response += `${w.agent_name}: ${w.active_tasks} tasks\n`;
+      });
+      response += `\nImbalance Score: ${data.imbalance}\n`;
+      response += data.imbalance > 3 ? `\n⚠️ Consider reassigning tasks for better balance.` : `\n✅ Workload is well balanced.`;
+      
+      return response;
+    } catch (error) {
+      console.error('Rebalance error:', error);
+      return `⚠️ Failed to analyze workload: ${error.message}`;
+    }
+  }, []);
+
+  const identifyBlockers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('task-orchestrator', {
+        body: { action: 'identify_blockers' }
+      });
+      
+      if (error) throw error;
+      
+      if (data.blocked_count === 0) {
+        return `✅ No blocked tasks found. All systems flowing smoothly!`;
+      }
+      
+      let response = `🚫 **${data.blocked_count} Blocked Tasks:**\n\n`;
+      data.tasks.forEach((task: any) => {
+        response += `• ${task.title}\n  Reason: ${task.blocking_reason || 'Unknown'}\n  ID: ${task.id}\n\n`;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Identify blockers error:', error);
+      return `⚠️ Failed to identify blockers: ${error.message}`;
+    }
+  }, []);
+
+  const getPerformanceReport = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('task-orchestrator', {
+        body: { action: 'performance_report' }
+      });
+      
+      if (error) throw error;
+      
+      const { metrics } = data;
+      let response = `📈 **24-Hour Performance Report:**\n\n`;
+      response += `✅ Completed: ${metrics.total_completed}\n`;
+      response += `❌ Failed: ${metrics.total_failed}\n`;
+      response += `📊 Success Rate: ${(metrics.success_rate * 100).toFixed(1)}%\n\n`;
+      
+      response += `**Agent Performance:**\n`;
+      Object.entries(metrics.agent_performance).forEach(([agentId, stats]: [string, any]) => {
+        response += `${agentId}: ${stats.completed} completed, ${stats.failed} failed\n`;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Performance report error:', error);
+      return `⚠️ Failed to generate report: ${error.message}`;
+    }
+  }, []);
+
+  const logAgentDecision = useCallback(async (parameters: { agentId: string; decision: string; rationale: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'log_decision',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Decision logged for ${parameters.agentId}`;
+    } catch (error) {
+      console.error('Log decision error:', error);
+      return `⚠️ Failed to log decision: ${error.message}`;
+    }
+  }, []);
+
+  const updateTaskDetails = useCallback(async (parameters: { taskId: string; priority?: number; description?: string; stage?: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'update_task_details',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      return `✅ Task details updated for ${parameters.taskId}`;
+    } catch (error) {
+      console.error('Update task details error:', error);
+      return `⚠️ Failed to update task details: ${error.message}`;
+    }
+  }, []);
+
+  const getTaskDetails = useCallback(async (parameters: { taskId: string }) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-manager', {
+        body: { 
+          action: 'get_task_details',
+          data: parameters
+        }
+      });
+      
+      if (error) throw error;
+      
+      const task = data.task;
+      return `📋 **Task Details:**\n\nTitle: ${task.title}\nDescription: ${task.description}\nStatus: ${task.status}\nStage: ${task.stage}\nPriority: ${task.priority}/10\nRepository: ${task.repo}\nCategory: ${task.category}\nAssignee: ${task.assignee_agent_id || 'Unassigned'}\nCreated: ${new Date(task.created_at).toLocaleString()}\nUpdated: ${new Date(task.updated_at).toLocaleString()}`;
+    } catch (error) {
+      console.error('Get task details error:', error);
+      return `⚠️ Failed to get task details: ${error.message}`;
+    }
+  }, []);
+  // ═══════════════════════════════════════════════════════════
+  // END AGENT MANAGER & TASK ORCHESTRATION TOOLS
+  // ═══════════════════════════════════════════════════════════
+
+  // Enhanced client tools configuration with agent management
   const clientTools = {
     executePythonCode,
     getMiningStats,
@@ -674,7 +1015,24 @@ Remember: Only Python standard library is available (urllib, json, http.client, 
     getSystemMetrics,
     getAgentActivity,
     performHealthCheck,
-    getWebhookStatus
+    getWebhookStatus,
+    // Agent & Task Management
+    listAgents,
+    spawnAgent,
+    updateAgentStatus,
+    assignTask,
+    listTasks,
+    updateTaskStatus,
+    reassignTask,
+    deleteTask,
+    getAgentWorkload,
+    autoAssignTasks,
+    rebalanceWorkload,
+    identifyBlockers,
+    getPerformanceReport,
+    logAgentDecision,
+    updateTaskDetails,
+    getTaskDetails
   };
 
   return {
