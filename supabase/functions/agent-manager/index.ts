@@ -316,7 +316,7 @@ serve(async (req) => {
         break;
 
       case 'update_agent_skills':
-        const { data: updatedAgent, error: updateSkillsError } = await supabase
+        const { data: agentWithUpdatedSkills, error: updateSkillsError } = await supabase
           .from('agents')
           .update({ skills: data.skills })
           .eq('id', data.agent_id)
@@ -324,7 +324,7 @@ serve(async (req) => {
           .single();
         
         if (updateSkillsError) throw updateSkillsError;
-        result = { success: true, agent: updatedAgent };
+        result = { success: true, agent: agentWithUpdatedSkills };
         break;
 
       case 'update_agent_role':
