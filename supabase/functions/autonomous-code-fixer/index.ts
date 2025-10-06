@@ -18,14 +18,36 @@ serve(async (req) => {
 
     console.log('🤖 Autonomous Code Fixer - Starting scan for failed executions...');
 
+    // Check if we've been called too frequently (circuit breaker)
+    const { data: recentRuns } = await supabase
+      .from('eliza_activity_log')
+      .select('created_at')
+      .eq('activity_type', 'code_monitoring')
+      .gte('created_at', new Date(Date.now() - 60000).toISOString()) // Last 1 minute
+      .order('created_at', { ascending: false });
+
+    if (recentRuns && recentRuns.length > 5) {
+      console.log('⏸️ Circuit breaker triggered - too many runs in the last minute. Pausing.');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Circuit breaker active - pausing to prevent runaway loop',
+        fixed: 0,
+        circuit_breaker: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Find all failed Python executions that haven't been fixed yet
+    // Only look at failures from the last 24 hours to avoid reprocessing ancient failures
     const { data: failedExecutions, error: fetchError } = await supabase
       .from('eliza_python_executions')
       .select('*')
       .eq('exit_code', 1)
       .eq('source', 'eliza') // Only fix Eliza's executions
+      .gte('created_at', new Date(Date.now() - 86400000).toISOString()) // Last 24 hours
       .order('created_at', { ascending: false })
-      .limit(10); // Process up to 10 at a time
+      .limit(5); // Reduced from 10 to 5 to prevent overwhelming
 
     if (fetchError) {
       console.error('Failed to fetch executions:', fetchError);
@@ -33,7 +55,7 @@ serve(async (req) => {
     }
 
     if (!failedExecutions || failedExecutions.length === 0) {
-      console.log('✅ No failed executions found - all code is working!');
+      console.log('✅ No recent failed executions found - all code is working!');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No failed executions to fix',
@@ -50,18 +72,24 @@ serve(async (req) => {
     for (const execution of failedExecutions) {
       console.log(`🔧 Attempting to fix execution ${execution.id}...`);
       
-      // Check if this execution has already been fixed
-      const { data: existingFix } = await supabase
-        .from('eliza_python_executions')
+      // Check if this exact execution has already been attempted (successful or not)
+      // Look for any fix attempt in the last hour to prevent infinite retries
+      const { data: recentFixAttempts } = await supabase
+        .from('eliza_activity_log')
         .select('id')
-        .eq('source', 'python-fixer-agent')
-        .eq('purpose', `Fixed: ${execution.purpose || 'Unknown'}`)
-        .eq('exit_code', 0)
-        .gte('created_at', execution.created_at)
-        .single();
+        .eq('activity_type', 'python_fix')
+        .contains('metadata', { original_execution_id: execution.id })
+        .gte('created_at', new Date(Date.now() - 3600000).toISOString())
+        .limit(1);
 
-      if (existingFix) {
-        console.log(`✅ Execution ${execution.id} already fixed, skipping`);
+      if (recentFixAttempts && recentFixAttempts.length > 0) {
+        console.log(`⏭️ Execution ${execution.id} already attempted in the last hour, skipping`);
+        results.push({
+          execution_id: execution.id,
+          success: false,
+          error: 'Recently attempted',
+          skipped: true
+        });
         continue;
       }
 
@@ -116,8 +144,8 @@ serve(async (req) => {
         });
       }
 
-      // Small delay to avoid overwhelming the system
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Longer delay between attempts to avoid overwhelming
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     const successCount = results.filter(r => r.success).length;
