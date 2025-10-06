@@ -29,13 +29,17 @@ The public Piston API only supports standard Python libraries. By self-hosting, 
    pandas
    numpy
    scipy
+   statsmodels
    requests
    beautifulsoup4
+   httpx
    lxml
    scikit-learn
    loguru
    networkx
    pillow
+   msgpack
+   aiohttp
    ```
 
 3. **Create Dockerfile for Custom Build**
@@ -48,10 +52,10 @@ The public Piston API only supports standard Python libraries. By self-hosting, 
    RUN apt-get update && apt-get install -y python3-pip
 
    # Install data science and ML packages
-   RUN pip3 install pandas numpy scipy matplotlib seaborn \
-       requests beautifulsoup4 lxml \
+   RUN pip3 install pandas numpy scipy statsmodels matplotlib seaborn \
+       requests beautifulsoup4 httpx lxml \
        scikit-learn \
-       loguru networkx pillow
+       loguru networkx pillow msgpack aiohttp
 
    # For lightweight ML inference (optional - increases image size)
    # RUN pip3 install tensorflow-cpu torch torchvision --index-url https://download.pytorch.org/whl/cpu
