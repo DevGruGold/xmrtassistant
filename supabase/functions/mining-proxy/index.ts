@@ -18,7 +18,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const minerAddress = Deno.env.get('MINER_WALLET_ADDRESS') || '46UxNFuGM2E3UwmZWWJicaRPoRwqwW4byQkaTHkX8yPcVihp91qAVtSFipWUGJJUyTXgzSqxzDQtNLf2bsp2DX2qCCgC5mg';
-    const apiUrl = `https://supportxmr.com/api/miner/${minerAddress}/stats`;
+    const apiUrl = `https://www.supportxmr.com/api/miner/${minerAddress}/stats/`;
     
     console.log('Fetching mining stats from SupportXMR:', apiUrl);
     console.log('Using miner address:', minerAddress);
