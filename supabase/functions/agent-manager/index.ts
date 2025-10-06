@@ -24,8 +24,15 @@ serve(async (req) => {
           .select('*')
           .order('created_at', { ascending: false });
         
+        console.log('🔍 [agent-manager] list_agents - DB query result:', {
+          agentsCount: agents?.length || 0,
+          agents: agents,
+          error: listError
+        });
+        
         if (listError) throw listError;
         result = agents;
+        console.log('🔍 [agent-manager] list_agents - Setting result:', result);
         break;
 
       case 'spawn_agent':
@@ -488,8 +495,16 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
 
+    const responsePayload = { success: true, data: result };
+    console.log('🔍 [agent-manager] Final response payload:', {
+      action,
+      dataType: Array.isArray(result) ? 'array' : typeof result,
+      dataLength: Array.isArray(result) ? result.length : 'N/A',
+      payload: responsePayload
+    });
+    
     return new Response(
-      JSON.stringify({ success: true, data: result }),
+      JSON.stringify(responsePayload),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

@@ -837,8 +837,25 @@ ${edgeFunctionsInfo}
         }
         
         // Call the appropriate edge function
+        console.log('🔍 [lovable-chat] Invoking edge function:', { 
+          targetFunction, 
+          action, 
+          toolName: toolCall.function.name 
+        });
+        
         const { data: result, error: agentError } = await supabase.functions.invoke(targetFunction, {
           body: { action, data }
+        });
+        
+        console.log('🔍 [lovable-chat] Edge function response:', {
+          toolName: toolCall.function.name,
+          resultType: typeof result,
+          resultKeys: result ? Object.keys(result) : null,
+          success: result?.success,
+          dataType: result?.data ? (Array.isArray(result.data) ? 'array' : typeof result.data) : 'null',
+          dataLength: Array.isArray(result?.data) ? result.data.length : 'N/A',
+          fullResult: result,
+          error: agentError
         });
         
         if (agentError || !result?.success) {
@@ -861,6 +878,13 @@ ${edgeFunctionsInfo}
           case 'listAgents':
             // agent-manager returns { success: true, data: agents_array }
             const agents = result.data || [];
+            console.log('🔍 [lovable-chat] Processing listAgents:', {
+              resultData: result.data,
+              agentsExtracted: agents,
+              agentsLength: agents.length,
+              agentsType: Array.isArray(agents) ? 'array' : typeof agents
+            });
+            
             responseText = `🤖 **Agent Status Report:**\n\n`;
             if (agents.length === 0) {
               responseText += 'No agents currently deployed.';
@@ -872,6 +896,7 @@ ${edgeFunctionsInfo}
                 responseText += `   Skills: ${Array.isArray(agent.skills) ? agent.skills.join(', ') : 'None'}\n\n`;
               });
             }
+            console.log('🔍 [lovable-chat] Final responseText for listAgents:', responseText);
             break;
             
           case 'listTasks':
