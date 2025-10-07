@@ -49,6 +49,9 @@ verify_jwt = false
 [functions.autonomous-code-fixer]
 verify_jwt = false
 
+[functions.autonomous-decision-engine]
+verify_jwt = false
+
 [functions.cleanup-duplicate-tasks]
 verify_jwt = false
 

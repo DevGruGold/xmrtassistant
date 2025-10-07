@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, data } = await req.json();
+    const { action, data, autonomous = false } = await req.json();
     console.log(`Agent Manager - Action: ${action}`, data);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -103,6 +103,185 @@ serve(async (req) => {
         if (updateError) throw updateError;
         result = updatedAgent;
         break;
+
+      case 'execute_autonomous_workflow':
+        // NEW: Multi-step autonomous task execution
+        const { workflow_steps, agent_id, context } = data;
+        
+        console.log(`🤖 Starting autonomous workflow for agent ${agent_id} with ${workflow_steps.length} steps`);
+        
+        const workflowResults = [];
+        let currentContext = context || {};
+        
+        for (let i = 0; i < workflow_steps.length; i++) {
+          const step = workflow_steps[i];
+          console.log(`📍 Executing step ${i + 1}/${workflow_steps.length}: ${step.action}`);
+          
+          try {
+            let stepResult;
+            
+            // Execute each step based on its action type
+            switch (step.action) {
+              case 'analyze':
+                // Agent analyzes data and makes decisions
+                stepResult = {
+                  analysis: step.data,
+                  decision: step.expected_outcome,
+                  timestamp: new Date().toISOString()
+                };
+                break;
+                
+              case 'execute_python':
+                // Execute Python code through python-executor
+                const pythonResponse = await fetch(`${supabaseUrl}/functions/v1/python-executor`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    code: step.code,
+                    source: 'autonomous_agent',
+                    purpose: step.purpose || `Workflow step ${i + 1}`
+                  })
+                });
+                stepResult = await pythonResponse.json();
+                break;
+                
+              case 'github_operation':
+                // Execute GitHub operations
+                const githubResponse = await fetch(`${supabaseUrl}/functions/v1/github-integration`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${supabaseServiceKey}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    action: step.github_action,
+                    ...step.github_data
+                  })
+                });
+                stepResult = await githubResponse.json();
+                break;
+                
+              case 'create_subtask':
+                // Create and assign subtask to another agent
+                const { data: subtask } = await supabase
+                  .from('tasks')
+                  .insert({
+                    id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    title: step.task_title,
+                    description: step.task_description,
+                    repo: step.repo || 'XMRT-Ecosystem',
+                    category: step.category || 'autonomous',
+                    stage: 'PLANNING',
+                    status: 'PENDING',
+                    priority: step.priority || 5,
+                    assignee_agent_id: step.assigned_agent || null
+                  })
+                  .select()
+                  .single();
+                  
+                stepResult = { task: subtask, assigned: true };
+                break;
+                
+              case 'query_knowledge':
+                // Query knowledge base or memory contexts
+                const { data: knowledge } = await supabase
+                  .from('knowledge_entities')
+                  .select('*')
+                  .or(step.query_filters)
+                  .limit(10);
+                  
+                stepResult = { knowledge_items: knowledge };
+                break;
+                
+              case 'log_decision':
+                // Log autonomous decision
+                const { data: decision } = await supabase
+                  .from('decisions')
+                  .insert({
+                    id: `decision-${Date.now()}`,
+                    agent_id: agent_id,
+                    decision: step.decision,
+                    rationale: step.rationale
+                  })
+                  .select()
+                  .single();
+                  
+                stepResult = { decision };
+                break;
+                
+              default:
+                stepResult = { status: 'skipped', reason: 'Unknown action type' };
+            }
+            
+            // Store step result and update context
+            workflowResults.push({
+              step: i + 1,
+              action: step.action,
+              result: stepResult,
+              status: 'completed',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Update context with step results for next steps
+            currentContext = {
+              ...currentContext,
+              [`step_${i + 1}_result`]: stepResult
+            };
+            
+            // Log activity
+            await supabase.from('eliza_activity_log').insert({
+              activity_type: 'autonomous_step',
+              title: `Autonomous Step ${i + 1}: ${step.action}`,
+              description: `Agent ${agent_id} completed workflow step`,
+              metadata: {
+                step: i + 1,
+                action: step.action,
+                result: stepResult
+              },
+              status: 'completed'
+            });
+            
+          } catch (stepError) {
+            console.error(`❌ Error in step ${i + 1}:`, stepError);
+            workflowResults.push({
+              step: i + 1,
+              action: step.action,
+              error: stepError.message,
+              status: 'failed',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Log failure
+            await supabase.from('eliza_activity_log').insert({
+              activity_type: 'autonomous_step',
+              title: `Autonomous Step ${i + 1} Failed: ${step.action}`,
+              description: stepError.message,
+              metadata: {
+                step: i + 1,
+                action: step.action,
+                error: stepError.message
+              },
+              status: 'failed'
+            });
+            
+            // Continue or break based on error handling strategy
+            if (step.critical) {
+              break; // Stop workflow on critical step failure
+            }
+          }
+        }
+        
+        return new Response(JSON.stringify({
+          workflow_completed: true,
+          steps_executed: workflowResults.length,
+          results: workflowResults,
+          final_context: currentContext
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
 
       case 'assign_task':
         // Check if task with same title and assignee already exists
