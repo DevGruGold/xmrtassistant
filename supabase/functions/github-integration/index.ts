@@ -1,16 +1,45 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN');
+const GITHUB_CLIENT_ID = Deno.env.get('GITHUB_CLIENT_ID');
+const GITHUB_CLIENT_SECRET = Deno.env.get('GITHUB_CLIENT_SECRET');
 const GITHUB_OWNER = Deno.env.get('GITHUB_OWNER') || 'DevGruGold';
 const GITHUB_REPO = Deno.env.get('GITHUB_REPO') || 'XMRT-Ecosystem';
 
 // Validate required environment variables
 function validateGitHubConfig(): void {
-  if (!GITHUB_TOKEN) {
-    throw new Error('GITHUB_TOKEN must be configured');
+  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+    throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
   }
-  console.log(`✅ GitHub configured - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
+  console.log(`✅ GitHub OAuth configured - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
+}
+
+// Exchange OAuth code for access token
+async function getAccessToken(code: string): Promise<string> {
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: GITHUB_CLIENT_ID,
+      client_secret: GITHUB_CLIENT_SECRET,
+      code: code,
+    }),
+  });
+
+  const data = await response.json();
+  
+  if (data.error) {
+    throw new Error(`OAuth error: ${data.error_description || data.error}`);
+  }
+  
+  if (!data.access_token) {
+    throw new Error('No access token received from GitHub');
+  }
+  
+  return data.access_token;
 }
 
 serve(async (req) => {
@@ -23,9 +52,38 @@ serve(async (req) => {
     validateGitHubConfig();
 
     const requestBody = await req.json();
-    const { action, data } = requestBody;
+    const { action, data, code } = requestBody;
     
     console.log(`🔧 GitHub Integration - Action: ${action}`, data);
+
+    // Handle OAuth callback
+    if (action === 'oauth_callback') {
+      if (!code) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Missing OAuth code' 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      const accessToken = await getAccessToken(code);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          access_token: accessToken,
+          message: 'OAuth authentication successful' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     // Validate action exists
     if (!action) {
@@ -41,9 +99,24 @@ serve(async (req) => {
       );
     }
 
-    // Use GitHub Personal Access Token for authentication
+    // Require access token for all other actions
+    const accessToken = data?.access_token;
+    if (!accessToken) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Missing access_token. Please authenticate first using oauth_callback action.' 
+        }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Use OAuth access token for authentication
     const headers = {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
       'X-GitHub-Api-Version': '2022-11-28',

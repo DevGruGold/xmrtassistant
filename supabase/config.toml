@@ -133,9 +133,6 @@ verify_jwt = false
 [functions.system-status]
 verify_jwt = false
 
-[functions.manus-chat]
-verify_jwt = false
-
 [functions.vectorize-memory]
 verify_jwt = false
 
