@@ -30,7 +30,14 @@ export class OpenAITTSService {
       });
 
       if (error || !data.success) {
-        throw new Error(data?.error || error?.message || 'TTS request failed');
+        const errorMsg = data?.error || error?.message || 'TTS request failed';
+        
+        // Check for quota exceeded error - throw specific error for immediate fallback
+        if (errorMsg.includes('quota') || errorMsg.includes('insufficient_quota')) {
+          throw new Error('QUOTA_EXCEEDED');
+        }
+        
+        throw new Error(errorMsg);
       }
 
       // Convert base64 audio to blob and play

@@ -83,17 +83,36 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false); // Require user to enable
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    // Check if user previously enabled voice
+    return localStorage.getItem('audioEnabled') === 'true';
+  });
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
-  // Initialize TTS for mobile compatibility
+  // Initialize TTS for mobile compatibility - auto-enable on first interaction
   useEffect(() => {
     const initTTS = async () => {
       try {
         await enhancedTTS.initialize();
         setAudioInitialized(true);
+        
+        // Auto-enable voice on mobile devices if not explicitly disabled
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const audioDisabled = localStorage.getItem('audioEnabled') === 'false';
+        
+        if (isMobile && !audioDisabled) {
+          setVoiceEnabled(true);
+          localStorage.setItem('audioEnabled', 'true');
+          console.log('✅ Auto-enabled TTS for mobile device');
+          
+          toast({
+            title: "Voice enabled",
+            description: "Eliza can now speak responses. Tap the speaker icon to disable.",
+          });
+        }
+        
         console.log('✅ TTS initialized for mobile and browser');
       } catch (error) {
         console.error('❌ TTS initialization failed:', error);
@@ -116,7 +135,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       document.removeEventListener('click', handleFirstInteraction);
       document.removeEventListener('touchstart', handleFirstInteraction);
     };
-  }, [audioInitialized]);
+  }, [audioInitialized, toast]);
 
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
@@ -508,7 +527,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setLastElizaMessage(responseText);
 
     // Use TTS if requested and voice is enabled
-    if (shouldSpeak && voiceEnabled) {
+    if (shouldSpeak && voiceEnabled && audioInitialized) {
       try {
         setIsSpeaking(true);
         await enhancedTTS.speak(responseText);
@@ -518,6 +537,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       } catch (error) {
         console.error('TTS error:', error);
         setIsSpeaking(false);
+        
+        // Show user-friendly error
+        toast({
+          title: "Voice playback failed",
+          description: "Audio unavailable. Check browser permissions.",
+          variant: "destructive"
+        });
       }
     }
   };
@@ -632,7 +658,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       }
 
       // Speak response using Enhanced TTS with fallbacks
-      if (voiceEnabled) {
+      if (voiceEnabled && audioInitialized) {
         try {
           setIsSpeaking(true);
           
@@ -837,7 +863,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       }
 
       // Speak response if voice is enabled (don't await - let it run in background)
-      if (voiceEnabled && cleanResponse) {
+      if (voiceEnabled && audioInitialized && cleanResponse) {
         setIsSpeaking(true);
         enhancedTTS.speak(cleanResponse)
           .then(() => {
@@ -848,6 +874,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             console.error('TTS failed:', error);
             setCurrentTTSMethod('failed');
             setIsSpeaking(false);
+            
+            toast({
+              title: "Voice playback failed",
+              description: "Check browser audio permissions",
+              variant: "destructive"
+            });
           });
       }
       

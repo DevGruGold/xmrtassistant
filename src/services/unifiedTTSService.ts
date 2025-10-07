@@ -69,7 +69,13 @@ export class UnifiedTTSService {
       console.log('✅ OpenAI TTS succeeded');
       return { success: true, method: 'OpenAI TTS' };
     } catch (error) {
-      console.warn('⚠️ OpenAI TTS failed (likely quota exceeded), falling back to Web Speech API:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      
+      if (errorMsg.includes('QUOTA_EXCEEDED')) {
+        console.warn('⚠️ OpenAI TTS quota exceeded - using Web Speech API fallback');
+      } else {
+        console.warn('⚠️ OpenAI TTS failed, falling back to Web Speech API:', error);
+      }
     }
 
     // Method 2: Fallback to Web Speech API (always works in browsers)
