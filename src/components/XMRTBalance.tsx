@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Coins, RefreshCw, TrendingUp, Lock } from "lucide-react";
 import { WalletState } from "@/hooks/useWallet";
+import { formatUnixTimestamp } from "@/utils/dateFormatter";
 
 interface XMRTBalanceProps {
   wallet: WalletState;
@@ -17,10 +18,6 @@ const XMRTBalance = ({ wallet, onRefresh, isRefreshing = false }: XMRTBalancePro
     });
   };
 
-  const formatDate = (timestamp: number) => {
-    if (timestamp === 0) return "Never";
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
 
   const getTotalValue = () => {
     const balance = parseFloat(wallet.xmrtBalance);
@@ -90,7 +87,7 @@ const XMRTBalance = ({ wallet, onRefresh, isRefreshing = false }: XMRTBalancePro
             <div className="space-y-2 pt-2 border-t border-gray-700">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400">Staked Since</span>
-                <span className="text-gray-300">{formatDate(wallet.xmrtStakeInfo.timestamp)}</span>
+                <span className="text-gray-300">{formatUnixTimestamp(wallet.xmrtStakeInfo.timestamp)}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400">Penalty Status</span>

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { formatTimestamp, formatRelativeTime } from '@/utils/dateFormatter';
 
 interface Task {
   id: string;
@@ -301,7 +302,7 @@ export const TaskVisualizer = () => {
                         <div className="text-xs text-muted-foreground truncate">{activity.description}</div>
                       )}
                       <div className="text-xs text-muted-foreground mt-1">
-                        {new Date(activity.created_at).toLocaleString()}
+                        {formatTimestamp(activity.created_at)}
                       </div>
                     </div>
                     <Badge
@@ -392,7 +393,7 @@ export const TaskVisualizer = () => {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(task.updated_at).toLocaleTimeString()}
+                        {formatRelativeTime(task.updated_at)}
                       </span>
                     </div>
 

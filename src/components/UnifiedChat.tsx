@@ -8,6 +8,7 @@ import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
+import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { supabase } from '@/integrations/supabase/client';
@@ -995,10 +996,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 >
                   <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
                   <div className="text-xs opacity-60 mt-2">
-                    {message.timestamp instanceof Date 
-                      ? message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    }
+                    {formatTime(message.timestamp)}
                   </div>
                 </div>
               </div>

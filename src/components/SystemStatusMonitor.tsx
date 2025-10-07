@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatTime } from '@/utils/dateFormatter';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -147,7 +148,7 @@ export const SystemStatusMonitor = () => {
               System Health Monitor
             </CardTitle>
             <CardDescription>
-              Last updated: {new Date(status.timestamp).toLocaleTimeString()}
+              Last updated: {formatTime(status.timestamp)}
             </CardDescription>
           </div>
           {getStatusBadge(status.overall_status)}

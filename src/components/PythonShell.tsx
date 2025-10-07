@@ -4,6 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Terminal, Sparkles, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { formatTime } from '@/utils/dateFormatter';
 
 interface ActivityLog {
   id: string;
@@ -128,7 +129,7 @@ export const PythonShell = () => {
                       </Badge>
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(activity.created_at).toLocaleTimeString()}
+                      {formatTime(activity.created_at)}
                     </span>
                   </div>
                   
