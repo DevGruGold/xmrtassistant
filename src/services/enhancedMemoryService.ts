@@ -107,33 +107,9 @@ export class EnhancedMemoryService {
     limit: number = 10
   ): Promise<EnhancedMemory[]> {
     try {
-      // First, get the embedding for the query
-      const { data: embeddingData, error: embeddingError } = await supabase.functions.invoke('vectorize-memory', {
-        body: {
-          content: query,
-          context_type: 'query'
-        }
-      });
-
-      if (embeddingError || !embeddingData?.embedding) {
-        console.error('Failed to get query embedding, falling back to keyword search');
-        return this.keywordSearch(query, userId, limit);
-      }
-
-      // Use RPC function for vector similarity search
-      const { data, error } = await supabase.rpc('match_memories', {
-        query_embedding: embeddingData.embedding,
-        match_threshold: 0.7,
-        match_count: limit,
-        user_id_filter: userId
-      });
-
-      if (error) {
-        console.error('Semantic search error:', error);
-        return this.keywordSearch(query, userId, limit);
-      }
-
-      return this.mapToEnhancedMemory(data || []);
+      // Fallback to keyword search for now
+      // TODO: Implement proper vector search when embedding generation is ready
+      return this.keywordSearch(query, userId, limit);
     } catch (error) {
       console.error('Semantic search failed:', error);
       return this.keywordSearch(query, userId, limit);
@@ -207,16 +183,19 @@ export class EnhancedMemoryService {
         return [];
       }
 
-      return (data || []).map(item => ({
-        id: item.id,
-        code: this.extractCodeFromContent(item.content),
-        language: item.metadata?.language || 'unknown',
-        purpose: item.metadata?.purpose || '',
-        tags: item.metadata?.tags || [],
-        relatedMemories: item.metadata?.relatedMemories || [],
-        timestamp: new Date(item.timestamp),
-        metadata: item.metadata
-      }));
+      return (data || []).map(item => {
+        const meta = item.metadata as Record<string, any> || {};
+        return {
+          id: item.id,
+          code: this.extractCodeFromContent(item.content),
+          language: meta.language || 'unknown',
+          purpose: meta.purpose || '',
+          tags: meta.tags || [],
+          relatedMemories: meta.relatedMemories || [],
+          timestamp: new Date(item.timestamp),
+          metadata: meta
+        };
+      });
     } catch (error) {
       console.error('Failed to get code snippets:', error);
       return [];

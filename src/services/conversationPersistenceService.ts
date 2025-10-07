@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { quickGreetingService } from './quickGreetingService';
+import { enhancedMemoryService } from './enhancedMemoryService';
 
 export interface ConversationMessage {
   id: string;
@@ -162,6 +163,19 @@ export class ConversationPersistenceService {
           }
         }
       });
+
+      // Store important messages in enhanced memory
+      if (sender === 'user' || (sender === 'assistant' && content.length > 100)) {
+        const importanceScore = sender === 'user' ? 0.7 : 0.6;
+        await enhancedMemoryService.storeMemory(
+          userIP,
+          this.currentSessionId!,
+          content,
+          sender === 'user' ? 'user_query' : 'assistant_response',
+          importanceScore,
+          metadata
+        );
+      }
 
       // Check if summarization is needed (every 15 messages)
       if (currentMessageCount > 0 && currentMessageCount % 15 === 0) {

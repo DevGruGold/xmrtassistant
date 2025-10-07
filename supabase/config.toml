@@ -121,6 +121,9 @@ verify_jwt = false
 [functions.prometheus-metrics]
 verify_jwt = false
 
+[functions.get-embedding]
+verify_jwt = false
+
 [functions.cleanup-duplicate-tasks]
 verify_jwt = false
 
