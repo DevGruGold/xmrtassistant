@@ -10,24 +10,24 @@ export const AutomatedCodeHealing = () => {
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
 
   useEffect(() => {
+    console.log('🔍 Code Health Monitor initializing...');
+    
+    // Initial check immediately
+    checkCodeHealth();
+    
     // Poll every 2 minutes (120000ms) - reasonable interval to avoid overwhelming the system
     const pollInterval = setInterval(() => {
       checkCodeHealth();
     }, 120000);
 
-    // Initial check after 5 seconds
-    const initialTimeout = setTimeout(() => {
-      checkCodeHealth();
-    }, 5000);
-
     return () => {
       clearInterval(pollInterval);
-      clearTimeout(initialTimeout);
     };
   }, []);
 
   const checkCodeHealth = async () => {
     try {
+      console.log('🔍 Code Health Monitor: Starting health check...');
       setStatus("monitoring");
       setLastCheck(new Date());
 
@@ -39,10 +39,12 @@ export const AutomatedCodeHealing = () => {
 
       if (data?.circuit_breaker) {
         setStatus("idle");
-        console.log('Circuit breaker active - pausing monitoring');
+        console.log('⚠️ Code Health Monitor: Circuit breaker active - pausing monitoring');
         return;
       }
 
+      console.log('✅ Code Health Monitor: Health check complete', data);
+      
       setStats({
         fixed: data?.fixed || 0,
         pending: data?.remaining || 0
@@ -50,6 +52,7 @@ export const AutomatedCodeHealing = () => {
 
       if (data?.fixed > 0) {
         setStatus("success");
+        console.log(`🎉 Code Health Monitor: ${data.fixed} issues auto-fixed!`);
         // Reset to idle after showing success
         setTimeout(() => setStatus("idle"), 3000);
       } else {
