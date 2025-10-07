@@ -44,7 +44,7 @@ const HUME_CONFIG = {
     value: import.meta.env.VITE_HUME_API_KEY || '',
   },
   voice: {
-    voiceId: '7f633ac4-8181-4e0d-99e1-11a4ef033691', // Corrected voice ID
+    voiceId: '14f8007b-5fe0-4c3a-ba3b-37e381e28d29',
   },
 };
 
