@@ -1279,10 +1279,25 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         if (githubError || !githubResult?.success) {
           console.error(`❌ GitHub ${action} failed:`, githubError || githubResult);
+          
+          const errorMsg = githubResult?.error || githubError?.message || 'Unknown error';
+          let diagnosisAndSolution = '';
+          
+          // Diagnose common failures and provide OAuth alternatives
+          if (errorMsg.includes('rate limit') || errorMsg.includes('403') || errorMsg.includes('API rate limit exceeded')) {
+            diagnosisAndSolution = `\n\nThe GitHub API rate limit has been exceeded. This means the current authentication token has hit its hourly request limit.\n\n**Recommended Solution:**\nSwitch to OAuth authentication instead of using a personal access token. OAuth doesn't have these rate limits. The github-integration edge function already supports OAuth - we just need to configure GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.\n\nWould you like me to guide you through setting up OAuth authentication?`;
+          } else if (errorMsg.includes('401') || errorMsg.includes('Unauthorized') || errorMsg.includes('Bad credentials')) {
+            diagnosisAndSolution = `\n\nThe GitHub authentication has failed with an "Unauthorized" error. This typically means:\n- The access token has expired\n- The token doesn't have the required permissions\n- The token was revoked\n\n**Recommended Solution:**\nSwitch to OAuth authentication which provides more reliable, long-lived access. Would you like me to help set that up?`;
+          } else if (errorMsg.includes('Not Found') || errorMsg.includes('404')) {
+            diagnosisAndSolution = `\n\nThe requested GitHub resource was not found. This could mean:\n- The repository doesn't exist or the name is incorrect\n- The token doesn't have access to this repository\n- The file/issue/PR number doesn't exist\n\nPlease verify the resource exists and the authentication has proper permissions.`;
+          } else {
+            diagnosisAndSolution = `\n\nPlease check the GitHub integration configuration or try again.`;
+          }
+          
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I attempted to perform GitHub action "${toolCall.function.name}" but encountered an error:\n\n${githubResult?.error || githubError?.message || 'Unknown error'}\n\nPlease check the GitHub integration configuration.`,
+              response: `The GitHub ${action} failed because: ${errorMsg}${diagnosisAndSolution}`,
               hasToolCalls: true
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1291,43 +1306,13 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         console.log(`✅ GitHub ${action} completed successfully:`, githubResult.data);
         
-        // Format success response based on tool type
-        let responseText = '';
-        switch (toolCall.function.name) {
-          case 'createGitHubIssue':
-            responseText = `✅ Successfully created GitHub issue!\n\n**Title:** ${args.title}\n**Issue URL:** ${githubResult.data?.html_url || 'N/A'}`;
-            break;
-          case 'createGitHubDiscussion':
-            responseText = `✅ Successfully created GitHub discussion!\n\n**Title:** ${args.title}\n**Discussion URL:** ${githubResult.data?.html_url || 'N/A'}`;
-            break;
-          case 'createGitHubPullRequest':
-            responseText = `✅ Successfully created pull request!\n\n**Title:** ${args.title}\n**PR URL:** ${githubResult.data?.html_url || 'N/A'}`;
-            break;
-          case 'commitGitHubFile':
-            responseText = `✅ Successfully committed file!\n\n**Path:** ${args.path}\n**Commit:** ${githubResult.data?.commit?.html_url || 'N/A'}`;
-            break;
-          case 'createGitHubWorkflow':
-            responseText = `✅ Successfully created GitHub Actions workflow!\n\n**Workflow:** ${args.name}\n**Path:** .github/workflows/${args.name}.yml`;
-            break;
-          case 'getGitHubFileContent':
-            responseText = `✅ Retrieved file content!\n\n**Path:** ${args.path}\n\n\`\`\`\n${githubResult.data?.content || 'Empty file'}\n\`\`\``;
-            break;
-          case 'searchGitHubCode':
-            responseText = `✅ Code search completed!\n\n**Query:** ${args.query}\n**Results:** ${githubResult.data?.total_count || 0} matches found`;
-            break;
-          case 'getGitHubRepoInfo':
-            responseText = `✅ Repository information retrieved!\n\n**Name:** ${githubResult.data?.name}\n**Description:** ${githubResult.data?.description}\n**Stars:** ${githubResult.data?.stargazers_count}`;
-            break;
-          default:
-            responseText = `✅ GitHub operation completed successfully!`;
-        }
-        
+        // Return RAW data for Eliza to format naturally
         return new Response(
           JSON.stringify({
             success: true,
-            response: responseText,
-            hasToolCalls: true,
-            githubResult: githubResult
+            toolResult: githubResult.data,
+            toolName: toolCall.function.name,
+            hasToolCalls: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -1472,10 +1457,12 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         if (agentError || !result?.success) {
           console.error(`❌ ${toolCall.function.name} failed:`, agentError || result);
+          const errorMsg = result?.error || agentError?.message || 'Unknown error';
+          
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I attempted to ${toolCall.function.name} but encountered an error:\n\n${result?.error || agentError?.message || 'Unknown error'}\n\nPlease check the agent management system.`,
+              response: `The ${toolCall.function.name} operation failed because: ${errorMsg}\n\nPlease check the agent management system configuration.`,
               hasToolCalls: true
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1484,96 +1471,13 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         console.log(`✅ ${toolCall.function.name} completed successfully`);
         
-        // Format success response based on tool type
-        let responseText = '';
-        switch (toolCall.function.name) {
-          case 'listAgents':
-            // agent-manager returns { success: true, data: agents_array }
-            const agents = result.data || [];
-            console.log('🔍 [lovable-chat] Processing listAgents:', {
-              resultData: result.data,
-              agentsExtracted: agents,
-              agentsLength: agents.length,
-              agentsType: Array.isArray(agents) ? 'array' : typeof agents
-            });
-            
-            responseText = `🤖 **Agent Status Report:**\n\n`;
-            if (agents.length === 0) {
-              responseText += 'No agents currently deployed.';
-            } else {
-              agents.forEach((agent: any) => {
-                const statusIcon = agent.status === 'IDLE' ? '🟢' : '🔴';
-                responseText += `${statusIcon} **${agent.name}** (${agent.role})\n`;
-                responseText += `   Status: ${agent.status}\n`;
-                responseText += `   Skills: ${Array.isArray(agent.skills) ? agent.skills.join(', ') : 'None'}\n\n`;
-              });
-            }
-            console.log('🔍 [lovable-chat] Final responseText for listAgents:', responseText);
-            break;
-            
-          case 'listTasks':
-            // agent-manager returns { success: true, data: tasks_array }
-            const tasks = result.data || [];
-            responseText = `📋 **Task Queue** (${tasks.length} tasks):\n\n`;
-            if (tasks.length === 0) {
-              responseText += 'No tasks found.';
-            } else {
-              tasks.forEach((task: any) => {
-                const statusIcon = task.status === 'COMPLETED' ? '✅' : task.status === 'FAILED' ? '❌' : task.status === 'BLOCKED' ? '🚫' : '🔄';
-                responseText += `${statusIcon} **${task.title}**\n`;
-                responseText += `   Status: ${task.status} | Priority: ${task.priority}/10\n`;
-                responseText += `   Repo: ${task.repo} | Assignee: ${task.assignee_agent_id || 'Unassigned'}\n\n`;
-              });
-            }
-            break;
-            
-          case 'clearAllWorkloads':
-          case 'clearBlockedTasks':
-            responseText = `✅ **Workload cleared successfully!**\n\n`;
-            responseText += `Cleared ${result.cleared_count || 0} blocked tasks.\n`;
-            responseText += `All agents are now available for new assignments.`;
-            break;
-            
-          case 'identifyBlockers':
-            responseText = `🔍 **Blocker Analysis:**\n\n`;
-            if (result.blocked_count === 0) {
-              responseText += '✅ No blocked tasks found. All systems flowing smoothly!';
-            } else {
-              responseText += `Found ${result.blocked_count} blocked tasks:\n\n`;
-              result.blockers?.forEach((blocker: any) => {
-                responseText += `🚫 **${blocker.title}**\n`;
-                responseText += `   Reason: ${blocker.reason}\n`;
-                responseText += `   Action: ${blocker.suggested_action}\n\n`;
-              });
-            }
-            break;
-            
-          case 'autoAssignTasks':
-            responseText = `✅ **Auto-assignment complete!**\n\n`;
-            responseText += `${result.assignments || 0} tasks assigned to idle agents.`;
-            break;
-            
-          case 'assignTask':
-            const taskData = result.data || result;
-            responseText = `✅ **Task Created Successfully!**\n\n`;
-            responseText += `**Title:** ${taskData.title}\n`;
-            responseText += `**Assigned to:** ${args.agentId}\n`;
-            responseText += `**Category:** ${taskData.category}\n`;
-            responseText += `**Priority:** ${taskData.priority}\n`;
-            responseText += `**Stage:** ${taskData.stage}\n`;
-            responseText += `**Status:** ${taskData.status}`;
-            if (taskData.wasExisting) {
-              responseText += `\n\n⚠️ Note: Task already existed with this title and agent`;
-            }
-            break;
-        }
-        
+        // Return RAW data for Eliza to format naturally
         return new Response(
           JSON.stringify({
             success: true,
-            response: responseText,
-            hasToolCalls: true,
-            agentResult: result
+            toolResult: result.data || result,
+            toolName: toolCall.function.name,
+            hasToolCalls: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -1620,10 +1524,24 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         const { data: kmResult, error: kmError } = await supabase.functions.invoke('knowledge-manager', { body: { action, data } });
         
-        if (kmError) throw kmError;
+        if (kmError) {
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              response: `The knowledge operation failed because: ${kmError.message}`,
+              hasToolCalls: true
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         
         return new Response(
-          JSON.stringify({ success: true, response: `✅ Knowledge operation complete: ${toolCall.function.name}`, data: kmResult }),
+          JSON.stringify({ 
+            success: true, 
+            toolResult: kmResult,
+            toolName: toolCall.function.name,
+            hasToolCalls: true
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -1644,7 +1562,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           });
           
           if (memError) throw memError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Memory stored' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: { stored: true }, toolName: 'storeMemory', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'searchMemories') {
           let query = supabase.from('memory_contexts').select('*').eq('user_id', args.userId);
@@ -1652,7 +1570,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           const { data: memories, error: memError } = await query.order('importance_score', { ascending: false }).limit(args.limit || 10);
           
           if (memError) throw memError;
-          return new Response(JSON.stringify({ success: true, response: `Found ${memories?.length || 0} memories`, data: memories }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: memories, toolName: 'searchMemories', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'summarizeConversation') {
           const { data: summary, error: sumError } = await supabase.functions.invoke('summarize-conversation', {
@@ -1660,7 +1578,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           });
           
           if (sumError) throw sumError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Conversation summarized', summary }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: summary, toolName: 'summarizeConversation', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getConversationHistory') {
           const { data: messages, error: msgError } = await supabase
@@ -1671,7 +1589,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
             .limit(args.limit || 50);
           
           if (msgError) throw msgError;
-          return new Response(JSON.stringify({ success: true, response: `Retrieved ${messages?.length || 0} messages`, data: messages }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: messages, toolName: 'getConversationHistory', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       
@@ -1683,22 +1601,22 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         if (toolCall.function.name === 'getSystemStatus') {
           const { data: status, error: statusError } = await supabase.functions.invoke('system-status', { body: {} });
           if (statusError) throw statusError;
-          return new Response(JSON.stringify({ success: true, response: '✅ System status retrieved', data: status }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: status, toolName: 'getSystemStatus', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getSystemDiagnostics') {
           const { data: diag, error: diagError } = await supabase.functions.invoke('system-diagnostics', { body: {} });
           if (diagError) throw diagError;
-          return new Response(JSON.stringify({ success: true, response: '✅ System diagnostics retrieved', data: diag }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: diag, toolName: 'getSystemDiagnostics', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'monitorEcosystem') {
           const { data: eco, error: ecoError } = await supabase.functions.invoke('ecosystem-monitor', { body: {} });
           if (ecoError) throw ecoError;
-          return new Response(JSON.stringify({ success: true, response: `🏥 Ecosystem Status: ${eco.overall_status}`, data: eco }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: eco, toolName: 'monitorEcosystem', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'cleanupDuplicateTasks') {
           const { data: cleanup, error: cleanError } = await supabase.functions.invoke('cleanup-duplicate-tasks', { body: {} });
           if (cleanError) throw cleanError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Duplicate tasks cleaned', data: cleanup }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: cleanup, toolName: 'cleanupDuplicateTasks', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       
@@ -1721,7 +1639,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         });
         
         if (renderError) throw renderError;
-        return new Response(JSON.stringify({ success: true, response: '✅ Deployment data retrieved', data: renderData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, toolResult: renderData, toolName: toolCall.function.name, hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
       // Mining Tools
@@ -1733,7 +1651,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         if (toolCall.function.name === 'getMiningStats') {
           const { data: mining, error: miningError } = await supabase.functions.invoke('mining-proxy', { body: {} });
           if (miningError) throw miningError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Mining stats retrieved', data: mining }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: mining, toolName: 'getMiningStats', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getWorkerStatus') {
           const { data: worker, error: workerError } = await supabase
@@ -1743,7 +1661,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
             .single();
           
           if (workerError) throw workerError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Worker status retrieved', data: worker }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: worker, toolName: 'getWorkerStatus', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       
@@ -1758,7 +1676,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           });
           
           if (pyError) throw pyError;
-          return new Response(JSON.stringify({ success: true, response: '✅ Python executed', data: pyResult }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: pyResult, toolName: 'executePython', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getPythonExecutions') {
           const { data: execs, error: execError } = await supabase
@@ -1769,7 +1687,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
             .limit(args.limit || 20);
           
           if (execError) throw execError;
-          return new Response(JSON.stringify({ success: true, response: `Retrieved ${execs?.length || 0} executions`, data: execs }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: execs, toolName: 'getPythonExecutions', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       
@@ -1782,7 +1700,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         });
         
         if (ttsError) throw ttsError;
-        return new Response(JSON.stringify({ success: true, response: '✅ Speech generated', data: ttsData }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, toolResult: ttsData, toolName: 'speakText', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
       // Enhanced GitHub Tools
@@ -1835,7 +1753,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         const { data: ghResult, error: ghError } = await supabase.functions.invoke('github-integration', { body: { action, ...ghData } });
         
         if (ghError) throw ghError;
-        return new Response(JSON.stringify({ success: true, response: `✅ GitHub operation complete: ${toolCall.function.name}`, data: ghResult }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, toolResult: ghResult, toolName: toolCall.function.name, hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
       if (toolCall.function.name === 'executePythonCode') {
@@ -1852,13 +1770,12 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         if (execError || !execResult.success) {
           console.error('❌ Python execution failed:', execError || execResult);
-          
-          // Return error WITHOUT showing code - let autonomous fixer handle it
           const errorMessage = execResult?.error || execError?.message || 'Unknown error';
+          
           return new Response(
             JSON.stringify({
               success: true,
-              response: `I ran into an issue while processing your request. My autonomous code-fixing system is working on it now and will have results shortly!`,
+              response: `The Python execution failed because: ${errorMessage}\n\nMy autonomous code-fixing system is working on it and will have results shortly.`,
               hasToolCalls: true
             }),
             { 
@@ -1869,15 +1786,13 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         console.log('✅ Python code executed successfully');
         
-        // Return success with ONLY output - no code display
-        const output = execResult.output?.trim() || '(No output generated)';
-        
+        // Return RAW output for Eliza to present naturally
         return new Response(
           JSON.stringify({
             success: true,
-            response: `✅ Task completed successfully!\n\n**Result:**\n${output}`,
-            hasToolCalls: true,
-            executionResult: execResult
+            toolResult: execResult,
+            toolName: 'executePythonCode',
+            hasToolCalls: true
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

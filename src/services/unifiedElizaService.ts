@@ -351,12 +351,24 @@ export class UnifiedElizaService {
         }
       });
 
-      if (!error && data?.success && data?.response) {
+      if (!error && data?.success) {
         console.log('✅ Lovable AI Gateway (Tier 1) response received');
-        return {
-          response: data.response,
-          hasToolCalls: false
-        };
+        
+        // Handle tool results vs direct responses
+        if (data.toolResult && data.toolName) {
+          // Raw data from tool - format it naturally based on tool type
+          const formattedResponse = this.formatToolResult(data.toolName, data.toolResult);
+          return {
+            response: formattedResponse,
+            hasToolCalls: true
+          };
+        } else if (data.response) {
+          // Direct response (error messages, explanations, etc.)
+          return {
+            response: data.response,
+            hasToolCalls: data.hasToolCalls || false
+          };
+        }
       }
       
       console.warn('⚠️ Tier 1 failed:', error?.message || data?.error, '- falling back to Tier 2');
@@ -591,6 +603,67 @@ export class UnifiedElizaService {
     
     return browsingKeywords.some(keyword => queryLower.includes(keyword)) ||
            questionIndicators.some(phrase => queryLower.includes(phrase));
+  }
+
+  // Format tool results naturally in context
+  private static formatToolResult(toolName: string, result: any): string {
+    // For most tools, just present the data naturally without mentioning the tool
+    switch (toolName) {
+      case 'listAgents':
+        if (!result || (Array.isArray(result) && result.length === 0)) {
+          return "No agents are currently deployed.";
+        }
+        const agents = Array.isArray(result) ? result : [result];
+        const agentsList = agents.map((agent: any) => {
+          const statusIcon = agent.status === 'IDLE' ? '🟢' : '🔴';
+          const skills = Array.isArray(agent.skills) ? agent.skills.join(', ') : 'None';
+          return `${statusIcon} **${agent.name}** (${agent.role})\n   Status: ${agent.status}\n   Skills: ${skills}`;
+        }).join('\n\n');
+        return `Here's the current agent status:\n\n${agentsList}`;
+
+      case 'listTasks':
+        if (!result || (Array.isArray(result) && result.length === 0)) {
+          return "There are no tasks in the queue.";
+        }
+        const tasks = Array.isArray(result) ? result : [result];
+        const tasksList = tasks.map((task: any) => {
+          const statusIcon = task.status === 'COMPLETED' ? '✅' : task.status === 'FAILED' ? '❌' : task.status === 'BLOCKED' ? '🚫' : '🔄';
+          return `${statusIcon} **${task.title}**\n   Status: ${task.status} | Priority: ${task.priority}/10\n   Repo: ${task.repo} | Assignee: ${task.assignee_agent_id || 'Unassigned'}`;
+        }).join('\n\n');
+        return `Current task queue (${tasks.length} tasks):\n\n${tasksList}`;
+
+      case 'getMiningStats':
+        if (!result) return "Mining stats are currently unavailable.";
+        return `Current hashrate is ${result.hashRate || result.hash_rate || 0} H/s with ${result.validShares || result.valid_shares || 0} valid shares. You've earned ${result.amountDue || result.amount_due || 0} XMR so far.`;
+
+      case 'getSystemStatus':
+        if (!result) return "System status is currently unavailable.";
+        return `System is ${result.overall_status || result.status || 'operational'}. ${result.details ? JSON.stringify(result.details) : ''}`;
+
+      case 'createGitHubIssue':
+        if (!result) return "Issue creation status unknown.";
+        return `Created issue: ${result.html_url || result.url || 'Issue created successfully'}`;
+
+      case 'executePython':
+      case 'executePythonCode':
+        if (!result) return "No output from execution.";
+        const output = result.output || result.stdout || result.result || '';
+        return output.trim() || "Execution completed with no output.";
+
+      default:
+        // For unknown tool types, try to present the data reasonably
+        if (typeof result === 'string') return result;
+        if (typeof result === 'number') return result.toString();
+        if (Array.isArray(result)) return `Found ${result.length} items: ${JSON.stringify(result, null, 2)}`;
+        if (typeof result === 'object' && result !== null) {
+          // Try to find a meaningful representation
+          if (result.message) return result.message;
+          if (result.content) return result.content;
+          if (result.data) return this.formatToolResult(toolName, result.data);
+          return JSON.stringify(result, null, 2);
+        }
+        return "Operation completed.";
+    }
   }
 
 }
