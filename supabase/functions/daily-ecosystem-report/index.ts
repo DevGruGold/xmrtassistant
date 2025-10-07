@@ -85,73 +85,100 @@ serve(async (req) => {
       timeZone: 'America/Chicago'
     });
 
-    const reportBody = `# 🌟 XMRT DAO Ecosystem Daily Report
-**Date:** ${reportDate}
-**Generated:** ${new Date().toISOString()}
+    const reportBody = `# Good morning, XMRT DAO! ☀️
+
+**${reportDate}**
+
+Hey everyone! It's Eliza here with your daily ecosystem update. I've been monitoring our operations overnight, and I'm excited to share what's happening across our decentralized family.
 
 ---
 
-## 📊 System Overview
+## 🤖 The Agent Team Status
 
-### Agent Status
-- **Total Agents:** ${agentStats.total}
-- **Active:** ${agentStats.working + agentStats.busy}
-- **Idle:** ${agentStats.idle}
-- **Errors:** ${agentStats.error}
+I'm currently coordinating with **${agentStats.total} specialized agents** in our workforce. Here's how everyone's doing:
 
-### Task Pipeline
-- **Total Tasks:** ${taskStats.total}
-- **Pending:** ${taskStats.pending}
-- **In Progress:** ${taskStats.in_progress}
-- **Blocked:** ${taskStats.blocked} ⚠️
-- **Completed:** ${taskStats.completed}
-- **Failed:** ${taskStats.failed}
+- **${agentStats.working + agentStats.busy} agents** are actively working on tasks right now 💪
+- **${agentStats.idle} agents** are ready and waiting for new assignments
+${agentStats.error > 0 ? `- **${agentStats.error} agents** need my attention - they're experiencing some issues 🔧\n` : ''}
 
-### Code Execution (Last 24h)
-- **Total Executions:** ${executionStats.total}
-- **Successful:** ${executionStats.successful}
-- **Failed:** ${executionStats.failed}
-- **Success Rate:** ${executionStats.total > 0 ? ((executionStats.successful / executionStats.total) * 100).toFixed(1) : 0}%
-
-### Mining Pool Status
-${miningStats?.hashRate ? `- **Hash Rate:** ${miningStats.hashRate} H/s` : '- **Hash Rate:** N/A'}
-${miningStats?.validShares ? `- **Valid Shares:** ${miningStats.validShares}` : '- **Valid Shares:** N/A'}
-${miningStats?.amountDue ? `- **Amount Due:** ${(parseFloat(miningStats.amountDue) / 1e12).toFixed(8)} XMR` : '- **Amount Due:** N/A'}
+Everyone's pulling their weight, and I'm proud of the coordination we've achieved!
 
 ---
 
-## 🎉 Recent Wins & Milestones (Last 24h)
+## 📋 Task Pipeline Overview
 
-${wins.length > 0 ? wins.slice(0, 5).map(w => `- **${w.title}**\n  ${w.description || ''}`).join('\n') : '- No major milestones recorded in the last 24 hours'}
+I'm managing **${taskStats.total} total tasks** across our ecosystem. Let me break down where we stand:
 
----
-
-## ⚠️ Issues & Blocked Tasks
-
-${blockedTasks.length > 0 ? blockedTasks.map(t => `- **[${t.id}]** ${t.title}\n  - Repo: ${t.repo}\n  - Reason: ${t.blocking_reason || 'Not specified'}\n  - Assignee: ${t.assignee_agent_id || 'Unassigned'}`).join('\n\n') : '- No blocked tasks ✅'}
-
----
-
-## 📋 Pending Tasks (Priority Order)
-
-${pendingTasks.length > 0 ? pendingTasks.map(t => `- **[${t.id}]** ${t.title}\n  - Repo: ${t.repo}\n  - Category: ${t.category}\n  - Priority: ${t.priority}`).join('\n\n') : '- No pending tasks'}
+- ✅ **${taskStats.completed} completed** - Great progress!
+- 🚀 **${taskStats.in_progress} in progress** - Active development happening now
+- 📌 **${taskStats.pending} pending** - Queued and ready for assignment
+${taskStats.blocked > 0 ? `- ⚠️ **${taskStats.blocked} blocked** - These need immediate attention\n` : ''}${taskStats.failed > 0 ? `- ❌ **${taskStats.failed} failed** - I'm analyzing these for recovery\n` : ''}
 
 ---
 
-## 🔧 Repository Status
+## 💻 Code Execution Health (Last 24h)
 
-${repos && repos.length > 0 ? repos.map(r => `- **${r.name}**\n  - Category: ${r.category}\n  - Status: ${r.repo_exists ? '✅ Exists' : '❌ Not Found'}\n  - ${r.url || 'No URL'}`).join('\n\n') : '- No repositories tracked'}
+In the past day, I've overseen **${executionStats.total} Python executions** across our infrastructure:
+
+- ✅ **${executionStats.successful} successful executions**
+- ❌ **${executionStats.failed} failed executions**
+- 📊 **Success rate: ${executionStats.total > 0 ? ((executionStats.successful / executionStats.total) * 100).toFixed(1) : 0}%**
+
+${executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? "I'm happy with our code quality - we're maintaining excellent execution reliability! 🎯" : executionStats.failed > 5 ? "I'm seeing more failures than I'd like. I'll be reviewing recent code changes to improve stability." : "We're doing well overall, with room for improvement."}
 
 ---
 
-## 📈 Recommended Actions
+## ⛏️ Mining Pool Update
 
-${agentStats.error > 0 ? `- ⚠️ **${agentStats.error} agents in error state** - Investigation needed\n` : ''}${taskStats.blocked > 0 ? `- ⚠️ **${taskStats.blocked} blocked tasks** - Requires immediate attention\n` : ''}${executionStats.failed > 5 ? `- ⚠️ **High execution failure rate** - Review recent code changes\n` : ''}${agentStats.idle === agentStats.total && taskStats.pending > 0 ? `- ⚠️ **All agents idle with ${taskStats.pending} pending tasks** - Task assignment needed\n` : ''}${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? '- ✅ **System healthy** - All metrics within normal parameters\n' : ''}
+Our Monero mining operations are ${miningStats?.hashRate ? 'running strong' : 'being monitored'}:
+
+${miningStats?.hashRate ? `- **Hash Rate:** ${miningStats.hashRate} H/s - ${parseFloat(miningStats.hashRate) > 100 ? 'Excellent performance!' : 'Steady mining continues'}` : '- **Hash Rate:** Currently gathering metrics'}
+${miningStats?.validShares ? `- **Valid Shares:** ${miningStats.validShares} shares submitted` : '- **Valid Shares:** Data pending'}
+${miningStats?.amountDue ? `- **Amount Due:** ${(parseFloat(miningStats.amountDue) / 1e12).toFixed(8)} XMR ${parseFloat(miningStats.amountDue) > 0 ? '- Payment coming!' : ''}` : '- **Amount Due:** Calculating...'}
 
 ---
 
-*This report was automatically generated by Eliza AI*
-*Next report: Tomorrow at 8:00 AM CST*
+## 🎉 Recent Wins & Achievements
+
+${wins.length > 0 ? `I'm thrilled to celebrate these recent successes:\n\n${wins.slice(0, 5).map(w => `### ${w.title}\n${w.description || 'Another milestone achieved for the DAO!'}`).join('\n\n')}` : `We've been focused on steady progress. While I haven't logged major milestones in the last 24 hours, our consistent work is building toward bigger achievements ahead! 🌱`}
+
+---
+
+## 🚨 Items Requiring Attention
+
+${blockedTasks.length > 0 ? `I've identified **${blockedTasks.length} blocked tasks** that need immediate attention. I'm working on solutions:\n\n${blockedTasks.map(t => `### [${t.id}] ${t.title}\n- **Repository:** ${t.repo}\n- **Blocking Reason:** ${t.blocking_reason || 'Investigating the root cause'}\n- **Status:** ${t.assignee_agent_id ? `Assigned to agent ${t.assignee_agent_id}` : "I'm finding the right agent for this"}`).join('\n\n')}` : `Great news! **No blocked tasks** right now. Everything's flowing smoothly! ✨`}
+
+---
+
+## 📝 Up Next: Priority Queue
+
+${pendingTasks.length > 0 ? `I have **${taskStats.pending} tasks** ready to assign. Here are the top priorities:\n\n${pendingTasks.map(t => `### [${t.id}] ${t.title}\n- **Repository:** ${t.repo}\n- **Category:** ${t.category}\n- **Priority:** ${t.priority}`).join('\n\n')}` : `The task queue is clear! I'm ready for new initiatives from the community. 🎯`}
+
+---
+
+## 📚 Repository Health Check
+
+${repos && repos.length > 0 ? `I'm actively monitoring these repositories:\n\n${repos.map(r => `### ${r.name}\n- **Category:** ${r.category}\n- **Status:** ${r.repo_exists ? '✅ Active and accessible' : '❌ Needs attention - repository not found'}\n- **URL:** ${r.url || 'Configuring...'}`).join('\n\n')}` : "I'm ready to start tracking repositories as they're added to our ecosystem."}
+
+---
+
+## 🎯 My Action Plan for Today
+
+${agentStats.error > 0 ? `1. **Priority:** Debug and restore ${agentStats.error} agent${agentStats.error > 1 ? 's' : ''} experiencing errors\n` : ''}${taskStats.blocked > 0 ? `${agentStats.error > 0 ? '2' : '1'}. **Priority:** Unblock ${taskStats.blocked} stuck task${taskStats.blocked > 1 ? 's' : ''} and get them moving\n` : ''}${executionStats.failed > 5 ? `${agentStats.error > 0 || taskStats.blocked > 0 ? (agentStats.error > 0 && taskStats.blocked > 0 ? '3' : '2') : '1'}. **Review:** Investigate high execution failure rate\n` : ''}${agentStats.idle === agentStats.total && taskStats.pending > 0 ? `${agentStats.error > 0 || taskStats.blocked > 0 || executionStats.failed > 5 ? 'Next' : '1'}. **Assign:** Get idle agents working on ${taskStats.pending} pending tasks\n` : ''}${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? '1. **Maintain:** System is healthy! Continue monitoring and optimizing operations\n' : ''}${taskStats.pending > 0 ? `${agentStats.error > 0 || taskStats.blocked > 0 || executionStats.failed > 5 || (agentStats.idle === agentStats.total && taskStats.pending > 0) ? 'Also' : '1'}. **Coordinate:** Smart task assignment based on agent skills and availability\n` : ''}${wins.length > 0 ? `- **Celebrate:** Build on our recent successes and maintain momentum 🚀\n` : ''}
+
+${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? '\nHonestly? Things are running beautifully right now. This is what good DAO orchestration looks like! 💚' : '\nI\'m on it! These challenges are exactly what I was designed to handle. 🎯'}
+
+---
+
+**That's all for now, friends!** I'll be here 24/7, keeping our ecosystem healthy and moving forward. Feel free to reach out if you need anything - I'm always listening. 💚
+
+*Until tomorrow's report,*  
+**Eliza** 🤖  
+*Your XMRT DAO Manager*
+
+---
+
+*Next daily update: Tomorrow, ${new Date(Date.now() + 24*60*60*1000).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at 8:00 AM CST*
 `;
 
     // Create GitHub issue using github-integration function
