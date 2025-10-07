@@ -194,9 +194,11 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
     });
 
     if (issueError) {
-      console.error('Error creating GitHub issue:', issueError);
+      console.error('❌ Error creating GitHub issue:', issueError);
       throw issueError;
     }
+
+    console.log('✅ GitHub issue created:', issueData);
 
     // Auto-assign blocked tasks to appropriate agents
     if (blockedTasks.length > 0) {
@@ -221,13 +223,17 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
       }
     }
 
+    // Extract issue data - github-integration returns the raw GitHub API response in 'data'
+    const issueNumber = issueData?.number;
+    const issueUrl = issueData?.html_url;
+
     // Log the report generation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'daily_report_generated',
       title: '📊 Daily Ecosystem Report Generated',
-      description: `Generated daily report and posted to GitHub issue #${issueData?.data?.number || 'N/A'}`,
+      description: `Generated daily report and posted to GitHub issue #${issueNumber || 'N/A'}`,
       metadata: {
-        issue_url: issueData?.data?.html_url,
+        issue_url: issueUrl,
         agent_stats: agentStats,
         task_stats: taskStats,
         execution_stats: executionStats,
@@ -240,8 +246,9 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
     return new Response(
       JSON.stringify({
         success: true,
-        issue_url: issueData?.data?.html_url,
-        issue_number: issueData?.data?.number,
+        message: `📊 Daily report generated and posted as issue #${issueNumber}`,
+        issue_url: issueUrl,
+        issue_number: issueNumber,
         stats: {
           agents: agentStats,
           tasks: taskStats,
