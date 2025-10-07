@@ -36,9 +36,9 @@ serve(async (req) => {
     console.log('❌ Error:', execution.error);
 
     // Use Lovable AI Gateway (Gemini 2.5 Flash - free until Oct 6, 2025) to analyze and fix the code
-    const lovableApiKey = Deno.env.get('AI_GATEWAY_API_KEY') || Deno.env.get('LOVABLE_API_KEY');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!lovableApiKey) {
-      throw new Error('AI_GATEWAY_API_KEY not configured');
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
     const fixPrompt = `PYTHON CODE FIXER - STANDARD LIBRARY ONLY
