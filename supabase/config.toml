@@ -151,5 +151,9 @@ verify_jwt = false
 [functions.test-github-proof-of-life]
 verify_jwt = false
 
+[functions.github-webhook-handler]
+verify_jwt = false
 
+[functions.daily-ecosystem-report]
+verify_jwt = false
 

@@ -238,6 +238,61 @@ class GitHubIntegrationService {
   }
 
   /**
+   * Get comments on an issue
+   * @param issueNumber - Issue number
+   * @param repo - Repository name (optional)
+   * @param perPage - Number of comments per page (default: 30)
+   * @returns Array of comments
+   */
+  async getIssueComments(issueNumber: number, repo?: string, perPage = 30): Promise<any[]> {
+    return this.callGitHubFunction('get_issue_comments', { repo, issue_number: issueNumber, per_page: perPage });
+  }
+
+  /**
+   * Get comments on a discussion (via GraphQL)
+   * @param discussionNumber - Discussion number
+   * @param repo - Repository name (optional)
+   * @param first - Number of comments to fetch (default: 30)
+   * @returns Discussion with comments
+   */
+  async getDiscussionComments(discussionNumber: number, repo?: string, first = 30): Promise<any> {
+    return this.callGitHubFunction('get_discussion_comments', { repo, discussion_number: discussionNumber, first });
+  }
+
+  /**
+   * Reply to an issue comment
+   * @param issueNumber - Issue number
+   * @param body - Comment body (Markdown supported)
+   * @param repo - Repository name (optional)
+   * @returns Created comment data
+   */
+  async createIssueCommentReply(issueNumber: number, body: string, repo?: string): Promise<any> {
+    return this.callGitHubFunction('create_issue_comment_reply', { repo, issue_number: issueNumber, body });
+  }
+
+  /**
+   * Reply to a discussion (create top-level comment)
+   * @param discussionId - Discussion GraphQL ID (e.g., "D_kwDOAbc123")
+   * @param body - Comment body (Markdown supported)
+   * @param repo - Repository name (optional)
+   * @returns Created comment data
+   */
+  async createDiscussionCommentReply(discussionId: string, body: string, repo?: string): Promise<any> {
+    return this.callGitHubFunction('create_discussion_comment_reply', { repo, discussion_id: discussionId, body });
+  }
+
+  /**
+   * Reply to a specific discussion comment (nested reply)
+   * @param commentId - Comment GraphQL ID to reply to
+   * @param body - Reply body (Markdown supported)
+   * @param repo - Repository name (optional)
+   * @returns Created reply data
+   */
+  async replyToDiscussionComment(commentId: string, body: string, repo?: string): Promise<any> {
+    return this.callGitHubFunction('reply_to_discussion_comment', { repo, comment_id: commentId, body });
+  }
+
+  /**
    * Get authentication status and available actions
    * @returns Information about GitHub OAuth setup
    */
@@ -256,7 +311,12 @@ class GitHubIntegrationService {
         'create_pull_request',
         'get_file_content',
         'commit_file',
-        'search_code'
+        'search_code',
+        'get_issue_comments',
+        'get_discussion_comments',
+        'create_issue_comment_reply',
+        'create_discussion_comment_reply',
+        'reply_to_discussion_comment'
       ],
       note: 'All GitHub operations use OAuth tokens managed server-side. No user tokens needed.'
     };

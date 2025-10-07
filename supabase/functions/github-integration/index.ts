@@ -758,6 +758,177 @@ serve(async (req) => {
         );
         break;
 
+      case 'get_issue_comments':
+        if (!data.issue_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: issue_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues/${data.issue_number}/comments?per_page=${data.per_page || 30}`,
+          { headers }
+        );
+        break;
+
+      case 'get_discussion_comments':
+        if (!data.discussion_number) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required field: discussion_number' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        // GraphQL query to get discussion comments
+        result = await fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query: `
+              query {
+                repository(owner: "${GITHUB_OWNER}", name: "${data.repo || GITHUB_REPO}") {
+                  discussion(number: ${data.discussion_number}) {
+                    id
+                    title
+                    body
+                    comments(first: ${data.first || 30}) {
+                      nodes {
+                        id
+                        body
+                        createdAt
+                        author { login }
+                        replies(first: 10) {
+                          nodes {
+                            id
+                            body
+                            createdAt
+                            author { login }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `,
+          }),
+        });
+        break;
+
+      case 'create_issue_comment_reply':
+        if (!data.issue_number || !data.body) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: issue_number, body' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues/${data.issue_number}/comments`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ body: data.body }),
+          }
+        );
+        break;
+
+      case 'create_discussion_comment_reply':
+        if (!data.discussion_id || !data.body) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: discussion_id, body' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        // GraphQL mutation to add discussion comment
+        result = await fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query: `
+              mutation {
+                addDiscussionComment(input: {
+                  discussionId: "${data.discussion_id}",
+                  body: "${data.body.replace(/"/g, '\\"').replace(/\n/g, '\\n')}"
+                }) {
+                  comment {
+                    id
+                    body
+                    url
+                    author { login }
+                  }
+                }
+              }
+            `,
+          }),
+        });
+        break;
+
+      case 'reply_to_discussion_comment':
+        if (!data.comment_id || !data.body) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Missing required fields: comment_id (GraphQL ID), body' 
+            }),
+            { 
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        // GraphQL mutation to reply to a specific comment
+        result = await fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query: `
+              mutation {
+                addDiscussionComment(input: {
+                  discussionId: "${data.comment_id}",
+                  body: "${data.body.replace(/"/g, '\\"').replace(/\n/g, '\\n')}",
+                  replyToId: "${data.comment_id}"
+                }) {
+                  comment {
+                    id
+                    body
+                    url
+                    author { login }
+                  }
+                }
+              }
+            `,
+          }),
+        });
+        break;
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
@@ -820,6 +991,21 @@ serve(async (req) => {
         break;
       case 'search_code':
         userFriendlyMessage = `🔍 Found ${responseData.total_count} code match(es)`;
+        break;
+      case 'get_issue_comments':
+        userFriendlyMessage = `💬 Found ${responseData.length} comment(s) on issue #${data.issue_number}`;
+        break;
+      case 'get_discussion_comments':
+        userFriendlyMessage = `💬 Found ${responseData.data?.repository?.discussion?.comments?.nodes?.length || 0} comment(s) on discussion #${data.discussion_number}`;
+        break;
+      case 'create_issue_comment_reply':
+        userFriendlyMessage = `✅ Posted comment on issue #${data.issue_number}`;
+        break;
+      case 'create_discussion_comment_reply':
+        userFriendlyMessage = `✅ Posted comment on discussion`;
+        break;
+      case 'reply_to_discussion_comment':
+        userFriendlyMessage = `✅ Posted reply to comment`;
         break;
       default:
         userFriendlyMessage = `✅ Successfully completed: ${action}`;
