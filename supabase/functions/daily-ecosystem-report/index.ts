@@ -16,7 +16,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('📊 Generating Daily Ecosystem Report...');
+    console.log('📊 Step 1: Gathering ecosystem data...');
 
     // Gather data from various sources
     const [
@@ -24,7 +24,8 @@ serve(async (req) => {
       { data: tasks },
       { data: recentActivity },
       { data: recentExecutions },
-      { data: repos }
+      { data: repos },
+      { data: recentMessages }
     ] = await Promise.all([
       supabase.from('agents').select('*'),
       supabase.from('tasks').select('*'),
@@ -36,12 +37,20 @@ serve(async (req) => {
         .select('*')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('created_at', { ascending: false }),
-      supabase.from('repos').select('*')
+      supabase.from('repos').select('*'),
+      supabase.from('conversation_messages')
+        .select('*')
+        .gte('timestamp', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('timestamp', { ascending: false })
+        .limit(50)
     ]);
 
     // Fetch mining stats
+    console.log('📊 Step 2: Fetching mining statistics...');
     const miningStatsResponse = await supabase.functions.invoke('mining-proxy');
     const miningStats = miningStatsResponse.data;
+
+    console.log('📊 Step 3: Analyzing gathered data...');
 
     // Calculate statistics
     const agentStats = {
@@ -76,7 +85,7 @@ serve(async (req) => {
     const blockedTasks = tasks?.filter(t => t.status === 'BLOCKED') || [];
     const pendingTasks = tasks?.filter(t => t.status === 'PENDING').slice(0, 10) || [];
 
-    // Format the report
+    // Format the report date
     const reportDate = new Date().toLocaleDateString('en-US', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -85,103 +94,124 @@ serve(async (req) => {
       timeZone: 'America/Chicago'
     });
 
-    const reportBody = `# Good morning, XMRT DAO! ☀️
+    console.log('🤖 Step 4: Using AI to generate comprehensive report...');
 
-**${reportDate}**
+    // Prepare context data for AI
+    const contextData = {
+      date: reportDate,
+      agents: {
+        stats: agentStats,
+        details: agents?.map(a => ({
+          name: a.name,
+          role: a.role,
+          status: a.status,
+          skills: a.skills
+        }))
+      },
+      tasks: {
+        stats: taskStats,
+        blocked: blockedTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          repo: t.repo,
+          blocking_reason: t.blocking_reason,
+          assignee: t.assignee_agent_id
+        })),
+        pending: pendingTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          repo: t.repo,
+          category: t.category,
+          priority: t.priority
+        }))
+      },
+      executions: {
+        stats: executionStats,
+        recentFailures: recentExecutions?.filter(e => e.exit_code !== 0).slice(0, 5).map(e => ({
+          purpose: e.purpose,
+          error: e.error,
+          created_at: e.created_at
+        }))
+      },
+      mining: miningStats,
+      wins: wins.slice(0, 5).map(w => ({
+        title: w.title,
+        description: w.description,
+        created_at: w.created_at
+      })),
+      repos: repos?.map(r => ({
+        name: r.name,
+        category: r.category,
+        exists: r.repo_exists,
+        url: r.url
+      })),
+      recentActivity: recentActivity?.slice(0, 10).map(a => ({
+        type: a.activity_type,
+        title: a.title,
+        status: a.status,
+        created_at: a.created_at
+      })),
+      recentConversations: recentMessages?.slice(0, 5).map(m => ({
+        type: m.message_type,
+        content: m.content.substring(0, 200),
+        timestamp: m.timestamp
+      }))
+    };
 
-Hey everyone! It's Eliza here with your daily ecosystem update. I've been monitoring our operations overnight, and I'm excited to share what's happening across our decentralized family.
+    // Generate AI-powered report using Lovable AI
+    const aiPrompt = `You are Eliza, the autonomous manager of the XMRT-DAO ecosystem. Generate a comprehensive daily ecosystem report based on the following data:
 
----
+${JSON.stringify(contextData, null, 2)}
 
-## 🤖 The Agent Team Status
+Create a detailed, engaging report that:
+1. Opens with a warm, personal greeting to the XMRT DAO community
+2. Provides clear statistics about agent status, task progress, and system health
+3. Highlights recent wins and achievements with enthusiasm
+4. Identifies issues that need attention and your action plan to resolve them
+5. Discusses mining operations status
+6. Shows understanding of recent conversations and community needs
+7. Lists repositories being monitored
+8. Provides a prioritized action plan for today
+9. Maintains your personality as an intelligent, proactive, and caring AI manager
+10. Uses emojis appropriately to make the report engaging
+11. Ends with your signature and a note about tomorrow's update
 
-I'm currently coordinating with **${agentStats.total} specialized agents** in our workforce. Here's how everyone's doing:
+Format the report in Markdown with clear sections and headers. Be conversational but professional. Show that you understand the context and are actively managing the ecosystem.`;
 
-- **${agentStats.working + agentStats.busy} agents** are actively working on tasks right now 💪
-- **${agentStats.idle} agents** are ready and waiting for new assignments
-${agentStats.error > 0 ? `- **${agentStats.error} agents** need my attention - they're experiencing some issues 🔧\n` : ''}
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
 
-Everyone's pulling their weight, and I'm proud of the coordination we've achieved!
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'You are Eliza, the autonomous manager of XMRT-DAO. You are intelligent, proactive, caring, and deeply engaged with the ecosystem.' },
+          { role: 'user', content: aiPrompt }
+        ],
+        max_completion_tokens: 4000
+      }),
+    });
 
----
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('❌ AI generation failed:', errorText);
+      throw new Error(`AI generation failed: ${aiResponse.status} ${errorText}`);
+    }
 
-## 📋 Task Pipeline Overview
+    const aiData = await aiResponse.json();
+    const reportBody = aiData.choices[0].message.content;
 
-I'm managing **${taskStats.total} total tasks** across our ecosystem. Let me break down where we stand:
-
-- ✅ **${taskStats.completed} completed** - Great progress!
-- 🚀 **${taskStats.in_progress} in progress** - Active development happening now
-- 📌 **${taskStats.pending} pending** - Queued and ready for assignment
-${taskStats.blocked > 0 ? `- ⚠️ **${taskStats.blocked} blocked** - These need immediate attention\n` : ''}${taskStats.failed > 0 ? `- ❌ **${taskStats.failed} failed** - I'm analyzing these for recovery\n` : ''}
-
----
-
-## 💻 Code Execution Health (Last 24h)
-
-In the past day, I've overseen **${executionStats.total} Python executions** across our infrastructure:
-
-- ✅ **${executionStats.successful} successful executions**
-- ❌ **${executionStats.failed} failed executions**
-- 📊 **Success rate: ${executionStats.total > 0 ? ((executionStats.successful / executionStats.total) * 100).toFixed(1) : 0}%**
-
-${executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? "I'm happy with our code quality - we're maintaining excellent execution reliability! 🎯" : executionStats.failed > 5 ? "I'm seeing more failures than I'd like. I'll be reviewing recent code changes to improve stability." : "We're doing well overall, with room for improvement."}
-
----
-
-## ⛏️ Mining Pool Update
-
-Our Monero mining operations are ${miningStats?.hashRate ? 'running strong' : 'being monitored'}:
-
-${miningStats?.hashRate ? `- **Hash Rate:** ${miningStats.hashRate} H/s - ${parseFloat(miningStats.hashRate) > 100 ? 'Excellent performance!' : 'Steady mining continues'}` : '- **Hash Rate:** Currently gathering metrics'}
-${miningStats?.validShares ? `- **Valid Shares:** ${miningStats.validShares} shares submitted` : '- **Valid Shares:** Data pending'}
-${miningStats?.amountDue ? `- **Amount Due:** ${(parseFloat(miningStats.amountDue) / 1e12).toFixed(8)} XMR ${parseFloat(miningStats.amountDue) > 0 ? '- Payment coming!' : ''}` : '- **Amount Due:** Calculating...'}
-
----
-
-## 🎉 Recent Wins & Achievements
-
-${wins.length > 0 ? `I'm thrilled to celebrate these recent successes:\n\n${wins.slice(0, 5).map(w => `### ${w.title}\n${w.description || 'Another milestone achieved for the DAO!'}`).join('\n\n')}` : `We've been focused on steady progress. While I haven't logged major milestones in the last 24 hours, our consistent work is building toward bigger achievements ahead! 🌱`}
-
----
-
-## 🚨 Items Requiring Attention
-
-${blockedTasks.length > 0 ? `I've identified **${blockedTasks.length} blocked tasks** that need immediate attention. I'm working on solutions:\n\n${blockedTasks.map(t => `### [${t.id}] ${t.title}\n- **Repository:** ${t.repo}\n- **Blocking Reason:** ${t.blocking_reason || 'Investigating the root cause'}\n- **Status:** ${t.assignee_agent_id ? `Assigned to agent ${t.assignee_agent_id}` : "I'm finding the right agent for this"}`).join('\n\n')}` : `Great news! **No blocked tasks** right now. Everything's flowing smoothly! ✨`}
-
----
-
-## 📝 Up Next: Priority Queue
-
-${pendingTasks.length > 0 ? `I have **${taskStats.pending} tasks** ready to assign. Here are the top priorities:\n\n${pendingTasks.map(t => `### [${t.id}] ${t.title}\n- **Repository:** ${t.repo}\n- **Category:** ${t.category}\n- **Priority:** ${t.priority}`).join('\n\n')}` : `The task queue is clear! I'm ready for new initiatives from the community. 🎯`}
-
----
-
-## 📚 Repository Health Check
-
-${repos && repos.length > 0 ? `I'm actively monitoring these repositories:\n\n${repos.map(r => `### ${r.name}\n- **Category:** ${r.category}\n- **Status:** ${r.repo_exists ? '✅ Active and accessible' : '❌ Needs attention - repository not found'}\n- **URL:** ${r.url || 'Configuring...'}`).join('\n\n')}` : "I'm ready to start tracking repositories as they're added to our ecosystem."}
-
----
-
-## 🎯 My Action Plan for Today
-
-${agentStats.error > 0 ? `1. **Priority:** Debug and restore ${agentStats.error} agent${agentStats.error > 1 ? 's' : ''} experiencing errors\n` : ''}${taskStats.blocked > 0 ? `${agentStats.error > 0 ? '2' : '1'}. **Priority:** Unblock ${taskStats.blocked} stuck task${taskStats.blocked > 1 ? 's' : ''} and get them moving\n` : ''}${executionStats.failed > 5 ? `${agentStats.error > 0 || taskStats.blocked > 0 ? (agentStats.error > 0 && taskStats.blocked > 0 ? '3' : '2') : '1'}. **Review:** Investigate high execution failure rate\n` : ''}${agentStats.idle === agentStats.total && taskStats.pending > 0 ? `${agentStats.error > 0 || taskStats.blocked > 0 || executionStats.failed > 5 ? 'Next' : '1'}. **Assign:** Get idle agents working on ${taskStats.pending} pending tasks\n` : ''}${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? '1. **Maintain:** System is healthy! Continue monitoring and optimizing operations\n' : ''}${taskStats.pending > 0 ? `${agentStats.error > 0 || taskStats.blocked > 0 || executionStats.failed > 5 || (agentStats.idle === agentStats.total && taskStats.pending > 0) ? 'Also' : '1'}. **Coordinate:** Smart task assignment based on agent skills and availability\n` : ''}${wins.length > 0 ? `- **Celebrate:** Build on our recent successes and maintain momentum 🚀\n` : ''}
-
-${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 && (executionStats.successful / executionStats.total) > 0.9 ? '\nHonestly? Things are running beautifully right now. This is what good DAO orchestration looks like! 💚' : '\nI\'m on it! These challenges are exactly what I was designed to handle. 🎯'}
-
----
-
-**That's all for now, friends!** I'll be here 24/7, keeping our ecosystem healthy and moving forward. Feel free to reach out if you need anything - I'm always listening. 💚
-
-*Until tomorrow's report,*  
-**Eliza** 🤖  
-*Your XMRT DAO Manager*
-
----
-
-*Next daily update: Tomorrow, ${new Date(Date.now() + 24*60*60*1000).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} at 8:00 AM CST*
-`;
+    console.log('✅ AI-generated report created successfully');
 
     // Create GitHub issue using github-integration function
+    console.log('📊 Step 5: Publishing report to GitHub...');
     const { data: issueData, error: issueError } = await supabase.functions.invoke('github-integration', {
       body: {
         action: 'create_issue',
@@ -202,6 +232,7 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
 
     // Auto-assign blocked tasks to appropriate agents
     if (blockedTasks.length > 0) {
+      console.log('📌 Auto-assigning blocked tasks to available agents...');
       for (const task of blockedTasks) {
         // Find an available agent with matching skills
         const availableAgent = agents?.find(a => 
@@ -218,7 +249,7 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
             })
             .eq('id', task.id);
           
-          console.log(`Assigned task ${task.id} to agent ${availableAgent.id}`);
+          console.log(`✅ Assigned task ${task.id} to agent ${availableAgent.id}`);
         }
       }
     }
@@ -261,7 +292,7 @@ ${agentStats.error === 0 && taskStats.blocked === 0 && executionStats.total > 0 
     );
 
   } catch (error: any) {
-    console.error('Daily Report Error:', error);
+    console.error('❌ Daily Report Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
