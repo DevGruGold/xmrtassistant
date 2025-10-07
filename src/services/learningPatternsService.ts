@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { enhancedLearningService } from './enhancedLearningService';
 
 export interface LearningPattern {
   id: string;
@@ -55,6 +56,15 @@ export class LearningPatternsService {
             usage_count: 1
           });
       }
+
+      // Enhanced ML learning integration
+      await enhancedLearningService.learnFromExperience({
+        context: { pattern_type: patternType, pattern_data: patternData },
+        action_taken: 'record_pattern',
+        outcome: { success: true, performance: confidenceScore },
+        reward: confidenceScore,
+        confidence: confidenceScore
+      }).catch(err => console.warn('Enhanced learning failed:', err));
     } catch (error) {
       console.error('Failed to record learning pattern:', error);
     }
