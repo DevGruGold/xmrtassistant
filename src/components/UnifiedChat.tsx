@@ -12,7 +12,8 @@ import { Send, Volume2, VolumeX, Trash2, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { VoiceProvider } from '@humeai/voice-react';
+import { VoiceProvider, useVoice, VoiceReadyState } from '@humeai/voice-react';
+import { Mic, MicOff } from 'lucide-react';
 
 // Services
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
@@ -64,6 +65,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const { language } = useLanguage();
   const { toast } = useToast();
   
+  // Hume Voice hook
+  const { connect, disconnect, readyState, messages: humeMessages, isMuted, unmute, mute } = useVoice();
+  
   // State
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [conversationSummaries, setConversationSummaries] = useState<Array<{ summaryText: string; messageCount: number; createdAt: Date }>>([]);
@@ -74,6 +78,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Context
@@ -86,26 +91,131 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Voice controls
-  const handleEnableVoice = () => {
-    setVoiceEnabled(true);
-    localStorage.setItem('voiceEnabled', 'true');
+  const handleConnectVoice = async () => {
+    try {
+      // Get Hume API key from environment
+      const humeApiKey = import.meta.env.VITE_HUME_API_KEY;
+      
+      if (!humeApiKey) {
+        throw new Error('VITE_HUME_API_KEY not configured');
+      }
+
+      // Connect with auth configuration
+      await connect({
+        auth: {
+          type: 'apiKey',
+          value: humeApiKey,
+        },
+      });
+      
+      setVoiceEnabled(true);
+      localStorage.setItem('voiceEnabled', 'true');
+      toast({
+        title: "Voice Connected",
+        description: "You can now speak with Eliza",
+      });
+    } catch (error) {
+      console.error('Failed to connect voice:', error);
+      toast({
+        title: "Voice Error",
+        description: "Failed to connect voice service",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDisconnectVoice = () => {
+    disconnect();
+    setVoiceEnabled(false);
+    setIsListening(false);
+    localStorage.setItem('voiceEnabled', 'false');
     toast({
-      title: "Voice Enabled",
-      description: "Hume AI voice is now active",
+      title: "Voice Disconnected",
+      description: "Voice chat has been disabled",
     });
   };
 
-  const handleDisableVoice = () => {
-    setVoiceEnabled(false);
-    localStorage.setItem('voiceEnabled', 'false');
+  const toggleMicrophone = () => {
+    if (isMuted) {
+      unmute();
+      setIsListening(true);
+    } else {
+      mute();
+      setIsListening(false);
+    }
   };
 
+  // Monitor Hume connection state
   useEffect(() => {
-    const wasEnabled = localStorage.getItem('voiceEnabled') === 'true';
-    if (wasEnabled) {
+    const isConnected = readyState === VoiceReadyState.OPEN;
+    if (isConnected && !voiceEnabled) {
       setVoiceEnabled(true);
     }
-  }, []);
+    if (!isConnected && voiceEnabled) {
+      setVoiceEnabled(false);
+      setIsListening(false);
+    }
+  }, [readyState]);
+
+  // Handle Hume voice messages
+  useEffect(() => {
+    if (!humeMessages || humeMessages.length === 0) return;
+
+    const lastMessage = humeMessages[humeMessages.length - 1];
+    
+    if (lastMessage.type === 'user_message' && lastMessage.message?.content) {
+      const userMsg: UnifiedMessage = {
+        id: `hume-user-${Date.now()}`,
+        content: lastMessage.message.content,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => {
+        if (prev.some(m => m.id === userMsg.id)) return prev;
+        return [...prev, userMsg];
+      });
+
+      conversationPersistence.storeMessage(lastMessage.message.content, 'user', {
+        source: 'hume-voice',
+      }).catch(console.error);
+    }
+    
+    if (lastMessage.type === 'assistant_message' && lastMessage.message?.content) {
+      const assistantMsg: UnifiedMessage = {
+        id: `hume-assistant-${Date.now()}`,
+        content: lastMessage.message.content,
+        sender: 'assistant',
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => {
+        if (prev.some(m => m.id === assistantMsg.id)) return prev;
+        return [...prev, assistantMsg];
+      });
+      
+      setLastElizaMessage(lastMessage.message.content);
+
+      conversationPersistence.storeMessage(lastMessage.message.content, 'assistant', {
+        source: 'hume-voice',
+      }).catch(console.error);
+    }
+
+    // Monitor speaking state - assistant messages indicate Eliza is responding
+    if (lastMessage.type === 'assistant_message') {
+      setIsSpeaking(true);
+    } else if (lastMessage.type === 'assistant_end') {
+      setIsSpeaking(false);
+    }
+
+    // Monitor listening state
+    if (lastMessage.type === 'user_interruption') {
+      setIsListening(false);
+      setIsSpeaking(false);
+    } else if (lastMessage.type === 'user_message') {
+      setIsListening(false); // User finished speaking
+    }
+  }, [humeMessages]);
 
   // Auto-scroll
   useEffect(() => {
@@ -334,10 +444,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   };
 
   const toggleVoice = () => {
-    if (!voiceEnabled) {
-      handleEnableVoice();
+    if (readyState === VoiceReadyState.OPEN) {
+      handleDisconnectVoice();
     } else {
-      handleDisableVoice();
+      handleConnectVoice();
     }
   };
 
@@ -397,7 +507,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
         <div className="flex gap-2">
           <Button
-            variant="ghost"
+            variant={voiceEnabled ? "default" : "ghost"}
             size="sm"
             onClick={toggleVoice}
             className="flex items-center gap-2"
@@ -405,6 +515,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             <span className="hidden sm:inline">{voiceEnabled ? 'Voice On' : 'Voice Off'}</span>
           </Button>
+
+          {voiceEnabled && (
+            <Button
+              variant={isListening ? "default" : "outline"}
+              size="sm"
+              onClick={toggleMicrophone}
+              className="flex items-center gap-2"
+            >
+              {isListening ? <Mic className="w-4 h-4 animate-pulse" /> : <MicOff className="w-4 h-4" />}
+              <span className="hidden sm:inline">
+                {isListening ? 'Listening...' : 'Mic Off'}
+              </span>
+            </Button>
+          )}
           
           {hasMoreMessages && (
             <Button
@@ -470,18 +594,42 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       {/* Input */}
       <div className="border-t border-border/50 bg-background/50">
         <div className="p-4">
+          {voiceEnabled && (
+            <div className="mb-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {isListening ? (
+                    <Mic className="w-4 h-4 text-primary animate-pulse" />
+                  ) : (
+                    <MicOff className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {isListening ? 'Listening to your voice...' : isSpeaking ? 'Eliza is speaking...' : 'Click mic to speak'}
+                  </span>
+                </div>
+                <Button
+                  variant={isListening ? "destructive" : "default"}
+                  size="sm"
+                  onClick={toggleMicrophone}
+                >
+                  {isListening ? 'Stop' : 'Speak'}
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex gap-3">
             <Input
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              disabled={isProcessing}
+              placeholder={isListening ? "Listening via microphone..." : "Type your message..."}
+              disabled={isProcessing || isListening}
               className="flex-1"
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!textInput.trim() || isProcessing}
+              disabled={!textInput.trim() || isProcessing || isListening}
               size="icon"
             >
               <Send className="w-4 h-4" />
