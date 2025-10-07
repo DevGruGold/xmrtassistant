@@ -88,6 +88,36 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
+  // Initialize TTS for mobile compatibility
+  useEffect(() => {
+    const initTTS = async () => {
+      try {
+        await enhancedTTS.initialize();
+        setAudioInitialized(true);
+        console.log('✅ TTS initialized for mobile and browser');
+      } catch (error) {
+        console.error('❌ TTS initialization failed:', error);
+      }
+    };
+    
+    // Initialize on first user interaction
+    const handleFirstInteraction = () => {
+      if (!audioInitialized) {
+        initTTS();
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+      }
+    };
+    
+    document.addEventListener('click', handleFirstInteraction);
+    document.addEventListener('touchstart', handleFirstInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [audioInitialized]);
+
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
   const [needsAPIKey, setNeedsAPIKey] = useState(false);

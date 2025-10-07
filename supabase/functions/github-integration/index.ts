@@ -791,8 +791,47 @@ serve(async (req) => {
 
     console.log(`✅ GitHub Integration - Success: ${action}`);
 
+    // Format response for user-friendly display
+    let userFriendlyMessage = '';
+    switch (action) {
+      case 'create_issue':
+        userFriendlyMessage = `✅ Created issue #${responseData.number}: "${responseData.title}" in ${GITHUB_OWNER}/${data?.repo || GITHUB_REPO}`;
+        break;
+      case 'create_discussion':
+        userFriendlyMessage = `✅ Created discussion: "${responseData.discussion?.title}" in category ${responseData.discussion?.category?.name}`;
+        break;
+      case 'commit_file':
+        userFriendlyMessage = `✅ Successfully committed "${data.path}" to ${data.branch || 'main'} branch`;
+        break;
+      case 'create_pull_request':
+        userFriendlyMessage = `✅ Created pull request #${responseData.number}: "${responseData.title}" (${responseData.head.ref} → ${responseData.base.ref})`;
+        break;
+      case 'get_repo_info':
+        userFriendlyMessage = `📊 Repository: ${responseData.full_name}\n⭐ Stars: ${responseData.stargazers_count} | 🍴 Forks: ${responseData.forks_count} | 🐛 Open Issues: ${responseData.open_issues_count}`;
+        break;
+      case 'get_file_content':
+        userFriendlyMessage = `📄 Retrieved file: ${responseData.path} (${responseData.size} bytes)`;
+        break;
+      case 'list_issues':
+        userFriendlyMessage = `📋 Found ${responseData.length} issue(s)`;
+        break;
+      case 'list_pull_requests':
+        userFriendlyMessage = `🔀 Found ${responseData.length} pull request(s)`;
+        break;
+      case 'search_code':
+        userFriendlyMessage = `🔍 Found ${responseData.total_count} code match(es)`;
+        break;
+      default:
+        userFriendlyMessage = `✅ Successfully completed: ${action}`;
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: responseData }),
+      JSON.stringify({ 
+        success: true, 
+        data: responseData,
+        userFriendlyMessage,
+        action
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
