@@ -2,7 +2,7 @@ import { xmrtKnowledge } from '@/data/xmrtKnowledgeBase';
 
 /**
  * SINGLE SOURCE OF TRUTH FOR ELIZA'S SYSTEM PROMPT
- * All services (Hume EVI, Lovable Chat, Gemini, etc.) should use this
+ * All services (Lovable Chat, Gemini, ElevenLabs, etc.) should use this
  */
 
 export const generateElizaSystemPrompt = () => {

@@ -24,7 +24,7 @@ interface EcosystemStatus {
 }
 
 // Enhanced client tools for complete ecosystem management
-export const useEnhancedHumeClientTools = () => {
+export const useEnhancedClientTools = () => {
   const [userIP, setUserIP] = useState<string>("");
   const [miningStats, setMiningStats] = useState<MiningStats | null>(null);
   const [ecosystemStatus, setEcosystemStatus] = useState<EcosystemStatus | null>(null);
@@ -190,7 +190,7 @@ Detailed status report will be available momentarily.`;
 
 🔑 Autonomous AI Integration:
 • Gemini AI API: ${hasApiKey ? '🟢 Configured (Full Multimodal Capabilities)' : '🟡 Not Configured (Limited to Basic Features)'}
-• Hume EVI: 🟢 Emotional Intelligence Active
+• ElevenLabs: 🟢 Voice & TTS Active
 • HARPA AI: 🟢 Web Browsing & Research Enabled
 • Voice Interface: 🟢 Multi-language Support Active
 

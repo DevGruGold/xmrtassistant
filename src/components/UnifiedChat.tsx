@@ -61,7 +61,7 @@ interface UnifiedChatProps {
   miningStats?: MiningStats;
 }
 
-// Internal component that uses ElevenLabs TTS instead of Hume
+// Internal component using ElevenLabs and Gemini
 const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
   className = '',
@@ -1073,7 +1073,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   );
 };
 
-// External wrapper - no longer needs Hume provider
+// External wrapper
 export const UnifiedChat: React.FC<UnifiedChatProps> = (props) => {
   return <UnifiedChatInner {...props} />;
 };
