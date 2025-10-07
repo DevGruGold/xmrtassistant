@@ -168,6 +168,33 @@ with urllib.request.urlopen(req) as response:
     const aiData = await aiResponse.json();
     let fixedCode = aiData.choices?.[0]?.message?.content || '';
 
+    // Handle null or empty response from AI
+    if (!fixedCode || fixedCode.trim().length === 0) {
+      console.error('❌ AI returned empty/null response:', aiData);
+      
+      await supabase.from('eliza_activity_log').insert({
+        activity_type: 'python_fix',
+        title: '⚠️ Python Fix Failed - Empty AI Response',
+        description: 'AI returned empty response for code fix',
+        status: 'failed',
+        metadata: {
+          execution_id,
+          ai_response: aiData,
+          original_error: execution.error?.substring(0, 100)
+        }
+      });
+      
+      return new Response(JSON.stringify({
+        success: false,
+        skipped: true,
+        reason: 'empty_ai_response',
+        error: 'AI returned empty response'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
     console.log('✅ Received fix from Lovable AI Gateway');
 
     // Clean up the code (remove markdown if present)
