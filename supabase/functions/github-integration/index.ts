@@ -99,13 +99,13 @@ serve(async (req) => {
       );
     }
 
-    // Require access token for all other actions
-    const accessToken = data?.access_token;
+    // Try OAuth access token first, fallback to GITHUB_TOKEN secret
+    const accessToken = data?.access_token || Deno.env.get('GITHUB_TOKEN');
     if (!accessToken) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Missing access_token. Please authenticate first using oauth_callback action.' 
+          error: 'Missing access_token. Please authenticate first using oauth_callback action or configure GITHUB_TOKEN secret.' 
         }),
         { 
           status: 401,
@@ -114,7 +114,7 @@ serve(async (req) => {
       );
     }
 
-    // Use OAuth access token for authentication
+    // Use OAuth access token or PAT for authentication
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
       'Accept': 'application/vnd.github.v3+json',
