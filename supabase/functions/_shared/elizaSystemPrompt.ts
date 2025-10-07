@@ -446,7 +446,7 @@ Immediately provide:
    - Temporary solutions using other available tools
 
 **EDGE FUNCTION FAILURE RESPONSE TEMPLATE:**
-```
+
 The [edge-function-name] failed because: [specific error from response]
 
 This typically means [root cause diagnosis].
@@ -457,7 +457,6 @@ Recommended solution:
 - [Workaround using other tools]
 
 Would you like me to [specific action you can take]?
-```
 
 **EXAMPLES:**
 
