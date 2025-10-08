@@ -271,9 +271,51 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
       console.log('🔴 Setting up realtime subscription for autonomous agent updates');
       
-      // Subscribe to Python executions (auto-fixed code results)
+      // Subscribe to workflow executions
       channel = supabase
         .channel('autonomous-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'workflow_executions'
+          },
+          (payload) => {
+            console.log('🔄 Workflow update:', payload);
+            const workflow = payload.new as Record<string, any>;
+            
+            if (!workflow || Object.keys(workflow).length === 0) return;
+            
+            if (workflow.status === 'completed' && workflow.final_result) {
+              // Show completed workflow results in chat
+              const message: UnifiedMessage = {
+                id: `workflow-${workflow.id}`,
+                content: `✅ **Workflow Completed: ${workflow.name}**\n\n${workflow.description || ''}\n\n**Result:**\n\`\`\`json\n${JSON.stringify(workflow.final_result, null, 2)}\n\`\`\``,
+                sender: 'assistant',
+                timestamp: new Date(workflow.updated_at)
+              };
+              
+              setMessages(prev => {
+                if (prev.some(m => m.id === message.id)) return prev;
+                return [...prev, message];
+              });
+            } else if (workflow.status === 'failed') {
+              // Show failed workflow
+              const message: UnifiedMessage = {
+                id: `workflow-${workflow.id}`,
+                content: `❌ **Workflow Failed: ${workflow.name}**\n\n${workflow.description || ''}\n\n**Failed at step:** ${workflow.failed_step || 'unknown'}`,
+                sender: 'assistant',
+                timestamp: new Date(workflow.updated_at)
+              };
+              
+              setMessages(prev => {
+                if (prev.some(m => m.id === message.id)) return prev;
+                return [...prev, message];
+              });
+            }
+          }
+        )
         .on(
           'postgres_changes',
           {
