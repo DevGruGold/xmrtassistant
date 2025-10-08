@@ -63,6 +63,49 @@ serve(async (req) => {
       startTime: new Date().toISOString()
     };
     
+    // Create database record for workflow execution
+    const { data: dbExecution, error: dbError } = await supabase
+      .from('workflow_executions')
+      .insert({
+        workflow_id: execution.id,
+        name: execution.name,
+        description: execution.description,
+        status: 'running',
+        current_step_index: 0,
+        total_steps: execution.steps.length,
+        start_time: execution.startTime,
+        metadata: {
+          workflow_type: workflow.workflow_type || 'custom',
+          user_context: context
+        }
+      })
+      .select()
+      .single();
+    
+    if (dbError) {
+      console.error('Failed to create workflow execution record:', dbError);
+      throw dbError;
+    }
+    
+    // Create database records for all steps
+    const stepRecords = execution.steps.map((step, index) => ({
+      workflow_execution_id: dbExecution.id,
+      step_id: step.id,
+      step_index: index,
+      name: step.name,
+      description: step.description,
+      step_type: workflow.steps[index].type,
+      status: 'pending'
+    }));
+    
+    const { error: stepsError } = await supabase
+      .from('workflow_steps')
+      .insert(stepRecords);
+    
+    if (stepsError) {
+      console.error('Failed to create workflow steps records:', stepsError);
+    }
+    
     // Log workflow start
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'multi_step_workflow',
@@ -83,6 +126,21 @@ serve(async (req) => {
         execution.currentStepIndex = i;
         step.status = 'running';
         step.startTime = new Date().toISOString();
+        
+        // Update database: workflow execution and step status
+        await supabase
+          .from('workflow_executions')
+          .update({ current_step_index: i })
+          .eq('workflow_id', execution.id);
+        
+        await supabase
+          .from('workflow_steps')
+          .update({ 
+            status: 'running',
+            start_time: step.startTime
+          })
+          .eq('workflow_execution_id', dbExecution.id)
+          .eq('step_index', i);
         
         console.log(`🔄 Executing step ${i + 1}/${execution.steps.length}: ${step.name}`);
         
@@ -127,6 +185,18 @@ serve(async (req) => {
           
           console.log(`✅ Step ${i + 1} completed in ${step.duration}ms`);
           
+          // Update database: mark step as completed
+          await supabase
+            .from('workflow_steps')
+            .update({
+              status: 'completed',
+              result,
+              end_time: step.endTime,
+              duration_ms: step.duration
+            })
+            .eq('workflow_execution_id', dbExecution.id)
+            .eq('step_index', i);
+          
           // Log step completion
           await supabase.from('eliza_activity_log').insert({
             activity_type: 'workflow_step_completed',
@@ -154,6 +224,27 @@ serve(async (req) => {
           execution.status = 'failed';
           execution.failedStep = step.name;
           execution.endTime = new Date().toISOString();
+          
+          // Update database: mark step and workflow as failed
+          await supabase
+            .from('workflow_steps')
+            .update({
+              status: 'failed',
+              error: stepError.message,
+              end_time: step.endTime,
+              duration_ms: step.duration
+            })
+            .eq('workflow_execution_id', dbExecution.id)
+            .eq('step_index', i);
+          
+          await supabase
+            .from('workflow_executions')
+            .update({
+              status: 'failed',
+              failed_step: step.name,
+              end_time: execution.endTime
+            })
+            .eq('workflow_id', execution.id);
           
           // Log step failure
           await supabase.from('eliza_activity_log').insert({
@@ -191,6 +282,16 @@ serve(async (req) => {
         };
         
         console.log('🎉 Workflow completed successfully!');
+        
+        // Update database: mark workflow as completed
+        await supabase
+          .from('workflow_executions')
+          .update({
+            status: 'completed',
+            end_time: execution.endTime,
+            final_result: execution.finalResult
+          })
+          .eq('workflow_id', execution.id);
         
         // Log workflow completion
         await supabase.from('eliza_activity_log').insert({

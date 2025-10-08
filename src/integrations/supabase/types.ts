@@ -1152,6 +1152,122 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_executions: {
+        Row: {
+          created_at: string
+          current_step_index: number
+          description: string | null
+          end_time: string | null
+          failed_step: string | null
+          final_result: Json | null
+          id: string
+          metadata: Json | null
+          name: string
+          start_time: string
+          status: string
+          total_steps: number
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_step_index?: number
+          description?: string | null
+          end_time?: string | null
+          failed_step?: string | null
+          final_result?: Json | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          start_time?: string
+          status?: string
+          total_steps: number
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          current_step_index?: number
+          description?: string | null
+          end_time?: string | null
+          failed_step?: string | null
+          final_result?: Json | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          start_time?: string
+          status?: string
+          total_steps?: number
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: []
+      }
+      workflow_steps: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_ms: number | null
+          end_time: string | null
+          error: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          result: Json | null
+          start_time: string | null
+          status: string
+          step_id: string
+          step_index: number
+          step_type: string
+          updated_at: string
+          workflow_execution_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_ms?: number | null
+          end_time?: string | null
+          error?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          result?: Json | null
+          start_time?: string | null
+          status?: string
+          step_id: string
+          step_index: number
+          step_type: string
+          updated_at?: string
+          workflow_execution_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_ms?: number | null
+          end_time?: string | null
+          error?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          result?: Json | null
+          start_time?: string | null
+          status?: string
+          step_id?: string
+          step_index?: number
+          step_type?: string
+          updated_at?: string
+          workflow_execution_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_steps_workflow_execution_id_fkey"
+            columns: ["workflow_execution_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
