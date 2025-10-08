@@ -1671,7 +1671,16 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           });
           
           if (memError) throw memError;
-          return new Response(JSON.stringify({ success: true, toolResult: { stored: true }, toolName: 'storeMemory', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          
+          // Format a human-readable result instead of raw object
+          const formattedResult = `✅ Memory stored successfully:\n- **Context Type:** ${args.contextType}\n- **Importance:** ${args.importanceScore || 0.5}\n- **Content:** "${args.content.substring(0, 100)}${args.content.length > 100 ? '...' : ''}"`;
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            toolResult: formattedResult, 
+            toolName: 'storeMemory', 
+            hasToolCalls: true 
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'searchMemories') {
           let query = supabase.from('memory_contexts').select('*').eq('user_id', args.userId);
@@ -1679,7 +1688,21 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
           const { data: memories, error: memError } = await query.order('importance_score', { ascending: false }).limit(args.limit || 10);
           
           if (memError) throw memError;
-          return new Response(JSON.stringify({ success: true, toolResult: memories, toolName: 'searchMemories', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          
+          // Format memories in a readable way instead of raw JSON
+          const formattedMemories = memories && memories.length > 0
+            ? `Found ${memories.length} ${memories.length === 1 ? 'memory' : 'memories'}:\n\n` + 
+              memories.map((m: any, i: number) => 
+                `**Memory ${i + 1}** (${m.context_type}, importance: ${m.importance_score}):\n"${m.content}"\n_Stored: ${new Date(m.timestamp).toLocaleString()}_`
+              ).join('\n\n')
+            : 'No memories found matching the criteria.';
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            toolResult: formattedMemories, 
+            toolName: 'searchMemories', 
+            hasToolCalls: true 
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'summarizeConversation') {
           const { data: summary, error: sumError } = await supabase.functions.invoke('summarize-conversation', {
@@ -1710,7 +1733,18 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         if (toolCall.function.name === 'getSystemStatus') {
           const { data: status, error: statusError } = await supabase.functions.invoke('system-status', { body: {} });
           if (statusError) throw statusError;
-          return new Response(JSON.stringify({ success: true, toolResult: status, toolName: 'getSystemStatus', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          
+          // Format system status in readable markdown
+          const formattedStatus = typeof status === 'object' 
+            ? `**System Status Report**\n\`\`\`json\n${JSON.stringify(status, null, 2)}\n\`\`\``
+            : String(status);
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            toolResult: formattedStatus, 
+            toolName: 'getSystemStatus', 
+            hasToolCalls: true 
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getSystemDiagnostics') {
           const { data: diag, error: diagError } = await supabase.functions.invoke('system-diagnostics', { body: {} });
