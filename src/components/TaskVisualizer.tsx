@@ -262,6 +262,10 @@ export const TaskVisualizer = () => {
       case 'task_updated': return '✏️';
       case 'agent_spawned': return '🤖';
       case 'github_action': return '📦';
+      case 'multi_step_workflow': return '🎬';
+      case 'workflow_step_completed': return '✅';
+      case 'workflow_step_failed': return '❌';
+      case 'autonomous_decision': return '🧠';
       default: return '✨';
     }
   };

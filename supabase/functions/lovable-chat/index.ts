@@ -16,6 +16,9 @@ serve(async (req) => {
     const { messages, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
     if (!LOVABLE_API_KEY) {
       console.error('❌ LOVABLE_API_KEY not configured');
       return new Response(
@@ -31,6 +34,112 @@ serve(async (req) => {
     }
 
     console.log('🎯 Lovable AI Gateway - Processing request');
+    
+    // Extract user input for multi-step detection
+    const userInput = messages[messages.length - 1]?.content || '';
+    
+    // Check if this is a complex multi-step task that should run in background
+    const isMultiStepTask = /analyze.*and.*(create|build|implement)|multi[- ]?step|coordinate|orchestrate|plan.*and.*execute|research.*and.*summarize|compare.*across|integrate.*data|build.*workflow|complex.*analysis|autonomous.*task/i.test(userInput);
+    
+    if (isMultiStepTask) {
+      console.log('🎬 Multi-step task detected - initiating autonomous background workflow...');
+      
+      try {
+        // Design the workflow steps using AI
+        const workflowDesignResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: 'system',
+                content: `You are a workflow architect for Eliza's autonomous system. Design efficient multi-step workflows that run in the background.
+
+IMPORTANT: Design workflows that can execute autonomously without user intervention. Each step should be self-contained.
+
+Respond ONLY with valid JSON (no markdown):
+{
+  "workflow_name": "descriptive name",
+  "description": "what this workflow accomplishes",
+  "steps": [
+    {
+      "name": "step name",
+      "description": "what this step does",
+      "type": "ai_analysis | data_fetch | api_call | decision | code_execution"
+    }
+  ],
+  "estimated_duration": "2-5 minutes"
+}
+
+Step types:
+- ai_analysis: AI analyzes data (add: prompt, optional: system_prompt)
+- data_fetch: Fetch from database (add: table, optional: select, limit)
+- api_call: Call edge function (add: function OR url, optional: method, body)
+- decision: Make strategic decision (add: decision_prompt)
+- code_execution: Run Python (add: code, optional: purpose)`
+              },
+              {
+                role: 'user',
+                content: `Design autonomous background workflow for: ${userInput}`
+              }
+            ],
+            temperature: 0.5,
+            max_tokens: 1500
+          })
+        });
+        
+        if (workflowDesignResponse.ok) {
+          const designData = await workflowDesignResponse.json();
+          let workflowText = designData.choices[0].message.content.trim();
+          
+          // Remove markdown code blocks if present
+          workflowText = workflowText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+          
+          const workflow = JSON.parse(workflowText);
+          
+          console.log('🎬 Workflow designed:', workflow.workflow_name, '- Steps:', workflow.steps.length);
+          
+          // Initiate background orchestrator
+          const orchestratorResponse = await fetch(`${SUPABASE_URL}/functions/v1/multi-step-orchestrator`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              workflow,
+              userInput,
+              context: {
+                conversationHistory,
+                userContext,
+                miningStats
+              }
+            })
+          });
+          
+          if (orchestratorResponse.ok) {
+            const orchestratorData = await orchestratorResponse.json();
+            console.log('✅ Background workflow initiated:', orchestratorData.workflow_id);
+            
+            return new Response(JSON.stringify({
+              success: true,
+              response: `🎬 **Background Workflow Started**: ${workflow.workflow_name}\n\n${workflow.description}\n\n**Executing ${workflow.steps.length} steps:**\n${workflow.steps.map((s: any, i: number) => `${i + 1}. ${s.name}`).join('\n')}\n\n⏱️ ${workflow.estimated_duration}\n\n✅ Running in the background. Check **Task Pipeline Visualizer** for live updates. You can continue chatting while I work on this.`,
+              hasToolCalls: false,
+              workflow_id: orchestratorData.workflow_id,
+              background_task: true
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+      } catch (workflowError) {
+        console.warn('⚠️ Workflow orchestration failed, continuing with standard response:', workflowError.message);
+      }
+    }
     
     // Create Supabase client for fetching real-time agent data
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

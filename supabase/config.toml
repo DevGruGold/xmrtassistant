@@ -172,3 +172,6 @@ verify_jwt = false
 [functions.enhanced-learning]
 verify_jwt = false
 
+[functions.multi-step-orchestrator]
+verify_jwt = false
+
