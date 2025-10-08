@@ -106,6 +106,104 @@ export type Database = {
         }
         Relationships: []
       }
+      community_messages: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          auto_response_queued: boolean | null
+          content: string
+          created_at: string | null
+          flag_reason: string | null
+          flagged_for_review: boolean | null
+          id: string
+          metadata: Json | null
+          platform: string
+          platform_message_id: string | null
+          processed: boolean | null
+          sentiment_score: number | null
+          topics: string[] | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          auto_response_queued?: boolean | null
+          content: string
+          created_at?: string | null
+          flag_reason?: string | null
+          flagged_for_review?: boolean | null
+          id?: string
+          metadata?: Json | null
+          platform: string
+          platform_message_id?: string | null
+          processed?: boolean | null
+          sentiment_score?: number | null
+          topics?: string[] | null
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          auto_response_queued?: boolean | null
+          content?: string
+          created_at?: string | null
+          flag_reason?: string | null
+          flagged_for_review?: boolean | null
+          id?: string
+          metadata?: Json | null
+          platform?: string
+          platform_message_id?: string | null
+          processed?: boolean | null
+          sentiment_score?: number | null
+          topics?: string[] | null
+        }
+        Relationships: []
+      }
+      community_responses: {
+        Row: {
+          approved: boolean | null
+          approved_by: string | null
+          created_at: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          platform_response_id: string | null
+          response_content: string
+          response_type: string
+          sent_at: string | null
+        }
+        Insert: {
+          approved?: boolean | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform_response_id?: string | null
+          response_content: string
+          response_type: string
+          sent_at?: string | null
+        }
+        Update: {
+          approved?: boolean | null
+          approved_by?: string | null
+          created_at?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform_response_id?: string | null
+          response_content?: string
+          response_type?: string
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_responses_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "community_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_messages: {
         Row: {
           content: string
@@ -575,6 +673,96 @@ export type Database = {
         }
         Relationships: []
       }
+      nlg_generated_content: {
+        Row: {
+          audience_type: string
+          content: string
+          content_type: string
+          created_at: string | null
+          engagement_metrics: Json | null
+          format: string | null
+          id: string
+          metadata: Json | null
+          published: boolean | null
+          published_at: string | null
+          published_to: string[] | null
+          source_data: Json | null
+          title: string | null
+        }
+        Insert: {
+          audience_type: string
+          content: string
+          content_type: string
+          created_at?: string | null
+          engagement_metrics?: Json | null
+          format?: string | null
+          id?: string
+          metadata?: Json | null
+          published?: boolean | null
+          published_at?: string | null
+          published_to?: string[] | null
+          source_data?: Json | null
+          title?: string | null
+        }
+        Update: {
+          audience_type?: string
+          content?: string
+          content_type?: string
+          created_at?: string | null
+          engagement_metrics?: Json | null
+          format?: string | null
+          id?: string
+          metadata?: Json | null
+          published?: boolean | null
+          published_at?: string | null
+          published_to?: string[] | null
+          source_data?: Json | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      predictive_insights: {
+        Row: {
+          analysis_type: string
+          confidence_score: number | null
+          created_at: string | null
+          data_source: string
+          forecast_horizon: string | null
+          id: string
+          insight_data: Json
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string | null
+          status: string | null
+        }
+        Insert: {
+          analysis_type: string
+          confidence_score?: number | null
+          created_at?: string | null
+          data_source: string
+          forecast_horizon?: string | null
+          id?: string
+          insight_data: Json
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+        }
+        Update: {
+          analysis_type?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          data_source?: string
+          forecast_horizon?: string | null
+          id?: string
+          insight_data?: Json
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       repos: {
         Row: {
           category: string
@@ -602,6 +790,51 @@ export type Database = {
           name?: string
           repo_exists?: boolean | null
           url?: string | null
+        }
+        Relationships: []
+      }
+      scenario_simulations: {
+        Row: {
+          confidence_level: number | null
+          created_at: string | null
+          created_by: string | null
+          execution_time_ms: number | null
+          id: string
+          input_parameters: Json
+          metadata: Json | null
+          recommendations: string[] | null
+          risk_assessment: Json | null
+          scenario_name: string
+          scenario_type: string
+          simulation_results: Json
+        }
+        Insert: {
+          confidence_level?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_parameters: Json
+          metadata?: Json | null
+          recommendations?: string[] | null
+          risk_assessment?: Json | null
+          scenario_name: string
+          scenario_type: string
+          simulation_results: Json
+        }
+        Update: {
+          confidence_level?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_parameters?: Json
+          metadata?: Json | null
+          recommendations?: string[] | null
+          risk_assessment?: Json | null
+          scenario_name?: string
+          scenario_type?: string
+          simulation_results?: Json
         }
         Relationships: []
       }
