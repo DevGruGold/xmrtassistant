@@ -993,6 +993,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_worker_mappings: {
+        Row: {
+          alias: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          last_active: string
+          metadata: Json | null
+          registered_at: string
+          session_key: string | null
+          total_hashrate: number | null
+          total_shares: number | null
+          updated_at: string
+          user_id: string | null
+          wallet_address: string
+          worker_id: string
+        }
+        Insert: {
+          alias?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_active?: string
+          metadata?: Json | null
+          registered_at?: string
+          session_key?: string | null
+          total_hashrate?: number | null
+          total_shares?: number | null
+          updated_at?: string
+          user_id?: string | null
+          wallet_address: string
+          worker_id: string
+        }
+        Update: {
+          alias?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_active?: string
+          metadata?: Json | null
+          registered_at?: string
+          session_key?: string | null
+          total_hashrate?: number | null
+          total_shares?: number | null
+          updated_at?: string
+          user_id?: string | null
+          wallet_address?: string
+          worker_id?: string
+        }
+        Relationships: []
+      }
       webhook_configs: {
         Row: {
           created_at: string | null
