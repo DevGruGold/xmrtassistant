@@ -102,6 +102,10 @@ serve(async (req) => {
             
             case 'api_call':
               result = await executeAPICall(stepDefinition, supabaseUrl, supabaseServiceKey);
+              // Check if API call failed but don't throw - log and continue
+              if (!result.success) {
+                console.warn(`⚠️ API call had issues but continuing: ${result.error}`);
+              }
               break;
             
             case 'decision':
@@ -113,7 +117,7 @@ serve(async (req) => {
               break;
             
             default:
-              result = { status: 'skipped', reason: 'Unknown step type' };
+              result = { status: 'skipped', reason: 'Unknown step type', type: stepDefinition.type };
           }
           
           step.status = 'completed';
@@ -127,12 +131,13 @@ serve(async (req) => {
           await supabase.from('eliza_activity_log').insert({
             activity_type: 'workflow_step_completed',
             title: `✅ Step ${i + 1}/${execution.steps.length}: ${step.name}`,
-            description: `Completed successfully in ${step.duration}ms`,
+            description: `Completed in ${step.duration}ms`,
             metadata: {
               workflow_id: execution.id,
               step_id: step.id,
               step_index: i,
               duration_ms: step.duration,
+              result_summary: result.success !== undefined ? (result.success ? 'Success' : 'Partial Success') : 'Completed',
               result_preview: JSON.stringify(result).substring(0, 200)
             },
             status: 'completed'
@@ -303,21 +308,54 @@ async function executeDataFetch(step: any, supabase: any) {
 }
 
 async function executeAPICall(step: any, supabaseUrl: string, serviceKey: string) {
-  const response = await fetch(step.url || `${supabaseUrl}/functions/v1/${step.function}`, {
-    method: step.method || 'POST',
-    headers: {
-      'Authorization': `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json',
-      ...step.headers
-    },
-    body: step.body ? JSON.stringify(step.body) : undefined
-  });
-  
-  if (!response.ok) {
-    throw new Error(`API call failed: ${response.status}`);
+  // Build the URL - handle both full URLs and function names
+  let url = step.url;
+  if (!url && step.function) {
+    url = `${supabaseUrl}/functions/v1/${step.function}`;
   }
   
-  return await response.json();
+  if (!url) {
+    throw new Error('No URL or function name provided for API call');
+  }
+  
+  try {
+    const response = await fetch(url, {
+      method: step.method || 'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+        ...step.headers
+      },
+      body: step.body ? JSON.stringify(step.body) : undefined
+    });
+    
+    // Don't throw on 404, return meaningful error instead
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        status: response.status,
+        error: `HTTP ${response.status}: ${errorText || response.statusText}`,
+        url,
+        attempted_function: step.function || 'unknown'
+      };
+    }
+    
+    const result = await response.json();
+    return {
+      success: true,
+      status: response.status,
+      data: result,
+      url
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      url,
+      attempted_function: step.function || 'unknown'
+    };
+  }
 }
 
 async function executeDecision(step: any, apiKey: string, context: any) {
