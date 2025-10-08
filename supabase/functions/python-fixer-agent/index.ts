@@ -266,31 +266,35 @@ with urllib.request.urlopen(req) as response:
       }
     });
 
-    // Also create a human-readable conversation message for Eliza with the actual output
-    const { data: sessions } = await supabase
+    // Find ALL active sessions and post the results to each one
+    // This ensures users see the fixed results regardless of which session they're viewing
+    const { data: activeSessions } = await supabase
       .from('conversation_sessions')
       .select('id')
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .eq('is_active', true);
 
-    if (sessions && sessions.length > 0) {
+    if (activeSessions && activeSessions.length > 0) {
       // Create an assistant message with the actual output that Eliza was trying to get
       const outputMessage = execResult.output?.trim()
-        ? `Here are the results from the fixed Python code:\n\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n**Output:**\n${execResult.output}` 
-        : `The Python code executed successfully:\n\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n(No output generated)`;
+        ? `🔧 **Auto-Fixed Python Execution**\n\nI successfully fixed and executed the Python code that was failing.\n\n**Fixed Code:**\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n**Output:**\n\`\`\`\n${execResult.output}\n\`\`\`\n\n**Original Purpose:** ${execution.purpose || 'Code execution'}` 
+        : `🔧 **Auto-Fixed Python Execution**\n\nI successfully fixed and executed the Python code:\n\n\`\`\`python\n${fixedCode}\n\`\`\`\n\n✅ Code executed successfully (no output generated)\n\n**Original Purpose:** ${execution.purpose || 'Code execution'}`;
       
-      await supabase.from('conversation_messages').insert({
-        session_id: sessions[0].id,
-        message_type: 'assistant',
+      // Post to all active sessions so the user sees it regardless of which session they're in
+      const messageInserts = activeSessions.map(session => ({
+        session_id: session.id,
+        message_type: 'assistant' as const,
         content: outputMessage,
         metadata: {
           source: 'python-fixer-agent',
           fix_execution_id: successExec?.id,
           original_execution_id: execution_id,
           original_purpose: execution.purpose,
-          auto_fixed: true
+          auto_fixed: true,
+          broadcast_to_all_sessions: true
         }
-      });
+      }));
+
+      await supabase.from('conversation_messages').insert(messageInserts);
     }
 
     return new Response(JSON.stringify({
