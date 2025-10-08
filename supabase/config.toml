@@ -160,3 +160,15 @@ verify_jwt = false
 [functions.daily-ecosystem-report]
 verify_jwt = false
 
+[functions.predictive-analytics]
+verify_jwt = false
+
+[functions.nlg-generator]
+verify_jwt = false
+
+[functions.scenario-modeler]
+verify_jwt = false
+
+[functions.enhanced-learning]
+verify_jwt = false
+
