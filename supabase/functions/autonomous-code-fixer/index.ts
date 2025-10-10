@@ -18,7 +18,8 @@ serve(async (req) => {
 
     console.log('🤖 Autonomous Code Fixer - Starting scan for failed executions...');
 
-    // Check if we've been called too frequently (circuit breaker)
+    // 🔧 PHASE 3: Adjusted circuit breaker for faster runs (10 runs/min instead of 5)
+    // Allows 2-minute cron + instant triggers without tripping breaker
     const { data: recentRuns } = await supabase
       .from('eliza_activity_log')
       .select('created_at')
@@ -26,8 +27,8 @@ serve(async (req) => {
       .gte('created_at', new Date(Date.now() - 60000).toISOString()) // Last 1 minute
       .order('created_at', { ascending: false });
 
-    if (recentRuns && recentRuns.length > 5) {
-      console.log('⏸️ Circuit breaker triggered - too many runs in the last minute. Pausing.');
+    if (recentRuns && recentRuns.length > 10) {
+      console.log('⏸️ Circuit breaker triggered - too many runs in the last minute (>10). Pausing.');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Circuit breaker active - pausing to prevent runaway loop',
@@ -91,6 +92,7 @@ serve(async (req) => {
       }
     }
 
+    // 🎯 PHASE 4: Increased batch size from 5 to 10 for parallel processing
     // Find all failed Python executions that haven't been fixed yet
     // Only look at failures from the last 24 hours to avoid reprocessing ancient failures
     const { data: failedExecutions, error: fetchError } = await supabase
@@ -100,7 +102,7 @@ serve(async (req) => {
       .eq('source', 'eliza') // Only fix Eliza's executions
       .gte('created_at', new Date(Date.now() - 86400000).toISOString()) // Last 24 hours
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
     
     // CRITICAL: Filter out unfixable errors (environment variables, missing dependencies, etc.)
     const fixableExecutions = (failedExecutions || []).filter((exec: any) => {
@@ -182,36 +184,41 @@ serve(async (req) => {
       .eq('source', 'eliza')
       .gte('created_at', new Date(Date.now() - 86400000).toISOString());
 
+    // 🚀 PHASE 4: Process in parallel batches of 3 for faster throughput
+    console.log(`🔧 Processing ${fixableExecutions.length} executions in parallel batches of 3...`);
     const results = [];
     
-    for (const execution of fixableExecutions) {
-      console.log(`🔧 Attempting to fix execution ${execution.id}...`);
+    for (let batchStart = 0; batchStart < fixableExecutions.length; batchStart += 3) {
+      const batch = fixableExecutions.slice(batchStart, batchStart + 3);
+      console.log(`📦 Batch ${Math.floor(batchStart / 3) + 1}: Processing ${batch.length} executions in parallel...`);
       
-      // Check if this exact execution has already been attempted (successful or not)
-      // Look for any fix attempt in the last hour to prevent infinite retries
-      const { data: recentFixAttempts } = await supabase
-        .from('eliza_activity_log')
-        .select('id')
-        .eq('activity_type', 'python_fix')
-        .contains('metadata', { original_execution_id: execution.id })
-        .gte('created_at', new Date(Date.now() - 3600000).toISOString())
-        .limit(1);
+      const batchResults = await Promise.all(batch.map(async (execution) => {
+        console.log(`🔧 Attempting to fix execution ${execution.id}...`);
+      
+        // Check if this exact execution has already been attempted (successful or not)
+        // Look for any fix attempt in the last hour to prevent infinite retries
+        const { data: recentFixAttempts } = await supabase
+          .from('eliza_activity_log')
+          .select('id')
+          .eq('activity_type', 'python_fix')
+          .contains('metadata', { original_execution_id: execution.id })
+          .gte('created_at', new Date(Date.now() - 3600000).toISOString())
+          .limit(1);
 
-      if (recentFixAttempts && recentFixAttempts.length > 0) {
-        console.log(`⏭️ Execution ${execution.id} already attempted in the last hour, skipping`);
-        results.push({
-          execution_id: execution.id,
-          success: false,
-          error: 'Recently attempted',
-          skipped: true
-        });
-        continue;
-      }
+        if (recentFixAttempts && recentFixAttempts.length > 0) {
+          console.log(`⏭️ Execution ${execution.id} already attempted in the last hour, skipping`);
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: 'Recently attempted',
+            skipped: true
+          };
+        }
 
-      // Fix the code directly using DeepSeek
-      const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
-        body: {
-          message: `Fix this Python code error:
+        // Fix the code directly using DeepSeek
+        const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
+          body: {
+            message: `Fix this Python code error:
 
 **Original Code:**
 \`\`\`python
@@ -222,104 +229,105 @@ ${execution.code}
 ${execution.error}
 
 Return ONLY the fixed Python code without explanations or markdown.`
+          }
+        });
+
+        if (fixError) {
+          console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixError);
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: fixError.message || 'DeepSeek API error'
+          };
         }
-      });
 
-      if (fixError) {
-        console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixError);
-        results.push({
-          execution_id: execution.id,
-          success: false,
-          error: fixError.message || 'DeepSeek API error'
-        });
-        continue;
-      }
-
-      // Extract fixed code from response
-      const fixedCode = fixResult?.generatedText || fixResult?.response || '';
-      if (!fixedCode || fixedCode.trim().length === 0) {
-        console.error(`❌ No fixed code returned for execution ${execution.id}`);
-        results.push({
-          execution_id: execution.id,
-          success: false,
-          error: 'No fixed code returned'
-        });
-        continue;
-      }
-
-      // Try to execute the fixed code
-      const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
-        body: {
-          code: fixedCode,
-          purpose: `Auto-fixed: ${execution.purpose || 'Unknown'}`,
-          silent: true
+        // Extract fixed code from response
+        const fixedCode = fixResult?.generatedText || fixResult?.response || '';
+        if (!fixedCode || fixedCode.trim().length === 0) {
+          console.error(`❌ No fixed code returned for execution ${execution.id}`);
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: 'No fixed code returned'
+          };
         }
-      });
 
-      if (execError || !execResult) {
-        console.error(`❌ Failed to execute fixed code for ${execution.id}:`, execError);
-        // Log the failed fix attempt
-        await supabase.from('eliza_python_executions').insert({
-          code: fixedCode,
-          output: '',
-          error: execError?.message || 'Execution failed',
-          exit_code: 1,
-          source: 'autonomous-code-fixer',
-          purpose: `Failed fix attempt for: ${execution.purpose || 'Unknown'}`
+        // Try to execute the fixed code
+        const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
+          body: {
+            code: fixedCode,
+            purpose: `Auto-fixed: ${execution.purpose || 'Unknown'}`,
+            silent: true
+          }
         });
-        
-        results.push({
-          execution_id: execution.id,
-          success: false,
-          error: execError?.message || 'Fixed code execution failed'
-        });
-        continue;
+
+        if (execError || !execResult) {
+          console.error(`❌ Failed to execute fixed code for ${execution.id}:`, execError);
+          // Log the failed fix attempt
+          await supabase.from('eliza_python_executions').insert({
+            code: fixedCode,
+            output: '',
+            error: execError?.message || 'Execution failed',
+            exit_code: 1,
+            source: 'autonomous-code-fixer',
+            purpose: `Failed fix attempt for: ${execution.purpose || 'Unknown'}`
+          });
+          
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: execError?.message || 'Fixed code execution failed'
+          };
+        }
+
+        // Check if the fixed code succeeded
+        if (execResult.exitCode === 0) {
+          console.log(`✅ Successfully fixed and executed code for ${execution.id}`);
+          
+          // Log the successful fix
+          const { data: successExec } = await supabase.from('eliza_python_executions').insert({
+            code: fixedCode,
+            output: execResult.output || '',
+            error: execResult.error || '',
+            exit_code: 0,
+            source: 'autonomous-code-fixer',
+            purpose: `Fixed: ${execution.purpose || 'Unknown'}`
+          }).select().single();
+
+          // Update the activity log
+          await supabase.from('eliza_activity_log').insert({
+            activity_type: 'python_fix_success',
+            title: '✅ Code Auto-Fixed Successfully',
+            description: `Fixed Python code for: ${execution.purpose || 'Unknown task'}`,
+            status: 'completed',
+            metadata: {
+              original_execution_id: execution.id,
+              fixed_execution_id: successExec?.id,
+              fixed_code: fixedCode.substring(0, 500)
+            },
+            mentioned_to_user: false // Eliza will proactively report this
+          });
+
+          return {
+            execution_id: execution.id,
+            success: true,
+            fixed_execution_id: successExec?.id
+          };
+        } else {
+          console.warn(`⚠️ Fixed code still failed for ${execution.id}`);
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: execResult.error || 'Fixed code still failed'
+          };
+        }
+      }));
+
+      // 🚀 PHASE 2: Reduced inter-batch delay from 2000ms to 500ms (4x faster)
+      results.push(...batchResults);
+      if (batchStart + 3 < fixableExecutions.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
-
-      // Check if the fixed code succeeded
-      if (execResult.exitCode === 0) {
-        console.log(`✅ Successfully fixed and executed code for ${execution.id}`);
-        
-        // Log the successful fix
-        const { data: successExec } = await supabase.from('eliza_python_executions').insert({
-          code: fixedCode,
-          output: execResult.output || '',
-          error: execResult.error || '',
-          exit_code: 0,
-          source: 'autonomous-code-fixer',
-          purpose: `Fixed: ${execution.purpose || 'Unknown'}`
-        }).select().single();
-
-        // Update the activity log
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'python_fix_success',
-          title: '✅ Code Auto-Fixed Successfully',
-          description: `Fixed Python code for: ${execution.purpose || 'Unknown task'}`,
-          status: 'completed',
-          metadata: {
-            original_execution_id: execution.id,
-            fixed_execution_id: successExec?.id,
-            fixed_code: fixedCode.substring(0, 500)
-          },
-          mentioned_to_user: false // Eliza will proactively report this
-        });
-
-        results.push({
-          execution_id: execution.id,
-          success: true,
-          fixed_execution_id: successExec?.id
-        });
-      } else {
-        console.warn(`⚠️ Fixed code still failed for ${execution.id}`);
-        results.push({
-          execution_id: execution.id,
-          success: false,
-          error: execResult.error || 'Fixed code still failed'
-        });
-      }
-
-      // Longer delay between attempts to avoid overwhelming
-      await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     const successCount = results.filter(r => r.success).length;

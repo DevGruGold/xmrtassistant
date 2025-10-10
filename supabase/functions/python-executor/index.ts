@@ -78,13 +78,14 @@ Deno.serve(async (req) => {
     });
 
     // Log execution to database for visualization
+    const exitCode = result.run?.code || 0;
     const logResult = await supabase
       .from('eliza_python_executions')
       .insert({
         code,
         output: result.run?.stdout || null,
         error: result.run?.stderr || null,
-        exit_code: result.run?.code || 0,
+        exit_code: exitCode,
         execution_time_ms: executionTime,
         source: 'eliza',
         purpose: purpose || null
@@ -105,10 +106,20 @@ Deno.serve(async (req) => {
           language,
           version,
           execution_time_ms: executionTime,
-          exit_code: result.run?.code || 0
+          exit_code: exitCode
         },
-        status: result.run?.code === 0 ? 'completed' : 'failed'
+        status: exitCode === 0 ? 'completed' : 'failed'
       });
+
+    // 🚀 PHASE 5: Instant fix trigger for failed executions
+    // Instead of waiting for cron (2 min), trigger fix immediately (real-time)
+    if (exitCode === 1 && result.run?.stderr) {
+      console.log('❌ Python execution failed - triggering instant code fix...');
+      // Fire-and-forget: Don't await to avoid blocking response
+      supabase.functions.invoke('code-monitor-daemon', {
+        body: { action: 'monitor', priority: 'immediate', source: 'python-executor' }
+      }).catch(err => console.log('⚠️ Background fix trigger failed (non-blocking):', err.message));
+    }
 
     return new Response(
       JSON.stringify({
