@@ -38,10 +38,184 @@ serve(async (req) => {
     // Extract user input for multi-step detection
     const userInput = messages[messages.length - 1]?.content || '';
     
+    // ========== PHASE 1: EXPANDED MULTI-STEP DETECTION ==========
     // Check if this is a complex multi-step task that should run in background
     const isMultiStepTask = /analyze.*and.*(create|build|implement)|multi[- ]?step|coordinate|orchestrate|plan.*and.*execute|research.*and.*summarize|compare.*across|integrate.*data|build.*workflow|complex.*analysis|autonomous.*task/i.test(userInput);
     
-    if (isMultiStepTask) {
+    // Semantic detection - tasks that require data aggregation from multiple sources
+    const requiresAggregation = /list.*agents|show.*status|agent.*performance|system.*health|knowledge.*search|find.*all|get.*overview|analyze.*current|all.*tasks|view.*all|show.*all/i.test(userInput);
+    
+    // Check if this needs enrichment beyond raw data
+    const needsEnrichment = /with.*details|comprehensive|full.*report|complete.*picture|status.*and|including|detailed|in-depth/i.test(userInput);
+    
+    // Check if user wants insights, not just data
+    const needsInsights = /why|how.*performing|suggest|recommend|optimize|improve|analysis|trends|predict|forecast/i.test(userInput);
+    
+    const shouldOrchestrate = isMultiStepTask || requiresAggregation || needsEnrichment || needsInsights;
+    
+    // Workflow templates for common scenarios
+    const workflowTemplates: Record<string, any> = {
+      'agent_overview': {
+        workflow_name: 'Comprehensive Agent Status Report',
+        description: 'Complete analysis of all deployed agents with performance metrics and recommendations',
+        steps: [
+          { 
+            name: 'Fetch All Agents', 
+            description: 'Get complete agent roster',
+            type: 'api_call',
+            function: 'agent-manager',
+            body: { action: 'list_agents' }
+          },
+          { 
+            name: 'Get Agent Workloads', 
+            description: 'Fetch task assignments for each agent',
+            type: 'api_call',
+            function: 'agent-manager',
+            body: { action: 'get_agent_workload' }
+          },
+          { 
+            name: 'Fetch Recent Activity', 
+            description: 'Get agent activity from logs',
+            type: 'data_fetch',
+            table: 'eliza_activity_log',
+            select: 'title, description, created_at, metadata',
+            limit: 50
+          },
+          { 
+            name: 'Analyze Performance', 
+            description: 'AI synthesis of agent health and recommendations',
+            type: 'ai_analysis',
+            prompt: 'Analyze the agent roster, workloads, and recent activity. Provide: 1) Status summary, 2) Performance insights, 3) Workload balance analysis, 4) Specific recommendations for optimization'
+          }
+        ],
+        estimated_duration: '2-3 minutes'
+      },
+      'system_diagnostics': {
+        workflow_name: 'Full System Health Check',
+        description: 'Comprehensive diagnostic scan of all ecosystem components',
+        steps: [
+          { 
+            name: 'Run System Diagnostics', 
+            description: 'Execute diagnostic scan',
+            type: 'api_call',
+            function: 'system-diagnostics'
+          },
+          { 
+            name: 'Fetch Agent Status', 
+            description: 'Get all agent health',
+            type: 'api_call',
+            function: 'agent-manager',
+            body: { action: 'list_agents' }
+          },
+          { 
+            name: 'Fetch Recent Logs', 
+            description: 'Get error and warning logs',
+            type: 'data_fetch',
+            table: 'eliza_activity_log',
+            select: '*',
+            limit: 100
+          },
+          { 
+            name: 'Health Analysis', 
+            description: 'Synthesize system health report',
+            type: 'ai_analysis',
+            prompt: 'Review diagnostics, agent status, and logs. Identify: 1) Critical issues, 2) Warnings, 3) System health score, 4) Immediate action items'
+          }
+        ],
+        estimated_duration: '3-4 minutes'
+      },
+      'task_overview': {
+        workflow_name: 'Task Pipeline Analysis',
+        description: 'Complete view of all tasks with blocking issues and recommendations',
+        steps: [
+          { 
+            name: 'List All Tasks', 
+            description: 'Fetch complete task list',
+            type: 'api_call',
+            function: 'agent-manager',
+            body: { action: 'list_tasks' }
+          },
+          { 
+            name: 'Identify Blockers', 
+            description: 'Detect blocking issues',
+            type: 'api_call',
+            function: 'task-orchestrator',
+            body: { action: 'identify_blockers' }
+          },
+          { 
+            name: 'Workload Analysis', 
+            description: 'Get workload distribution',
+            type: 'api_call',
+            function: 'agent-manager',
+            body: { action: 'get_agent_workload' }
+          },
+          { 
+            name: 'Generate Insights', 
+            description: 'AI analysis of task pipeline',
+            type: 'ai_analysis',
+            prompt: 'Analyze tasks, blockers, and workload. Provide: 1) Pipeline health, 2) Blocked tasks details, 3) Agent utilization, 4) Rebalancing recommendations'
+          }
+        ],
+        estimated_duration: '2-3 minutes'
+      }
+    };
+    
+    // Auto-select workflow template based on user intent
+    let selectedWorkflow = null;
+    if (/list.*agents|agent.*status|show.*agents|all.*agents|agent.*overview/i.test(userInput)) {
+      selectedWorkflow = workflowTemplates.agent_overview;
+      console.log('🎯 Detected: Agent Overview Request');
+    } else if (/system.*health|diagnostic|status.*all|full.*check|system.*overview/i.test(userInput)) {
+      selectedWorkflow = workflowTemplates.system_diagnostics;
+      console.log('🎯 Detected: System Diagnostics Request');
+    } else if (/list.*tasks|all.*tasks|task.*status|show.*tasks|task.*overview|task.*pipeline/i.test(userInput)) {
+      selectedWorkflow = workflowTemplates.task_overview;
+      console.log('🎯 Detected: Task Overview Request');
+    }
+    
+    // If we have a template match, trigger orchestrator immediately
+    if (selectedWorkflow) {
+      console.log(`🎬 Auto-triggering orchestrator: ${selectedWorkflow.workflow_name}`);
+      
+      try {
+        const orchestratorResponse = await fetch(`${SUPABASE_URL}/functions/v1/multi-step-orchestrator`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            workflow: selectedWorkflow,
+            userInput,
+            context: {
+              conversationHistory,
+              userContext,
+              miningStats
+            }
+          })
+        });
+        
+        if (orchestratorResponse.ok) {
+          const orchestratorData = await orchestratorResponse.json();
+          console.log('✅ Workflow auto-triggered:', orchestratorData.workflow_id);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            response: `🎬 **${selectedWorkflow.workflow_name}**\n\n${selectedWorkflow.description}\n\n**Executing ${selectedWorkflow.steps.length} steps:**\n${selectedWorkflow.steps.map((s: any, i: number) => `${i + 1}. ${s.name} - ${s.description}`).join('\n')}\n\n⏱️ Estimated time: ${selectedWorkflow.estimated_duration}\n\n✅ Running in background - check **Task Pipeline Visualizer** for live progress. You can continue chatting while I complete this analysis.`,
+            hasToolCalls: false,
+            workflow_id: orchestratorData.workflow_id,
+            background_task: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      } catch (orchError) {
+        console.warn('⚠️ Auto-orchestration failed, continuing with AI design:', orchError);
+      }
+    }
+    
+    // Fallback to AI-designed workflow for other multi-step tasks
+    if (shouldOrchestrate && !selectedWorkflow) {
       console.log('🎬 Multi-step task detected - initiating autonomous background workflow...');
       
       try {
@@ -1580,7 +1754,113 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
         
         console.log(`✅ ${toolCall.function.name} completed successfully`);
         
-        // Return RAW data for Eliza to format naturally
+        // ========== PHASE 2: AUTO-TRIGGER ORCHESTRATION FOR TOOL RESULTS ==========
+        // Check if this tool's result should trigger enrichment workflow
+        const toolNeedsEnrichment = ['listAgents', 'listTasks', 'getAgentWorkload', 'searchKnowledge', 'getLearningPatterns'].includes(toolCall.function.name);
+        
+        if (toolNeedsEnrichment && result.data) {
+          console.log(`🎬 Tool result needs enrichment - designing follow-up workflow for ${toolCall.function.name}`);
+          
+          try {
+            // Design enrichment workflow using AI
+            const enrichmentPrompt = `The user asked: "${userInput}"
+
+I executed ${toolCall.function.name} and got raw data. Design a follow-up workflow to enrich this data with context and insights.
+
+Raw data preview: ${JSON.stringify(result.data).substring(0, 500)}...
+
+Create a workflow that:
+1. Takes this raw data as input
+2. Fetches any additional context needed (related data, logs, metrics)
+3. Analyzes the complete picture
+4. Provides actionable insights and recommendations
+
+Respond ONLY with valid JSON (no markdown):
+{
+  "workflow_name": "descriptive name",
+  "description": "what this enrichment accomplishes",
+  "steps": [
+    {
+      "name": "step name",
+      "description": "what this step does",
+      "type": "ai_analysis | data_fetch | api_call"
+    }
+  ],
+  "estimated_duration": "1-2 minutes"
+}`;
+
+            const enrichmentDesignResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-2.5-flash',
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'You are a workflow architect. Design enrichment workflows that add context and insights to raw data. Respond only with valid JSON.'
+                  },
+                  {
+                    role: 'user',
+                    content: enrichmentPrompt
+                  }
+                ],
+                temperature: 0.5,
+                max_tokens: 1000
+              })
+            });
+            
+            if (enrichmentDesignResponse.ok) {
+              const designData = await enrichmentDesignResponse.json();
+              let workflowText = designData.choices[0].message.content.trim();
+              workflowText = workflowText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+              const enrichmentWorkflow = JSON.parse(workflowText);
+              
+              console.log('🎬 Enrichment workflow designed:', enrichmentWorkflow.workflow_name);
+              
+              // Trigger orchestrator with initial data
+              const orchestratorResponse = await fetch(`${SUPABASE_URL}/functions/v1/multi-step-orchestrator`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  workflow: enrichmentWorkflow,
+                  userInput,
+                  initialData: result.data,
+                  context: {
+                    conversationHistory,
+                    userContext,
+                    miningStats
+                  }
+                })
+              });
+              
+              if (orchestratorResponse.ok) {
+                const orchestratorData = await orchestratorResponse.json();
+                console.log('✅ Enrichment workflow triggered:', orchestratorData.workflow_id);
+                
+                return new Response(JSON.stringify({
+                  success: true,
+                  response: `🎬 **${enrichmentWorkflow.workflow_name}**\n\n${enrichmentWorkflow.description}\n\n**Enriching with ${enrichmentWorkflow.steps.length} additional steps:**\n${enrichmentWorkflow.steps.map((s: any, i: number) => `${i + 1}. ${s.name} - ${s.description}`).join('\n')}\n\n⏱️ ${enrichmentWorkflow.estimated_duration}\n\n✅ Check **Task Pipeline Visualizer** for live progress.`,
+                  workflow_id: orchestratorData.workflow_id,
+                  background_task: true,
+                  hasToolCalls: true
+                }), {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+              }
+            }
+          } catch (enrichError) {
+            console.warn('⚠️ Enrichment workflow failed, returning raw data:', enrichError);
+            // Fallback to raw data if enrichment fails
+          }
+        }
+        
+        // Return RAW data for Eliza to format naturally (fallback or for tools that don't need enrichment)
         return new Response(
           JSON.stringify({
             success: true,
