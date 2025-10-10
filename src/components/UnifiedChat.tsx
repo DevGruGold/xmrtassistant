@@ -282,31 +282,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             if (!workflow || Object.keys(workflow).length === 0) return;
             
             if (workflow.status === 'completed' && workflow.final_result) {
-              // Show completed workflow results in chat
-              const message: UnifiedMessage = {
-                id: `workflow-${workflow.id}`,
-                content: `✅ **Workflow Completed: ${workflow.name}**\n\n${workflow.description || ''}\n\n**Result:**\n\`\`\`json\n${JSON.stringify(workflow.final_result, null, 2)}\n\`\`\``,
-                sender: 'assistant',
-                timestamp: new Date(workflow.updated_at)
-              };
+              console.log('🎉 Workflow completed, triggering Eliza synthesis:', workflow.id);
               
-              setMessages(prev => {
-                if (prev.some(m => m.id === message.id)) return prev;
-                return [...prev, message];
-              });
-            } else if (workflow.status === 'failed') {
-              // Show failed workflow
-              const message: UnifiedMessage = {
-                id: `workflow-${workflow.id}`,
-                content: `❌ **Workflow Failed: ${workflow.name}**\n\n${workflow.description || ''}\n\n**Failed at step:** ${workflow.failed_step || 'unknown'}`,
-                sender: 'assistant',
-                timestamp: new Date(workflow.updated_at)
-              };
+              // Don't display raw JSON - instead, ask Eliza to synthesize it
+              const synthesisPrompt = `A background workflow just completed: "${workflow.name}"\n\nRaw Results:\n${JSON.stringify(workflow.final_result, null, 2)}\n\nPlease synthesize this into a comprehensive, human-readable answer for the user. Include context, insights, and actionable recommendations.`;
               
-              setMessages(prev => {
-                if (prev.some(m => m.id === message.id)) return prev;
-                return [...prev, message];
-              });
+              // Trigger Eliza to process the results
+              handleSynthesizeWorkflowResult(synthesisPrompt, workflow);
             }
           }
         )
@@ -432,6 +414,59 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   };
 
   // Clear conversation history
+  const handleSynthesizeWorkflowResult = async (prompt: string, workflow: any) => {
+    try {
+      console.log('🔄 Synthesizing workflow result with Eliza...');
+      
+      // Get full conversation context
+      const fullContext = await conversationPersistence.getFullConversationContext();
+      
+      const response = await UnifiedElizaService.generateResponse(prompt, {
+        miningStats,
+        userContext,
+        inputMode: 'text',
+        shouldSpeak: false,
+        enableBrowsing: false,
+        conversationContext: fullContext
+      }, language);
+      
+      // Display Eliza's synthesized answer
+      const elizaMessage: UnifiedMessage = {
+        id: `workflow-result-${workflow.id}`,
+        content: response,
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => {
+        if (prev.some(m => m.id === elizaMessage.id)) return prev;
+        return [...prev, elizaMessage];
+      });
+      
+      console.log('✅ Workflow result synthesized and displayed');
+      
+      // Store the synthesized result
+      try {
+        await conversationPersistence.storeMessage(response, 'assistant', {
+          confidence: 0.95,
+          method: 'Workflow Synthesis',
+          workflow_id: workflow.id
+        });
+      } catch (error) {
+        console.log('Failed to store workflow synthesis:', error);
+      }
+    } catch (error) {
+      console.error('❌ Failed to synthesize workflow result:', error);
+      // Fallback: show a simple message
+      setMessages(prev => [...prev, {
+        id: `workflow-fallback-${workflow.id}`,
+        content: `✅ Background task "${workflow.name}" completed. Check the Task Visualizer for details.`,
+        sender: 'assistant',
+        timestamp: new Date()
+      }]);
+    }
+  };
+
   const handleClearConversation = async () => {
     if (!confirm('Are you sure you want to clear the entire conversation history? This cannot be undone.')) {
       return;
@@ -843,19 +878,27 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       console.log('✅ Response generated:', response.substring(0, 100) + '...');
 
+      // Check if this is a workflow initiation message
+      const isWorkflowInitiation = response.includes('🎬') && response.includes('background');
+
       // Remove tool_use tags from chat display
       const cleanResponse = response.replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '').trim();
 
+      // If it's a workflow initiation, show a brief acknowledgment instead
+      const displayContent = isWorkflowInitiation 
+        ? '🔄 Processing your request in the background. I\'ll share the results shortly...'
+        : cleanResponse;
+
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: cleanResponse,
+        content: displayContent,
         sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(cleanResponse);
+      setLastElizaMessage(displayContent);
       
       // Store Eliza's response with full data integration
       try {
