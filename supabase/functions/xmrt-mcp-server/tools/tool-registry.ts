@@ -301,5 +301,62 @@ export const TOOL_REGISTRY: Tool[] = [
         }
       }
     }
+  },
+
+  // Self-Optimization Tools
+  {
+    name: "xmrt_analyze_skill_gaps",
+    description: "Identify missing skills causing task blockages and propose learning paths",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "xmrt_optimize_task_routing",
+    description: "Re-route tasks based on agent performance history and specializations",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "xmrt_detect_specializations",
+    description: "Detect agent specializations and propose role changes",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "xmrt_forecast_workload",
+    description: "Predict future task volume and recommend resource adjustments",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeframe: { 
+          type: "string", 
+          enum: ["1h", "24h", "7d"],
+          description: "Forecast timeframe",
+          default: "24h"
+        }
+      }
+    }
+  },
+  {
+    name: "xmrt_autonomous_debugging",
+    description: "Detect system anomalies and orchestrate autonomous debugging workflows",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  },
+  {
+    name: "xmrt_run_full_optimization",
+    description: "Run complete optimization cycle: skill gaps, task routing, specializations, workload forecasting, and debugging",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
   }
 ];

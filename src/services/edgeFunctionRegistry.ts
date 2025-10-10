@@ -277,6 +277,14 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Secret retrieval', 'API key management'],
     category: 'ecosystem',
     example_use: 'Get Lovable API key for services'
+  },
+  {
+    name: 'self-optimizing-agent-architecture',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/self-optimizing-agent-architecture',
+    description: 'Meta-orchestrator for autonomous agent optimization, skill learning, and performance improvement',
+    capabilities: ['Skill gap analysis', 'Adaptive task routing', 'Agent specialization detection', 'Workload forecasting', 'Proactive debugging', 'Autonomous learning', 'Performance optimization'],
+    category: 'autonomous',
+    example_use: 'Continuously optimize agent performance, identify skill gaps, route tasks intelligently, forecast workload, and autonomously debug issues'
   }
 ];
 

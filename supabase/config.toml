@@ -136,3 +136,6 @@ verify_jwt = false
 [functions.multi-step-orchestrator]
 verify_jwt = false
 
+[functions.self-optimizing-agent-architecture]
+verify_jwt = false
+

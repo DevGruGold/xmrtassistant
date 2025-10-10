@@ -162,7 +162,15 @@ async function handleToolCall(params: any, supabase: any): Promise<MCPResponse> 
     // Monitoring
     'xmrt_get_system_status': 'system-status',
     'xmrt_get_ecosystem_metrics': 'ecosystem-monitor',
-    'xmrt_get_diagnostics': 'system-diagnostics'
+    'xmrt_get_diagnostics': 'system-diagnostics',
+    
+    // Self-Optimization
+    'xmrt_analyze_skill_gaps': 'self-optimizing-agent-architecture',
+    'xmrt_optimize_task_routing': 'self-optimizing-agent-architecture',
+    'xmrt_detect_specializations': 'self-optimizing-agent-architecture',
+    'xmrt_forecast_workload': 'self-optimizing-agent-architecture',
+    'xmrt_autonomous_debugging': 'self-optimizing-agent-architecture',
+    'xmrt_run_full_optimization': 'self-optimizing-agent-architecture'
   };
 
   const targetFunction = toolRoutes[name];
@@ -236,6 +244,25 @@ function transformArgsForFunction(toolName: string, args: any): any {
         purpose: args.purpose,
         timeout: args.timeout || 30
       };
+    
+    // Self-Optimization tools
+    case 'xmrt_analyze_skill_gaps':
+      return { action: 'analyze_skill_gaps' };
+    
+    case 'xmrt_optimize_task_routing':
+      return { action: 'optimize_task_routing' };
+    
+    case 'xmrt_detect_specializations':
+      return { action: 'detect_specializations' };
+    
+    case 'xmrt_forecast_workload':
+      return { action: 'forecast_workload', timeframe: args.timeframe || '24h' };
+    
+    case 'xmrt_autonomous_debugging':
+      return { action: 'autonomous_debugging' };
+    
+    case 'xmrt_run_full_optimization':
+      return { action: 'run_full_optimization' };
     
     default:
       return args;

@@ -10,10 +10,92 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
+      agent_performance_metrics: {
+        Row: {
+          agent_id: string
+          id: string
+          metadata: Json | null
+          metric_type: string
+          metric_value: number
+          recorded_at: string
+          time_window: string
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          metric_value: number
+          recorded_at?: string
+          time_window: string
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          metric_value?: number
+          recorded_at?: string
+          time_window?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_performance_metrics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_specializations: {
+        Row: {
+          agent_id: string
+          detected_at: string
+          id: string
+          last_updated: string
+          metadata: Json | null
+          proficiency_score: number
+          specialization_area: string
+          success_rate: number
+          tasks_completed_in_area: number
+        }
+        Insert: {
+          agent_id: string
+          detected_at?: string
+          id?: string
+          last_updated?: string
+          metadata?: Json | null
+          proficiency_score?: number
+          specialization_area: string
+          success_rate?: number
+          tasks_completed_in_area?: number
+        }
+        Update: {
+          agent_id?: string
+          detected_at?: string
+          id?: string
+          last_updated?: string
+          metadata?: Json | null
+          proficiency_score?: number
+          specialization_area?: string
+          success_rate?: number
+          tasks_completed_in_area?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_specializations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           created_at: string
@@ -607,6 +689,56 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_sessions: {
+        Row: {
+          agent_id: string
+          completed_at: string | null
+          id: string
+          learning_materials: Json
+          learning_task_id: string | null
+          metadata: Json | null
+          proficiency_tests: Json | null
+          progress_percentage: number
+          skill_being_learned: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          completed_at?: string | null
+          id?: string
+          learning_materials: Json
+          learning_task_id?: string | null
+          metadata?: Json | null
+          proficiency_tests?: Json | null
+          progress_percentage?: number
+          skill_being_learned: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          completed_at?: string | null
+          id?: string
+          learning_materials?: Json
+          learning_task_id?: string | null
+          metadata?: Json | null
+          proficiency_tests?: Json | null
+          progress_percentage?: number
+          skill_being_learned?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_sessions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manus_token_usage: {
         Row: {
           created_at: string
@@ -877,6 +1009,45 @@ export type Database = {
           next_execution?: string | null
           schedule_expression?: string
           session_key?: string
+        }
+        Relationships: []
+      }
+      skill_gap_analysis: {
+        Row: {
+          blocked_tasks: string[]
+          created_at: string
+          frequency: number
+          id: string
+          identified_skill: string
+          metadata: Json | null
+          priority: number
+          proposed_learning_tasks: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          blocked_tasks: string[]
+          created_at?: string
+          frequency?: number
+          id?: string
+          identified_skill: string
+          metadata?: Json | null
+          priority?: number
+          proposed_learning_tasks?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          blocked_tasks?: string[]
+          created_at?: string
+          frequency?: number
+          id?: string
+          identified_skill?: string
+          metadata?: Json | null
+          priority?: number
+          proposed_learning_tasks?: string[] | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1268,6 +1439,42 @@ export type Database = {
           },
         ]
       }
+      workload_forecasts: {
+        Row: {
+          confidence_score: number
+          contributing_factors: Json
+          forecast_at: string
+          forecast_type: string
+          forecast_window: string
+          id: string
+          metadata: Json | null
+          predicted_value: number
+          recommended_actions: string[] | null
+        }
+        Insert: {
+          confidence_score?: number
+          contributing_factors: Json
+          forecast_at?: string
+          forecast_type: string
+          forecast_window: string
+          id?: string
+          metadata?: Json | null
+          predicted_value: number
+          recommended_actions?: string[] | null
+        }
+        Update: {
+          confidence_score?: number
+          contributing_factors?: Json
+          forecast_at?: string
+          forecast_type?: string
+          forecast_window?: string
+          id?: string
+          metadata?: Json | null
+          predicted_value?: number
+          recommended_actions?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1335,7 +1542,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
       }
       match_knowledge_entities: {
         Args: { match_count?: number; search_query: string }
