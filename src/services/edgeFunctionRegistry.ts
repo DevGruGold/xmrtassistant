@@ -73,18 +73,17 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   {
     name: 'mining-proxy',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mining-proxy',
-    description: 'Mining statistics and pool data proxy',
-    capabilities: ['Mining stats', 'Hash rate monitoring', 'Share tracking', 'XMR balance'],
+    description: 'Unified mining statistics and worker management - combines pool stats from SupportXMR with worker registration',
+    capabilities: [
+      'Mining stats (hash rate, shares, earnings)',
+      'Worker registration and tracking', 
+      'Per-worker statistics',
+      'Worker-to-wallet mapping',
+      'User session tracking',
+      'XMR balance and payments'
+    ],
     category: 'mining',
-    example_use: 'Get current mining performance, shares, and earnings'
-  },
-  {
-    name: 'supportxmr-proxy',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/supportxmr-proxy',
-    description: 'Direct SupportXMR pool API proxy',
-    capabilities: ['Pool statistics', 'Worker status', 'Payment history'],
-    category: 'mining',
-    example_use: 'Access detailed pool information and worker statistics'
+    example_use: 'Get comprehensive mining data including pool stats AND individual worker performance. Also handles mobile miner worker registration.'
   },
   {
     name: 'speech-to-text',

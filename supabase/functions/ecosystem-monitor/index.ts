@@ -1,3 +1,19 @@
+/**
+ * GITHUB ECOSYSTEM ENGAGEMENT FUNCTION
+ * 
+ * Purpose: Daily automated engagement with XMRT GitHub repositories
+ * Schedule: 11am UTC daily via cron job
+ * 
+ * What it does:
+ * 1. Evaluates activity across all XMRT ecosystem repos
+ * 2. Calculates activity scores based on commits, issues, discussions, PRs
+ * 3. Engages with high-priority content (score >= 70) by posting helpful responses
+ * 4. Handles GitHub token failures gracefully with fallback strategies
+ * 
+ * Note: Function folder is "ecosystem-monitor" but logically this is the
+ * "github-ecosystem-engagement" function for GitHub-specific monitoring
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
