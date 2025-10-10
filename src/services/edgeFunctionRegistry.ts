@@ -263,14 +263,6 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Check current system status'
   },
   {
-    name: 'python-fixer-agent',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-fixer-agent',
-    description: 'AI agent that fixes broken Python code',
-    capabilities: ['Error analysis', 'Code repair', 'Syntax fixing'],
-    category: 'code-execution',
-    example_use: 'Fix Python code errors automatically'
-  },
-  {
     name: 'cleanup-duplicate-tasks',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/cleanup-duplicate-tasks',
     description: 'Cleans up duplicate task entries',

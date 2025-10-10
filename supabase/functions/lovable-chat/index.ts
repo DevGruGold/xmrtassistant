@@ -206,7 +206,7 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
 
 🐍 **CODE EXECUTION**:
 • python-executor: Sandboxed Python (stdlib only, no pip packages)
-• python-fixer-agent: AI-powered autonomous code repair
+• autonomous-code-fixer: Auto-fixes failed Python code
 
 🧠 **AI SERVICES** (Alternative LLM providers):
 • openai-chat: OpenAI GPT models

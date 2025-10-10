@@ -265,7 +265,7 @@ There is NO other way to do anything. You cannot do anything without calling the
 
 **CODE EXECUTION:**
 • python-executor: Sandboxed Python (stdlib only, no pip packages)
-• python-fixer-agent: Autonomous code repair
+• autonomous-code-fixer: Auto-fixes failed Python code
 
 **AI SERVICE BACKENDS:**
 ⚠️ These are Supabase Edge Functions that provide AI services to OTHER system components.

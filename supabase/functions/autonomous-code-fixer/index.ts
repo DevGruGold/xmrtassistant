@@ -43,7 +43,6 @@ serve(async (req) => {
       .from('eliza_python_executions')
       .select('id, code, error, created_at')
       .eq('exit_code', 1)
-      .eq('source', 'python-fixer-agent')
       .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
       .limit(50);
 
@@ -204,31 +203,89 @@ serve(async (req) => {
         continue;
       }
 
-      // Call the python-fixer-agent to fix this execution
-      const { data: fixResult, error: fixError } = await supabase.functions.invoke('python-fixer-agent', {
-        body: { execution_id: execution.id }
+      // Fix the code directly using DeepSeek
+      const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
+        body: {
+          message: `Fix this Python code error:
+
+**Original Code:**
+\`\`\`python
+${execution.code}
+\`\`\`
+
+**Error:**
+${execution.error}
+
+Return ONLY the fixed Python code without explanations or markdown.`
+        }
       });
 
       if (fixError) {
-        console.error(`❌ Failed to fix execution ${execution.id}:`, fixError);
+        console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixError);
         results.push({
           execution_id: execution.id,
           success: false,
-          error: fixError.message || 'Edge Function returned a non-2xx status code'
+          error: fixError.message || 'DeepSeek API error'
         });
-      } else if (fixResult?.skipped) {
-        // Lovable AI rate limit or quota issue - skip silently
-        console.log(`⏸️ Skipped execution ${execution.id}: ${fixResult.reason}`);
+        continue;
+      }
+
+      // Extract fixed code from response
+      const fixedCode = fixResult?.generatedText || fixResult?.response || '';
+      if (!fixedCode || fixedCode.trim().length === 0) {
+        console.error(`❌ No fixed code returned for execution ${execution.id}`);
         results.push({
           execution_id: execution.id,
           success: false,
-          error: `Skipped: ${fixResult.reason}`,
-          skipped: true
+          error: 'No fixed code returned'
         });
-      } else if (fixResult?.success) {
-        console.log(`✅ Successfully fixed execution ${execution.id}`);
+        continue;
+      }
+
+      // Try to execute the fixed code
+      const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
+        body: {
+          code: fixedCode,
+          purpose: `Auto-fixed: ${execution.purpose || 'Unknown'}`,
+          silent: true
+        }
+      });
+
+      if (execError || !execResult) {
+        console.error(`❌ Failed to execute fixed code for ${execution.id}:`, execError);
+        // Log the failed fix attempt
+        await supabase.from('eliza_python_executions').insert({
+          code: fixedCode,
+          output: '',
+          error: execError?.message || 'Execution failed',
+          exit_code: 1,
+          source: 'autonomous-code-fixer',
+          purpose: `Failed fix attempt for: ${execution.purpose || 'Unknown'}`
+        });
         
-        // Update the activity log to show progress
+        results.push({
+          execution_id: execution.id,
+          success: false,
+          error: execError?.message || 'Fixed code execution failed'
+        });
+        continue;
+      }
+
+      // Check if the fixed code succeeded
+      if (execResult.exitCode === 0) {
+        console.log(`✅ Successfully fixed and executed code for ${execution.id}`);
+        
+        // Log the successful fix
+        const { data: successExec } = await supabase.from('eliza_python_executions').insert({
+          code: fixedCode,
+          output: execResult.output || '',
+          error: execResult.error || '',
+          exit_code: 0,
+          source: 'autonomous-code-fixer',
+          purpose: `Fixed: ${execution.purpose || 'Unknown'}`
+        }).select().single();
+
+        // Update the activity log
         await supabase.from('eliza_activity_log').insert({
           activity_type: 'python_fix_success',
           title: '✅ Code Auto-Fixed Successfully',
@@ -236,22 +293,22 @@ serve(async (req) => {
           status: 'completed',
           metadata: {
             original_execution_id: execution.id,
-            fixed_execution_id: fixResult.execution_id,
-            fixed_code: fixResult.fixed_code?.substring(0, 500)
+            fixed_execution_id: successExec?.id,
+            fixed_code: fixedCode.substring(0, 500)
           }
         });
 
         results.push({
           execution_id: execution.id,
           success: true,
-          fixed_execution_id: fixResult.execution_id
+          fixed_execution_id: successExec?.id
         });
       } else {
-        console.warn(`⚠️ Fix attempt for ${execution.id} did not succeed:`, fixResult);
+        console.warn(`⚠️ Fixed code still failed for ${execution.id}`);
         results.push({
           execution_id: execution.id,
           success: false,
-          error: fixResult?.error || 'Fix attempt failed'
+          error: execResult.error || 'Fixed code still failed'
         });
       }
 

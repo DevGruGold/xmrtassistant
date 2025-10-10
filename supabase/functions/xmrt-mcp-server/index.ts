@@ -157,7 +157,7 @@ async function handleToolCall(params: any, supabase: any): Promise<MCPResponse> 
     
     // Python Execution
     'xmrt_execute_python': 'python-executor',
-    'xmrt_fix_python_code': 'python-fixer-agent',
+    'xmrt_fix_python_code': 'autonomous-code-fixer',
     
     // Monitoring
     'xmrt_get_system_status': 'system-status',

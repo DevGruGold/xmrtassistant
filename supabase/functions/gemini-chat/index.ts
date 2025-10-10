@@ -1001,13 +1001,11 @@ Please analyze the error and fix the code. CRITICAL RULES:
               .single();
             
             if (failedExec) {
-              // Trigger the python-fixer agent in the background (don't await)
-              supabase.functions.invoke('python-fixer-agent', {
-                body: { execution_id: failedExec.id }
-              }).then(() => {
-                console.log('🤖 Background agent started to fix Python code');
+              // Trigger the autonomous code fixer in the background (don't await)
+              supabase.functions.invoke('autonomous-code-fixer').then(() => {
+                console.log('🤖 Background autonomous fixer started to fix Python code');
               }).catch((err: any) => {
-                console.error('Failed to trigger fixer agent:', err);
+                console.error('Failed to trigger autonomous code fixer:', err);
               });
               
               // Log that an agent is working on it
