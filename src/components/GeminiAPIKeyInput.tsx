@@ -159,16 +159,11 @@ export const GeminiAPIKeyInput: React.FC<GeminiAPIKeyInputProps> = ({
 
         {/* Validation Message */}
         {validationMessage && (
-          <Alert variant={validationSuccess ? 'default' : 'destructive'}>
-            <div className="flex items-center space-x-2">
-              {validationSuccess ? (
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <AlertDescription>{validationMessage}</AlertDescription>
-            </div>
-          </Alert>
+          <div className="p-3 rounded-lg">
+            <span className={`text-sm ${validationSuccess ? 'text-green-600' : 'text-muted-foreground'}`}>
+              {validationMessage}
+            </span>
+          </div>
         )}
 
         {/* Get API Key Link */}
@@ -204,13 +199,12 @@ export const GeminiAPIKeyInput: React.FC<GeminiAPIKeyInputProps> = ({
         </div>
 
         {/* Security Notice */}
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
+        <div className="p-3 rounded-lg border">
+          <p className="text-sm text-muted-foreground">
             <strong>Privacy:</strong> Your API key is stored locally in your browser and never sent to our servers. 
             It's only used to communicate directly with Google's Gemini API.
-          </AlertDescription>
-        </Alert>
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

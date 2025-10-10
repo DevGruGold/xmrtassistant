@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Droplets, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+// Toast removed for lighter UI
 import { claimXMRTFaucet, canClaimFaucet } from "@/utils/contractUtils";
 import { WalletState } from "@/hooks/useWallet";
 import Web3 from "web3";
@@ -15,7 +15,6 @@ interface XMRTFaucetProps {
 
 const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const { t } = useLanguage();
 
   const faucetStatus = canClaimFaucet(wallet.address);
@@ -27,20 +26,12 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
 
   const handleClaimFaucet = async () => {
     if (!faucetStatus.canClaim) {
-      toast({
-        title: "Cooldown Active",
-        description: `Please wait ${formatTimeRemaining(faucetStatus.remainingTime!)} before claiming again.`,
-        variant: "destructive",
-      });
+      console.warn(`⚠️ Cooldown Active: Please wait ${formatTimeRemaining(faucetStatus.remainingTime!)} before claiming again.`);
       return;
     }
 
     if (wallet.chainId !== 11155111) {
-      toast({
-        title: "Wrong Network",
-        description: t('faucet.error.network'),
-        variant: "destructive",
-      });
+      console.warn('⚠️ Wrong Network:', t('faucet.error.network'));
       return;
     }
 
@@ -49,18 +40,11 @@ const XMRTFaucet = ({ wallet, onClaimed }: XMRTFaucetProps) => {
       const web3 = new Web3(window.ethereum);
       await claimXMRTFaucet(web3, wallet.address, wallet.chainId);
       
-      toast({
-        title: "Success!",
-        description: t('faucet.success'),
-      });
+      console.info('✅ Faucet claim successful:', t('faucet.success'));
       
       onClaimed();
     } catch (error: any) {
-      toast({
-        title: "Claim Failed",
-        description: error.message || t('faucet.error'),
-        variant: "destructive",
-      });
+      console.error('❌ Claim Failed:', error.message || t('faucet.error'));
     } finally {
       setIsLoading(false);
     }

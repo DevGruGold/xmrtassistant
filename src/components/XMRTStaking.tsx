@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Coins, AlertTriangle, Clock, TrendingUp } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+// Toast removed for lighter UI
 import { stakeXMRT, unstakeXMRT } from "@/utils/contractUtils";
 import { WalletState } from "@/hooks/useWallet";
 import Web3 from "web3";
@@ -19,7 +19,6 @@ const XMRTStaking = ({ wallet, onStakingAction }: XMRTStakingProps) => {
   const [unstakeAmount, setUnstakeAmount] = useState("");
   const [isStaking, setIsStaking] = useState(false);
   const [isUnstaking, setIsUnstaking] = useState(false);
-  const { toast } = useToast();
 
   const formatTimeRemaining = (timestamp: number) => {
     const unlockTime = timestamp + (7 * 24 * 60 * 60); // 7 days from stake
@@ -33,20 +32,12 @@ const XMRTStaking = ({ wallet, onStakingAction }: XMRTStakingProps) => {
 
   const handleStake = async () => {
     if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid stake amount.",
-        variant: "destructive",
-      });
+      console.warn('⚠️ Invalid stake amount entered');
       return;
     }
 
     if (parseFloat(stakeAmount) > parseFloat(wallet.xmrtBalance)) {
-      toast({
-        title: "Insufficient Balance",
-        description: "You don't have enough XMRT tokens to stake this amount.",
-        variant: "destructive",
-      });
+      console.warn('⚠️ Insufficient Balance: Not enough XMRT tokens to stake this amount');
       return;
     }
 
@@ -55,19 +46,12 @@ const XMRTStaking = ({ wallet, onStakingAction }: XMRTStakingProps) => {
       const web3 = new Web3(window.ethereum);
       await stakeXMRT(web3, stakeAmount, wallet.address, wallet.chainId);
       
-      toast({
-        title: "Staking Successful!",
-        description: `Successfully staked ${stakeAmount} XMRT tokens.`,
-      });
+      console.info(`✅ Staking Successful: Staked ${stakeAmount} XMRT tokens`);
       
       setStakeAmount("");
       onStakingAction();
     } catch (error: any) {
-      toast({
-        title: "Staking Failed",
-        description: error.message || "Failed to stake XMRT tokens. Please try again.",
-        variant: "destructive",
-      });
+      console.error('❌ Staking Failed:', error.message || 'Failed to stake XMRT tokens');
     } finally {
       setIsStaking(false);
     }
@@ -75,20 +59,12 @@ const XMRTStaking = ({ wallet, onStakingAction }: XMRTStakingProps) => {
 
   const handleUnstake = async () => {
     if (!unstakeAmount || parseFloat(unstakeAmount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid unstake amount.",
-        variant: "destructive",
-      });
+      console.warn('⚠️ Invalid unstake amount entered');
       return;
     }
 
     if (parseFloat(unstakeAmount) > parseFloat(wallet.xmrtStakeInfo.amount)) {
-      toast({
-        title: "Insufficient Staked Balance",
-        description: "You don't have enough staked XMRT tokens.",
-        variant: "destructive",
-      });
+      console.warn('⚠️ Insufficient Staked Balance: Not enough staked XMRT tokens');
       return;
     }
 
@@ -100,21 +76,16 @@ const XMRTStaking = ({ wallet, onStakingAction }: XMRTStakingProps) => {
       const penalty = wallet.xmrtStakeInfo.canUnstakeWithoutPenalty ? 0 : parseFloat(unstakeAmount) * 0.1;
       const received = parseFloat(unstakeAmount) - penalty;
       
-      toast({
-        title: "Unstaking Successful!",
-        description: penalty > 0 
-          ? `Unstaked ${unstakeAmount} XMRT. Received ${received.toFixed(2)} XMRT (${penalty.toFixed(2)} penalty burned).`
-          : `Successfully unstaked ${unstakeAmount} XMRT tokens.`,
-      });
+      console.info(
+        penalty > 0 
+          ? `✅ Unstaking Successful: Unstaked ${unstakeAmount} XMRT. Received ${received.toFixed(2)} XMRT (${penalty.toFixed(2)} penalty burned)`
+          : `✅ Unstaking Successful: Unstaked ${unstakeAmount} XMRT tokens`
+      );
       
       setUnstakeAmount("");
       onStakingAction();
     } catch (error: any) {
-      toast({
-        title: "Unstaking Failed",
-        description: error.message || "Failed to unstake XMRT tokens. Please try again.",
-        variant: "destructive",
-      });
+      console.error('❌ Unstaking Failed:', error.message || 'Failed to unstake XMRT tokens');
     } finally {
       setIsUnstaking(false);
     }

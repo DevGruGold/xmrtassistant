@@ -529,9 +529,8 @@ export const EnhancedContinuousVoice = ({
     )}>
       {/* Error Display */}
       {errorMessage && (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="text-sm text-destructive">{errorMessage}</span>
+        <div className="mb-4 p-3 rounded-lg">
+          <span className="text-sm text-muted-foreground">{errorMessage}</span>
         </div>
       )}
 

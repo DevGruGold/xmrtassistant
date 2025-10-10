@@ -12,7 +12,7 @@ import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+// Toast removed for lighter UI
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Services
@@ -69,7 +69,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 }) => {
   // Core state
   const { language } = useLanguage();
-  const { toast } = useToast();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [conversationSummaries, setConversationSummaries] = useState<Array<{ summaryText: string; messageCount: number; createdAt: Date }>>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -106,11 +105,6 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           setVoiceEnabled(true);
           localStorage.setItem('audioEnabled', 'true');
           console.log('✅ Auto-enabled TTS for mobile device');
-          
-          toast({
-            title: "Voice enabled",
-            description: "Eliza can now speak responses. Tap the speaker icon to disable.",
-          });
         }
         
         console.log('✅ TTS initialized for mobile and browser');
@@ -135,7 +129,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       document.removeEventListener('click', handleFirstInteraction);
       document.removeEventListener('touchstart', handleFirstInteraction);
     };
-  }, [audioInitialized, toast]);
+  }, [audioInitialized]);
 
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);
@@ -345,11 +339,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               if (voiceEnabled && audioInitialized) {
                 enhancedTTS.speak('I successfully fixed and executed the code.');
               }
-
-              toast({
-                title: "Code Auto-Healed",
-                description: "Autonomous agent fixed the code successfully",
-              });
+              
+              console.info('✅ Code Auto-Healed: Autonomous agent fixed the code successfully');
             }
           }
         )
@@ -371,17 +362,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           setRealtimeConnected(status === 'SUBSCRIBED');
           
           if (status === 'SUBSCRIBED') {
-            toast({
-              title: "Live Updates Active",
-              description: "Watching autonomous agents and code healing",
-              duration: 3000,
-            });
+            console.info('✅ Live Updates Active: Watching autonomous agents and code healing');
           } else if (status === 'CHANNEL_ERROR') {
-            toast({
-              title: "Connection Issue",
-              description: "Live updates temporarily unavailable",
-              variant: "destructive",
-            });
+            console.warn('⚠️ Connection Issue: Live updates temporarily unavailable');
           }
         });
     };
@@ -577,15 +560,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log(`🎵 TTS Method: ${enhancedTTS.getLastMethod()}`);
         setIsSpeaking(false);
       } catch (error) {
-        console.error('TTS error:', error);
+        console.error('❌ TTS error:', error, 'Audio unavailable. Check browser permissions.');
         setIsSpeaking(false);
-        
-        // Show user-friendly error
-        toast({
-          title: "Voice playback failed",
-          description: "Audio unavailable. Check browser permissions.",
-          variant: "destructive"
-        });
       }
     }
   };
@@ -913,15 +889,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             setIsSpeaking(false);
           })
           .catch((error) => {
-            console.error('TTS failed:', error);
+            console.error('❌ TTS failed:', error, 'Check browser audio permissions');
             setCurrentTTSMethod('failed');
             setIsSpeaking(false);
-            
-            toast({
-              title: "Voice playback failed",
-              description: "Check browser audio permissions",
-              variant: "destructive"
-            });
           });
       }
       
