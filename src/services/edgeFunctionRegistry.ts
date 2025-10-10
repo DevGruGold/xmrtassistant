@@ -27,6 +27,26 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Alternative AI when Gemini is unavailable or specific GPT features needed'
   },
   {
+    name: 'xmrt-mcp-server',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/xmrt-mcp-server',
+    description: 'Model Context Protocol server for XMRT DAO Ecosystem - unified interface exposing all capabilities via standardized MCP protocol',
+    capabilities: [
+      'MCP protocol compliance (2025-06-18)',
+      '25+ unified tools (AI, GitHub, mining, tasks, knowledge, Python)',
+      'Real-time resource subscriptions',
+      'Pre-configured prompt templates',
+      'Cross-repository GitHub operations',
+      'AI agent orchestration',
+      'Knowledge base integration',
+      'Mining & economics monitoring',
+      'Task workflow management',
+      'Python code execution',
+      'System health monitoring'
+    ],
+    category: 'ecosystem',
+    example_use: 'Connect AI agents (Claude Desktop, GPT-5, VS Code extensions) to entire XMRT ecosystem via standardized MCP protocol for seamless tool calling and resource access'
+  },
+  {
     name: 'playwright-browse',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/playwright-browse',
     description: 'Web browsing and scraping using Playwright automation',

@@ -121,6 +121,9 @@ verify_jwt = false
 [functions.get-embedding]
 verify_jwt = false
 
+[functions.xmrt-mcp-server]
+verify_jwt = false
+
 [functions.predictive-analytics]
 verify_jwt = false
 
