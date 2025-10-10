@@ -45,7 +45,7 @@ serve(async (req) => {
     healthResults.push(elevenlabsHealth);
     await supabase.from('api_key_health').upsert(elevenlabsHealth, { onConflict: 'service_name' });
 
-    const healthySer vices = healthResults.filter(h => h.is_healthy).length;
+    const healthyServices = healthResults.filter(h => h.is_healthy).length;
     console.log(`✅ Health check complete: ${healthyServices}/${healthResults.length} services healthy`);
 
     return new Response(
