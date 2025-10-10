@@ -350,11 +350,25 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             event: 'INSERT',
             schema: 'public',
             table: 'eliza_activity_log',
-            filter: `activity_type=in.(python_fix_success,code_monitoring)`
+            filter: `activity_type=in.(python_fix_success,code_monitoring,agent_spawned,task_assigned,progress_report,autonomous_step,agent_failure_alert)`
           },
           (payload) => {
             console.log('📊 Activity log update:', payload);
-            // Notifications disabled - check widget in bottom-right corner for progress
+            const activity = payload.new as Record<string, any>;
+            
+            // Log agent activities for Eliza's awareness
+            if (activity.activity_type === 'agent_spawned') {
+              console.log('🤖 Agent spawned:', activity.metadata?.agent_id, activity.title);
+            } else if (activity.activity_type === 'task_assigned') {
+              console.log('📋 Task assigned:', activity.metadata?.task_id, activity.title);
+            } else if (activity.activity_type === 'progress_report') {
+              console.log('📊 Progress update:', activity.metadata?.agent_id, activity.description);
+            } else if (activity.activity_type === 'autonomous_step') {
+              console.log('🔄 Autonomous step:', activity.metadata?.action, activity.title);
+            } else if (activity.activity_type === 'agent_failure_alert') {
+              console.warn('⚠️ AGENT FAILURE ALERT:', activity.title, activity.metadata);
+              // Eliza will see this in activity log and can investigate
+            }
           }
         )
         .subscribe((status) => {

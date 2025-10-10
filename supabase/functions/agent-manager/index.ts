@@ -386,6 +386,27 @@ serve(async (req) => {
           status: 'completed'
         });
 
+        // If task FAILED or BLOCKED, create agent failure alert for Eliza to investigate
+        if (data.status === 'FAILED' || data.status === 'BLOCKED') {
+          await supabase.from('eliza_activity_log').insert({
+            activity_type: 'agent_failure_alert',
+            title: `⚠️ Agent Blocked: ${updatedTask.assignee_agent_id}`,
+            description: `Task "${updatedTask.title}" ${data.status.toLowerCase()}: ${data.failure_reason || 'Unknown reason'}`,
+            metadata: {
+              task_id: updatedTask.id,
+              agent_id: updatedTask.assignee_agent_id,
+              failure_status: data.status,
+              failure_reason: data.failure_reason,
+              task_title: updatedTask.title,
+              stage: data.stage,
+              requires_intervention: true
+            },
+            status: 'pending'
+          });
+          
+          console.warn(`⚠️ AGENT FAILURE ALERT: Agent ${updatedTask.assignee_agent_id} blocked on task ${updatedTask.id}`);
+        }
+
         // If task is completed, free up the agent for new assignments
         if (data.status === 'COMPLETED' || data.status === 'FAILED') {
           await supabase
