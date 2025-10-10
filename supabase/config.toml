@@ -154,3 +154,6 @@ verify_jwt = false
 [functions.community-spotlight-post]
 verify_jwt = false
 
+[functions.ecosystem-monitor]
+verify_jwt = false
+
