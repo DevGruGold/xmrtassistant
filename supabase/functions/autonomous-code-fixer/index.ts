@@ -113,8 +113,13 @@ serve(async (req) => {
         return false;
       }
       
-      // Don't try to fix missing system dependencies
-      if (errorLower.includes('no module named') || errorLower.includes('modulenotfounderror')) {
+      // Don't try to fix missing system dependencies or pip packages
+      // Piston API only has Python stdlib, no pip packages available
+      if (errorLower.includes('no module named') || errorLower.includes('modulenotfounderror') ||
+          errorLower.includes('importerror') || errorLower.includes('cannot import name') ||
+          errorLower.includes('requests') || errorLower.includes('numpy') || 
+          errorLower.includes('pandas') || errorLower.includes('aiohttp') ||
+          errorLower.includes('pip') || errorLower.includes('package not installed')) {
         return false;
       }
       
