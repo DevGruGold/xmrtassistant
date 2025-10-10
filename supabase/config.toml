@@ -49,9 +49,6 @@ verify_jwt = false
 [functions.autonomous-code-fixer]
 verify_jwt = false
 
-[functions.autonomous-decision-engine]
-verify_jwt = false
-
 [functions.cleanup-duplicate-tasks]
 verify_jwt = false
 
@@ -112,9 +109,6 @@ verify_jwt = false
 [functions.task-orchestrator]
 verify_jwt = false
 
-[functions.test-github-proof-of-life]
-verify_jwt = false
-
 [functions.vectorize-memory]
 verify_jwt = false
 
@@ -125,39 +119,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-embedding]
-verify_jwt = false
-
-[functions.cleanup-duplicate-tasks]
-verify_jwt = false
-
-[functions.system-diagnostics]
-verify_jwt = false
-
-[functions.system-status]
-verify_jwt = false
-
-[functions.vectorize-memory]
-verify_jwt = false
-
-[functions.extract-knowledge]
-verify_jwt = false
-
-[functions.summarize-conversation]
-verify_jwt = false
-
-[functions.get-lovable-key]
-verify_jwt = false
-
-[functions.lovable-chat]
-verify_jwt = false
-
-[functions.test-github-proof-of-life]
-verify_jwt = false
-
-[functions.github-webhook-handler]
-verify_jwt = false
-
-[functions.daily-ecosystem-report]
 verify_jwt = false
 
 [functions.predictive-analytics]

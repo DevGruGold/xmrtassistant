@@ -27,22 +27,6 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Alternative AI when Gemini is unavailable or specific GPT features needed'
   },
   {
-    name: 'wan-ai-chat',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/wan-ai-chat',
-    description: 'WAN AI chat integration',
-    capabilities: ['Alternative AI service', 'Specialized AI tasks'],
-    category: 'ai',
-    example_use: 'Specialized AI tasks or WAN-specific features'
-  },
-  {
-    name: 'ai-chat',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/ai-chat',
-    description: 'General AI chat endpoint',
-    capabilities: ['General AI conversation', 'Multi-model support'],
-    category: 'ai',
-    example_use: 'General purpose AI chat interface'
-  },
-  {
     name: 'playwright-browse',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/playwright-browse',
     description: 'Web browsing and scraping using Playwright automation',
@@ -179,14 +163,6 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Code-specific AI queries and debugging assistance'
   },
   {
-    name: 'manus-chat',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/manus-chat',
-    description: 'MANUS token ecosystem specialized AI chat',
-    capabilities: ['Token-aware responses', 'Ecosystem knowledge', 'Custom prompting'],
-    category: 'ai',
-    example_use: 'MANUS ecosystem-specific queries and interactions'
-  },
-  {
     name: 'extract-knowledge',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/extract-knowledge',
     description: 'Extracts structured knowledge entities from conversations',
@@ -265,14 +241,6 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Live status', 'Uptime monitoring', 'Quick health check'],
     category: 'monitoring',
     example_use: 'Check current system status'
-  },
-  {
-    name: 'python-executor',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-executor',
-    description: 'Executes Python code in sandboxed environment',
-    capabilities: ['Python execution', 'Sandboxed runtime', 'Result capture'],
-    category: 'code-execution',
-    example_use: 'Run Python scripts and capture output'
   },
   {
     name: 'python-fixer-agent',
