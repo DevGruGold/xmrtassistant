@@ -6,6 +6,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validate API success beyond exit code
+function validateApiSuccess(execResult: any): { success: boolean; issue?: string } {
+  const output = (execResult.output || '').toLowerCase();
+  const error = (execResult.error || '').toLowerCase();
+  
+  // Check for API failures
+  if (output.includes('404') || output.includes('not found')) {
+    return { success: false, issue: '404_not_found' };
+  }
+  if (output.includes('401') || output.includes('unauthorized')) {
+    return { success: false, issue: 'auth_failure' };
+  }
+  if (output.includes('403') || output.includes('forbidden')) {
+    return { success: false, issue: 'permission_denied' };
+  }
+  if (output.includes('null') && output.includes('response')) {
+    return { success: false, issue: 'null_response' };
+  }
+  if (output.includes('none') && output.includes('returned')) {
+    return { success: false, issue: 'none_returned' };
+  }
+  if (error.includes('404') || error.includes('401') || error.includes('403')) {
+    return { success: false, issue: 'api_error' };
+  }
+  
+  return { success: true };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -280,8 +308,10 @@ Return ONLY the fixed Python code without explanations or markdown.`
           };
         }
 
-        // Check if the fixed code succeeded
-        if (execResult.exitCode === 0) {
+        // Validate API success beyond just exit code
+        const apiValidation = validateApiSuccess(execResult);
+        
+        if (execResult.exitCode === 0 && apiValidation.success) {
           console.log(`✅ Successfully fixed and executed code for ${execution.id}`);
           
           // Log the successful fix
@@ -312,6 +342,131 @@ Return ONLY the fixed Python code without explanations or markdown.`
             execution_id: execution.id,
             success: true,
             fixed_execution_id: successExec?.id
+          };
+        } else if (execResult.exitCode === 0 && !apiValidation.success) {
+          // Code ran but API failed - attempt second-level fix
+          console.log(`⚠️ Code ran but API failed (${apiValidation.issue}) for ${execution.id}. Attempting deeper fix...`);
+          
+          // Check metadata for fix attempts to prevent infinite loops
+          const fixAttempts = (execution.metadata as any)?.fix_attempts || 0;
+          const secondLevelAttempted = (execution.metadata as any)?.second_level_attempted || false;
+          
+          if (secondLevelAttempted || fixAttempts >= 2) {
+            console.log(`🚫 Max fix attempts reached for ${execution.id}, marking for human intervention`);
+            
+            // Schedule a follow-up reminder
+            await supabase.functions.invoke('schedule-reminder', {
+              body: {
+                action_type: 'reminder',
+                action_data: {
+                  message: `Follow up on API failure (${apiValidation.issue}): ${execution.purpose || 'Unknown task'}`,
+                  context: {
+                    execution_id: execution.id,
+                    issue: apiValidation.issue,
+                    output: execResult.output?.substring(0, 200)
+                  },
+                  callback_action: 'check_api_fix_status'
+                },
+                execute_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
+                session_key: 'global'
+              }
+            });
+            
+            return {
+              execution_id: execution.id,
+              success: false,
+              error: 'Max fix attempts reached - requires human intervention',
+              requires_human: true
+            };
+          }
+          
+          // Attempt second-level fix with API-specific context
+          const apiContextPrompt = `Fix this Python code that runs without errors but has an API failure:
+
+**Original Code:**
+\`\`\`python
+${fixedCode}
+\`\`\`
+
+**Issue:** ${apiValidation.issue}
+**Output:** ${execResult.output?.substring(0, 300)}
+
+The code executes but the API call fails. Possible causes:
+- For 404: Resource doesn't exist, wrong path, wrong branch name, repo not found
+- For 401/403: Authentication token invalid or insufficient permissions
+- For null response: API returned successfully but with no data
+
+Fix the code to:
+1. Add validation checks BEFORE making API calls
+2. Handle the specific error case (${apiValidation.issue})
+3. Add fallback logic or better error messages
+
+Return ONLY the fixed Python code without explanations or markdown.`;
+
+          const { data: deeperFix, error: deeperFixError } = await supabase.functions.invoke('deepseek-chat', {
+            body: { message: apiContextPrompt }
+          });
+
+          if (!deeperFixError && deeperFix?.generatedText) {
+            const deeperFixedCode = deeperFix.generatedText;
+            
+            // Try executing the deeper fix
+            const { data: deeperExecResult, error: deeperExecError } = await supabase.functions.invoke('python-executor', {
+              body: {
+                code: deeperFixedCode,
+                purpose: `Second-level fix: ${execution.purpose || 'Unknown'}`,
+                silent: true
+              }
+            });
+
+            if (!deeperExecError && deeperExecResult?.exitCode === 0) {
+              const deeperValidation = validateApiSuccess(deeperExecResult);
+              if (deeperValidation.success) {
+                console.log(`✅✅ Second-level fix succeeded for ${execution.id}`);
+                
+                await supabase.from('eliza_activity_log').insert({
+                  activity_type: 'python_fix_success',
+                  title: '✅✅ Deep API Fix Succeeded',
+                  description: `Fixed API issue (${apiValidation.issue}) for: ${execution.purpose || 'Unknown task'}`,
+                  status: 'completed',
+                  metadata: {
+                    original_execution_id: execution.id,
+                    issue_type: apiValidation.issue,
+                    fix_level: 'second'
+                  },
+                  mentioned_to_user: false
+                });
+
+                return {
+                  execution_id: execution.id,
+                  success: true,
+                  second_level_fix: true
+                };
+              }
+            }
+          }
+          
+          // Second-level fix also failed, schedule follow-up
+          await supabase.functions.invoke('schedule-reminder', {
+            body: {
+              action_type: 'reminder',
+              action_data: {
+                message: `Follow up on persistent API failure: ${execution.purpose || 'Unknown task'}`,
+                context: {
+                  execution_id: execution.id,
+                  issue: apiValidation.issue
+                }
+              },
+              execute_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              session_key: 'global'
+            }
+          });
+          
+          return {
+            execution_id: execution.id,
+            success: false,
+            error: `API failure (${apiValidation.issue}) - second-level fix failed`,
+            follow_up_scheduled: true
           };
         } else {
           console.warn(`⚠️ Fixed code still failed for ${execution.id}`);
