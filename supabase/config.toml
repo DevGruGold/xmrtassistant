@@ -139,3 +139,18 @@ verify_jwt = false
 [functions.self-optimizing-agent-architecture]
 verify_jwt = false
 
+[functions.morning-discussion-post]
+verify_jwt = false
+
+[functions.progress-update-post]
+verify_jwt = false
+
+[functions.evening-summary-post]
+verify_jwt = false
+
+[functions.weekly-retrospective-post]
+verify_jwt = false
+
+[functions.community-spotlight-post]
+verify_jwt = false
+
