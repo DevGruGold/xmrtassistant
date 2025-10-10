@@ -11,20 +11,36 @@ export interface EdgeFunctionCapability {
 
 export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   {
+    name: 'lovable-chat',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/lovable-chat',
+    description: '✅ PRIMARY AI - Model-agnostic chat via Lovable AI Gateway (Gemini 2.5 Flash default, supports OpenAI GPT-5)',
+    capabilities: ['Advanced AI chat', 'Context awareness', 'Multi-model support', 'Memory integration', 'Tool calling', 'Multi-step workflows'],
+    category: 'ai',
+    example_use: 'Main intelligent chat endpoint with full context and memory - use this for all AI chat needs'
+  },
+  {
     name: 'gemini-chat',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/gemini-chat',
-    description: 'Primary AI chat using Google Gemini via Lovable AI Gateway',
+    description: '⚠️ LEGACY - Use lovable-chat instead. Kept for backward compatibility.',
     capabilities: ['AI conversation', 'Context-aware responses', 'Memory integration'],
     category: 'ai',
-    example_use: 'Main conversational AI for complex reasoning and contextual understanding'
+    example_use: 'DEPRECATED: Use lovable-chat with model parameter instead'
   },
   {
     name: 'openai-chat',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/openai-chat',
-    description: 'Alternative AI chat using OpenAI GPT models',
+    description: '⚠️ LEGACY - Use lovable-chat instead. Kept for backward compatibility.',
     capabilities: ['AI conversation', 'OpenAI GPT-4/GPT-5', 'Fallback AI'],
     category: 'ai',
-    example_use: 'Alternative AI when Gemini is unavailable or specific GPT features needed'
+    example_use: 'DEPRECATED: Use lovable-chat with model parameter instead'
+  },
+  {
+    name: 'deepseek-chat',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/deepseek-chat',
+    description: '⚠️ LEGACY - Use lovable-chat instead. Kept for backward compatibility.',
+    capabilities: ['Code generation', 'Technical reasoning', 'Code fixing'],
+    category: 'ai',
+    example_use: 'DEPRECATED: Use lovable-chat with model parameter instead'
   },
   {
     name: 'xmrt-mcp-server',
@@ -167,22 +183,6 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Create specialized agents for complex tasks, delegate work, coordinate multi-agent workflows'
   },
   {
-    name: 'lovable-chat',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/lovable-chat',
-    description: 'Primary AI chat using Lovable AI Gateway (Google Gemini & OpenAI GPT-5)',
-    capabilities: ['Advanced AI chat', 'Context awareness', 'Multi-model support', 'Memory integration'],
-    category: 'ai',
-    example_use: 'Main intelligent chat endpoint with full context and memory'
-  },
-  {
-    name: 'deepseek-chat',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/deepseek-chat',
-    description: 'DeepSeek AI for code-focused tasks and technical reasoning',
-    capabilities: ['Code generation', 'Technical reasoning', 'Code fixing'],
-    category: 'ai',
-    example_use: 'Code-specific AI queries and debugging assistance'
-  },
-  {
     name: 'extract-knowledge',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/extract-knowledge',
     description: 'Extracts structured knowledge entities from conversations',
@@ -239,28 +239,76 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Monitor system health and trigger autonomous fixes'
   },
   {
-    name: 'ecosystem-monitor',
+    name: 'github-ecosystem-engagement',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/ecosystem-monitor',
-    description: 'Monitors overall ecosystem health (agents, tasks, executions)',
-    capabilities: ['Health checks', 'Metrics aggregation', 'Status reporting'],
-    category: 'monitoring',
-    example_use: 'Get overall system health status'
+    description: 'Daily GitHub ecosystem engagement (11am UTC cron) - evaluates XMRT repos, responds to issues/discussions',
+    capabilities: ['Repo activity scoring', 'Issue/discussion engagement', 'Technical response generation', 'Token resilience', 'Community engagement'],
+    category: 'github',
+    example_use: 'Automatically engages with high-priority GitHub activity across DevGruGold repos daily'
+  },
+  {
+    name: 'morning-discussion-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/morning-discussion-post',
+    description: 'Automated morning discussion post (8am UTC cron)',
+    capabilities: ['Daily planning content', 'Agent status summaries', 'Overnight progress reports'],
+    category: 'autonomous',
+    example_use: 'Automatically posts morning check-in discussions to GitHub'
+  },
+  {
+    name: 'progress-update-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/progress-update-post',
+    description: 'Task progress updates (9am UTC cron)',
+    capabilities: ['Task completion reports', 'Milestone tracking', 'Work progress summaries'],
+    category: 'autonomous',
+    example_use: 'Automatically posts task progress updates to GitHub'
+  },
+  {
+    name: 'daily-discussion-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/daily-discussion-post',
+    description: 'Daily afternoon discussion (3pm UTC cron)',
+    capabilities: ['Community engagement', 'Discussion topics', 'Ecosystem updates'],
+    category: 'autonomous',
+    example_use: 'Automatically posts afternoon discussion topics to GitHub'
+  },
+  {
+    name: 'evening-summary-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/evening-summary-post',
+    description: 'Evening wins summary (8pm UTC cron)',
+    capabilities: ['Daily wins showcase', 'Completed work highlights', 'Achievement recognition'],
+    category: 'autonomous',
+    example_use: 'Automatically posts end-of-day summaries to GitHub'
+  },
+  {
+    name: 'weekly-retrospective-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/weekly-retrospective-post',
+    description: 'Weekly retrospective (Fridays 4pm UTC cron)',
+    capabilities: ['Week review', 'Lessons learned', 'Team reflections', 'Weekly metrics'],
+    category: 'autonomous',
+    example_use: 'Automatically posts weekly retrospectives to GitHub every Friday'
+  },
+  {
+    name: 'community-spotlight-post',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/community-spotlight-post',
+    description: 'Community spotlight (Wednesdays 2pm UTC cron)',
+    capabilities: ['Contributor highlights', 'Community recognition', 'Impact showcasing'],
+    category: 'autonomous',
+    example_use: 'Automatically posts contributor spotlights to GitHub every Wednesday'
   },
   {
     name: 'system-diagnostics',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-diagnostics',
-    description: 'Comprehensive system diagnostics and health checks',
-    capabilities: ['System diagnostics', 'Performance metrics', 'Error detection'],
+    description: 'Deep system diagnostics - use for detailed debugging and troubleshooting',
+    capabilities: ['System diagnostics', 'Performance metrics', 'Error detection', 'Resource usage analysis'],
     category: 'monitoring',
-    example_use: 'Run full system diagnostic scan'
+    example_use: 'Run comprehensive diagnostic scan when investigating issues or performance problems'
   },
   {
     name: 'system-status',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-status',
-    description: 'Real-time system status and metrics',
-    capabilities: ['Live status', 'Uptime monitoring', 'Quick health check'],
+    description: 'Quick health check - use for dashboards and rapid status queries',
+    capabilities: ['Live status', 'Uptime monitoring', 'Quick health check', 'Service availability'],
     category: 'monitoring',
-    example_use: 'Check current system status'
+    example_use: 'Get instant system status for dashboards or quick health verification'
   },
   {
     name: 'cleanup-duplicate-tasks',
@@ -346,9 +394,10 @@ export class EdgeFunctionService {
    * Format edge function capabilities for AI context
    */
   public static formatCapabilitiesForAI(): string {
-    const categories = ['github', 'ai', 'knowledge', 'task-management', 'autonomous', 'monitoring', 'code-execution', 'web', 'speech', 'mining', 'faucet', 'deployment', 'ecosystem'];
+    const categories = ['github', 'ai', 'autonomous', 'knowledge', 'task-management', 'monitoring', 'code-execution', 'web', 'speech', 'mining', 'faucet', 'deployment', 'ecosystem'];
     
     let output = '🔧 **AVAILABLE EDGE FUNCTIONS & CAPABILITIES**\n\n';
+    output += '⚡ **TOOL INVOCATION REMINDER:** Invoke tools IMMEDIATELY while explaining, not after.\n\n';
     
     for (const category of categories) {
       const functions = this.getFunctionsByCategory(category);
