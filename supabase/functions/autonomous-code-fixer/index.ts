@@ -246,7 +246,10 @@ serve(async (req) => {
         // Fix the code directly using DeepSeek
         const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
           body: {
-            message: `Fix this Python code error:
+            messages: [
+              {
+                role: 'user',
+                content: `Fix this Python code error:
 
 **Original Code:**
 \`\`\`python
@@ -257,6 +260,8 @@ ${execution.code}
 ${execution.error}
 
 Return ONLY the fixed Python code without explanations or markdown.`
+              }
+            ]
           }
         });
 

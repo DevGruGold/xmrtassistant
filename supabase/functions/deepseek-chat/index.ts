@@ -33,6 +33,21 @@ serve(async (req) => {
       );
     }
 
+    // Validate messages parameter
+    if (!messages || !Array.isArray(messages)) {
+      console.error('❌ Invalid messages parameter:', typeof messages);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid request: messages must be an array' 
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     console.log('🤖 Deepseek Chat - Processing request with context:', {
       messagesCount: messages?.length,
       hasHistory: !!conversationHistory,
