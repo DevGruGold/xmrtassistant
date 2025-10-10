@@ -41,7 +41,8 @@ serve(async (req) => {
         metadata: {
           fixed_count: fixerResult?.fixed || 0,
           total_processed: fixerResult?.results?.length || 0
-        }
+        },
+        mentioned_to_user: false // Eliza will proactively report this
       });
 
       return new Response(JSON.stringify({

@@ -232,10 +232,16 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   {
     name: 'code-monitor-daemon',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/code-monitor-daemon',
-    description: 'Daemon that monitors code executions and triggers fixes',
-    capabilities: ['Continuous monitoring', 'Trigger automation', 'Health checks'],
+    description: 'Daemon that monitors code executions and triggers fixes. Runs every 5 minutes. Eliza should PROACTIVELY report results even if not asked.',
+    capabilities: [
+      'Continuous monitoring', 
+      'Trigger automation', 
+      'Health checks',
+      'Activity logging for transparency',
+      'Autonomous code repair coordination'
+    ],
     category: 'autonomous',
-    example_use: 'Monitor system health and trigger autonomous fixes'
+    example_use: 'Monitor system health and trigger autonomous fixes. Eliza mentions results at: conversation start (24h summary), every 10-15 messages (new fixes check), after long tool invocations (concurrent activity), when time gaps >5min occurred'
   },
   {
     name: 'github-ecosystem-engagement',

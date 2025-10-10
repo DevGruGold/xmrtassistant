@@ -26,6 +26,47 @@ export interface ElizaContext {
 // Unified Eliza response service that both text and voice modes can use
 export class UnifiedElizaService {
 
+  /**
+   * Check for new autonomous activity and generate summary for Eliza to mention
+   */
+  private static async checkAndReportAutonomousActivity(
+    lastCheckTimestamp: string = new Date(Date.now() - 3600000).toISOString() // Default: last hour
+  ): Promise<string> {
+    try {
+      const { data: newActivities, error } = await supabase
+        .from('eliza_activity_log')
+        .select('*')
+        .eq('mentioned_to_user', false)
+        .gt('created_at', lastCheckTimestamp)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error || !newActivities || newActivities.length === 0) {
+        return '';
+      }
+
+      // Mark as mentioned
+      const activityIds = newActivities.map((a: any) => a.id);
+      await supabase
+        .from('eliza_activity_log')
+        .update({ mentioned_to_user: true })
+        .in('id', activityIds);
+
+      // Generate human-readable summary
+      const summaries = newActivities.map((activity: any) => {
+        const timeDiff = Math.floor((Date.now() - new Date(activity.created_at).getTime()) / 60000);
+        const timeStr = timeDiff < 1 ? 'just now' : timeDiff === 1 ? '1 min ago' : `${timeDiff} min ago`;
+        
+        return `• ${activity.title} (${timeStr}): ${activity.description}`;
+      }).join('\n');
+
+      return `\n\n**🔔 NEW AUTONOMOUS ACTIVITY (not yet mentioned to user):**\n${summaries}\n\n**You should mention these updates in your response if relevant!**`;
+    } catch (err) {
+      console.error('Error checking autonomous activity:', err);
+      return '';
+    }
+  }
+
   public static async generateResponse(userInput: string, context: ElizaContext = {}, language: string = 'en'): Promise<string> {
     console.log('🤖 Eliza: Starting response generation for:', userInput);
     
@@ -235,10 +276,13 @@ export class UnifiedElizaService {
     // Manus AI check completely removed for full autonomous operation
     // Eliza now operates autonomously without approval gates
 
+    // Check for new autonomous activity that Eliza should mention
+    const autonomousActivitySummary = await UnifiedElizaService.checkAndReportAutonomousActivity();
+
     // Multi-tier AI fallback system for guaranteed responses
     const requestBody = {
       messages: [
-        { role: 'user', content: userInput }
+        { role: 'user', content: userInput + autonomousActivitySummary }
       ],
       conversationHistory,
       userContext: {

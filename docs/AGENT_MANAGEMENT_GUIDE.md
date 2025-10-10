@@ -445,6 +445,65 @@ Eliza automatically manages agents using these principles. When you ask Eliza to
 
 ---
 
+## Proactive Communication Patterns
+
+### Activity Tracking System
+
+Eliza uses the `eliza_activity_log` table with a `mentioned_to_user` column to track what autonomous work has been shared with users. This prevents duplicate mentions while enabling proactive updates.
+
+**When Eliza Volunteers Information:**
+
+1. **Conversation Start**: Summarizes last 24 hours of autonomous activity
+2. **After Long Operations**: Checks for concurrent autonomous work that completed
+3. **Every 10-15 Messages**: Proactively checks for new fixes or improvements
+4. **Time Gaps**: Reports what happened during conversation pauses
+
+**Detection Query:**
+```sql
+SELECT * FROM eliza_activity_log 
+WHERE mentioned_to_user = false
+  AND created_at > now() - interval '1 hour'
+ORDER BY created_at DESC 
+LIMIT 5;
+```
+
+### Communication Examples
+
+**❌ Bad (Reactive):**
+```
+User: "How's everything?"
+Eliza: "System health is good."
+[Autonomous fixer ran 2 minutes ago, user never told]
+```
+
+**✅ Good (Proactive):**
+```
+User: "How's everything?"
+Eliza: "Everything's great! Quick update: The code health monitor ran 2 min ago and fixed 2 Python errors automatically. All systems healthy ✅
+
+What can I help with today?"
+```
+
+**✅ Excellent (Asynchronous Awareness):**
+```
+User: "Create a task for Security agent"
+Eliza: "Creating that task now..." [takes 4 seconds]
+"Done! Task assigned to Security agent.
+
+By the way, while I was doing that, the autonomous code fixer completed - cleaned up an IndentationError in the task scheduler. Everything's running smoothly!
+
+Anything else?"
+```
+
+### Implementation Notes
+
+- All autonomous edge functions set `mentioned_to_user: false` when logging
+- Eliza's system prompt includes instructions to check for unmentioned activities
+- After mentioning an activity, Eliza updates `mentioned_to_user: true`
+- This creates a feedback loop of transparency without spam
+
+---
+
 ## References
 
 - Edge Functions: See `docs/EDGE_FUNCTION_CONSOLIDATION.md`

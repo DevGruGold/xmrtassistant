@@ -295,7 +295,8 @@ Return ONLY the fixed Python code without explanations or markdown.`
             original_execution_id: execution.id,
             fixed_execution_id: successExec?.id,
             fixed_code: fixedCode.substring(0, 500)
-          }
+          },
+          mentioned_to_user: false // Eliza will proactively report this
         });
 
         results.push({
