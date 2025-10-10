@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,15 +14,26 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000 } = await req.json();
+    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000, session_credentials } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const openAIApiKey = getAICredential('openai', session_credentials);
     if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY not configured');
+      return new Response(
+        JSON.stringify(createCredentialRequiredResponse(
+          'openai',
+          'api_key',
+          'OpenAI API key needed to use this AI service.',
+          'https://platform.openai.com/api-keys'
+        )),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log('🤖 OpenAI Chat - Processing request:', {

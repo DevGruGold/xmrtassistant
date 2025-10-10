@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { getGitHubCredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 
 const GITHUB_CLIENT_ID = Deno.env.get('GITHUB_CLIENT_ID');
 const GITHUB_CLIENT_SECRET = Deno.env.get('GITHUB_CLIENT_SECRET');
@@ -52,7 +53,7 @@ serve(async (req) => {
     validateGitHubConfig();
 
     const requestBody = await req.json();
-    const { action, data, code } = requestBody;
+    const { action, data, code, session_credentials } = requestBody;
     
     console.log(`🔧 GitHub Integration - Action: ${action}`, data);
 
@@ -99,14 +100,18 @@ serve(async (req) => {
       );
     }
 
-    // Try OAuth access token first, fallback to GITHUB_TOKEN secret
-    const accessToken = data?.access_token || Deno.env.get('GITHUB_TOKEN');
+    // Intelligent credential cascade: Try all available sources
+    const accessToken = await getGitHubCredential(data, session_credentials);
     if (!accessToken) {
+      console.error('🔐 All GitHub credential sources exhausted');
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Missing access_token. Please authenticate first using oauth_callback action or configure GITHUB_TOKEN secret.' 
-        }),
+        JSON.stringify(createCredentialRequiredResponse(
+          'github',
+          'pat',
+          'To complete this GitHub operation, please provide a GitHub Personal Access Token (PAT).',
+          'https://github.com/settings/tokens/new?scopes=repo,read:org',
+          ['repo', 'read:org', 'read:discussion']
+        )),
         { 
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

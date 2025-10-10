@@ -126,6 +126,48 @@ export type Database = {
         }
         Relationships: []
       }
+      api_key_health: {
+        Row: {
+          created_at: string | null
+          days_until_expiry: number | null
+          error_message: string | null
+          expiry_warning: boolean | null
+          id: string
+          is_healthy: boolean
+          key_type: string | null
+          last_checked: string | null
+          metadata: Json | null
+          service_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_until_expiry?: number | null
+          error_message?: string | null
+          expiry_warning?: boolean | null
+          id?: string
+          is_healthy?: boolean
+          key_type?: string | null
+          last_checked?: string | null
+          metadata?: Json | null
+          service_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_until_expiry?: number | null
+          error_message?: string | null
+          expiry_warning?: boolean | null
+          id?: string
+          is_healthy?: boolean
+          key_type?: string | null
+          last_checked?: string | null
+          metadata?: Json | null
+          service_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           confidence_score: number | null

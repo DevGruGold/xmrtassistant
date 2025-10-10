@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,12 +14,23 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
     
-    const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+    const DEEPSEEK_API_KEY = getAICredential('deepseek', session_credentials);
     if (!DEEPSEEK_API_KEY) {
-      console.error('DEEPSEEK_API_KEY is not configured');
-      throw new Error('AI service not configured');
+      console.error('⚠️ DEEPSEEK_API_KEY not configured');
+      return new Response(
+        JSON.stringify(createCredentialRequiredResponse(
+          'deepseek',
+          'api_key',
+          'DeepSeek API key needed to use this AI service.',
+          'https://platform.deepseek.com/'
+        )),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log('🤖 Deepseek Chat - Processing request with context:', {

@@ -46,6 +46,9 @@ enable_confirmations = false
 [functions.agent-manager]
 verify_jwt = false
 
+[functions.api-key-health-monitor]
+verify_jwt = false
+
 [functions.autonomous-code-fixer]
 verify_jwt = false
 

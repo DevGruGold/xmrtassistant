@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
+import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,21 +14,76 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    // Intelligent AI service cascade: Try Lovable -> DeepSeek -> session OpenAI
+    const lovableKey = getAICredential('lovable_ai', session_credentials);
+    const deepseekKey = getAICredential('deepseek', session_credentials);
+    const openaiKey = getAICredential('openai', session_credentials);
+
+    // Log which services are available
+    console.log('🔍 Available AI services:', {
+      lovable: !!lovableKey,
+      deepseek: !!deepseekKey,
+      openai: !!openaiKey
+    });
+
+    // Try services in order of preference
+    let LOVABLE_API_KEY: string | null = null;
+    let aiProvider = 'unknown';
+    let aiModel = 'google/gemini-2.5-flash';
+
+    if (lovableKey) {
+      LOVABLE_API_KEY = lovableKey;
+      aiProvider = 'lovable_ai';
+      aiModel = 'google/gemini-2.5-flash';
+      console.log('✅ Using Lovable AI Gateway');
+    } else if (deepseekKey) {
+      // For DeepSeek, we'll call it via its edge function instead
+      console.log('⚠️ Lovable AI not available, trying DeepSeek fallback');
+      try {
+        const deepseekResponse = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-chat`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            messages, 
+            conversationHistory, 
+            userContext, 
+            miningStats, 
+            systemVersion,
+            session_credentials 
+          })
+        });
+
+        if (deepseekResponse.ok) {
+          const deepseekData = await deepseekResponse.json();
+          return new Response(
+            JSON.stringify({ success: true, response: deepseekData.response, provider: 'deepseek' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (error) {
+        console.warn('DeepSeek fallback failed:', error);
+      }
+    }
+
     if (!LOVABLE_API_KEY) {
-      console.error('❌ LOVABLE_API_KEY not configured');
+      console.error('❌ All AI services exhausted');
       return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'LOVABLE_API_KEY not configured' 
-        }), 
+        JSON.stringify(createCredentialRequiredResponse(
+          'lovable_ai',
+          'api_key',
+          'AI service credentials needed. We tried Lovable AI and DeepSeek, but none are configured.',
+          'https://docs.lovable.dev/features/ai'
+        )),
         { 
-          status: 500, 
+          status: 401, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
