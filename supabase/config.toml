@@ -124,6 +124,12 @@ verify_jwt = false
 [functions.xmrt-mcp-server]
 verify_jwt = false
 
+[functions.schema-manager]
+verify_jwt = false
+
+[functions.system-health]
+verify_jwt = false
+
 [functions.predictive-analytics]
 verify_jwt = false
 

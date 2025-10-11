@@ -1525,6 +1525,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      batch_vectorize_memories: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown

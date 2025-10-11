@@ -121,6 +121,19 @@ serve(async (req) => {
 
     console.log(`✅ Ecosystem monitoring complete: ${totalEngagements} engagements`);
 
+    // Generate tasks based on activity if requested
+    let tasksGenerated = 0;
+    const { generate_tasks } = await req.json().catch(() => ({ generate_tasks: true }));
+    
+    if (generate_tasks) {
+      tasksGenerated = await generateAutonomousTasks(supabase, {
+        repoActivityScores,
+        totalEngagements,
+        tokenHealth
+      });
+      console.log(`📋 Generated ${tasksGenerated} autonomous tasks`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -132,6 +145,7 @@ serve(async (req) => {
           comments: commentsAdded,
           total: totalEngagements
         },
+        tasks_generated: tasksGenerated,
         token_health: tokenHealth
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -359,4 +373,104 @@ Keep response under 400 words. End with:
 
   const data = await response.json();
   return data.choices[0].message.content;
+}
+
+async function generateAutonomousTasks(supabase: any, context: any) {
+  let tasksCreated = 0;
+
+  try {
+    // Check for skill gaps
+    const { data: skillGaps } = await supabase
+      .from('skill_gap_analysis')
+      .select('*')
+      .eq('status', 'identified')
+      .order('priority', { ascending: false })
+      .limit(3);
+
+    for (const gap of skillGaps || []) {
+      const taskId = `task-skill-${gap.id.substring(0, 8)}`;
+      await supabase.from('tasks').insert({
+        id: taskId,
+        title: `Learn: ${gap.identified_skill}`,
+        description: `Address skill gap: ${gap.identified_skill}. Blocked tasks: ${gap.blocked_tasks?.join(', ')}`,
+        category: 'LEARNING',
+        stage: 'PLANNING',
+        status: 'PENDING',
+        priority: gap.priority,
+        repo: 'XMRT-Ecosystem'
+      }).then(() => tasksCreated++);
+    }
+
+    // Check for failed Python executions needing fixes
+    const { data: failedExecs } = await supabase
+      .from('eliza_python_executions')
+      .select('*')
+      .neq('exit_code', 0)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .limit(2);
+
+    for (const exec of failedExecs || []) {
+      const taskId = `task-fix-${exec.id.substring(0, 8)}`;
+      await supabase.from('tasks').insert({
+        id: taskId,
+        title: `Fix failed Python execution`,
+        description: `Error: ${exec.error?.substring(0, 200)}`,
+        category: 'CODE',
+        stage: 'EXECUTION',
+        status: 'PENDING',
+        priority: 7,
+        repo: 'XMRT-Ecosystem'
+      }).then(() => tasksCreated++);
+    }
+
+    // Check for unanswered community messages
+    const { data: messages } = await supabase
+      .from('community_messages')
+      .select('*')
+      .eq('processed', false)
+      .eq('auto_response_queued', false)
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    for (const msg of messages || []) {
+      const taskId = `task-community-${msg.id.substring(0, 8)}`;
+      await supabase.from('tasks').insert({
+        id: taskId,
+        title: `Respond to community message on ${msg.platform}`,
+        description: `Author: ${msg.author_name}, Content: ${msg.content?.substring(0, 150)}`,
+        category: 'COMMUNITY',
+        stage: 'PLANNING',
+        status: 'PENDING',
+        priority: msg.flagged_for_review ? 9 : 6,
+        repo: 'XMRT-Ecosystem'
+      }).then(() => tasksCreated++);
+    }
+
+    // If GitHub token healthy but low engagement, create engagement tasks
+    if (context.tokenHealth === 'healthy' && context.totalEngagements < 5) {
+      const highActivityRepos = context.repoActivityScores
+        .filter((r: any) => r.activity_score >= 50)
+        .slice(0, 3);
+
+      for (const repo of highActivityRepos) {
+        const taskId = `task-engage-${repo.repo_name.toLowerCase()}`;
+        await supabase.from('tasks').insert({
+          id: taskId,
+          title: `Engage with ${repo.repo_name}`,
+          description: `Activity score: ${repo.activity_score}. Review and engage with issues, PRs, and discussions.`,
+          category: 'GITHUB',
+          stage: 'PLANNING',
+          status: 'PENDING',
+          priority: 6,
+          repo: repo.repo_name
+        }).then(() => tasksCreated++);
+      }
+    }
+
+    console.log(`✅ Generated ${tasksCreated} autonomous tasks`);
+  } catch (error) {
+    console.error('Error generating tasks:', error);
+  }
+
+  return tasksCreated;
 }
