@@ -18,7 +18,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('🏥 System Health - Generating comprehensive health report...');
+    // Check if this is a scheduled snapshot
+    const requestBody = await req.json().catch(() => ({}));
+    const snapshotType = requestBody.snapshot_type || 'on-demand';
+    const startTime = Date.now();
+
+    console.log(`🏥 System Health - Generating ${snapshotType} health report...`);
 
     // Fetch all health metrics in parallel
     const [
@@ -196,7 +201,31 @@ serve(async (req) => {
       )
     };
 
-    // Store metrics in system_metrics table
+    const executionTime = Date.now() - startTime;
+
+    // Store comprehensive performance snapshot in system_performance_logs
+    await supabase.from('system_performance_logs').insert({
+      snapshot_type: snapshotType,
+      health_score: Math.max(0, healthScore),
+      health_status: status,
+      agent_stats: agentStats,
+      task_stats: taskStats,
+      python_execution_stats: pythonExecStats,
+      api_health_stats: apiKeyHealth,
+      conversation_stats: conversationStats,
+      workflow_stats: workflowStats,
+      learning_stats: learningSessions,
+      skill_gap_stats: skillGaps,
+      issues_detected: issues,
+      recommendations: healthReport.recommendations.map(r => `[${r.priority}] ${r.action}: ${r.details}`),
+      metadata: {
+        execution_time_ms: executionTime,
+        activity_1h: recentActivity,
+        timestamp: healthReport.timestamp
+      }
+    });
+
+    // Store metrics in system_metrics table for quick reference
     await supabase.from('system_metrics').insert([
       {
         metric_name: 'overall_health_score',
@@ -223,6 +252,18 @@ serve(async (req) => {
         metadata: pythonExecStats
       }
     ]);
+
+    // Log API call for this health check
+    await supabase.from('api_call_logs').insert({
+      function_name: 'system-health',
+      execution_time_ms: executionTime,
+      status: 'success',
+      caller_context: {
+        snapshot_type: snapshotType,
+        health_score: healthScore,
+        issues_count: issues.length
+      }
+    });
 
     // Log health check to activity log
     await supabase.from('eliza_activity_log').insert({

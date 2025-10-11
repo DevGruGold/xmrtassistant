@@ -126,6 +126,45 @@ export type Database = {
         }
         Relationships: []
       }
+      api_call_logs: {
+        Row: {
+          called_at: string
+          caller_context: Json | null
+          created_at: string
+          error_message: string | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          request_payload: Json | null
+          response_data: Json | null
+          status: string
+        }
+        Insert: {
+          called_at?: string
+          caller_context?: Json | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          request_payload?: Json | null
+          response_data?: Json | null
+          status: string
+        }
+        Update: {
+          called_at?: string
+          caller_context?: Json | null
+          created_at?: string
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          request_payload?: Json | null
+          response_data?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       api_key_health: {
         Row: {
           created_at: string | null
@@ -165,6 +204,48 @@ export type Database = {
           metadata?: Json | null
           service_name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      autonomous_actions_log: {
+        Row: {
+          action_details: Json
+          action_timestamp: string
+          action_type: string
+          confidence_score: number | null
+          created_at: string
+          id: string
+          impact_assessment: Json | null
+          learning_notes: string | null
+          metadata: Json | null
+          outcome: string
+          trigger_reason: string
+        }
+        Insert: {
+          action_details: Json
+          action_timestamp?: string
+          action_type: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          impact_assessment?: Json | null
+          learning_notes?: string | null
+          metadata?: Json | null
+          outcome: string
+          trigger_reason: string
+        }
+        Update: {
+          action_details?: Json
+          action_timestamp?: string
+          action_type?: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          impact_assessment?: Json | null
+          learning_notes?: string | null
+          metadata?: Json | null
+          outcome?: string
+          trigger_reason?: string
         }
         Relationships: []
       }
@@ -1179,6 +1260,66 @@ export type Database = {
         }
         Relationships: []
       }
+      system_performance_logs: {
+        Row: {
+          agent_stats: Json
+          api_health_stats: Json
+          conversation_stats: Json
+          created_at: string
+          health_score: number
+          health_status: string
+          id: string
+          issues_detected: Json[] | null
+          learning_stats: Json
+          metadata: Json | null
+          python_execution_stats: Json
+          recommendations: string[] | null
+          recorded_at: string
+          skill_gap_stats: Json
+          snapshot_type: string
+          task_stats: Json
+          workflow_stats: Json
+        }
+        Insert: {
+          agent_stats?: Json
+          api_health_stats?: Json
+          conversation_stats?: Json
+          created_at?: string
+          health_score: number
+          health_status: string
+          id?: string
+          issues_detected?: Json[] | null
+          learning_stats?: Json
+          metadata?: Json | null
+          python_execution_stats?: Json
+          recommendations?: string[] | null
+          recorded_at?: string
+          skill_gap_stats?: Json
+          snapshot_type: string
+          task_stats?: Json
+          workflow_stats?: Json
+        }
+        Update: {
+          agent_stats?: Json
+          api_health_stats?: Json
+          conversation_stats?: Json
+          created_at?: string
+          health_score?: number
+          health_status?: string
+          id?: string
+          issues_detected?: Json[] | null
+          learning_stats?: Json
+          metadata?: Json | null
+          python_execution_stats?: Json
+          recommendations?: string[] | null
+          recorded_at?: string
+          skill_gap_stats?: Json
+          snapshot_type?: string
+          task_stats?: Json
+          workflow_stats?: Json
+        }
+        Relationships: []
+      }
       task_executions: {
         Row: {
           error_message: string | null
@@ -1605,7 +1746,43 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_critical_incidents: {
+        Row: {
+          duration_minutes: number | null
+          health_score: number | null
+          health_status: string | null
+          id: string | null
+          issues_detected: Json[] | null
+          recommendations: string[] | null
+          recorded_at: string | null
+        }
+        Relationships: []
+      }
+      v_health_history_daily: {
+        Row: {
+          avg_health_score: number | null
+          checks_performed: number | null
+          critical_count: number | null
+          date: string | null
+          degraded_count: number | null
+          healthy_count: number | null
+          max_health_score: number | null
+          min_health_score: number | null
+          warning_count: number | null
+        }
+        Relationships: []
+      }
+      v_performance_trends_24h: {
+        Row: {
+          avg_health_score: number | null
+          hour: string | null
+          max_health_score: number | null
+          min_health_score: number | null
+          most_common_status: string | null
+          snapshot_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       batch_vectorize_memories: {
