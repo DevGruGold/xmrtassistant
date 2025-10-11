@@ -328,6 +328,59 @@ export type Database = {
           },
         ]
       }
+      conversation_history: {
+        Row: {
+          conversation_title: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_activity_at: string
+          message_count: number | null
+          metadata: Json | null
+          participant_type: string
+          session_id: string
+          session_key: string
+          started_at: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_title?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_activity_at?: string
+          message_count?: number | null
+          metadata?: Json | null
+          participant_type?: string
+          session_id: string
+          session_key: string
+          started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_title?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_activity_at?: string
+          message_count?: number | null
+          metadata?: Json | null
+          participant_type?: string
+          session_id?: string
+          session_key?: string
+          started_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_history_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_messages: {
         Row: {
           content: string
