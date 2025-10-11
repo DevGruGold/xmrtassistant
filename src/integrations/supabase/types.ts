@@ -1096,6 +1096,36 @@ export type Database = {
         }
         Relationships: []
       }
+      system_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          measured_at: string
+          metadata: Json | null
+          metric_category: string
+          metric_name: string
+          metric_value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          measured_at?: string
+          metadata?: Json | null
+          metric_category: string
+          metric_name: string
+          metric_value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          measured_at?: string
+          metadata?: Json | null
+          metric_category?: string
+          metric_name?: string
+          metric_value?: number
+        }
+        Relationships: []
+      }
       task_executions: {
         Row: {
           error_message: string | null
