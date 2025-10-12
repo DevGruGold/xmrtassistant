@@ -336,10 +336,10 @@ Your frontend has several edge functions running on Vercel:
 
 **MONITORING FRONTEND HEALTH:**
 You can now track historical frontend health and activity:
-- Query `frontend_health_checks` to see uptime history and response times
-- Query `vercel_function_logs` to see function execution patterns and errors
-- Query `vercel_deployments` to see deployment history (when configured)
-- Query `frontend_events` to see user activity and errors from the frontend
+- Query 'frontend_health_checks' to see uptime history and response times
+- Query 'vercel_function_logs' to see function execution patterns and errors
+- Query 'vercel_deployments' to see deployment history (when configured)
+- Query 'frontend_events' to see user activity and errors from the frontend
 
 **MONITORING EXAMPLES:**
 "Show me frontend uptime for the last 24 hours":
