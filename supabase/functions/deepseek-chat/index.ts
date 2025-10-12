@@ -1,6 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
+import { EdgeFunctionLogger } from "../_shared/logging.ts";
+
+const logger = EdgeFunctionLogger('deepseek-chat');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,9 +19,16 @@ serve(async (req) => {
   try {
     const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
     
+    await logger.info('Request received', 'ai_interaction', { 
+      messagesCount: messages?.length,
+      hasHistory: !!conversationHistory,
+      userContext 
+    });
+
     const DEEPSEEK_API_KEY = getAICredential('deepseek', session_credentials);
     if (!DEEPSEEK_API_KEY) {
       console.error('⚠️ DEEPSEEK_API_KEY not configured');
+      await logger.warning('Missing API key', 'security', { credential_type: 'deepseek' });
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
           'deepseek',
@@ -140,6 +150,7 @@ CRITICAL INSTRUCTIONS:
 
     console.log('📤 Calling Deepseek API...');
     
+    const apiStartTime = Date.now();
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -155,9 +166,12 @@ CRITICAL INSTRUCTIONS:
       }),
     });
 
+    const apiDuration = Date.now() - apiStartTime;
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Deepseek API error:', response.status, errorText);
+      await logger.apiCall('deepseek', response.status, apiDuration, { error: errorText });
       
       if (response.status === 429) {
         return new Response(
@@ -190,6 +204,11 @@ CRITICAL INSTRUCTIONS:
       usage: data.usage
     });
 
+    await logger.apiCall('deepseek', response.status, apiDuration, { 
+      tokens: data.usage,
+      model: 'deepseek-chat' 
+    });
+
     // Return the response
     const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
@@ -200,6 +219,7 @@ CRITICAL INSTRUCTIONS:
 
   } catch (error) {
     console.error('Deepseek chat error:', error);
+    await logger.error('Function execution failed', error, 'error');
     return new Response(
       JSON.stringify({ 
         success: false, 

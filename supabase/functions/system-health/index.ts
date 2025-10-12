@@ -1,6 +1,9 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { EdgeFunctionLogger } from "../_shared/logging.ts";
+
+const logger = EdgeFunctionLogger('system-health');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +27,7 @@ serve(async (req) => {
     const startTime = Date.now();
 
     console.log(`🏥 System Health - Generating ${snapshotType} health report...`);
+    await logger.info(`Generating ${snapshotType} health report`, 'system_health');
 
     // Fetch all health metrics in parallel
     const [
@@ -276,6 +280,13 @@ serve(async (req) => {
 
     console.log(`✅ System Health Report: ${status} (${healthScore}/100)`);
 
+    await logger.info(`Health check complete - ${status} (${healthScore}/100)`, 'system_health', {
+      healthScore,
+      status,
+      issuesCount: issues.length,
+      executionTime
+    });
+
     return new Response(
       JSON.stringify({ success: true, health: healthReport }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -283,6 +294,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ System Health error:', error);
+    await logger.error('Health check failed', error, 'system_health');
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       {
