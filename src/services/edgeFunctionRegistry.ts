@@ -158,6 +158,14 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: 'Track XMRT Ecosystem deployment versions and status'
   },
   {
+    name: 'vercel-manager',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/vercel-manager',
+    description: 'Frontend (Vercel) communication and monitoring gateway - connects Eliza to the xmrtdao.vercel.app frontend',
+    capabilities: ['Send webhooks to frontend', 'Check frontend health status', 'Notify frontend of backend changes', 'Get Vercel project information', 'Monitor frontend availability'],
+    category: 'deployment',
+    example_use: 'Send webhook notifications to frontend when backend events occur, monitor frontend health, coordinate backend-frontend integration'
+  },
+  {
     name: 'python-executor',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-executor',
     description: 'Execute Python code in a sandboxed environment',

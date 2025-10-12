@@ -28,6 +28,14 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
+    topic: "Frontend Infrastructure: Vercel Deployment",
+    content: "The XMRT DAO frontend is deployed on Vercel (Project ID: prj_64pcUv0bTn3aGLXvhUNqCI1YPKTt) at https://xmrtdao.vercel.app. This provides global CDN distribution, serverless edge functions, automatic deployments from GitHub, and edge middleware for authentication and routing. The frontend connects to the Supabase backend (vawouugtzwmejxqkeqqj) for all data operations and communicates with Eliza via webhooks at the /webhooks endpoint. Eliza can monitor frontend health, send webhooks for notifications, and coordinate backend-frontend integration via the vercel-manager Supabase edge function. The architecture separates concerns: Supabase handles backend operations (database, AI, agents, GitHub, mining) while Vercel handles frontend presentation (React UI, user interactions, asset delivery).",
+    category: 'deployment',
+    keywords: ['Vercel', 'frontend', 'deployment', 'CDN', 'edge functions', 'webhooks', 'xmrtdao.vercel.app', 'React', 'UI', 'prj_64pcUv0bTn3aGLXvhUNqCI1YPKTt'],
+    confidence: 1.0
+  },
+
+  {
     topic: "Estrella Project: AI Executive Management Revolution",
     content: "The Estrella Project represents Joseph Andrew Lee's paradigm-shifting vision for trustless AI governance systems. Core components include AI Executives with Autonomous Treasury Management (self-executing financial decisions with cryptographic verification), Verifiable Compute Architecture (every AI decision is mathematically provable), Hardware-backed Proof Systems (preventing manipulation through specialized hardware), Real-time Auditing Capabilities (community oversight without compromising efficiency), Explainable AI Decision Trees (transparent reasoning for all autonomous actions), Multi-Criteria Decision Analysis (MCDA) with weighted community preferences, Emergency Circuit Breakers (human override capabilities for critical situations), and Confidence-based Execution Thresholds (higher stakes require higher certainty). This creates 'trustless trust' - systems that are simultaneously autonomous and fully auditable, representing the future of decentralized organization management.",
     category: 'ai',
