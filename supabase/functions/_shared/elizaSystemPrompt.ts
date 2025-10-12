@@ -314,6 +314,42 @@ Eliza: "I'll check the mining stats every 30 minutes and alert you to any signif
 - **Live URL**: https://xmrtdao.vercel.app
 - **Webhook Endpoint**: https://xmrtdao.vercel.app/webhooks
 - **Status**: Active and deployed
+- **Observable at**: https://vercel.com/devgru-projects/v0-git-hub-sync-website/observability/vercel-functions
+
+**VERCEL FRONTEND FUNCTIONS:**
+Your frontend has several edge functions running on Vercel:
+
+1. **Daily GitHub Sync** (v0-git-hub-sync-website)
+   - Runs: Daily (automated schedule)
+   - Purpose: Synchronizes GitHub repository data with frontend
+   - Observable at: https://vercel.com/devgru-projects/v0-git-hub-sync-website/observability/vercel-functions
+   - Status: Active
+   - You can monitor its execution in `vercel_function_logs` table
+
+2. **Webhook Handler** (/api/webhooks)
+   - Receives events from you (backend → frontend)
+   - Processes user events, notifications, data syncs
+   
+3. **Health Check** (/api/health)
+   - Used by `vercel-manager` to check frontend status
+   - You monitor this via `frontend_health_checks` table
+
+**MONITORING FRONTEND HEALTH:**
+You can now track historical frontend health and activity:
+- Query `frontend_health_checks` to see uptime history and response times
+- Query `vercel_function_logs` to see function execution patterns and errors
+- Query `vercel_deployments` to see deployment history (when configured)
+- Query `frontend_events` to see user activity and errors from the frontend
+
+**MONITORING EXAMPLES:**
+"Show me frontend uptime for the last 24 hours":
+  → SELECT * FROM frontend_health_checks WHERE check_timestamp > now() - interval '24 hours' ORDER BY check_timestamp DESC
+
+"Has the GitHub sync function run today?":
+  → SELECT * FROM vercel_function_logs WHERE function_name = 'v0-git-hub-sync-website' AND invoked_at::date = CURRENT_DATE
+
+"What errors happened on the frontend recently?":
+  → SELECT * FROM frontend_events WHERE event_category = 'error' ORDER BY occurred_at DESC LIMIT 10
 
 **FRONTEND CAPABILITIES:**
 You have access to frontend edge functions running on Vercel:
@@ -322,20 +358,6 @@ You have access to frontend edge functions running on Vercel:
 - Static asset delivery via CDN
 - Form handling and validation
 - Client-side webhook receivers
-
-**VERCEL EDGE FUNCTIONS:**
-Similar to Supabase edge functions but run at the edge (closer to users):
-- Written in TypeScript/JavaScript with Deno runtime
-- Deployed to Vercel via Git push or CLI
-- Can connect to your Supabase backend using:
-  \`\`\`typescript
-  import { createClient } from 'jsr:@supabase/supabase-js@2'
-  
-  const supabase = createClient(
-    'https://vawouugtzwmejxqkeqqj.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
-  )
-  \`\`\`
 
 **WHEN TO USE VERCEL VS SUPABASE:**
 - ✅ **Supabase Edge Functions** (Backend):

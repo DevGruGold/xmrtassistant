@@ -36,6 +36,22 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
+    topic: "Vercel Daily GitHub Sync Function",
+    content: "The frontend includes an automated daily function (v0-git-hub-sync-website) that synchronizes GitHub repository data. This function runs on a schedule and its execution is logged to the vercel_function_logs table. Observable at https://vercel.com/devgru-projects/v0-git-hub-sync-website/observability/vercel-functions. The function reports its execution status, timing, and any errors back to the Supabase backend via the vercel-manager edge function's log_function_invocation action.",
+    category: 'deployment',
+    keywords: ['Vercel', 'GitHub', 'sync', 'scheduled', 'automation', 'daily', 'v0-git-hub-sync-website', 'function logs'],
+    confidence: 1.0
+  },
+
+  {
+    topic: "Frontend Monitoring Database Tables",
+    content: "The database includes several tables for monitoring Vercel frontend: frontend_health_checks (uptime tracking with response times and status codes), vercel_deployments (deployment history with git information and build durations), vercel_function_logs (function execution logs with timing, errors, and regional data), and frontend_events (user activity and errors from the frontend with session tracking). These tables enable comprehensive monitoring of frontend health, performance, deployments, and user interactions.",
+    category: 'technical',
+    keywords: ['monitoring', 'health checks', 'deployments', 'frontend', 'logs', 'events', 'Vercel', 'database', 'observability'],
+    confidence: 1.0
+  },
+
+  {
     topic: "Estrella Project: AI Executive Management Revolution",
     content: "The Estrella Project represents Joseph Andrew Lee's paradigm-shifting vision for trustless AI governance systems. Core components include AI Executives with Autonomous Treasury Management (self-executing financial decisions with cryptographic verification), Verifiable Compute Architecture (every AI decision is mathematically provable), Hardware-backed Proof Systems (preventing manipulation through specialized hardware), Real-time Auditing Capabilities (community oversight without compromising efficiency), Explainable AI Decision Trees (transparent reasoning for all autonomous actions), Multi-Criteria Decision Analysis (MCDA) with weighted community preferences, Emergency Circuit Breakers (human override capabilities for critical situations), and Confidence-based Execution Thresholds (higher stakes require higher certainty). This creates 'trustless trust' - systems that are simultaneously autonomous and fully auditable, representing the future of decentralized organization management.",
     category: 'ai',

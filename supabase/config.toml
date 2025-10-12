@@ -175,3 +175,6 @@ verify_jwt = false
 [functions.vercel-manager]
 verify_jwt = false
 
+[functions.check-frontend-health]
+verify_jwt = false
+

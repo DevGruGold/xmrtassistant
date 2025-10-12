@@ -57,6 +57,8 @@ serve(async (req) => {
       case 'get_frontend_status': {
         // Check if frontend is reachable
         console.log(`🔍 Checking frontend status...`);
+        const startTime = Date.now();
+        
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
@@ -66,18 +68,44 @@ serve(async (req) => {
           });
           
           clearTimeout(timeout);
+          const responseTime = Date.now() - startTime;
           
-          console.log(`✅ Frontend status: ${response.status}`);
+          const healthStatus = {
+            status: response.ok ? 'online' : 'degraded',
+            status_code: response.status,
+            response_time_ms: responseTime,
+            check_timestamp: new Date().toISOString()
+          };
+          
+          // Log to frontend_health_checks table
+          await supabase.from('frontend_health_checks').insert({
+            status: healthStatus.status,
+            status_code: response.status,
+            response_time_ms: responseTime,
+            metadata: { url: 'https://xmrtdao.vercel.app/api/health' }
+          });
+          
+          console.log(`✅ Frontend status: ${response.status} (${responseTime}ms)`);
           
           return new Response(
             JSON.stringify({ 
               success: true, 
-              status: response.ok ? 'online' : 'degraded',
-              statusCode: response.status
+              ...healthStatus
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } catch (error) {
+          const responseTime = Date.now() - startTime;
+          
+          // Log failed health check
+          await supabase.from('frontend_health_checks').insert({
+            status: 'offline',
+            status_code: null,
+            response_time_ms: responseTime,
+            error_message: error.message,
+            metadata: { url: 'https://xmrtdao.vercel.app/api/health' }
+          });
+          
           console.error(`❌ Frontend unreachable: ${error.message}`);
           return new Response(
             JSON.stringify({ 
@@ -88,6 +116,34 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+      }
+
+      case 'log_function_invocation': {
+        // Receive logs from Vercel functions
+        const { function_name, invocation_data } = data;
+        
+        console.log(`📝 Logging Vercel function invocation: ${function_name}`);
+        
+        await supabase.from('vercel_function_logs').insert({
+          function_name,
+          function_path: invocation_data?.path,
+          invocation_id: invocation_data?.invocation_id,
+          status: invocation_data?.status || 'success',
+          execution_time_ms: invocation_data?.execution_time_ms,
+          cold_start: invocation_data?.cold_start,
+          region: invocation_data?.region,
+          request_method: invocation_data?.request_method,
+          request_path: invocation_data?.request_path,
+          response_status: invocation_data?.response_status,
+          error_message: invocation_data?.error_message,
+          logs: invocation_data?.logs,
+          metadata: invocation_data?.metadata || {}
+        });
+        
+        return new Response(
+          JSON.stringify({ success: true, message: 'Function invocation logged' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       case 'notify_deployment': {
