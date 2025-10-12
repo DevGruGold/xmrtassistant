@@ -1,4 +1,4 @@
-name: Emergency Performance Monitor - Fixed
+name: Performance Monitor - Vite Fixed
 
 on:
   push:
@@ -6,23 +6,91 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  performance-check:
+  bundle-analysis:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Basic performance check
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
       run: |
-        echo "⚡ Running performance checks..."
+        echo "📦 Installing dependencies..."
+        npm ci
         
-        # Basic repository metrics
-        echo "📊 Repository size:"
-        du -sh . || echo "Size check completed"
+    - name: Build project for analysis
+      run: |
+        echo "🏗️ Building Vite project..."
+        npm run build
         
-        echo "📁 File count:"
-        find . -type f | wc -l || echo "File count completed"
+    - name: Analyze bundle size
+      id: bundle-analysis
+      run: |
+        echo "## 📊 Vite Bundle Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Output" >> $GITHUB_STEP_SUMMARY
         
-        echo "✅ Performance check completed"
+        if [ -d "dist/" ]; then
+          TOTAL_SIZE=$(du -sh dist/ | cut -f1)
+          echo "**Total Build Size:** $TOTAL_SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### File Breakdown" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          
+          find dist/ -type f \( -name "*.js" -o -name "*.css" -o -name "*.html" \) | while read file; do
+            size=$(du -sh "$file" | cut -f1)
+            filename=$(basename "$file")
+            echo "| $filename | $size |" >> $GITHUB_STEP_SUMMARY
+          done
+          
+          echo "total_size_kb=$(du -sk dist/ | cut -f1)" >> $GITHUB_OUTPUT
+        else
+          echo "**Error: No dist/ directory found**" >> $GITHUB_STEP_SUMMARY
+          echo "total_size_kb=0" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+    - name: Bundle size check
+      run: |
+        MAX_SIZE=3000  # 3MB in KB for Vite project
+        ACTUAL_SIZE=${{ steps.bundle-analysis.outputs.total_size_kb }}
+        
+        echo "📦 Bundle size: ${ACTUAL_SIZE}KB (limit: ${MAX_SIZE}KB)"
+        
+        if [ "$ACTUAL_SIZE" -gt "$MAX_SIZE" ]; then
+          echo "❌ Bundle size exceeds ${MAX_SIZE}KB limit!"
+          echo "## 🚨 Bundle Size Alert" >> $GITHUB_STEP_SUMMARY
+          echo "Current build size (${ACTUAL_SIZE}KB) exceeds the ${MAX_SIZE}KB limit." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Vite Optimization Suggestions:" >> $GITHUB_STEP_SUMMARY
+          echo "- Use \`vite-bundle-analyzer\` to identify large chunks" >> $GITHUB_STEP_SUMMARY
+          echo "- Implement code splitting with dynamic imports" >> $GITHUB_STEP_SUMMARY
+          echo "- Use tree shaking to remove unused code" >> $GITHUB_STEP_SUMMARY
+          echo "- Optimize images and assets" >> $GITHUB_STEP_SUMMARY
+          echo "- Consider lazy loading for components" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        else
+          echo "✅ Bundle size is within limits"
+          echo "## ✅ Bundle Size OK" >> $GITHUB_STEP_SUMMARY
+          echo "Build size (${ACTUAL_SIZE}KB) is within the ${MAX_SIZE}KB limit." >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Upload build artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: 'vite-build-${{ github.run_number }}'
+        path: dist/
+        retention-days: 30
