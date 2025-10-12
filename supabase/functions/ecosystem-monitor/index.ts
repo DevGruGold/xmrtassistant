@@ -42,12 +42,12 @@ serve(async (req) => {
     // Define XMRT ecosystem repositories
     const repos = [
       { owner: 'DevGruGold', name: 'XMRT-Ecosystem' },
-      { owner: 'DevGruGold', name: 'party-favor-autonomous-cms' },
-      { owner: 'DevGruGold', name: 'DrinkableMVP' },
-      { owner: 'DevGruGold', name: 'MobileMonero.com' },
-      { owner: 'DevGruGold', name: 'XMRT-MESHNET' },
-      { owner: 'DevGruGold', name: 'xmrt-token' },
-      { owner: 'DevGruGold', name: 'xmrt-dao-governance' },
+      { owner: 'DevGruGold', name: 'XMRT.io' },
+      { owner: 'DevGruGold', name: 'XMRT-DAO-Ecosystem' },
+      { owner: 'DevGruGold', name: 'XMRT_EcosystemV2' },
+      { owner: 'DevGruGold', name: 'xmrtassistant' },
+      { owner: 'DevGruGold', name: 'MESHNET' },
+      { owner: 'DevGruGold', name: 'eliza-daemon' },
     ];
 
     const repoActivityScores: any[] = [];
