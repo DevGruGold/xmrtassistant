@@ -324,15 +324,15 @@ Your frontend has several edge functions running on Vercel:
    - Purpose: Synchronizes GitHub repository data with frontend
    - Observable at: https://vercel.com/devgru-projects/v0-git-hub-sync-website/observability/vercel-functions
    - Status: Active
-   - You can monitor its execution in `vercel_function_logs` table
+   - You can monitor its execution in the vercel_function_logs table
 
 2. **Webhook Handler** (/api/webhooks)
    - Receives events from you (backend → frontend)
    - Processes user events, notifications, data syncs
    
 3. **Health Check** (/api/health)
-   - Used by `vercel-manager` to check frontend status
-   - You monitor this via `frontend_health_checks` table
+   - Used by vercel-manager to check frontend status
+   - You monitor this via the frontend_health_checks table
 
 **MONITORING FRONTEND HEALTH:**
 You can now track historical frontend health and activity:
