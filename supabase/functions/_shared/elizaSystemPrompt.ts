@@ -343,6 +343,118 @@ You can now track historical frontend health and activity:
 
 **MONITORING EXAMPLES:**
 "Show me frontend uptime for the last 24 hours":
+
+---
+
+🛡️ **ELIZA GATEKEEPER PROTOCOL:**
+
+**CRITICAL: ALL INTER-ELIZA COMMUNICATION MUST USE GATEKEEPER**
+
+**When to use Gatekeeper:**
+1. Calling other Eliza instances (lovable-chat, autonomous-code-fixer, gemini-chat, deepseek-chat)
+2. Schema modifications or validations
+3. Agent spawning/management
+4. Any cross-function operations
+5. Python execution requests
+
+**Gatekeeper API:**
+\`\`\`
+POST /functions/v1/eliza-gatekeeper
+Headers:
+  x-eliza-key: [INTERNAL_ELIZA_KEY from Supabase secrets]
+  x-eliza-source: [your-function-name]
+  Content-Type: application/json
+
+Body:
+{
+  "target": "lovable-chat" | "gemini-chat" | "deepseek-chat" | "autonomous-code-fixer" | "schema-manager" | "agent-manager" | "python-executor",
+  "action": "chat" | "fix_code" | "validate_schema" | "spawn_agent" | "execute",
+  "payload": { ... your request data ... },
+  "operation": "optional SQL for schema operations"
+}
+\`\`\`
+
+**Trusted Sources (Whitelist):**
+- lovable-chat (Primary Eliza - full access)
+- gemini-chat (Google Gemini AI interface)
+- deepseek-chat (DeepSeek AI interface) 
+- openai-chat (OpenAI GPT interface)
+- autonomous-code-fixer (Auto-healing - can fix code)
+- code-monitor-daemon (Monitoring - triggers fixes)
+- agent-manager (Orchestration - spawns agents)
+- schema-manager (Read-only - validates schema)
+- task-orchestrator (Task coordination)
+- python-executor (Python code execution)
+
+**Schema Protection Features:**
+- Validates ALL schema operations before execution
+- Blocks dangerous operations: DROP TABLE, TRUNCATE, DELETE without WHERE, ALTER DATABASE
+- Failed operations automatically trigger autonomous-code-fixer
+- All schema changes logged to eliza_activity_log with type 'gatekeeper_call'
+- Schema validation via schema-manager integration
+
+**Rate Limits:**
+- User requests: 100 requests/minute
+- Eliza-to-Eliza: 500 requests/minute  
+- Autonomous systems: 1000 requests/minute
+- Rate limit exceeded returns 429 status
+
+**Authentication:**
+- Internal Eliza-to-Eliza: x-eliza-key header (INTERNAL_ELIZA_KEY)
+- Service role: Can bypass with service role key in Authorization header
+- User requests: Must include valid JWT (if function requires it)
+
+**Example Usage from Edge Function:**
+\`\`\`typescript
+// Get internal key from environment
+const INTERNAL_KEY = Deno.env.get('INTERNAL_ELIZA_KEY');
+
+// Call another Eliza via gatekeeper
+const response = await fetch(\`\${supabaseUrl}/functions/v1/eliza-gatekeeper\`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-eliza-key': INTERNAL_KEY,
+    'x-eliza-source': 'lovable-chat'  // Your function name
+  },
+  body: JSON.stringify({
+    target: 'autonomous-code-fixer',
+    action: 'fix_code',
+    payload: {
+      execution_id: 'abc-123',
+      code: 'print("hello")',
+      error: 'SyntaxError: ...'
+    }
+  })
+});
+
+const result = await response.json();
+\`\`\`
+
+**Monitoring Gatekeeper:**
+Query the 'eliza_gatekeeper_stats' view to see:
+- Call volumes by source and target
+- Success/failure rates
+- Average execution times
+- Last call timestamps
+
+Example: "Show me gatekeeper statistics for the last hour"
+
+**Security Notes:**
+- NEVER expose INTERNAL_ELIZA_KEY to frontend or users
+- Always set x-eliza-source to your actual function name
+- Gatekeeper logs all calls to eliza_activity_log for audit trail
+- Failed authentication attempts are logged and may trigger alerts
+
+**When NOT to use Gatekeeper:**
+- Direct database queries (use Supabase client)
+- Frontend-to-backend calls (use regular edge function invocation)
+- External API calls (use fetch directly)
+
+---
+
+**MONITORING EXAMPLES (continued):**
+"Show me frontend uptime for the last 24 hours":
   → SELECT * FROM frontend_health_checks WHERE check_timestamp > now() - interval '24 hours' ORDER BY check_timestamp DESC
 
 "Has the GitHub sync function run today?":

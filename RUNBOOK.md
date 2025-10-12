@@ -13,6 +13,140 @@
 
 ---
 
+## 🛡️ Eliza Gatekeeper
+
+### Overview
+The Eliza Gatekeeper is the central security and routing layer for all inter-Eliza communication in the XMRT-DAO ecosystem.
+
+### Monitoring Gatekeeper Health
+
+**Check call statistics:**
+```sql
+SELECT * FROM eliza_gatekeeper_stats 
+ORDER BY total_calls DESC;
+```
+
+**Check recent errors:**
+```sql
+SELECT * FROM eliza_activity_log 
+WHERE activity_type IN ('gatekeeper_error', 'schema_protection')
+ORDER BY created_at DESC 
+LIMIT 20;
+```
+
+**Check rate limit violations:**
+```sql
+SELECT 
+  identifier,
+  endpoint,
+  SUM(request_count) as total_requests,
+  MAX(window_start) as latest_window
+FROM rate_limits 
+WHERE window_start > NOW() - INTERVAL '1 hour'
+GROUP BY identifier, endpoint
+HAVING SUM(request_count) > 100
+ORDER BY total_requests DESC;
+```
+
+### Troubleshooting Gatekeeper Issues
+
+**Issue: 401 Unauthorized**
+- **Cause**: Invalid or missing `x-eliza-key` or `x-eliza-source` header
+- **Solution**: 
+  1. Verify `INTERNAL_ELIZA_KEY` secret is set in Supabase
+  2. Check calling function includes both headers
+  3. Verify source is in TRUSTED_SOURCES whitelist
+
+**Issue: 429 Rate Limit Exceeded**
+- **Cause**: Too many requests from a source within 1 minute window
+- **Solution**:
+  1. Check if legitimate traffic spike or runaway loop
+  2. Review `rate_limits` table for offending source
+  3. If autonomous system, check circuit breaker logic
+  4. Consider increasing rate limits if legitimate
+
+**Issue: 403 Dangerous Operation Blocked**
+- **Cause**: Schema protection detected dangerous SQL pattern
+- **Solution**:
+  1. Review blocked operation in `eliza_activity_log`
+  2. Determine if operation was malicious or legitimate
+  3. If legitimate, refactor to safer approach (e.g., DELETE with WHERE clause)
+  4. Update DANGEROUS_PATTERNS if pattern is overly restrictive
+
+**Issue: 404 Unknown Target**
+- **Cause**: Target function not recognized by gatekeeper routing
+- **Solution**:
+  1. Verify target function exists and is deployed
+  2. Add target to gatekeeper routing switch statement
+  3. Redeploy gatekeeper function
+
+**Issue: Schema Validation Failed**
+- **Cause**: `schema-manager` rejected operation
+- **Solution**:
+  1. Check `eliza_activity_log` for validation failure reason
+  2. Review auto-fix status (gatekeeper triggers `autonomous-code-fixer`)
+  3. If auto-fix failed, manual intervention required
+  4. Apply corrected schema operation
+
+### Gatekeeper Maintenance
+
+**Weekly Tasks:**
+1. Review gatekeeper statistics for anomalies
+2. Check for blocked operations (could indicate legitimate need)
+3. Monitor auto-correction success rate
+4. Review rate limit violations
+
+**Monthly Tasks:**
+1. Audit all schema changes via gatekeeper logs
+2. Review and update TRUSTED_SOURCES whitelist if needed
+3. Analyze performance metrics (avg_duration_ms)
+4. Update documentation with lessons learned
+
+**Security Rotation (Optional):**
+```sql
+-- Rotate INTERNAL_ELIZA_KEY every 90 days
+-- 1. Generate new UUID
+-- 2. Update INTERNAL_ELIZA_KEY secret in Supabase
+-- 3. Update all calling functions to use new key
+-- 4. Monitor for authentication failures
+```
+
+### Gatekeeper Performance Tuning
+
+**Slow routing (avg_duration_ms > 200ms):**
+1. Check target function performance
+2. Review payload size (large payloads increase latency)
+3. Consider caching frequently accessed data
+4. Check database query performance in rate limit checks
+
+**High error rate:**
+1. Review error patterns in `eliza_activity_log`
+2. Check if target functions are healthy
+3. Verify network connectivity between functions
+4. Review authentication issues
+
+### Emergency Procedures
+
+**Disable Gatekeeper Enforcement:**
+If gatekeeper is causing system-wide issues:
+
+1. Add `GATEKEEPER_ENFORCE=false` to Supabase secrets
+2. Update gatekeeper to check this flag and allow all traffic
+3. Monitor for continued issues
+4. Fix underlying problem
+5. Re-enable enforcement
+
+**Bypass Gatekeeper:**
+For emergency operations:
+
+1. Use service role key directly in Authorization header
+2. Call target function directly (bypasses gatekeeper)
+3. Log manual bypass in `eliza_activity_log`
+4. Document reason for bypass
+5. Review and fix after emergency
+
+---
+
 ## 🚨 Common Issues & Solutions
 
 ### 1. Frontend is Down / 502 Bad Gateway

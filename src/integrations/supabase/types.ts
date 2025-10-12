@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_feed: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          description: string | null
+          id: string
+          timestamp: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          description?: string | null
+          id?: string
+          timestamp?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          description?: string | null
+          id?: string
+          timestamp?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       agent_performance_metrics: {
         Row: {
           agent_id: string
@@ -501,41 +531,54 @@ export type Database = {
       }
       chat_messages: {
         Row: {
-          confidence_score: number | null
-          created_at: string
+          agent_id: string | null
+          content: string
+          created_at: string | null
           id: string
-          message_text: string
+          message: string | null
+          metadata: Json | null
+          recipient: string | null
+          role: string | null
           sender: string
-          session_id: string
-          timestamp: string
+          session_id: string | null
+          thread_id: string | null
+          timestamp: string | null
+          type: string | null
+          updated_at: string | null
         }
         Insert: {
-          confidence_score?: number | null
-          created_at?: string
+          agent_id?: string | null
+          content: string
+          created_at?: string | null
           id?: string
-          message_text: string
-          sender: string
-          session_id: string
-          timestamp?: string
+          message?: string | null
+          metadata?: Json | null
+          recipient?: string | null
+          role?: string | null
+          sender?: string
+          session_id?: string | null
+          thread_id?: string | null
+          timestamp?: string | null
+          type?: string | null
+          updated_at?: string | null
         }
         Update: {
-          confidence_score?: number | null
-          created_at?: string
+          agent_id?: string | null
+          content?: string
+          created_at?: string | null
           id?: string
-          message_text?: string
+          message?: string | null
+          metadata?: Json | null
+          recipient?: string | null
+          role?: string | null
           sender?: string
-          session_id?: string
-          timestamp?: string
+          session_id?: string | null
+          thread_id?: string | null
+          timestamp?: string | null
+          type?: string | null
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "chat_messages_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "chat_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       chat_sessions: {
         Row: {
@@ -2588,6 +2631,18 @@ export type Database = {
       }
     }
     Views: {
+      eliza_gatekeeper_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          failed_calls: number | null
+          last_call_at: string | null
+          source: string | null
+          successful_calls: number | null
+          target: string | null
+          total_calls: number | null
+        }
+        Relationships: []
+      }
       system_health_summary: {
         Row: {
           active_sessions: number | null

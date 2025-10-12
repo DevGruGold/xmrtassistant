@@ -107,6 +107,41 @@ Eliza is the heart of XMRT Economy - a sophisticated AI agent that manages the e
 - **ElevenLabs**: High-quality text-to-speech
 - **Monero Mining**: XMRig integration for mobile mining
 
+### 🛡️ Eliza Gatekeeper
+
+**The central authentication and routing hub for all inter-Eliza communication.**
+
+**Key Features:**
+- **Internal Authentication**: All Eliza-to-Eliza calls authenticated via `INTERNAL_ELIZA_KEY`
+- **Smart Routing**: Routes requests to appropriate Eliza instances (lovable-chat, autonomous-code-fixer, gemini-chat, etc.)
+- **Schema Protection**: Validates and blocks dangerous database operations (DROP, TRUNCATE, DELETE without WHERE)
+- **Rate Limiting**: Tiered limits (100/min users, 500/min Elizas, 1000/min autonomous)
+- **Auto-Correction**: Failed schema operations trigger `autonomous-code-fixer` automatically
+- **Observability**: All calls logged to `eliza_activity_log` and `api_call_logs`
+
+**Trusted Sources:**
+- lovable-chat (Primary Eliza)
+- gemini-chat, deepseek-chat, openai-chat (AI interfaces)
+- autonomous-code-fixer (Auto-healing)
+- code-monitor-daemon (Monitoring)
+- agent-manager (Agent orchestration)
+- schema-manager (Schema validation)
+- task-orchestrator (Task coordination)
+- python-executor (Python execution)
+
+**Usage:**
+```typescript
+POST /functions/v1/eliza-gatekeeper
+Headers:
+  x-eliza-key: [INTERNAL_ELIZA_KEY]
+  x-eliza-source: [calling-function-name]
+Body:
+  { target: "autonomous-code-fixer", action: "fix_code", payload: {...} }
+```
+
+**Monitoring:**
+Query `eliza_gatekeeper_stats` view for call volumes, success rates, and performance metrics.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
