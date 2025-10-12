@@ -17,7 +17,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { code, language = 'python', version = '3.10.0', stdin = '', args = [], purpose = '' } = await req.json();
+    const { 
+      code, 
+      language = 'python', 
+      version = '3.10.0', 
+      stdin = '', 
+      args = [], 
+      purpose = '',
+      source = 'eliza',      // Track execution source
+      agent_id = null,        // Track agent ID
+      task_id = null          // Track related task
+    } = await req.json();
 
     if (!code) {
       return new Response(
@@ -77,7 +87,7 @@ Deno.serve(async (req) => {
       code: result.run?.code
     });
 
-    // Log execution to database for visualization
+    // Log execution to database for visualization with enhanced metadata
     const exitCode = result.run?.code || 0;
     const logResult = await supabase
       .from('eliza_python_executions')
@@ -87,8 +97,14 @@ Deno.serve(async (req) => {
         error: result.run?.stderr || null,
         exit_code: exitCode,
         execution_time_ms: executionTime,
-        source: 'eliza',
-        purpose: purpose || null
+        source: source,
+        purpose: purpose || null,
+        metadata: {
+          agent_id: agent_id,
+          task_id: task_id,
+          language: language,
+          version: version
+        }
       });
 
     if (logResult.error) {

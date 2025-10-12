@@ -123,11 +123,12 @@ serve(async (req) => {
     // 🎯 PHASE 4: Increased batch size from 5 to 10 for parallel processing
     // Find all failed Python executions that haven't been fixed yet
     // Only look at failures from the last 24 hours to avoid reprocessing ancient failures
+    // 🚀 NOW SUPPORTS ALL SOURCES: eliza, autonomous_agent, python-fixer-agent
     const { data: failedExecutions, error: fetchError } = await supabase
       .from('eliza_python_executions')
       .select('*')
       .eq('exit_code', 1)
-      .eq('source', 'eliza') // Only fix Eliza's executions
+      .in('source', ['eliza', 'autonomous_agent', 'python-fixer-agent']) // Auto-fix ALL sources
       .gte('created_at', new Date(Date.now() - 86400000).toISOString()) // Last 24 hours
       .order('created_at', { ascending: false })
       .limit(10);
@@ -209,19 +210,28 @@ serve(async (req) => {
       .from('eliza_python_executions')
       .select('*', { count: 'exact', head: true })
       .eq('exit_code', 1)
-      .eq('source', 'eliza')
+      .in('source', ['eliza', 'autonomous_agent', 'python-fixer-agent'])
       .gte('created_at', new Date(Date.now() - 86400000).toISOString());
 
     // 🚀 PHASE 4: Process in parallel batches of 3 for faster throughput
     console.log(`🔧 Processing ${fixableExecutions.length} executions in parallel batches of 3...`);
     const results = [];
     
+    // Track source metrics for reporting
+    const sourceMetrics = {
+      eliza: { attempted: 0, fixed: 0, failed: 0 },
+      autonomous_agent: { attempted: 0, fixed: 0, failed: 0 },
+      'python-fixer-agent': { attempted: 0, fixed: 0, failed: 0 }
+    };
+    
     for (let batchStart = 0; batchStart < fixableExecutions.length; batchStart += 3) {
       const batch = fixableExecutions.slice(batchStart, batchStart + 3);
       console.log(`📦 Batch ${Math.floor(batchStart / 3) + 1}: Processing ${batch.length} executions in parallel...`);
       
       const batchResults = await Promise.all(batch.map(async (execution) => {
-        console.log(`🔧 Attempting to fix execution ${execution.id}...`);
+        const source = execution.source || 'eliza';
+        sourceMetrics[source].attempted++;
+        console.log(`🔧 Attempting to fix execution ${execution.id} (source: ${source})...`);
       
         // Check if this exact execution has already been attempted (successful or not)
         // Look for any fix attempt in the last hour to prevent infinite retries
@@ -243,7 +253,11 @@ serve(async (req) => {
           };
         }
 
-        // Fix the code directly using DeepSeek
+        // Fix the code directly using DeepSeek with source-aware context
+        const agentContext = source !== 'eliza' && execution.metadata?.agent_id 
+          ? `\n\n**Agent Context:** This code was executed by agent ${execution.metadata.agent_id} for task ${execution.metadata.task_id || 'unknown'}.` 
+          : '';
+        
         const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
           body: {
             messages: [
@@ -258,6 +272,7 @@ ${execution.code}
 
 **Error:**
 ${execution.error}
+${agentContext}
 
 Return ONLY the fixed Python code without explanations or markdown.`
               }
@@ -317,7 +332,8 @@ Return ONLY the fixed Python code without explanations or markdown.`
         const apiValidation = validateApiSuccess(execResult);
         
         if (execResult.exitCode === 0 && apiValidation.success) {
-          console.log(`✅ Successfully fixed and executed code for ${execution.id}`);
+          sourceMetrics[source].fixed++;
+          console.log(`✅ Successfully fixed and executed code for ${execution.id} (source: ${source})`);
           
           // Log the successful fix
           const { data: successExec } = await supabase.from('eliza_python_executions').insert({
@@ -326,19 +342,32 @@ Return ONLY the fixed Python code without explanations or markdown.`
             error: execResult.error || '',
             exit_code: 0,
             source: 'autonomous-code-fixer',
-            purpose: `Fixed: ${execution.purpose || 'Unknown'}`
+            purpose: `Fixed: ${execution.purpose || 'Unknown'}`,
+            metadata: {
+              original_source: source,
+              original_execution_id: execution.id,
+              agent_id: execution.metadata?.agent_id,
+              task_id: execution.metadata?.task_id
+            }
           }).select().single();
 
-          // Update the activity log
+          // Update the activity log with source-specific title
+          const activityTitle = source === 'eliza' 
+            ? '✅ Eliza Code Auto-Fixed' 
+            : `✅ Agent Code Auto-Fixed (${source})`;
+          
           await supabase.from('eliza_activity_log').insert({
-            activity_type: 'python_fix_success',
-            title: '✅ Code Auto-Fixed Successfully',
+            activity_type: source === 'eliza' ? 'python_fix_success' : 'agent_python_fix_success',
+            title: activityTitle,
             description: `Fixed Python code for: ${execution.purpose || 'Unknown task'}`,
             status: 'completed',
             metadata: {
               original_execution_id: execution.id,
               fixed_execution_id: successExec?.id,
-              fixed_code: fixedCode.substring(0, 500)
+              fixed_code: fixedCode.substring(0, 500),
+              source: source,
+              agent_id: execution.metadata?.agent_id,
+              task_id: execution.metadata?.task_id
             },
             mentioned_to_user: false // Eliza will proactively report this
           });
@@ -346,7 +375,8 @@ Return ONLY the fixed Python code without explanations or markdown.`
           return {
             execution_id: execution.id,
             success: true,
-            fixed_execution_id: successExec?.id
+            fixed_execution_id: successExec?.id,
+            source: source
           };
         } else if (execResult.exitCode === 0 && !apiValidation.success) {
           // Code ran but API failed - attempt second-level fix

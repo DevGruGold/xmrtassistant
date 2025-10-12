@@ -1794,6 +1794,17 @@ export type Database = {
       }
     }
     Views: {
+      v_agent_python_failures: {
+        Row: {
+          common_purposes: Json | null
+          failed_count: number | null
+          last_failure: string | null
+          source: string | null
+          success_count: number | null
+          success_rate_percent: number | null
+        }
+        Relationships: []
+      }
       v_critical_incidents: {
         Row: {
           duration_minutes: number | null

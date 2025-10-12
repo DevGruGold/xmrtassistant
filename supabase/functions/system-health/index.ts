@@ -62,15 +62,32 @@ serve(async (req) => {
         return stats;
       }),
 
-      // Python execution stats (last 24h)
+      // Python execution stats (last 24h) - BY SOURCE
       supabase.from('eliza_python_executions')
-        .select('exit_code')
+        .select('exit_code, source')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .then(({ data }) => {
-          const stats = { total: data?.length || 0, failed: 0, success: 0 };
+          const stats = { 
+            total: data?.length || 0, 
+            failed: 0, 
+            success: 0,
+            by_source: {
+              eliza: { total: 0, failed: 0, success: 0 },
+              autonomous_agent: { total: 0, failed: 0, success: 0 },
+              'python-fixer-agent': { total: 0, failed: 0, success: 0 },
+              'autonomous-code-fixer': { total: 0, failed: 0, success: 0 }
+            }
+          };
           data?.forEach(e => {
-            if (e.exit_code === 0) stats.success++;
-            else stats.failed++;
+            const source = e.source || 'eliza';
+            if (e.exit_code === 0) {
+              stats.success++;
+              if (stats.by_source[source]) stats.by_source[source].success++;
+            } else {
+              stats.failed++;
+              if (stats.by_source[source]) stats.by_source[source].failed++;
+            }
+            if (stats.by_source[source]) stats.by_source[source].total++;
           });
           return stats;
         }),

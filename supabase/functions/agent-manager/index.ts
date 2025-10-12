@@ -142,6 +142,8 @@ serve(async (req) => {
                   body: JSON.stringify({
                     code: step.code,
                     source: 'autonomous_agent',
+                    agent_id: agent_id,           // Pass agent context
+                    task_id: context.task_id,     // Pass task context  
                     purpose: step.purpose || `Workflow step ${i + 1}`
                   })
                 });
