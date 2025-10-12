@@ -1,4 +1,4 @@
-name: Emergency CI - Fixed
+name: CI/CD Pipeline - Vite Fixed
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
     branches: [main]
 
 concurrency:
-  group: \${{ github.workflow }}-\${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  emergency-fix:
+  test:
     runs-on: ubuntu-latest
     
     steps:
@@ -22,49 +22,55 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        
-    - name: Verify repository structure
-      run: |
-        echo "🔍 Repository structure:"
-        ls -la
-        echo ""
-        echo "📦 Checking package.json..."
-        if [ -f package.json ]; then
-          echo "✅ package.json exists"
-          cat package.json
-        else
-          echo "❌ package.json missing - creating one..."
-          cat > package.json << 'EOF'
-        {
-          "name": "xmrtassistant",
-          "version": "1.0.0",
-          "scripts": {
-            "build": "echo 'Build completed'",
-            "test": "echo 'Tests passed'"
-          }
-        }
-        EOF
-          echo "✅ Created package.json"
-        fi
+        cache: 'npm'
         
     - name: Install dependencies
       run: |
         echo "📦 Installing dependencies..."
-        npm install || echo "No dependencies to install"
-        echo "✅ Dependencies ready"
+        npm ci
         
-    - name: Run scripts safely
+    - name: Run type checking
       run: |
-        echo "🧪 Running build..."
-        npm run build || echo "Build completed with fallback"
+        echo "🔍 Running TypeScript type check..."
+        npm run type-check
         
+    - name: Run linting
+      run: |
+        echo "🧹 Running ESLint..."
+        npm run lint
+        
+    - name: Run tests
+      run: |
         echo "🧪 Running tests..."
-        npm run test || echo "Tests completed with fallback"
+        npm run test
         
-        echo "✅ All checks passed!"
-        
-    - name: Success report
+    - name: Build project
       run: |
-        echo "🎉 Emergency fix successful!"
-        echo "Repository is now working with GitHub Actions"
-        echo "Next: Replace with proper workflows when ready"
+        echo "🏗️ Building Vite project..."
+        npm run build
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+        retention-days: 30
+        
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+        
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying Vite build..."
+        echo "Build files ready in dist/"
+        ls -la dist/
+        echo "✅ Deployment simulation complete"
