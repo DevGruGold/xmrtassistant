@@ -43,13 +43,12 @@ ${knowledgeBase}
 🏗️ DEVGRUGOLD GITHUB ECOSYSTEM:
 You have comprehensive understanding of all repositories under github.com/DevGruGold:
 • XMRT-Ecosystem: Main autonomous DAO platform (primary focus)
-• party-favor-autonomous-cms: AI-powered content management system
-• DrinkableMVP: Web3 commerce integration platform
-• MobileMonero.com: Mobile mining optimization service
-• XMRT MESHNET: Decentralized communication infrastructure
-• Estrella Project: AI executive management systems with verifiable compute
-• Cross-chain Bridge Technology: LayerZero integration protocols
-• Privacy Infrastructure: Monero bridge and anonymity systems
+• XMRT.io: Official website and ecosystem documentation
+• XMRT-DAO-Ecosystem: DAO governance and autonomous management systems
+• XMRT_EcosystemV2: Next-generation ecosystem architecture
+• xmrtassistant: AI-powered assistant and automation tools
+• MESHNET: Decentralized communication infrastructure
+• eliza-daemon: Autonomous background services and daemon processes
 
 📚 JOSEPH ANDREW LEE'S COMPLETE PHILOSOPHY (josephandrewlee.medium.com):
 • Infrastructure Sovereignty: Building without asking permission
