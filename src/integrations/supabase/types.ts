@@ -1642,6 +1642,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          identifier: string
+          request_count: number | null
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          identifier: string
+          request_count?: number | null
+          window_start?: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          identifier?: string
+          request_count?: number | null
+          window_start?: string
+        }
+        Relationships: []
+      }
       repos: {
         Row: {
           category: string
@@ -2561,6 +2588,17 @@ export type Database = {
       }
     }
     Views: {
+      system_health_summary: {
+        Row: {
+          active_sessions: number | null
+          checked_at: string | null
+          database_size: string | null
+          frontend_uptime_checks: number | null
+          messages_last_hour: number | null
+          recent_function_errors: number | null
+        }
+        Relationships: []
+      }
       v_agent_python_failures: {
         Row: {
           common_purposes: Json | null
@@ -2658,6 +2696,10 @@ export type Database = {
       hnswhandler: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      increment_rate_limit: {
+        Args: { p_endpoint: string; p_identifier: string }
+        Returns: undefined
       }
       ivfflat_bit_support: {
         Args: { "": unknown }

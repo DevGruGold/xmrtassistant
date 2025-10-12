@@ -66,21 +66,31 @@ Eliza is the heart of XMRT Economy - a sophisticated AI agent that manages the e
 5. **Reports**: Documents all actions transparently for community review
 6. **Learns**: Improves over time through pattern recognition and feedback loops
 
-## 🏗️ Platform Architecture
+## 🏗️ Production Architecture
 
-### Frontend Stack
+### Frontend (Vercel)
 - **React 18** with TypeScript for type-safe development
 - **Vite** for blazing-fast build and hot module replacement
 - **Tailwind CSS** with custom design system for responsive UI
 - **shadcn/ui** components for consistent, accessible interface
 - **Recharts** for real-time data visualization
+- **Deployment**: Auto-deploy from GitHub via Vercel
+- **Monitoring**: Real-time analytics and error tracking
 
-### Backend Infrastructure (Lovable Cloud + Supabase)
-- **PostgreSQL Database**: Stores users, conversations, tasks, and knowledge base
-- **Edge Functions**: 25+ serverless functions for AI, mining, and governance
-- **Row Level Security**: Privacy-first data access policies
-- **Real-Time Subscriptions**: Live updates for mining stats and DAO activities
-- **Vector Embeddings**: Semantic search and knowledge retrieval
+### Backend (Supabase)
+- **PostgreSQL Database**: Production-grade with RLS policies
+- **Edge Functions**: 40+ serverless functions with JWT authentication
+- **Rate Limiting**: Protects public endpoints from abuse
+- **Performance Indexes**: Optimized queries on 280K+ messages
+- **Health Monitoring**: System health dashboard and alerting
+- **Vector Embeddings**: Semantic search with 6.9K+ memory contexts
+
+### Security & Authentication
+- **Row Level Security**: User data isolated by JWT claims
+- **Protected Edge Functions**: 30+ functions require authentication
+- **API Key Management**: Secure secret storage in Supabase
+- **Rate Limiting**: Per-endpoint request throttling
+- **Audit Logging**: All API calls tracked for security review
 
 ### AI & ML Services
 - **Lovable AI Gateway**: Access to Gemini 2.5 and GPT-5 models

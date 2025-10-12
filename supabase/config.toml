@@ -43,73 +43,127 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-[functions.agent-manager]
-verify_jwt = false
+# ====================================================================
+# EDGE FUNCTIONS AUTHENTICATION CONFIGURATION
+# ====================================================================
+# Protected functions require JWT authentication (verify_jwt = true)
+# Public functions can be called without authentication (verify_jwt = false)
 
+# PROTECTED FUNCTIONS - Require Authentication
+[functions.agent-manager]
+verify_jwt = true
+
+[functions.autonomous-code-fixer]
+verify_jwt = true
+
+[functions.cleanup-duplicate-tasks]
+verify_jwt = true
+
+[functions.code-monitor-daemon]
+verify_jwt = true
+
+[functions.conversation-access]
+verify_jwt = true
+
+[functions.deepseek-chat]
+verify_jwt = true
+
+[functions.extract-knowledge]
+verify_jwt = true
+
+[functions.gemini-chat]
+verify_jwt = true
+
+[functions.get-lovable-key]
+verify_jwt = true
+
+[functions.github-integration]
+verify_jwt = true
+
+[functions.knowledge-manager]
+verify_jwt = true
+
+[functions.lovable-chat]
+verify_jwt = true
+
+[functions.openai-chat]
+verify_jwt = true
+
+[functions.openai-tts]
+verify_jwt = true
+
+[functions.python-executor]
+verify_jwt = true
+
+[functions.render-api]
+verify_jwt = true
+
+[functions.summarize-conversation]
+verify_jwt = true
+
+[functions.system-diagnostics]
+verify_jwt = true
+
+[functions.task-orchestrator]
+verify_jwt = true
+
+[functions.vectorize-memory]
+verify_jwt = true
+
+[functions.get-embedding]
+verify_jwt = true
+
+[functions.xmrt-mcp-server]
+verify_jwt = true
+
+[functions.schema-manager]
+verify_jwt = true
+
+[functions.predictive-analytics]
+verify_jwt = true
+
+[functions.nlg-generator]
+verify_jwt = true
+
+[functions.scenario-modeler]
+verify_jwt = true
+
+[functions.enhanced-learning]
+verify_jwt = true
+
+[functions.multi-step-orchestrator]
+verify_jwt = true
+
+[functions.self-optimizing-agent-architecture]
+verify_jwt = true
+
+[functions.morning-discussion-post]
+verify_jwt = true
+
+[functions.progress-update-post]
+verify_jwt = true
+
+[functions.evening-summary-post]
+verify_jwt = true
+
+[functions.weekly-retrospective-post]
+verify_jwt = true
+
+[functions.community-spotlight-post]
+verify_jwt = true
+
+[functions.schedule-reminder]
+verify_jwt = true
+
+[functions.execute-scheduled-actions]
+verify_jwt = true
+
+# PUBLIC FUNCTIONS - No Authentication Required
+# These are either health checks, webhooks, or public-facing APIs
 [functions.api-key-health-monitor]
 verify_jwt = false
 
-[functions.autonomous-code-fixer]
-verify_jwt = false
-
-[functions.cleanup-duplicate-tasks]
-verify_jwt = false
-
-[functions.code-monitor-daemon]
-verify_jwt = false
-
-[functions.conversation-access]
-verify_jwt = false
-
-[functions.deepseek-chat]
-verify_jwt = false
-
-[functions.extract-knowledge]
-verify_jwt = false
-
-[functions.gemini-chat]
-verify_jwt = false
-
-[functions.get-lovable-key]
-verify_jwt = false
-
-[functions.github-integration]
-verify_jwt = false
-
-[functions.knowledge-manager]
-verify_jwt = false
-
-[functions.lovable-chat]
-verify_jwt = false
-
 [functions.mining-proxy]
-verify_jwt = false
-
-[functions.openai-chat]
-verify_jwt = false
-
-[functions.openai-tts]
-verify_jwt = false
-
-[functions.python-executor]
-verify_jwt = false
-
-[functions.render-api]
-verify_jwt = false
-
-[functions.summarize-conversation]
-verify_jwt = false
-
-[functions.system-diagnostics]
-verify_jwt = false
-
-[functions.system-status]
-verify_jwt = false
-
-[functions.task-orchestrator]
-verify_jwt = false
-
-[functions.vectorize-memory]
 verify_jwt = false
 
 [functions.ecosystem-monitor]
@@ -118,58 +172,10 @@ verify_jwt = false
 [functions.prometheus-metrics]
 verify_jwt = false
 
-[functions.get-embedding]
-verify_jwt = false
-
-[functions.xmrt-mcp-server]
-verify_jwt = false
-
-[functions.schema-manager]
+[functions.system-status]
 verify_jwt = false
 
 [functions.system-health]
-verify_jwt = false
-
-[functions.predictive-analytics]
-verify_jwt = false
-
-[functions.nlg-generator]
-verify_jwt = false
-
-[functions.scenario-modeler]
-verify_jwt = false
-
-[functions.enhanced-learning]
-verify_jwt = false
-
-[functions.multi-step-orchestrator]
-verify_jwt = false
-
-[functions.self-optimizing-agent-architecture]
-verify_jwt = false
-
-[functions.morning-discussion-post]
-verify_jwt = false
-
-[functions.progress-update-post]
-verify_jwt = false
-
-[functions.evening-summary-post]
-verify_jwt = false
-
-[functions.weekly-retrospective-post]
-verify_jwt = false
-
-[functions.community-spotlight-post]
-verify_jwt = false
-
-[functions.ecosystem-monitor]
-verify_jwt = false
-
-[functions.schedule-reminder]
-verify_jwt = false
-
-[functions.execute-scheduled-actions]
 verify_jwt = false
 
 [functions.vercel-manager]
