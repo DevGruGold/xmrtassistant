@@ -1230,6 +1230,54 @@ export type Database = {
         }
         Relationships: []
       }
+      system_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          error_stack: string | null
+          id: string
+          log_category: string
+          log_level: string
+          log_source: string
+          message: string
+          metadata: Json | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          user_context: Json | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          error_stack?: string | null
+          id?: string
+          log_category: string
+          log_level: string
+          log_source: string
+          message: string
+          metadata?: Json | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_context?: Json | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          error_stack?: string | null
+          id?: string
+          log_category?: string
+          log_level?: string
+          log_source?: string
+          message?: string
+          metadata?: Json | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          user_context?: Json | null
+        }
+        Relationships: []
+      }
       system_metrics: {
         Row: {
           created_at: string
