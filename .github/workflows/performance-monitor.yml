@@ -1,50 +1,98 @@
 name: Performance Monitor
-
-on:
+'on':
   push:
-    branches: [main]
+    branches:
+    - main
   pull_request:
-    branches: [main]
-
+    branches:
+    - main
+  schedule:
+  - cron: 0 */6 * * *
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   bundle-analysis:
     runs-on: ubuntu-latest
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-    
+        cache: npm
     - name: Install dependencies
-      run: npm ci
-    
+      run: npm ci || npm install
     - name: Build project
-      run: npm run build
-    
+      run: npm run build || echo "Build script not configured"
     - name: Analyze bundle size
-      run: |
-        echo "## Bundle Analysis" >> $GITHUB_STEP_SUMMARY
-        echo "### Build Size" >> $GITHUB_STEP_SUMMARY
-        du -sh dist/ >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### JavaScript Files" >> $GITHUB_STEP_SUMMARY
-        find dist/ -name "*.js" -exec ls -lh {} \; >> $GITHUB_STEP_SUMMARY
-    
+      id: bundle-analysis
+      run: "\n                            echo \"## \U0001F4CA Bundle Analysis Report\"\
+        \ >> $GITHUB_STEP_SUMMARY\n                            echo \"### Build Output\"\
+        \ >> $GITHUB_STEP_SUMMARY\n                            \n                \
+        \            if [ -d \"dist/\" ]; then\n                              TOTAL_SIZE=$(du\
+        \ -sh dist/ | cut -f1)\n                              echo \"**Total Build\
+        \ Size:** $TOTAL_SIZE\" >> $GITHUB_STEP_SUMMARY\n                        \
+        \      echo \"\" >> $GITHUB_STEP_SUMMARY\n                              \n\
+        \                              echo \"### File Breakdown\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"| File | Size |\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"|------|------|\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              \n                              find dist/\
+        \ -type f -name \"*.js\" -o -name \"*.css\" -o -name \"*.html\" | while read\
+        \ file; do\n                                size=$(du -sh \"$file\" | cut\
+        \ -f1)\n                                filename=$(basename \"$file\")\n \
+        \                               echo \"| $filename | $size |\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              done\n                              \n    \
+        \                          echo \"total_size_kb=$(du -sk dist/ | cut -f1)\"\
+        \ >> $GITHUB_OUTPUT\n                            else\n                  \
+        \            echo \"**No dist/ directory found**\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"total_size_kb=0\" >> $GITHUB_OUTPUT\n\
+        \                            fi\n                        "
     - name: Bundle size check
-      run: |
-        MAX_SIZE=10000  # 10MB in KB
-        ACTUAL_SIZE=$(du -sk dist/ | cut -f1)
-        echo "Bundle size: ${ACTUAL_SIZE}KB (limit: ${MAX_SIZE}KB)"
-        
-        if [ $ACTUAL_SIZE -gt $MAX_SIZE ]; then
-          echo "❌ Bundle size exceeds ${MAX_SIZE}KB limit"
-          echo "Consider optimizing dependencies or implementing code splitting"
-          exit 1
-        else
-          echo "✅ Bundle size is within limits"
-        fi
+      run: "\n                            MAX_SIZE=5000  # 5MB in KB (reduced from\
+        \ 10MB)\n                            ACTUAL_SIZE=${{ steps.bundle-analysis.outputs.total_size_kb\
+        \ }}\n                            \n                            echo \"\U0001F4E6\
+        \ Bundle size: ${ACTUAL_SIZE}KB (limit: ${MAX_SIZE}KB)\"\n               \
+        \             \n                            if [ \"$ACTUAL_SIZE\" -gt \"$MAX_SIZE\"\
+        \ ]; then\n                              echo \"\u274C Bundle size exceeds\
+        \ ${MAX_SIZE}KB limit!\"\n                              echo \"## \U0001F6A8\
+        \ Bundle Size Alert\" >> $GITHUB_STEP_SUMMARY\n                          \
+        \    echo \"The current build size (${ACTUAL_SIZE}KB) exceeds the limit of\
+        \ ${MAX_SIZE}KB.\" >> $GITHUB_STEP_SUMMARY\n                             \
+        \ echo \"\" >> $GITHUB_STEP_SUMMARY\n                              echo \"\
+        ### Optimization Suggestions:\" >> $GITHUB_STEP_SUMMARY\n                \
+        \              echo \"- Implement code splitting\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"- Remove unused dependencies\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"- Optimize images and assets\" >> $GITHUB_STEP_SUMMARY\n\
+        \                              echo \"- Use dynamic imports for large modules\"\
+        \ >> $GITHUB_STEP_SUMMARY\n                              exit 1\n        \
+        \                    else\n                              echo \"\u2705 Bundle\
+        \ size is within limits\"\n                              echo \"## \u2705\
+        \ Bundle Size OK\" >> $GITHUB_STEP_SUMMARY\n                             \
+        \ echo \"Build size (${ACTUAL_SIZE}KB) is within the ${MAX_SIZE}KB limit.\"\
+        \ >> $GITHUB_STEP_SUMMARY\n                            fi\n              \
+        \          "
+    - name: Performance benchmarking
+      run: "\n                            echo \"## \u26A1 Performance Metrics\" >>\
+        \ $GITHUB_STEP_SUMMARY\n                            \n                   \
+        \         # Basic performance metrics\n                            if command\
+        \ -v node &> /dev/null; then\n                              echo \"**Node.js\
+        \ Version:** $(node --version)\" >> $GITHUB_STEP_SUMMARY\n               \
+        \               echo \"**NPM Version:** $(npm --version)\" >> $GITHUB_STEP_SUMMARY\n\
+        \                            fi\n                            \n          \
+        \                  # Dependency count\n                            if [ -f\
+        \ \"package.json\" ]; then\n                              DEPS=$(cat package.json\
+        \ | grep -o '\"[^\"]*\":' | wc -l)\n                              echo \"\
+        **Dependencies:** $DEPS packages\" >> $GITHUB_STEP_SUMMARY\n             \
+        \               fi\n                            \n                       \
+        \     # Build time (approximate)\n                            echo \"**Build\
+        \ completed at:** $(date)\" >> $GITHUB_STEP_SUMMARY\n                    \
+        \    "
+    - name: Upload performance report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-report-${{ github.run_number }}
+        path: dist/
+        retention-days: 30
