@@ -84,6 +84,17 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
         setCredential('github_pat', pat);
         console.log('✅ GitHub PAT stored in session credentials');
         
+        // Update api_key_health table via edge function
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          await supabase.functions.invoke('api-key-health-monitor', {
+            body: { session_credentials: { github_pat: pat } }
+          });
+          console.log('✅ Updated api_key_health with session PAT');
+        } catch (healthError) {
+          console.warn('⚠️ Could not update health status:', healthError);
+        }
+        
         setTimeout(() => {
           onKeyValidated?.();
         }, 1500);

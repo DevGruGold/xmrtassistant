@@ -7,6 +7,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { GitHubPATInput } from './GitHubPATInput';
+import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
@@ -1030,6 +1031,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 <span>Live</span>
               </Badge>
             )}
+            
+            {/* GitHub Token Status Indicator */}
+            <GitHubTokenStatus onRequestPAT={() => setShowAPIKeyInput(true)} />
             
             {/* API Key Button */}
             <Button

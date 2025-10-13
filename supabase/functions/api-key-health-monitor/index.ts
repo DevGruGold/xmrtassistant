@@ -16,14 +16,26 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('🔍 API Key Health Monitor - Starting health checks...');
+    // Accept optional session credentials from request body
+    const body = await req.json().catch(() => ({}));
+    const sessionCredentials = body.session_credentials || {};
+
+    console.log('🔍 API Key Health Monitor - Starting health checks...', 
+      sessionCredentials.github_pat ? '(with session PAT)' : '');
 
     const healthResults = [];
 
-    // Check GitHub PAT
+    // Check GitHub PAT (backend tokens)
     const githubHealth = await checkGitHubHealth();
     healthResults.push(githubHealth);
     await supabase.from('api_key_health').upsert(githubHealth, { onConflict: 'service_name' });
+
+    // Check session-provided GitHub PAT if provided
+    if (sessionCredentials.github_pat) {
+      const sessionGithubHealth = await checkSessionGitHubPAT(sessionCredentials.github_pat);
+      healthResults.push(sessionGithubHealth);
+      await supabase.from('api_key_health').upsert(sessionGithubHealth, { onConflict: 'service_name' });
+    }
 
     // Check OpenAI
     const openaiHealth = await checkOpenAIHealth();
@@ -294,6 +306,73 @@ async function checkElevenLabsHealth() {
     return {
       service_name: 'elevenlabs',
       key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
+async function checkSessionGitHubPAT(token: string) {
+  try {
+    const response = await fetch('https://api.github.com/user', {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
+    const rateLimitLimit = response.headers.get('X-RateLimit-Limit');
+    const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+
+    if (response.ok) {
+      const userData = await response.json();
+      const expiryHeader = response.headers.get('X-GitHub-Token-Expiry');
+      let daysUntilExpiry = null;
+      let expiryWarning = false;
+
+      if (expiryHeader) {
+        const expiryDate = new Date(expiryHeader);
+        const daysLeft = Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        daysUntilExpiry = daysLeft;
+        expiryWarning = daysLeft < 7;
+      }
+
+      return {
+        service_name: 'github_session',
+        key_type: 'user_pat',
+        is_healthy: true,
+        error_message: null,
+        expiry_warning: expiryWarning,
+        days_until_expiry: daysUntilExpiry,
+        metadata: { 
+          token_source: 'user_session',
+          user: userData.login,
+          rate_limit: {
+            limit: parseInt(rateLimitLimit || '5000'),
+            remaining: parseInt(rateLimitRemaining || '0'),
+            reset: parseInt(rateLimitReset || '0')
+          }
+        }
+      };
+    }
+
+    return {
+      service_name: 'github_session',
+      key_type: 'user_pat',
+      is_healthy: false,
+      error_message: `Invalid PAT: HTTP ${response.status}`,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  } catch (error) {
+    return {
+      service_name: 'github_session',
+      key_type: 'user_pat',
       is_healthy: false,
       error_message: error.message,
       expiry_warning: false,

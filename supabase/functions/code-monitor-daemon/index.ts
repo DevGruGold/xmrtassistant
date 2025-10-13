@@ -22,8 +22,37 @@ serve(async (req) => {
     console.log(`🔍 Code Monitor Daemon - Action: ${action}`);
 
     if (action === 'monitor' || action === 'fix_all') {
-      // Trigger the autonomous code fixer
-      const { data: fixerResult, error: fixerError } = await supabase.functions.invoke('autonomous-code-fixer');
+      // Check GitHub token health first
+      const { data: githubHealth } = await supabase
+        .from('api_key_health')
+        .select('*')
+        .or('service_name.eq.github,service_name.eq.github_session')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      const hasHealthyGitHubToken = githubHealth?.some(h => h.is_healthy) || false;
+
+      if (!hasHealthyGitHubToken) {
+        console.log('⏸️ No valid GitHub token - pausing GitHub-related fixes');
+        
+        // Create reminder for user to provide PAT
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'github_token_required',
+          title: '⚠️ GitHub Token Required',
+          description: 'No valid GitHub token available. Please provide your Personal Access Token to enable GitHub operations.',
+          status: 'pending',
+          metadata: {
+            action: 'provide_github_pat',
+            urgency: 'high'
+          },
+          mentioned_to_user: false
+        });
+      }
+
+      // Trigger the autonomous code fixer (it will skip GitHub operations if no token)
+      const { data: fixerResult, error: fixerError } = await supabase.functions.invoke('autonomous-code-fixer', {
+        body: { github_enabled: hasHealthyGitHubToken }
+      });
 
       if (fixerError) {
         console.error('Failed to invoke autonomous-code-fixer:', fixerError);
@@ -36,11 +65,12 @@ serve(async (req) => {
       await supabase.from('eliza_activity_log').insert({
         activity_type: 'code_monitoring',
         title: '🔍 Code Health Monitor',
-        description: `Scanned for failed executions. Fixed: ${fixerResult?.fixed || 0}`,
+        description: `Scanned for failed executions. Fixed: ${fixerResult?.fixed || 0}${!hasHealthyGitHubToken ? ' (GitHub operations paused - no token)' : ''}`,
         status: 'completed',
         metadata: {
           fixed_count: fixerResult?.fixed || 0,
-          total_processed: fixerResult?.results?.length || 0
+          total_processed: fixerResult?.results?.length || 0,
+          github_enabled: hasHealthyGitHubToken
         },
         mentioned_to_user: false // Eliza will proactively report this
       });

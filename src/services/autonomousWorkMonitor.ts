@@ -93,6 +93,40 @@ export class AutonomousWorkMonitor {
   }
 
   /**
+   * Check GitHub token health before attempting GitHub operations
+   */
+  static async checkGitHubHealth(): Promise<{ healthy: boolean; message?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('api_key_health')
+        .select('*')
+        .or('service_name.eq.github,service_name.eq.github_session')
+        .order('created_at', { ascending: false })
+        .limit(2);
+
+      if (error) {
+        console.error('Error checking GitHub health:', error);
+        return { healthy: false, message: 'Could not check token health' };
+      }
+
+      // Check if either backend or session token is healthy
+      const hasHealthyToken = data?.some(h => h.is_healthy);
+      
+      if (!hasHealthyToken) {
+        return { 
+          healthy: false, 
+          message: '⏸️ No valid GitHub token available. Pausing GitHub operations.'
+        };
+      }
+
+      return { healthy: true };
+    } catch (error) {
+      console.error('Unexpected error checking GitHub health:', error);
+      return { healthy: false, message: 'Error checking token health' };
+    }
+  }
+
+  /**
    * Monitor Python executions from edge function logs
    */
   private static setupPythonMonitoring() {
