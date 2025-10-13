@@ -45,26 +45,23 @@ serve(async (req) => {
       // For DeepSeek, we'll call it via its edge function instead
       console.log('⚠️ Lovable AI not available, trying DeepSeek fallback');
       try {
-        const deepseekResponse = await fetch(`${SUPABASE_URL}/functions/v1/deepseek-chat`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ 
+        const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
+        const deepseekResult = await callThroughGatekeeper({
+          target: 'deepseek-chat',
+          payload: { 
             messages, 
             conversationHistory, 
             userContext, 
             miningStats, 
             systemVersion,
             session_credentials 
-          })
+          },
+          source: 'lovable-chat'
         });
 
-        if (deepseekResponse.ok) {
-          const deepseekData = await deepseekResponse.json();
+        if (deepseekResult.success) {
           return new Response(
-            JSON.stringify({ success: true, response: deepseekData.response, provider: 'deepseek' }),
+            JSON.stringify({ success: true, response: deepseekResult.data?.response, provider: 'deepseek' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -234,13 +231,10 @@ serve(async (req) => {
       console.log(`🎬 Auto-triggering orchestrator: ${selectedWorkflow.workflow_name}`);
       
       try {
-        const orchestratorResponse = await fetch(`${SUPABASE_URL}/functions/v1/multi-step-orchestrator`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
+        const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
+        const orchestratorResult = await callThroughGatekeeper({
+          target: 'multi-step-orchestrator',
+          payload: {
             workflow: selectedWorkflow,
             userInput,
             context: {
@@ -248,11 +242,12 @@ serve(async (req) => {
               userContext,
               miningStats
             }
-          })
+          },
+          source: 'lovable-chat'
         });
         
-        if (orchestratorResponse.ok) {
-          const orchestratorData = await orchestratorResponse.json();
+        if (orchestratorResult.success) {
+          const orchestratorData = orchestratorResult.data;
           console.log('✅ Workflow auto-triggered:', orchestratorData.workflow_id);
           
           return new Response(JSON.stringify({
@@ -334,13 +329,10 @@ Step types:
           console.log('🎬 Workflow designed:', workflow.workflow_name, '- Steps:', workflow.steps.length);
           
           // Initiate background orchestrator
-          const orchestratorResponse = await fetch(`${SUPABASE_URL}/functions/v1/multi-step-orchestrator`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
+          const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
+          const orchestratorResult = await callThroughGatekeeper({
+            target: 'multi-step-orchestrator',
+            payload: {
               workflow,
               userInput,
               context: {
@@ -348,11 +340,12 @@ Step types:
                 userContext,
                 miningStats
               }
-            })
+            },
+            source: 'lovable-chat'
           });
           
-          if (orchestratorResponse.ok) {
-            const orchestratorData = await orchestratorResponse.json();
+          if (orchestratorResult.success) {
+            const orchestratorData = orchestratorResult.data;
             console.log('✅ Background workflow initiated:', orchestratorData.workflow_id);
             
             return new Response(JSON.stringify({

@@ -409,12 +409,30 @@ async function executeDataFetch(step: any, supabase: any) {
 }
 
 async function executeAPICall(step: any, supabaseUrl: string, serviceKey: string) {
-  // Build the URL - handle both full URLs and function names
-  let url = step.url;
-  if (!url && step.function) {
-    url = `${supabaseUrl}/functions/v1/${step.function}`;
+  // Use gatekeeper for edge function calls, direct fetch for external URLs
+  if (step.function) {
+    const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
+    const result = await callThroughGatekeeper({
+      target: step.function,
+      payload: step.body,
+      source: 'multi-step-orchestrator'
+    });
+    
+    return result.success ? {
+      success: true,
+      status: result.status,
+      data: result.data,
+      function: step.function
+    } : {
+      success: false,
+      status: result.status,
+      error: result.error,
+      attempted_function: step.function
+    };
   }
   
+  // For external URLs, use direct fetch
+  const url = step.url;
   if (!url) {
     throw new Error('No URL or function name provided for API call');
   }
@@ -423,22 +441,19 @@ async function executeAPICall(step: any, supabaseUrl: string, serviceKey: string
     const response = await fetch(url, {
       method: step.method || 'POST',
       headers: {
-        'Authorization': `Bearer ${serviceKey}`,
         'Content-Type': 'application/json',
         ...step.headers
       },
       body: step.body ? JSON.stringify(step.body) : undefined
     });
     
-    // Don't throw on 404, return meaningful error instead
     if (!response.ok) {
       const errorText = await response.text();
       return {
         success: false,
         status: response.status,
         error: `HTTP ${response.status}: ${errorText || response.statusText}`,
-        url,
-        attempted_function: step.function || 'unknown'
+        url
       };
     }
     
@@ -453,8 +468,7 @@ async function executeAPICall(step: any, supabaseUrl: string, serviceKey: string
     return {
       success: false,
       error: error.message,
-      url,
-      attempted_function: step.function || 'unknown'
+      url
     };
   }
 }
@@ -491,13 +505,17 @@ async function executeDecision(step: any, apiKey: string, context: any) {
 }
 
 async function executeCode(step: any, supabaseUrl: string, serviceKey: string) {
-  const response = await fetch(`${supabaseUrl}/functions/v1/python-executor`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
+  const { executePython } = await import('../_shared/gatekeeperClient.ts');
+  const result = await executePython(
+    step.code,
+    step.purpose || 'Workflow step execution',
+    'multi-step-orchestrator'
+  );
+  
+  return result.success ? result.data : {
+    error: result.error,
+    exitCode: 1
+  };
       code: step.code,
       language: step.language || 'python',
       purpose: step.purpose || 'workflow execution'

@@ -258,12 +258,11 @@ serve(async (req) => {
           ? `\n\n**Agent Context:** This code was executed by agent ${execution.metadata.agent_id} for task ${execution.metadata.task_id || 'unknown'}.` 
           : '';
         
-        const { data: fixResult, error: fixError } = await supabase.functions.invoke('deepseek-chat', {
-          body: {
-            messages: [
-              {
-                role: 'user',
-                content: `Fix this Python code error:
+        const { callDeepSeek } = await import('../_shared/gatekeeperClient.ts');
+        const fixResult = await callDeepSeek([
+          {
+            role: 'user',
+            content: `Fix this Python code error:
 
 **Original Code:**
 \`\`\`python
@@ -275,22 +274,20 @@ ${execution.error}
 ${agentContext}
 
 Return ONLY the fixed Python code without explanations or markdown.`
-              }
-            ]
           }
-        });
+        ], 'autonomous-code-fixer');
 
-        if (fixError) {
-          console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixError);
+        if (!fixResult.success) {
+          console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixResult.error);
           return {
             execution_id: execution.id,
             success: false,
-            error: fixError.message || 'DeepSeek API error'
+            error: fixResult.error || 'DeepSeek API error'
           };
         }
 
         // Extract fixed code from response
-        const fixedCode = fixResult?.generatedText || fixResult?.response || '';
+        const fixedCode = fixResult.data?.generatedText || fixResult.data?.response || '';
         if (!fixedCode || fixedCode.trim().length === 0) {
           console.error(`❌ No fixed code returned for execution ${execution.id}`);
           return {
@@ -301,21 +298,20 @@ Return ONLY the fixed Python code without explanations or markdown.`
         }
 
         // Try to execute the fixed code
-        const { data: execResult, error: execError } = await supabase.functions.invoke('python-executor', {
-          body: {
-            code: fixedCode,
-            purpose: `Auto-fixed: ${execution.purpose || 'Unknown'}`,
-            silent: true
-          }
-        });
+        const { executePython } = await import('../_shared/gatekeeperClient.ts');
+        const execResult = await executePython(
+          fixedCode,
+          `Auto-fixed: ${execution.purpose || 'Unknown'}`,
+          'autonomous-code-fixer'
+        );
 
-        if (execError || !execResult) {
-          console.error(`❌ Failed to execute fixed code for ${execution.id}:`, execError);
+        if (!execResult.success || !execResult.data) {
+          console.error(`❌ Failed to execute fixed code for ${execution.id}:`, execResult.error);
           // Log the failed fix attempt
           await supabase.from('eliza_python_executions').insert({
             code: fixedCode,
             output: '',
-            error: execError?.message || 'Execution failed',
+            error: execResult.error || 'Execution failed',
             exit_code: 1,
             source: 'autonomous-code-fixer',
             purpose: `Failed fix attempt for: ${execution.purpose || 'Unknown'}`
@@ -324,22 +320,22 @@ Return ONLY the fixed Python code without explanations or markdown.`
           return {
             execution_id: execution.id,
             success: false,
-            error: execError?.message || 'Fixed code execution failed'
+            error: execResult.error || 'Fixed code execution failed'
           };
         }
 
         // Validate API success beyond just exit code
-        const apiValidation = validateApiSuccess(execResult);
+        const apiValidation = validateApiSuccess(execResult.data);
         
-        if (execResult.exitCode === 0 && apiValidation.success) {
+        if (execResult.data.exitCode === 0 && apiValidation.success) {
           sourceMetrics[source].fixed++;
           console.log(`✅ Successfully fixed and executed code for ${execution.id} (source: ${source})`);
           
           // Log the successful fix
           const { data: successExec } = await supabase.from('eliza_python_executions').insert({
             code: fixedCode,
-            output: execResult.output || '',
-            error: execResult.error || '',
+            output: execResult.data.output || '',
+            error: execResult.data.error || '',
             exit_code: 0,
             source: 'autonomous-code-fixer',
             purpose: `Fixed: ${execution.purpose || 'Unknown'}`,
@@ -378,7 +374,7 @@ Return ONLY the fixed Python code without explanations or markdown.`
             fixed_execution_id: successExec?.id,
             source: source
           };
-        } else if (execResult.exitCode === 0 && !apiValidation.success) {
+        } else if (execResult.data.exitCode === 0 && !apiValidation.success) {
           // Code ran but API failed - attempt second-level fix
           console.log(`⚠️ Code ran but API failed (${apiValidation.issue}) for ${execution.id}. Attempting deeper fix...`);
           
