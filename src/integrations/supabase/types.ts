@@ -1115,6 +1115,42 @@ export type Database = {
         }
         Relationships: []
       }
+      eliza_python_executions_archive: {
+        Row: {
+          code: string
+          created_at: string | null
+          error: string | null
+          execution_time_ms: number | null
+          exit_code: number | null
+          id: string
+          output: string | null
+          purpose: string | null
+          source: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          error?: string | null
+          execution_time_ms?: number | null
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          purpose?: string | null
+          source?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          error?: string | null
+          execution_time_ms?: number | null
+          exit_code?: number | null
+          id?: string
+          output?: string | null
+          purpose?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       entity_relationships: {
         Row: {
           created_at: string
@@ -2642,6 +2678,40 @@ export type Database = {
           total_calls: number | null
         }
         Relationships: []
+      }
+      eliza_python_executions_all: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          error: string | null
+          execution_time_ms: number | null
+          exit_code: number | null
+          id: string | null
+          output: string | null
+          purpose: string | null
+          source: string | null
+        }
+        Relationships: []
+      }
+      recent_conversation_messages: {
+        Row: {
+          content: string | null
+          id: string | null
+          message_type: string | null
+          metadata: Json | null
+          processing_data: Json | null
+          session_id: string | null
+          timestamp: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_health_summary: {
         Row: {
