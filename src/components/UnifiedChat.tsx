@@ -943,9 +943,30 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     } catch (error) {
       console.error('❌ Chat error:', error);
       console.error('Error details:', error.message, error.stack);
+      
+      // Provide specific error messages based on the error type
+      let errorContent = 'I apologize, but I\'m having trouble processing your message right now.';
+      
+      if (error.message?.includes('All AI Executives failed')) {
+        errorContent = '⚠️ All AI services are currently unavailable:\n\n' +
+          '• **Lovable AI**: Credits depleted - please add funds to your Lovable workspace\n' +
+          '• **DeepSeek**: Credits depleted - please add funds to your DeepSeek account\n' +
+          '• **Gemini**: Credits depleted\n' +
+          '• **OpenAI**: Now configured correctly\n\n' +
+          'Please add credits to at least one service to continue.';
+      } else if (error.message?.includes('402') || error.message?.includes('Payment Required')) {
+        errorContent = '💳 **AI Credits Depleted**\n\n' +
+          'The AI service is out of credits. Please:\n' +
+          '1. Go to Settings → Workspace → Usage\n' +
+          '2. Add credits to your Lovable AI workspace\n\n' +
+          'Alternatively, configure direct API keys for DeepSeek, Gemini, or OpenAI.';
+      } else if (error.message?.includes('rate limit') || error.message?.includes('429')) {
+        errorContent = '⏱️ **Rate Limit Exceeded**\n\nToo many requests in a short time. Please wait a moment and try again.';
+      }
+      
       const errorMessage: UnifiedMessage = {
         id: `error-${Date.now()}`,
-        content: 'I apologize, but I\'m having trouble processing your message right now. Please try again.',
+        content: errorContent,
         sender: 'assistant',
         timestamp: new Date()
       };

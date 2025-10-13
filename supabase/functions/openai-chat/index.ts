@@ -76,7 +76,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
+        model: 'gpt-4o', // Fixed: Use gpt-4o instead of gpt-4
         messages: messagesWithSystem,
         temperature,
         max_tokens,
