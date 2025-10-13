@@ -1355,6 +1355,7 @@ export type Database = {
           execution_time_ms: number | null
           exit_code: number | null
           id: string
+          metadata: Json | null
           output: string | null
           purpose: string | null
           source: string | null
@@ -1366,6 +1367,7 @@ export type Database = {
           execution_time_ms?: number | null
           exit_code?: number | null
           id?: string
+          metadata?: Json | null
           output?: string | null
           purpose?: string | null
           source?: string | null
@@ -1377,6 +1379,7 @@ export type Database = {
           execution_time_ms?: number | null
           exit_code?: number | null
           id?: string
+          metadata?: Json | null
           output?: string | null
           purpose?: string | null
           source?: string | null
