@@ -560,7 +560,7 @@ Respond NOW using the data shown above.`
       console.log("📤 Sending final response to chat:", aiResponse.substring(0, 100) + "...");
       
       return new Response(
-        JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true }),
+        JSON.stringify({ success: true, response: aiResponse, hasToolCalls: true, executive: 'gemini-chat', executiveTitle: 'Chief Information Officer (CIO)' }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -569,7 +569,7 @@ Respond NOW using the data shown above.`
     const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
     return new Response(
-      JSON.stringify({ success: true, response: aiResponse }),
+      JSON.stringify({ success: true, response: aiResponse, executive: 'gemini-chat', executiveTitle: 'Chief Information Officer (CIO)' }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

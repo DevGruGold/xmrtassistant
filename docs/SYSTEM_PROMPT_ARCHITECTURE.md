@@ -32,15 +32,65 @@ UnifiedChat Component (Frontend)
     ↓
 unifiedElizaService (calls edge function)
     ↓
-Edge Function (lovable-chat, gemini-chat, etc.)
-    ↓
 1. Import generateElizaSystemPrompt() from _shared/elizaSystemPrompt.ts
 2. Import ELIZA_TOOLS from _shared/elizaTools.ts
 3. Import buildContextualPrompt() from _shared/contextBuilder.ts
-4. Build enhanced prompt: buildContextualPrompt(generateElizaSystemPrompt(), {...context})
-5. Call AI model with enhanced prompt + tools
+4. Analyze user input → Select appropriate AI Executive
+5. Call AI Executive with enhanced prompt + tools
+6. Fallback to other executives if primary fails
     ↓
 AI Response → User
+```
+
+## Intelligent Executive Routing
+
+### How Eliza Selects Executives
+
+Eliza uses the `selectAIExecutive()` method in `unifiedElizaService.ts` to intelligently route requests:
+
+1. **Task Analysis**: Analyzes user input for keywords and context
+2. **Executive Selection**: Routes to the most qualified executive
+3. **Fallback Chain**: Dynamically builds fallback order if primary fails
+
+### Routing Logic
+
+| Task Type | Executive | Engine | Trigger Keywords |
+|-----------|-----------|--------|------------------|
+| Code/Technical | CTO (deepseek-chat) | DeepSeek R1 | code, debug, refactor, syntax, error |
+| Vision/Media | CIO (gemini-chat) | Gemini Multimodal | image, photo, visual, diagram, screenshot |
+| Complex Reasoning | CAO (openai-chat) | GPT-5 | analyze complex, strategic, forecast, predict |
+| General | CSO (lovable-chat) | Gemini 2.5 Flash | *default for everything else* |
+
+### Code Example
+
+```typescript
+// User: "Fix this Python code with a syntax error"
+selectAIExecutive("Fix this Python code", context)
+// → Returns: "deepseek-chat" (CTO)
+// → Fallback chain: deepseek → lovable → gemini → openai
+
+// Try executives in priority order
+for (const executive of executiveChain) {
+  const { data, error } = await supabase.functions.invoke(executive, { body: requestBody });
+  if (!error && data?.success) {
+    console.log(`✅ ${executive} (${getExecutiveTitle(executive)}) responded`);
+    return data;
+  }
+}
+```
+
+### Executive Titles
+
+```typescript
+private static getExecutiveTitle(executive: string): string {
+  const titles: Record<string, string> = {
+    'lovable-chat': 'Chief Strategy Officer (CSO)',
+    'deepseek-chat': 'Chief Technology Officer (CTO)',
+    'gemini-chat': 'Chief Information Officer (CIO)',
+    'openai-chat': 'Chief Analytics Officer (CAO)'
+  };
+  return titles[executive] || 'Executive';
+}
 ```
 
 ## DO NOT
@@ -101,12 +151,12 @@ body: JSON.stringify({
 
 ## Files Using Shared Prompt
 
-| Edge Function | Purpose | Uses Shared Prompt | Uses Shared Tools | Uses Context Builder |
-|--------------|---------|-------------------|-------------------|---------------------|
-| `lovable-chat` | Primary chat endpoint | ✅ | ✅ | ✅ |
-| `gemini-chat` | Legacy Gemini endpoint | ✅ | ✅ | ✅ |
-| `deepseek-chat` | DeepSeek fallback | ✅ | ✅ | ✅ |
-| `openai-chat` | OpenAI fallback | ✅ | ✅ | ✅ |
+| Edge Function | Purpose | Uses Shared Prompt | Uses Shared Tools | Uses Context Builder | Uses Intelligent Routing |
+|--------------|---------|-------------------|-------------------|---------------------|-------------------------|
+| `lovable-chat` | Primary chat endpoint | ✅ | ✅ | ✅ | ✅ (Frontend) |
+| `gemini-chat` | Legacy Gemini endpoint | ✅ | ✅ | ✅ | ✅ (Frontend) |
+| `deepseek-chat` | DeepSeek fallback | ✅ | ✅ | ✅ | ✅ (Frontend) |
+| `openai-chat` | OpenAI fallback | ✅ | ✅ | ✅ | ✅ (Frontend) |
 
 ## Updating Eliza's Capabilities
 
@@ -149,6 +199,13 @@ export const ELIZA_TOOLS = [
 2. Update the `ContextOptions` interface
 3. Update the `buildContextualPrompt()` function logic
 
+### Modifying Executive Routing
+
+1. Edit `src/services/unifiedElizaService.ts`
+2. Update `selectAIExecutive()` method with new routing rules
+3. Modify keyword patterns or add new task categories
+4. Update executive titles in `getExecutiveTitle()` if needed
+
 ## Testing Consistency
 
 After making changes, verify:
@@ -157,16 +214,21 @@ After making changes, verify:
 2. **Tools are available:** Test tool calling across different endpoints
 3. **Context is injected:** Verify memory, conversation history, and user context appear in responses
 4. **No regressions:** Check edge function logs for errors
+5. **Executive routing works:** Verify correct executive is selected for each task type
+6. **Fallback chain activates:** Test that fallback works when primary executive fails
 
 ## Benefits of This Architecture
 
-✅ **Single Source of Truth** - Update once, applies everywhere
-✅ **Consistent Personality** - Same Eliza across all endpoints
-✅ **Reduced Code Duplication** - ~600 lines eliminated
-✅ **Easier Maintenance** - No need to sync multiple prompts
-✅ **Better Organization** - Clear separation of concerns
-✅ **Prevents Drift** - No more siloed prompt variations
-✅ **Easier Testing** - One prompt to test instead of many
+✅ **Single Source of Truth** - Update once, applies everywhere  
+✅ **Consistent Personality** - Same Eliza across all endpoints  
+✅ **Reduced Code Duplication** - ~600 lines eliminated  
+✅ **Easier Maintenance** - No need to sync multiple prompts  
+✅ **Better Organization** - Clear separation of concerns  
+✅ **Prevents Drift** - No more siloed prompt variations  
+✅ **Easier Testing** - One prompt to test instead of many  
+✅ **Intelligent Routing** - Right executive for each task type  
+✅ **Automatic Fallback** - Guaranteed response even if executive fails  
+✅ **Transparent Operation** - Can see which executive handled each request  
 
 ## Troubleshooting
 
@@ -182,8 +244,17 @@ After making changes, verify:
 ### Prompt changes not reflected?
 → Restart the edge function or trigger a new deployment
 
+### Wrong executive being selected?
+→ Check `selectAIExecutive()` routing rules and keyword patterns  
+→ Verify `context.inputMode` is being set correctly
+
+### Executive fallback not working?
+→ Check console logs for executive selection and fallback chain  
+→ Verify all executives are returning proper response format with `success` and `executive` fields
+
 ## Deployment Notes
 
 - Edge functions automatically redeploy when code changes
 - No manual deployment needed for prompt/tool updates
 - Changes are live immediately after code push
+- Frontend service routing updates require browser refresh

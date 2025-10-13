@@ -164,7 +164,7 @@ serve(async (req) => {
     const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
     return new Response(
-      JSON.stringify({ success: true, response: aiResponse, hasToolCalls: false }),
+      JSON.stringify({ success: true, response: aiResponse, hasToolCalls: false, executive: 'deepseek-chat', executiveTitle: 'Chief Technology Officer (CTO)' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

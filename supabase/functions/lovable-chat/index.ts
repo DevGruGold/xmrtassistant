@@ -61,7 +61,7 @@ serve(async (req) => {
 
         if (!deepseekResult.error && deepseekResult.data) {
           return new Response(
-            JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek' }),
+            JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek', executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -2035,7 +2035,7 @@ Respond ONLY with valid JSON (no markdown):
           });
           
           if (sumError) throw sumError;
-          return new Response(JSON.stringify({ success: true, toolResult: summary, toolName: 'summarizeConversation', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: summary, toolName: 'summarizeConversation', hasToolCalls: true, executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getConversationHistory') {
           const { data: messages, error: msgError } = await supabase
@@ -2046,7 +2046,7 @@ Respond ONLY with valid JSON (no markdown):
             .limit(args.limit || 50);
           
           if (msgError) throw msgError;
-          return new Response(JSON.stringify({ success: true, toolResult: messages, toolName: 'getConversationHistory', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ success: true, toolResult: messages, toolName: 'getConversationHistory', hasToolCalls: true, executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       

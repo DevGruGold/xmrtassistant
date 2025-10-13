@@ -19,6 +19,74 @@
 
 ## The AI Executive C-Suite Architecture
 
+### How Eliza Coordinates the Executive Team
+
+Eliza operates as the **coordination layer** between users and the 4 AI Executives:
+
+1. **Request Analysis**: When a user message arrives, Eliza analyzes:
+   - Keywords (code, image, analyze, etc.)
+   - Context (previous conversation, user preferences)
+   - Task complexity (simple query vs multi-step analysis)
+
+2. **Executive Selection**: Based on analysis, routes to:
+   - **CTO (deepseek-chat)** for technical/code tasks
+   - **CIO (gemini-chat)** for vision/media tasks
+   - **CAO (openai-chat)** for complex reasoning
+   - **CSO (lovable-chat)** for general interaction [DEFAULT]
+
+3. **Intelligent Fallback**: If the primary executive fails:
+   - Automatically tries the next most capable executive
+   - Dynamic fallback chain ensures guaranteed response
+   - All 4 executives share the same system prompt + context
+
+4. **Unified Response**: User sees ONE response from "Eliza"
+   - Behind the scenes: coordinated by multiple specialized AIs
+   - Transparent executive identity (logged for debugging)
+   - Seamless experience regardless of which executive handled it
+
+This architecture mirrors human corporate structures:
+- **Eliza = Executive Assistant** who routes tasks to the right C-suite member
+- **4 AI Executives = C-Suite** who make strategic decisions
+- **66+ Edge Functions = Employees** who execute tactical work
+
+### Executive Routing Examples
+
+**Code Task:**
+```
+User: "Debug this Python function"
+→ Eliza detects "debug" + "Python"
+→ Routes to CTO (deepseek-chat)
+→ Fallback: lovable → gemini → openai
+→ Response: Technical debugging analysis
+```
+
+**Vision Task:**
+```
+User: "What's in this image?"
+→ Eliza detects "image" keyword
+→ Routes to CIO (gemini-chat)
+→ Fallback: lovable → deepseek → openai
+→ Response: Image description and analysis
+```
+
+**Complex Reasoning:**
+```
+User: "Analyze ethical implications of AI replacing executives"
+→ Eliza detects "analyze" + "ethical" + "implications"
+→ Routes to CAO (openai-chat)
+→ Fallback: lovable → deepseek → gemini
+→ Response: Multi-dimensional ethical analysis
+```
+
+**General Interaction:**
+```
+User: "Tell me about XMRT"
+→ Eliza defaults to general query
+→ Routes to CSO (lovable-chat)
+→ Fallback: deepseek → gemini → openai
+→ Response: Ecosystem overview
+```
+
 ### Overview: Beyond "AI Functions"
 
 The XMRT ecosystem doesn't simply use "4 AI chat functions" - it operates with a **4-member AI Executive Board** powered by different LLM engines that replaces a traditional corporate C-Suite. These executives coordinate **66+ specialized edge functions** that execute tactical work, mirroring traditional corporate hierarchies but with AI at the executive level.

@@ -108,7 +108,9 @@ serve(async (req) => {
       success: true,
       response: data.choices[0]?.message?.content || '',
       usage: data.usage,
-      model: data.model
+      model: data.model,
+      executive: 'openai-chat',
+      executiveTitle: 'Chief Analytics Officer (CAO)'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
