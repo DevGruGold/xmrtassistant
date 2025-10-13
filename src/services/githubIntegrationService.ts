@@ -53,9 +53,13 @@ export interface GitHubFileContent {
 }
 
 class GitHubIntegrationService {
-  private async callGitHubFunction(action: string, data?: any) {
+  private async callGitHubFunction(action: string, data?: any, sessionCredentials?: any) {
     const { data: result, error } = await supabase.functions.invoke('github-integration', {
-      body: { action, data }
+      body: { 
+        action, 
+        data,
+        session_credentials: sessionCredentials 
+      }
     });
 
     if (error) {
@@ -72,8 +76,8 @@ class GitHubIntegrationService {
    * @param state - Filter by state: 'open', 'closed', or 'all' (default: 'open')
    * @param perPage - Number of results per page (default: 30)
    */
-  async listIssues(repo?: string, state: 'open' | 'closed' | 'all' = 'open', perPage = 30): Promise<GitHubIssue[]> {
-    return this.callGitHubFunction('list_issues', { repo, state, per_page: perPage });
+  async listIssues(repo?: string, state: 'open' | 'closed' | 'all' = 'open', perPage = 30, sessionCredentials?: any): Promise<GitHubIssue[]> {
+    return this.callGitHubFunction('list_issues', { repo, state, per_page: perPage }, sessionCredentials);
   }
 
   /**
@@ -89,7 +93,8 @@ class GitHubIntegrationService {
     body: string,
     repo?: string,
     labels?: string[],
-    assignees?: string[]
+    assignees?: string[],
+    sessionCredentials?: any
   ): Promise<GitHubIssue> {
     return this.callGitHubFunction('create_issue', {
       repo,
@@ -97,7 +102,7 @@ class GitHubIntegrationService {
       body,
       labels,
       assignees
-    });
+    }, sessionCredentials);
   }
 
   /**
@@ -106,12 +111,12 @@ class GitHubIntegrationService {
    * @param comment - Comment text
    * @param repo - Repository name (optional)
    */
-  async commentOnIssue(issueNumber: number, comment: string, repo?: string): Promise<any> {
+  async commentOnIssue(issueNumber: number, comment: string, repo?: string, sessionCredentials?: any): Promise<any> {
     return this.callGitHubFunction('comment_on_issue', {
       repo,
       issue_number: issueNumber,
       body: comment
-    });
+    }, sessionCredentials);
   }
 
   /**
@@ -119,8 +124,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @param first - Number of discussions to fetch (default: 20)
    */
-  async listDiscussions(repo?: string, first = 20): Promise<any[]> {
-    return this.callGitHubFunction('list_discussions', { repo, first });
+  async listDiscussions(repo?: string, first = 20, sessionCredentials?: any): Promise<any[]> {
+    return this.callGitHubFunction('list_discussions', { repo, first }, sessionCredentials);
   }
 
   /**
@@ -134,22 +139,23 @@ class GitHubIntegrationService {
     repositoryId: string,
     categoryId: string,
     title: string,
-    body: string
+    body: string,
+    sessionCredentials?: any
   ): Promise<any> {
     return this.callGitHubFunction('create_discussion', {
       repositoryId,
       categoryId,
       title,
       body
-    });
+    }, sessionCredentials);
   }
 
   /**
    * Get repository information
    * @param repo - Repository name (optional, uses env default)
    */
-  async getRepoInfo(repo?: string): Promise<GitHubRepoInfo> {
-    return this.callGitHubFunction('get_repo_info', { repo });
+  async getRepoInfo(repo?: string, sessionCredentials?: any): Promise<GitHubRepoInfo> {
+    return this.callGitHubFunction('get_repo_info', { repo }, sessionCredentials);
   }
 
   /**
@@ -157,8 +163,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @param state - Filter by state: 'open', 'closed', or 'all' (default: 'open')
    */
-  async listPullRequests(repo?: string, state: 'open' | 'closed' | 'all' = 'open'): Promise<GitHubPullRequest[]> {
-    return this.callGitHubFunction('list_pull_requests', { repo, state });
+  async listPullRequests(repo?: string, state: 'open' | 'closed' | 'all' = 'open', sessionCredentials?: any): Promise<GitHubPullRequest[]> {
+    return this.callGitHubFunction('list_pull_requests', { repo, state }, sessionCredentials);
   }
 
   /**
@@ -174,7 +180,8 @@ class GitHubIntegrationService {
     body: string,
     head: string,
     base = 'main',
-    repo?: string
+    repo?: string,
+    sessionCredentials?: any
   ): Promise<GitHubPullRequest> {
     return this.callGitHubFunction('create_pull_request', {
       repo,
@@ -182,7 +189,7 @@ class GitHubIntegrationService {
       body,
       head,
       base
-    });
+    }, sessionCredentials);
   }
 
   /**
@@ -191,8 +198,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @returns File content with user-friendly summary
    */
-  async getFileContent(path: string, repo?: string): Promise<GitHubFileContent & { userFriendly?: any }> {
-    const result = await this.callGitHubFunction('get_file_content', { repo, path });
+  async getFileContent(path: string, repo?: string, sessionCredentials?: any): Promise<GitHubFileContent & { userFriendly?: any }> {
+    const result = await this.callGitHubFunction('get_file_content', { repo, path }, sessionCredentials);
     
     // The edge function already handles decoding and formatting
     // Return the formatted result directly
@@ -214,7 +221,8 @@ class GitHubIntegrationService {
     content: string,
     branch = 'main',
     sha?: string,
-    repo?: string
+    repo?: string,
+    sessionCredentials?: any
   ): Promise<any> {
     // Edge function handles encoding and formatting
     return this.callGitHubFunction('commit_file', {
@@ -224,7 +232,7 @@ class GitHubIntegrationService {
       content, // Send raw content, edge function will encode
       branch,
       sha
-    });
+    }, sessionCredentials);
   }
 
   /**
@@ -233,8 +241,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional, uses env default)
    * @returns Search results with file matches
    */
-  async searchCode(query: string, repo?: string): Promise<any> {
-    return this.callGitHubFunction('search_code', { repo, query });
+  async searchCode(query: string, repo?: string, sessionCredentials?: any): Promise<any> {
+    return this.callGitHubFunction('search_code', { repo, query }, sessionCredentials);
   }
 
   /**
@@ -244,8 +252,8 @@ class GitHubIntegrationService {
    * @param perPage - Number of comments per page (default: 30)
    * @returns Array of comments
    */
-  async getIssueComments(issueNumber: number, repo?: string, perPage = 30): Promise<any[]> {
-    return this.callGitHubFunction('get_issue_comments', { repo, issue_number: issueNumber, per_page: perPage });
+  async getIssueComments(issueNumber: number, repo?: string, perPage = 30, sessionCredentials?: any): Promise<any[]> {
+    return this.callGitHubFunction('get_issue_comments', { repo, issue_number: issueNumber, per_page: perPage }, sessionCredentials);
   }
 
   /**
@@ -255,8 +263,8 @@ class GitHubIntegrationService {
    * @param first - Number of comments to fetch (default: 30)
    * @returns Discussion with comments
    */
-  async getDiscussionComments(discussionNumber: number, repo?: string, first = 30): Promise<any> {
-    return this.callGitHubFunction('get_discussion_comments', { repo, discussion_number: discussionNumber, first });
+  async getDiscussionComments(discussionNumber: number, repo?: string, first = 30, sessionCredentials?: any): Promise<any> {
+    return this.callGitHubFunction('get_discussion_comments', { repo, discussion_number: discussionNumber, first }, sessionCredentials);
   }
 
   /**
@@ -266,8 +274,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @returns Created comment data
    */
-  async createIssueCommentReply(issueNumber: number, body: string, repo?: string): Promise<any> {
-    return this.callGitHubFunction('create_issue_comment_reply', { repo, issue_number: issueNumber, body });
+  async createIssueCommentReply(issueNumber: number, body: string, repo?: string, sessionCredentials?: any): Promise<any> {
+    return this.callGitHubFunction('create_issue_comment_reply', { repo, issue_number: issueNumber, body }, sessionCredentials);
   }
 
   /**
@@ -277,8 +285,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @returns Created comment data
    */
-  async createDiscussionCommentReply(discussionId: string, body: string, repo?: string): Promise<any> {
-    return this.callGitHubFunction('create_discussion_comment_reply', { repo, discussion_id: discussionId, body });
+  async createDiscussionCommentReply(discussionId: string, body: string, repo?: string, sessionCredentials?: any): Promise<any> {
+    return this.callGitHubFunction('create_discussion_comment_reply', { repo, discussion_id: discussionId, body }, sessionCredentials);
   }
 
   /**
@@ -288,8 +296,8 @@ class GitHubIntegrationService {
    * @param repo - Repository name (optional)
    * @returns Created reply data
    */
-  async replyToDiscussionComment(commentId: string, body: string, repo?: string): Promise<any> {
-    return this.callGitHubFunction('reply_to_discussion_comment', { repo, comment_id: commentId, body });
+  async replyToDiscussionComment(commentId: string, body: string, repo?: string, sessionCredentials?: any): Promise<any> {
+    return this.callGitHubFunction('reply_to_discussion_comment', { repo, comment_id: commentId, body }, sessionCredentials);
   }
 
   /**

@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -903,7 +903,7 @@ async function executeToolCallsWithRetry(
         
         console.log(`🔧 Executing tool (attempt ${retryCount + 1}/${maxRetries + 1}): ${functionName}`, args);
         
-        const result = await executeSingleTool(functionName, args, supabase);
+        const result = await executeSingleTool(functionName, args, supabase, session_credentials);
         
         // Cache successful results for this workflow
         if (result.success) {
@@ -1048,7 +1048,7 @@ Please analyze the error and fix the code. CRITICAL RULES:
 }
 
 // Execute a single tool
-async function executeSingleTool(functionName: string, args: any, supabase: any) {
+async function executeSingleTool(functionName: string, args: any, supabase: any, session_credentials?: any) {
 
   let result;
   let activityType = functionName;
@@ -1168,7 +1168,8 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     const { data, error } = await supabase.functions.invoke('github-integration', {
       body: { 
         action: 'list_issues',
-        repo: args.repo || 'xmrt-ecosystem'
+        repo: args.repo || 'xmrt-ecosystem',
+        session_credentials
       }
     });
     

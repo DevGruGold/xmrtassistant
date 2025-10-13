@@ -6,6 +6,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
 import { enhancedTTS } from './enhancedTTSService';
 
+// Get session credentials if available (outside React component)
+let sessionCredentials: any = null;
+try {
+  const credentialContext = (window as any).__credentialSessionContext;
+  if (credentialContext) {
+    sessionCredentials = credentialContext.getAll();
+  }
+} catch (e) {
+  // Context not available, will use null
+}
+
 export interface ElizaContext {
   miningStats?: MiningStats | null;
   userContext?: UserContext | null;
@@ -309,6 +320,17 @@ export class UnifiedElizaService {
       } : null
     };
 
+    // Get latest session credentials
+    try {
+      const credContext = (window as any).__credentialSessionContext;
+      if (credContext) {
+        sessionCredentials = credContext.getAll();
+        console.log('🔑 Session credentials available:', Object.keys(sessionCredentials || {}));
+      }
+    } catch (e) {
+      console.log('⚠️ Could not retrieve session credentials');
+    }
+
     // Tier 1: PRIMARY - Lovable AI Gateway with Gemini (via edge function)
     try {
       console.log('🎯 Tier 1 (PRIMARY): Using Lovable AI Gateway with Gemini...');
@@ -338,7 +360,8 @@ export class UnifiedElizaService {
             deployedAt: systemVersion.deployedAt,
             status: systemVersion.status,
             serviceUrl: systemVersion.serviceUrl
-          } : null
+          } : null,
+          session_credentials: sessionCredentials
         }
       });
 

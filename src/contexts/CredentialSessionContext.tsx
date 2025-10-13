@@ -49,15 +49,22 @@ export const CredentialSessionProvider: React.FC<{ children: React.ReactNode }> 
     return credentials;
   }, [credentials]);
 
+  const contextValue = {
+    credentials,
+    setCredential,
+    clearCredential,
+    clearAll,
+    hasCredential,
+    getAll
+  };
+
+  // Expose context globally for non-React services
+  React.useEffect(() => {
+    (window as any).__credentialSessionContext = contextValue;
+  }, [contextValue]);
+
   return (
-    <CredentialSessionContext.Provider value={{ 
-      credentials, 
-      setCredential, 
-      clearCredential, 
-      clearAll, 
-      hasCredential,
-      getAll 
-    }}>
+    <CredentialSessionContext.Provider value={contextValue}>
       {children}
     </CredentialSessionContext.Provider>
   );
