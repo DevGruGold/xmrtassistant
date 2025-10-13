@@ -201,7 +201,14 @@ serve(async (req) => {
         break;
       
       case 'agent-manager':
-        response = await supabase.functions.invoke('agent-manager', { body: payload });
+        // Pass action and data directly to agent-manager
+        response = await supabase.functions.invoke('agent-manager', { 
+          body: {
+            action: payload.action || action,
+            data: payload.data || payload,
+            autonomous: payload.autonomous || true
+          }
+        });
         break;
       
       case 'schema-manager':

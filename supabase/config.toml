@@ -50,8 +50,9 @@ enable_confirmations = false
 # Public functions can be called without authentication (verify_jwt = false)
 
 # PROTECTED FUNCTIONS - Require Authentication
+# Agent Manager - Allow service role access (called via gatekeeper)
 [functions.agent-manager]
-verify_jwt = true
+verify_jwt = false
 
 [functions.autonomous-code-fixer]
 verify_jwt = true
