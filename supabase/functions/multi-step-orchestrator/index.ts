@@ -516,15 +516,4 @@ async function executeCode(step: any, supabaseUrl: string, serviceKey: string) {
     error: result.error,
     exitCode: 1
   };
-      code: step.code,
-      language: step.language || 'python',
-      purpose: step.purpose || 'workflow execution'
-    })
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Code execution failed: ${response.status}`);
-  }
-  
-  return await response.json();
 }
