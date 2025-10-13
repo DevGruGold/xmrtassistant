@@ -1604,9 +1604,9 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
             break;
         }
         
-        // Call github-integration edge function
+        // Call github-integration edge function with session credentials
         const { data: githubResult, error: githubError } = await supabase.functions.invoke('github-integration', {
-          body: { action, data }
+          body: { action, data, session_credentials }
         });
         
         if (githubError || !githubResult?.success) {

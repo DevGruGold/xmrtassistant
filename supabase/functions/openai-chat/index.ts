@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 import { EdgeFunctionLogger } from "../_shared/logging.ts";
+import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
+import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
 
 const logger = EdgeFunctionLogger('openai-chat');
 
@@ -17,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000, session_credentials } = await req.json();
+    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000, session_credentials, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       throw new Error('Messages array is required');
@@ -51,6 +53,20 @@ serve(async (req) => {
       model 
     });
 
+    // Build system prompt using shared utilities
+    const basePrompt = generateElizaSystemPrompt();
+    const systemPrompt = buildContextualPrompt(basePrompt, {
+      conversationHistory,
+      userContext,
+      miningStats,
+      systemVersion
+    });
+
+    // Prepend system prompt to messages if not already present
+    const messagesWithSystem = messages[0]?.role === 'system' 
+      ? messages 
+      : [{ role: 'system', content: systemPrompt }, ...messages];
+
     // Call OpenAI Chat Completions API
     const apiStartTime = Date.now();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -61,7 +77,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: messagesWithSystem,
         temperature,
         max_tokens,
         stream: false
