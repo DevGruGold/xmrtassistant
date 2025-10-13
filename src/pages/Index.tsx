@@ -16,6 +16,7 @@ import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ExecutiveStatusIndicator } from "@/components/ExecutiveStatusIndicator";
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
@@ -54,6 +55,11 @@ const Index = () => {
                   <span className="px-2 py-1 bg-mining-info/10 text-mining-info rounded-full">{t('hero.tag.ai')}</span>
                   <span className="px-2 py-1 bg-mining-active/10 text-mining-active rounded-full">{t('hero.tag.privacy')}</span>
                   <span className="px-2 py-1 bg-secondary/20 text-secondary-foreground rounded-full">{t('hero.tag.mesh')}</span>
+                </div>
+                
+                {/* Executive Status Indicator */}
+                <div className="mt-4 animate-fade-in">
+                  <ExecutiveStatusIndicator />
                 </div>
               </div>
             </div>
