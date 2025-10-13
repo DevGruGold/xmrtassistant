@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// TESTING MODE - Set to true to bypass all gatekeeping (auth, rate limits, schema protection)
+const TESTING_MODE = Deno.env.get('GATEKEEPER_TESTING_MODE') === 'true';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-eliza-key, x-eliza-source',
@@ -17,10 +20,15 @@ const TRUSTED_SOURCES = [
   'deepseek-chat',
   'openai-chat',
   'task-orchestrator',
-  'python-executor'
+  'python-executor',
+  'github-integration',
+  'render-api',
+  'vercel-manager',
+  'ecosystem-monitor',
+  'system-diagnostics'
 ];
 
-// Dangerous schema operations that should be blocked
+// Dangerous schema operations that should be blocked (only in production)
 const DANGEROUS_PATTERNS = [
   /DROP\s+TABLE/i,
   /DROP\s+DATABASE/i,
@@ -56,65 +64,73 @@ serve(async (req) => {
     const elizaSource = req.headers.get('x-eliza-source');
     const authHeader = req.headers.get('authorization');
     
-    console.log(`🛡️ Gatekeeper request: source=${elizaSource}, target=${target}, action=${action}`);
+    if (TESTING_MODE) {
+      console.log(`🧪 TESTING MODE: Bypassing all gatekeeping for ${elizaSource} → ${target}`);
+    } else {
+      console.log(`🛡️ Gatekeeper request: source=${elizaSource}, target=${target}, action=${action}`);
+    }
 
     // ===== AUTHENTICATION =====
-    const INTERNAL_KEY = Deno.env.get('INTERNAL_ELIZA_KEY');
-    const isServiceRole = authHeader?.includes(supabaseKey);
-    const isValidEliza = elizaKey === INTERNAL_KEY && elizaSource && TRUSTED_SOURCES.includes(elizaSource);
-    
-    if (!isServiceRole && !isValidEliza) {
-      console.error('❌ Unauthorized gatekeeper access attempt');
-      return new Response(JSON.stringify({ 
-        error: 'Unauthorized', 
-        message: 'Invalid Eliza credentials or untrusted source' 
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!TESTING_MODE) {
+      const INTERNAL_KEY = Deno.env.get('INTERNAL_ELIZA_KEY');
+      const isServiceRole = authHeader?.includes(supabaseKey);
+      const isValidEliza = elizaKey === INTERNAL_KEY && elizaSource && TRUSTED_SOURCES.includes(elizaSource);
+      
+      if (!isServiceRole && !isValidEliza) {
+        console.error('❌ Unauthorized gatekeeper access attempt');
+        return new Response(JSON.stringify({ 
+          error: 'Unauthorized', 
+          message: 'Invalid Eliza credentials or untrusted source' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ===== RATE LIMITING =====
-    const sourceIdentifier = elizaSource || 'unknown';
-    const endpoint = `${target}:${action}`;
-    
-    // Determine rate limit tier
-    let rateLimit = RATE_LIMITS.user;
-    if (elizaSource && TRUSTED_SOURCES.includes(elizaSource)) {
-      rateLimit = elizaSource.includes('autonomous') || elizaSource.includes('monitor') 
-        ? RATE_LIMITS.autonomous 
-        : RATE_LIMITS.eliza;
-    }
+    if (!TESTING_MODE) {
+      const sourceIdentifier = elizaSource || 'unknown';
+      const endpoint = `${target}:${action}`;
+      
+      // Determine rate limit tier
+      let rateLimit = RATE_LIMITS.user;
+      if (elizaSource && TRUSTED_SOURCES.includes(elizaSource)) {
+        rateLimit = elizaSource.includes('autonomous') || elizaSource.includes('monitor') 
+          ? RATE_LIMITS.autonomous 
+          : RATE_LIMITS.eliza;
+      }
 
-    // Check rate limit
-    const { data: rateLimitData } = await supabase.rpc('increment_rate_limit', {
-      p_identifier: sourceIdentifier,
-      p_endpoint: endpoint
-    });
-
-    // Query current count
-    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
-    const { data: limitCheck } = await supabase
-      .from('rate_limits')
-      .select('request_count')
-      .eq('identifier', sourceIdentifier)
-      .eq('endpoint', endpoint)
-      .gte('window_start', oneMinuteAgo)
-      .single();
-
-    if (limitCheck && limitCheck.request_count > rateLimit) {
-      console.warn(`⚠️ Rate limit exceeded for ${sourceIdentifier} on ${endpoint}`);
-      return new Response(JSON.stringify({ 
-        error: 'Rate limit exceeded', 
-        message: `Maximum ${rateLimit} requests per minute exceeded` 
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      // Check rate limit
+      const { data: rateLimitData } = await supabase.rpc('increment_rate_limit', {
+        p_identifier: sourceIdentifier,
+        p_endpoint: endpoint
       });
+
+      // Query current count
+      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+      const { data: limitCheck } = await supabase
+        .from('rate_limits')
+        .select('request_count')
+        .eq('identifier', sourceIdentifier)
+        .eq('endpoint', endpoint)
+        .gte('window_start', oneMinuteAgo)
+        .single();
+
+      if (limitCheck && limitCheck.request_count > rateLimit) {
+        console.warn(`⚠️ Rate limit exceeded for ${sourceIdentifier} on ${endpoint}`);
+        return new Response(JSON.stringify({ 
+          error: 'Rate limit exceeded', 
+          message: `Maximum ${rateLimit} requests per minute exceeded` 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // ===== SCHEMA PROTECTION =====
-    if (operation || action === 'validate_schema' || target === 'schema-manager') {
+    if (!TESTING_MODE && (operation || action === 'validate_schema' || target === 'schema-manager')) {
       const sqlToCheck = operation || payload?.sql || payload?.query || '';
       
       // Check for dangerous patterns
@@ -221,6 +237,26 @@ serve(async (req) => {
       
       case 'python-executor':
         response = await supabase.functions.invoke('python-executor', { body: payload });
+        break;
+      
+      case 'github-integration':
+        response = await supabase.functions.invoke('github-integration', { body: payload });
+        break;
+      
+      case 'render-api':
+        response = await supabase.functions.invoke('render-api', { body: payload });
+        break;
+      
+      case 'vercel-manager':
+        response = await supabase.functions.invoke('vercel-manager', { body: payload });
+        break;
+      
+      case 'ecosystem-monitor':
+        response = await supabase.functions.invoke('ecosystem-monitor', { body: payload });
+        break;
+      
+      case 'system-diagnostics':
+        response = await supabase.functions.invoke('system-diagnostics', { body: payload });
         break;
       
       default:
