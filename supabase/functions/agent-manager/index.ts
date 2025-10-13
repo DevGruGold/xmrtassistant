@@ -4,6 +4,27 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const INTERNAL_KEY = Deno.env.get('INTERNAL_ELIZA_KEY')!;
+
+// Helper to call other Eliza instances through gatekeeper
+async function callEliza(target: string, action: string, payload: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/eliza-gatekeeper`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-eliza-key': INTERNAL_KEY,
+      'x-eliza-source': 'agent-manager'
+    },
+    body: JSON.stringify({ target, action, payload })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Gatekeeper error: ${error.error || 'Unknown error'}`);
+  }
+  
+  return response.json();
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -132,38 +153,19 @@ serve(async (req) => {
                 break;
                 
               case 'execute_python':
-                // Execute Python code through python-executor
-                const pythonResponse = await fetch(`${supabaseUrl}/functions/v1/python-executor`, {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${supabaseServiceKey}`,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    code: step.code,
-                    source: 'autonomous_agent',
-                    agent_id: agent_id,           // Pass agent context
-                    task_id: context.task_id,     // Pass task context  
-                    purpose: step.purpose || `Workflow step ${i + 1}`
-                  })
+                // Execute Python code through gatekeeper
+                stepResult = await callEliza('python-executor', 'execute', {
+                  code: step.code,
+                  source: 'autonomous_agent',
+                  agent_id: agent_id,
+                  task_id: context.task_id,
+                  purpose: step.purpose || `Workflow step ${i + 1}`
                 });
-                stepResult = await pythonResponse.json();
                 break;
                 
               case 'github_operation':
-                // Execute GitHub operations
-                const githubResponse = await fetch(`${supabaseUrl}/functions/v1/github-integration`, {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${supabaseServiceKey}`,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    action: step.github_action,
-                    ...step.github_data
-                  })
-                });
-                stepResult = await githubResponse.json();
+                // Execute GitHub operations through gatekeeper
+                stepResult = await callEliza('github-integration', step.github_action, step.github_data);
                 break;
                 
               case 'create_subtask':
