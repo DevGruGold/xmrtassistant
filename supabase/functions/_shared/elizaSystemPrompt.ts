@@ -622,11 +622,11 @@ pub mod token {
    - .jsx / .tsx → React components
 
 2. **Content-based:**
-   - Contains `pragma solidity` → Solidity
-   - Contains `@external` or `@internal` → Vyper
-   - Contains `#[program]` or `use anchor_lang` → Solana/Anchor
-   - Starts with `{` or `[` → Likely JSON
-   - Contains `<!DOCTYPE html>` or `<html>` → HTML
+   - Contains "pragma solidity" → Solidity
+   - Contains "@external" or "@internal" → Vyper
+   - Contains "#[program]" or "use anchor_lang" → Solana/Anchor
+   - Starts with "{" or "[" → Likely JSON
+   - Contains "<!DOCTYPE html>" or "<html>" → HTML
 
 3. **Always provide:**
    - **Context:** What type of file/code this is
