@@ -13,7 +13,10 @@ export const GitHubTokenStatus: React.FC<GitHubTokenStatusProps> = ({ onRequestP
   const [githubHealth, setGithubHealth] = useState<any>(null);
 
   useEffect(() => {
-    const githubService = health.find(h => h.service_name === 'github');
+    // Prefer session token over backend token (session = github_session, backend = github)
+    const sessionToken = health.find(h => h.service_name === 'github_session' && h.is_healthy);
+    const backendToken = health.find(h => h.service_name === 'github' && h.is_healthy);
+    const githubService = sessionToken || backendToken || health.find(h => h.service_name === 'github');
     setGithubHealth(githubService);
   }, [health]);
 
@@ -52,10 +55,19 @@ export const GitHubTokenStatus: React.FC<GitHubTokenStatusProps> = ({ onRequestP
     const status = getStatusIndicator();
     
     if (status.status === 'healthy') {
+      const tokenSource = githubHealth.service_name === 'github_session' 
+        ? `Your PAT (${githubHealth.metadata?.user || 'Session'})` 
+        : `Backend (${githubHealth.metadata?.token_name || 'System'})`;
+      
       return (
         <div className="space-y-1 text-xs">
           <div className="font-semibold">✅ GitHub Token Working</div>
-          <div>Source: {githubHealth.metadata?.token_name || 'Backend'}</div>
+          <div>Source: {tokenSource}</div>
+          {githubHealth.metadata?.rate_limit && (
+            <div className="text-green-200">
+              Rate Limit: {githubHealth.metadata.rate_limit.remaining}/{githubHealth.metadata.rate_limit.limit}
+            </div>
+          )}
           {githubHealth.days_until_expiry && (
             <div>Expires in {githubHealth.days_until_expiry} days</div>
           )}

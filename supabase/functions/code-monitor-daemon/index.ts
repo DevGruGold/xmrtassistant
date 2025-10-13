@@ -25,15 +25,21 @@ serve(async (req) => {
     console.log(`🔍 Code Monitor Daemon - Action: ${action}`);
 
     if (action === 'monitor' || action === 'fix_all') {
-      // Check GitHub token health first
+      // Check GitHub token health first (both backend and session tokens)
       const { data: githubHealth } = await supabase
         .from('api_key_health')
         .select('*')
         .or('service_name.eq.github,service_name.eq.github_session')
+        .eq('is_healthy', true) // Only get healthy tokens
         .order('created_at', { ascending: false })
-        .limit(2);
+        .limit(1);
 
-      const hasHealthyGitHubToken = githubHealth?.some(h => h.is_healthy) || false;
+      const hasHealthyGitHubToken = githubHealth && githubHealth.length > 0;
+      
+      console.log(`🔐 GitHub Token Status: ${hasHealthyGitHubToken ? 'Available ✅' : 'Unavailable ❌'}`);
+      if (hasHealthyGitHubToken && githubHealth[0]) {
+        console.log(`   Source: ${githubHealth[0].service_name} (${githubHealth[0].metadata?.token_name || githubHealth[0].metadata?.user || 'unknown'})`);
+      }
 
       if (!hasHealthyGitHubToken) {
         console.log('⏸️ No valid GitHub token - pausing GitHub-related fixes');
@@ -73,16 +79,21 @@ serve(async (req) => {
 
       console.log('✅ Autonomous code fixer completed:', fixerResult);
 
-      // Log monitoring activity
+      // Log monitoring activity with clear GitHub status
+      const githubStatusMsg = hasHealthyGitHubToken 
+        ? `(GitHub: ✅ ${githubHealth?.[0]?.metadata?.token_name || githubHealth?.[0]?.metadata?.user || 'Available'})`
+        : '(GitHub: ❌ No Token)';
+      
       await supabase.from('eliza_activity_log').insert({
         activity_type: 'code_monitoring',
         title: '🔍 Code Health Monitor',
-        description: `Scanned for failed executions. Fixed: ${fixerResult?.fixed || 0}${!hasHealthyGitHubToken ? ' (GitHub operations paused - no token)' : ''}`,
+        description: `Scanned for failed executions. Fixed: ${fixerResult?.fixed || 0} ${githubStatusMsg}`,
         status: 'completed',
         metadata: {
           fixed_count: fixerResult?.fixed || 0,
           total_processed: fixerResult?.results?.length || 0,
-          github_enabled: hasHealthyGitHubToken
+          github_enabled: hasHealthyGitHubToken,
+          github_source: hasHealthyGitHubToken ? githubHealth?.[0]?.service_name : null
         },
         mentioned_to_user: false // Eliza will proactively report this
       });
