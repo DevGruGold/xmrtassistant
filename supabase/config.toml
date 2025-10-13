@@ -86,7 +86,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.github-integration]
-verify_jwt = true
+verify_jwt = false
 
 [functions.knowledge-manager]
 verify_jwt = true
