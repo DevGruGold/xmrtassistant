@@ -26,7 +26,20 @@ const TRUSTED_SOURCES = [
   'vercel-manager',
   'ecosystem-monitor',
   'system-diagnostics',
-  'xmrt-mcp-server'
+  'xmrt-mcp-server',
+  'knowledge-manager',
+  'enhanced-learning',
+  'predictive-analytics',
+  'scenario-modeler',
+  'multi-step-orchestrator',
+  'nlg-generator',
+  'get-embedding',
+  'extract-knowledge',
+  'summarize-conversation',
+  'vectorize-memory',
+  'conversation-access',
+  'openai-tts',
+  'self-optimizing-agent-architecture'
 ];
 
 // Dangerous schema operations that should be blocked (only in production)
@@ -278,6 +291,58 @@ serve(async (req) => {
       
       case 'aggregate-device-metrics':
         response = await supabase.functions.invoke('aggregate-device-metrics', { body: payload });
+        break;
+      
+      case 'knowledge-manager':
+        response = await supabase.functions.invoke('knowledge-manager', { body: payload });
+        break;
+      
+      case 'enhanced-learning':
+        response = await supabase.functions.invoke('enhanced-learning', { body: payload });
+        break;
+      
+      case 'predictive-analytics':
+        response = await supabase.functions.invoke('predictive-analytics', { body: payload });
+        break;
+      
+      case 'scenario-modeler':
+        response = await supabase.functions.invoke('scenario-modeler', { body: payload });
+        break;
+      
+      case 'multi-step-orchestrator':
+        response = await supabase.functions.invoke('multi-step-orchestrator', { body: payload });
+        break;
+      
+      case 'nlg-generator':
+        response = await supabase.functions.invoke('nlg-generator', { body: payload });
+        break;
+      
+      case 'get-embedding':
+        response = await supabase.functions.invoke('get-embedding', { body: payload });
+        break;
+      
+      case 'extract-knowledge':
+        response = await supabase.functions.invoke('extract-knowledge', { body: payload });
+        break;
+      
+      case 'summarize-conversation':
+        response = await supabase.functions.invoke('summarize-conversation', { body: payload });
+        break;
+      
+      case 'vectorize-memory':
+        response = await supabase.functions.invoke('vectorize-memory', { body: payload });
+        break;
+      
+      case 'conversation-access':
+        response = await supabase.functions.invoke('conversation-access', { body: payload });
+        break;
+      
+      case 'openai-tts':
+        response = await supabase.functions.invoke('openai-tts', { body: payload });
+        break;
+      
+      case 'self-optimizing-agent-architecture':
+        response = await supabase.functions.invoke('self-optimizing-agent-architecture', { body: payload });
         break;
       
       default:
