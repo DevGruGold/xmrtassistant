@@ -1223,59 +1223,52 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     
     const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
     const assignResult = await callAgentManager('assign_task', {
-        data: {
-          title: args.title,
-          description: args.description,
-          repo: args.repo,
-          category: args.category,
-          stage: args.stage,
-          assignee_agent_id: args.assignee_agent_id,
-          priority: args.priority || 5
-        }
-      }
-    });
+      title: args.title,
+      description: args.description,
+      repo: args.repo,
+      category: args.category,
+      stage: args.stage,
+      assignee_agent_id: args.assignee_agent_id,
+      priority: args.priority || 5
+    }, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Task assignment failed:', error);
+    if (!assignResult.success) {
+      console.error('❌ Task assignment failed:', assignResult.error);
       
       // Check for foreign key constraint error (agent doesn't exist)
-      const errorStr = JSON.stringify(error);
+      const errorStr = assignResult.error || '';
       if (errorStr.includes('23503') || errorStr.includes('foreign key constraint') || errorStr.includes('not present in table')) {
         result = { 
           success: false, 
-          error: `AGENT DOES NOT EXIST. Agent ID "${args.assignee_agent_id}" was not found. You must first call list_agents() to get valid agent IDs, or spawn_agent() to create a new agent. Never use made-up agent IDs.`,
+          error: `AGENT DOES NOT EXIST. Agent ID "${args.assignee_agent_id}" was not found. You must call list_agents() to get valid agent IDs, or spawn_agent() to create a new agent.`,
           agent_id: args.assignee_agent_id,
           suggestion: 'Call list_agents() first to see existing agents, or call spawn_agent() to create a new one.'
         };
       } else {
-        result = { success: false, error: error.message || 'Task assignment failed', data };
+        result = { success: false, error: assignResult.error || 'Task assignment failed', data: assignResult.data };
       }
     } else {
-      console.log('✅ Task assigned:', data);
-      result = { success: true, data };
+      console.log('✅ Task assigned:', assignResult.data);
+      result = { success: true, data: assignResult.data };
     }
   } else if (functionName === 'update_task_status') {
     activityType = 'task_assignment';
     activityTitle = 'Update Task Status';
     activityDescription = `Task ${args.task_id}: ${args.status} - ${args.stage}`;
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'update_task_status',
-        data: {
-          task_id: args.task_id,
-          status: args.status,
-          stage: args.stage
-        }
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const statusResult = await callAgentManager('update_task_status', {
+      task_id: args.task_id,
+      status: args.status,
+      stage: args.stage
+    }, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Task status update failed:', error);
-      result = { success: false, error: error.message };
+    if (!statusResult.success) {
+      console.error('❌ Task status update failed:', statusResult.error);
+      result = { success: false, error: statusResult.error };
     } else {
-      console.log('✅ Task status updated:', data);
-      result = { success: true, data };
+      console.log('✅ Task status updated:', statusResult.data);
+      result = { success: true, data: statusResult.data };
     }
   } else if (functionName === 'list_tasks') {
     activityType = 'task_assignment';
@@ -1326,20 +1319,16 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = `Get Workload: ${args.agent_id}`;
     activityDescription = 'Checking agent workload and active tasks';
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'get_agent_workload',
-        data: {
-          agent_id: args.agent_id
-        }
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const workloadResult = await callAgentManager('get_agent_workload', {
+      agent_id: args.agent_id
+    }, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Get agent workload failed:', error);
-      result = { success: false, error: error.message };
+    if (!workloadResult.success) {
+      console.error('❌ Get agent workload failed:', workloadResult.error);
+      result = { success: false, error: workloadResult.error };
     } else {
-      const workload = data?.data || {};
+      const workload = workloadResult.data?.data || {};
       console.log('📊 Agent workload:', workload);
       
       result = { 
@@ -1355,22 +1344,18 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = 'Delete Task';
     activityDescription = `Deleting task ${args.task_id}: ${args.reason}`;
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'delete_task',
-        data: {
-          task_id: args.task_id,
-          reason: args.reason
-        }
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const deleteResult = await callAgentManager('delete_task', {
+      task_id: args.task_id,
+      reason: args.reason
+    }, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Task deletion failed:', error);
-      result = { success: false, error: error.message };
+    if (!deleteResult.success) {
+      console.error('❌ Task deletion failed:', deleteResult.error);
+      result = { success: false, error: deleteResult.error };
     } else {
-      console.log('✅ Task deleted:', data);
-      result = { success: true, data };
+      console.log('✅ Task deleted:', deleteResult.data);
+      result = { success: true, data: deleteResult.data };
     }
   } else if (functionName === 'reassign_task') {
     activityType = 'task_assignment';
@@ -1495,42 +1480,34 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = `Request Assignment: ${args.agent_name}`;
     activityDescription = 'Requesting next available task';
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'request_assignment',
-        data: args
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const assignmentResult = await callAgentManager('request_assignment', args, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Request assignment failed:', error);
-      result = { success: false, error: error.message };
+    if (!assignmentResult.success) {
+      console.error('❌ Request assignment failed:', assignmentResult.error);
+      result = { success: false, error: assignmentResult.error };
     } else {
-      console.log('📋 Assignment result:', data);
-      result = { success: true, data: data?.data };
+      console.log('📋 Assignment result:', assignmentResult.data);
+      result = { success: true, data: assignmentResult.data?.data };
     }
   } else if (functionName === 'log_decision') {
     activityType = 'decision_log';
     activityTitle = 'Log Decision';
     activityDescription = args.decision;
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'log_decision',
-        data: {
-          agent_id: args.agent_id || 'eliza',
-          decision: args.decision,
-          rationale: args.rationale
-        }
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const decisionResult = await callAgentManager('log_decision', {
+      agent_id: args.agent_id || 'eliza',
+      decision: args.decision,
+      rationale: args.rationale
+    }, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Log decision failed:', error);
-      result = { success: false, error: error.message };
+    if (!decisionResult.success) {
+      console.error('❌ Log decision failed:', decisionResult.error);
+      result = { success: false, error: decisionResult.error };
     } else {
-      console.log('📝 Decision logged:', data);
-      result = { success: true, data };
+      console.log('📝 Decision logged:', decisionResult.data);
+      result = { success: true, data: decisionResult.data };
     }
   } else if (functionName === 'cleanup_duplicate_tasks') {
     activityType = 'system_maintenance';
@@ -1571,19 +1548,15 @@ async function executeSingleTool(functionName: string, args: any, supabase: any)
     activityTitle = 'Clean Up Duplicate Agents';
     activityDescription = 'Removing duplicate agent entries from database';
     
-    const { data, error } = await supabase.functions.invoke('agent-manager', {
-      body: { 
-        action: 'cleanup_duplicate_agents',
-        data: {}
-      }
-    });
+    const { callAgentManager } = await import('../_shared/gatekeeperClient.ts');
+    const cleanupResult = await callAgentManager('cleanup_duplicate_agents', {}, 'gemini-chat');
     
-    if (error) {
-      console.error('❌ Agent cleanup failed:', error);
-      result = { success: false, error: error.message };
+    if (!cleanupResult.success) {
+      console.error('❌ Agent cleanup failed:', cleanupResult.error);
+      result = { success: false, error: cleanupResult.error };
     } else {
-      console.log('🧹 Agent cleanup complete:', data);
-      result = { success: true, data };
+      console.log('🧹 Agent cleanup complete:', cleanupResult.data);
+      result = { success: true, data: cleanupResult.data };
     }
   } else {
     result = { success: false, error: `Unknown function: ${functionName}` };
