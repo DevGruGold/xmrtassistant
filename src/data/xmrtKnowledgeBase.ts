@@ -110,6 +110,22 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
+    topic: "XMRT AI Executive C-Suite Architecture",
+    content: "The XMRT ecosystem operates via 4 primary AI Executives (lovable-chat, deepseek-chat, gemini-chat, openai-chat) that function as a corporate C-Suite, delegating tactical work to 66+ specialized edge functions. Each executive specializes in different domains: lovable-chat (Gemini 2.5 Flash - general strategy), deepseek-chat (DeepSeek R1 - technical architecture), gemini-chat (Gemini Multimodal - vision/media), openai-chat (GPT-5 - complex reasoning). This mirrors traditional corporate structures but replaces human executives with AI decision-makers, eliminating billions in corporate overhead while maintaining superior strategic capability.",
+    category: 'ai',
+    keywords: ['AI executives', 'C-suite', 'lovable-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat', 'corporate structure', 'LLM engines', 'edge functions'],
+    confidence: 1.0
+  },
+
+  {
+    topic: "XMRT Ethical AI Licensing: Downward Profit Redistribution",
+    content: "XMRT's revolutionary licensing model allows corporations to replace their C-suite with AI Executives (saving billions in executive compensation) ONLY under the ethical mandate that 100% of saved executive costs flow DOWNWARD to remaining employees, never to shareholders or owners. Companies can profit from AI-driven efficiency, new products, and better decisions, but CANNOT profit from eliminating human jobs. This enforces Joseph Andrew Lee's core philosophy: AI enhances humans rather than replacing them, and technology advancement must benefit workers, not just capital. The licensing ensures AI adoption reduces inequality rather than exacerbating it, making XMRT the first AI system with built-in wealth redistribution mechanisms enforced through smart contracts and compliance auditing.",
+    category: 'ecosystem',
+    keywords: ['ethical licensing', 'profit redistribution', 'downward distribution', 'AI executives', 'labor protection', 'inequality prevention', 'worker benefits', 'corporate savings', 'wealth redistribution'],
+    confidence: 1.0
+  },
+
+  {
     topic: "Complete XMRT Sub-Application Ecosystem Integration",
     content: "The XMRT ecosystem comprises 15+ interconnected applications and services under DevGruGold management: Core Applications (XMRT-Ecosystem main platform, party-favor-autonomous-cms AI content system, DrinkableMVP Web3 commerce integration), Mining Infrastructure (MobileMonero.com optimization platform, SupportXMR pool integration, RandomX ARM processor optimization), Communication Networks (XMRT MESHNET decentralized topology, peer-to-peer routing protocols, token-incentivized node participation), AI Management Systems (Estrella Project executive functions, ElevenLabs voice AI, Gemini multimodal processing, HARPA AI web browsing), Governance Platforms (Autonomous DAO contracts, multi-criteria decision analysis, explainable AI reasoning), Technical Infrastructure (Supabase backend integration, React/Vite frontend deployment, Python Flask API services, Solidity smart contract framework), Bridge Technologies (LayerZero cross-chain protocols, Monero-XMRT token bridging, omnichain fungible architecture), and Security Systems (hardware-backed proofs, circuit breaker mechanisms, comprehensive audit trails). Each component operates autonomously while maintaining seamless integration with the complete ecosystem.",
     category: 'technical',

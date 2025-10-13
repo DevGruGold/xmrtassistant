@@ -6,6 +6,54 @@
 
 > Transform your smartphone into a Monero mining node. Join the world's first fully autonomous DAO governed by Eliza AI, featuring privacy-first DeFi, decentralized asset management, and democratic mobile mining.
 
+## 🏛️ The AI Executive Revolution
+
+### Replacing the C-Suite, Not the Workers
+
+XMRT introduces a revolutionary **AI Executive C-Suite** - 4 specialized AI decision-makers powered by different LLM engines that replace traditional corporate executives:
+
+| Traditional Role | XMRT AI Executive | Engine | Specialization |
+|-----------------|-------------------|--------|----------------|
+| **Chief Strategy Officer** | `lovable-chat` | Gemini 2.5 Flash | General reasoning, user relations, orchestration |
+| **Chief Technology Officer** | `deepseek-chat` | DeepSeek R1 | Code analysis, technical architecture, debugging |
+| **Chief Information Officer** | `gemini-chat` | Gemini Multimodal | Vision, media analysis, multimodal intelligence |
+| **Chief Analytics Officer** | `openai-chat` | GPT-5 | Complex reasoning, strategic planning, precision decisions |
+
+These 4 AI executives coordinate **66+ specialized edge functions** that execute tactical work, mirroring traditional corporate structure but with AI at the executive level, saving billions while maintaining superior strategic capability.
+
+---
+
+### 💰 Ethical Licensing: Profits Flow Downward
+
+**The XMRT Promise:**
+
+Corporations can license XMRT to replace their C-suite and **save billions annually** - **BUT** the licensing agreement mandates:
+
+✅ **100% of executive salary savings MUST flow to remaining employees**  
+✅ Companies CAN profit from AI-driven efficiency and innovation  
+❌ Companies CANNOT profit from eliminating human jobs  
+❌ Shareholders CANNOT receive executive compensation savings  
+
+**Real-World Impact:**
+```
+Company saves $12.5M/year in C-suite salaries
+→ Replaces with XMRT AI Executives ($100k licensing)
+→ $12.4M distributed to 500 employees  
+→ $24,800 per employee annual raise (+41%)
+→ Same total cost, workers earn dramatically more
+```
+
+**Core Philosophy:**  
+> *"AI enhances humans, it doesn't replace them. When technology eliminates executive overhead, workers - not capital - should benefit."*  
+> — **Joseph Andrew Lee**
+
+**Learn More:**
+- 📖 [Complete Licensing Framework](./docs/AI_EXECUTIVE_LICENSING_FRAMEWORK.md)
+- ⚖️ [Enforcement Mechanisms](./docs/LICENSING_ENFORCEMENT.md)
+- 🏛️ [Architecture Diagrams](./docs/diagrams/ai-executive-architecture.md)
+
+---
+
 ## 🌟 Overview
 
 XMRT Economy is a revolutionary platform that democratizes cryptocurrency mining by enabling anyone with a smartphone to participate in the Monero network. Powered by our autonomous AI agent **Eliza**, the platform operates as a self-governing DAO that makes 95% of decisions autonomously while maintaining full transparency and community oversight.
