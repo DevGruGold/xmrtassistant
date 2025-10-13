@@ -248,13 +248,14 @@ serve(async (req) => {
         
         if (orchestratorResult.success) {
           const orchestratorData = orchestratorResult.data;
-          console.log('✅ Workflow auto-triggered:', orchestratorData.workflow_id);
+          const workflowId = orchestratorData?.workflow_id || 'background_task';
+          console.log('✅ Workflow auto-triggered:', workflowId);
           
           return new Response(JSON.stringify({
             success: true,
             response: `🎬 **${selectedWorkflow.workflow_name}**\n\n${selectedWorkflow.description}\n\n**Executing ${selectedWorkflow.steps.length} steps:**\n${selectedWorkflow.steps.map((s: any, i: number) => `${i + 1}. ${s.name} - ${s.description}`).join('\n')}\n\n⏱️ Estimated time: ${selectedWorkflow.estimated_duration}\n\n✅ Running in background - check **Task Pipeline Visualizer** for live progress. You can continue chatting while I complete this analysis.`,
             hasToolCalls: false,
-            workflow_id: orchestratorData.workflow_id,
+            workflow_id: workflowId,
             background_task: true
           }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -346,13 +347,14 @@ Step types:
           
           if (orchestratorResult.success) {
             const orchestratorData = orchestratorResult.data;
-            console.log('✅ Background workflow initiated:', orchestratorData.workflow_id);
+            const workflowId = orchestratorData?.workflow_id || 'background_task';
+            console.log('✅ Background workflow initiated:', workflowId);
             
             return new Response(JSON.stringify({
               success: true,
               response: `🎬 **Background Workflow Started**: ${workflow.workflow_name}\n\n${workflow.description}\n\n**Executing ${workflow.steps.length} steps:**\n${workflow.steps.map((s: any, i: number) => `${i + 1}. ${s.name}`).join('\n')}\n\n⏱️ ${workflow.estimated_duration}\n\n✅ Running in the background. Check **Task Pipeline Visualizer** for live updates. You can continue chatting while I work on this.`,
               hasToolCalls: false,
-              workflow_id: orchestratorData.workflow_id,
+              workflow_id: workflowId,
               background_task: true
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
