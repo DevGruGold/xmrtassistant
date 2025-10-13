@@ -309,14 +309,23 @@ ${agentContext}
           };
         }
 
-        // Extract fixed code from response
-        const fixedCode = fixResult.data?.generatedText || fixResult.data?.response || '';
-        if (!fixedCode || fixedCode.trim().length === 0) {
-          console.error(`❌ No fixed code returned for execution ${execution.id}`);
+        // Extract fixed code from response (handle both possible response structures)
+        let fixedCode = '';
+        if (typeof fixResult.data === 'string') {
+          fixedCode = fixResult.data;
+        } else if (fixResult.data?.response) {
+          fixedCode = fixResult.data.response;
+        } else if (fixResult.data?.generatedText) {
+          fixedCode = fixResult.data.generatedText;
+        }
+
+        // Ensure fixedCode is a string and not empty
+        if (typeof fixedCode !== 'string' || fixedCode.trim().length === 0) {
+          console.error(`❌ No fixed code returned for execution ${execution.id}. Response:`, fixResult.data);
           return {
             execution_id: execution.id,
             success: false,
-            error: 'No fixed code returned'
+            error: 'No fixed code returned from AI'
           };
         }
 
