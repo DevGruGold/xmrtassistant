@@ -36,27 +36,9 @@ export async function getGitHubCredential(
   const clientSecret = Deno.env.get('GITHUB_CLIENT_SECRET');
   
   if (clientId && clientSecret) {
-    try {
-      // Get an OAuth app token for server-to-server requests
-      const tokenResponse = await fetch('https://api.github.com/app/installations', {
-        headers: {
-          'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-      
-      if (tokenResponse.ok) {
-        console.log('✅ Using GitHub OAuth app credentials');
-        // For GraphQL and other API calls, we can use client_credentials flow
-        // Return a marker that tells the caller to use OAuth app auth
-        return `oauth_app:${clientId}:${clientSecret}`;
-      } else {
-        const errorText = await tokenResponse.text();
-        console.warn('⚠️ OAuth app auth failed:', tokenResponse.status, errorText);
-      }
-    } catch (error) {
-      console.warn('⚠️ OAuth app auth error:', error);
-    }
+    console.log('✅ Using GitHub OAuth app credentials (5000 req/hr rate limit)');
+    // Return marker for OAuth app auth - validation happens on actual API calls
+    return `oauth_app:${clientId}:${clientSecret}`;
   }
 
   // 4. Try primary backend secret (GITHUB_TOKEN) - may hit rate limits
