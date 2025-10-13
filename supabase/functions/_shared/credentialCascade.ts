@@ -30,16 +30,9 @@ export async function getGitHubCredential(
     return data.access_token;
   }
 
-  // 3. Try OAuth app credentials (PRIORITY for rate limits)
-  // GitHub OAuth apps get 5000 req/hr vs 60 for PATs
-  const clientId = Deno.env.get('GITHUB_CLIENT_ID');
-  const clientSecret = Deno.env.get('GITHUB_CLIENT_SECRET');
-  
-  if (clientId && clientSecret) {
-    console.log('✅ Using GitHub OAuth app credentials (5000 req/hr rate limit)');
-    // Return marker for OAuth app auth - validation happens on actual API calls
-    return `oauth_app:${clientId}:${clientSecret}`;
-  }
+  // 3. OAuth app credentials removed - doesn't work with GraphQL API
+  // GraphQL requires actual user tokens (PAT or OAuth user token)
+  // OAuth app client credentials only work for REST API endpoints
 
   // 4. Try primary backend secret (GITHUB_TOKEN) - may hit rate limits
   const primaryToken = Deno.env.get('GITHUB_TOKEN');
