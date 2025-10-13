@@ -25,7 +25,8 @@ const TRUSTED_SOURCES = [
   'render-api',
   'vercel-manager',
   'ecosystem-monitor',
-  'system-diagnostics'
+  'system-diagnostics',
+  'xmrt-mcp-server'
 ];
 
 // Dangerous schema operations that should be blocked (only in production)
@@ -257,6 +258,26 @@ serve(async (req) => {
       
       case 'system-diagnostics':
         response = await supabase.functions.invoke('system-diagnostics', { body: payload });
+        break;
+      
+      case 'xmrt-mcp-server':
+        response = await supabase.functions.invoke('xmrt-mcp-server', { body: payload });
+        break;
+      
+      case 'monitor-device-connections':
+        response = await supabase.functions.invoke('monitor-device-connections', { body: payload });
+        break;
+      
+      case 'issue-engagement-command':
+        response = await supabase.functions.invoke('issue-engagement-command', { body: payload });
+        break;
+      
+      case 'validate-pop-event':
+        response = await supabase.functions.invoke('validate-pop-event', { body: payload });
+        break;
+      
+      case 'aggregate-device-metrics':
+        response = await supabase.functions.invoke('aggregate-device-metrics', { body: payload });
         break;
       
       default:

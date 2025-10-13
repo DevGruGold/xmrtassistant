@@ -333,6 +333,13 @@ export type Database = {
             foreignKeyName: "battery_health_snapshots_device_id_fkey"
             columns: ["device_id"]
             isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "battery_health_snapshots_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
@@ -382,6 +389,13 @@ export type Database = {
           timestamp?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "battery_readings_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
           {
             foreignKeyName: "battery_readings_device_id_fkey"
             columns: ["device_id"]
@@ -458,6 +472,13 @@ export type Database = {
             foreignKeyName: "battery_sessions_device_id_fkey"
             columns: ["device_id"]
             isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "battery_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
@@ -513,6 +534,13 @@ export type Database = {
           started_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "charging_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
           {
             foreignKeyName: "charging_sessions_device_id_fkey"
             columns: ["device_id"]
@@ -939,6 +967,239 @@ export type Database = {
           },
         ]
       }
+      device_activity_log: {
+        Row: {
+          activity_type: string
+          category: Database["public"]["Enums"]["activity_category"]
+          created_at: string | null
+          description: string
+          details: Json | null
+          device_id: string
+          id: string
+          is_anomaly: boolean | null
+          is_pop_eligible: boolean | null
+          metadata: Json | null
+          occurred_at: string
+          pop_points: number | null
+          processed_at: string | null
+          session_id: string | null
+          severity: Database["public"]["Enums"]["activity_severity"] | null
+          tags: string[] | null
+          user_id: string | null
+          wallet_address: string | null
+        }
+        Insert: {
+          activity_type: string
+          category: Database["public"]["Enums"]["activity_category"]
+          created_at?: string | null
+          description: string
+          details?: Json | null
+          device_id: string
+          id?: string
+          is_anomaly?: boolean | null
+          is_pop_eligible?: boolean | null
+          metadata?: Json | null
+          occurred_at?: string
+          pop_points?: number | null
+          processed_at?: string | null
+          session_id?: string | null
+          severity?: Database["public"]["Enums"]["activity_severity"] | null
+          tags?: string[] | null
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Update: {
+          activity_type?: string
+          category?: Database["public"]["Enums"]["activity_category"]
+          created_at?: string | null
+          description?: string
+          details?: Json | null
+          device_id?: string
+          id?: string
+          is_anomaly?: boolean | null
+          is_pop_eligible?: boolean | null
+          metadata?: Json | null
+          occurred_at?: string
+          pop_points?: number | null
+          processed_at?: string | null
+          session_id?: string | null
+          severity?: Database["public"]["Enums"]["activity_severity"] | null
+          tags?: string[] | null
+          user_id?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_activity_log_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "device_activity_log_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_activity_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "device_activity_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "device_connection_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_connection_sessions: {
+        Row: {
+          app_version: string | null
+          battery_level_end: number | null
+          battery_level_start: number | null
+          charging_sessions_count: number | null
+          commands_executed: number | null
+          commands_received: number | null
+          connected_at: string
+          created_at: string | null
+          device_id: string
+          disconnected_at: string | null
+          id: string
+          ip_address: unknown | null
+          is_active: boolean | null
+          last_heartbeat: string
+          metadata: Json | null
+          session_key: string
+          total_duration_seconds: number | null
+          updated_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          battery_level_end?: number | null
+          battery_level_start?: number | null
+          charging_sessions_count?: number | null
+          commands_executed?: number | null
+          commands_received?: number | null
+          connected_at?: string
+          created_at?: string | null
+          device_id: string
+          disconnected_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          is_active?: boolean | null
+          last_heartbeat?: string
+          metadata?: Json | null
+          session_key: string
+          total_duration_seconds?: number | null
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          battery_level_end?: number | null
+          battery_level_start?: number | null
+          charging_sessions_count?: number | null
+          commands_executed?: number | null
+          commands_received?: number | null
+          connected_at?: string
+          created_at?: string | null
+          device_id?: string
+          disconnected_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          is_active?: boolean | null
+          last_heartbeat?: string
+          metadata?: Json | null
+          session_key?: string
+          total_duration_seconds?: number | null
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_connection_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "device_connection_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_metrics_summary: {
+        Row: {
+          active_devices_count: number | null
+          avg_charging_efficiency: number | null
+          avg_session_duration_seconds: number | null
+          created_at: string | null
+          detailed_metrics: Json | null
+          id: string
+          summary_date: string
+          summary_hour: number | null
+          top_device_ids: string[] | null
+          top_event_types: string[] | null
+          total_anomalies_detected: number | null
+          total_charging_sessions: number | null
+          total_commands_executed: number | null
+          total_commands_issued: number | null
+          total_connections: number | null
+          total_pop_points_earned: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          active_devices_count?: number | null
+          avg_charging_efficiency?: number | null
+          avg_session_duration_seconds?: number | null
+          created_at?: string | null
+          detailed_metrics?: Json | null
+          id?: string
+          summary_date?: string
+          summary_hour?: number | null
+          top_device_ids?: string[] | null
+          top_event_types?: string[] | null
+          total_anomalies_detected?: number | null
+          total_charging_sessions?: number | null
+          total_commands_executed?: number | null
+          total_commands_issued?: number | null
+          total_connections?: number | null
+          total_pop_points_earned?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          active_devices_count?: number | null
+          avg_charging_efficiency?: number | null
+          avg_session_duration_seconds?: number | null
+          created_at?: string | null
+          detailed_metrics?: Json | null
+          id?: string
+          summary_date?: string
+          summary_hour?: number | null
+          top_device_ids?: string[] | null
+          top_event_types?: string[] | null
+          total_anomalies_detected?: number | null
+          total_charging_sessions?: number | null
+          total_commands_executed?: number | null
+          total_commands_issued?: number | null
+          total_connections?: number | null
+          total_pop_points_earned?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       device_miner_associations: {
         Row: {
           associated_at: string
@@ -983,6 +1244,13 @@ export type Database = {
           worker_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "device_miner_associations_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
           {
             foreignKeyName: "device_miner_associations_device_id_fkey"
             columns: ["device_id"]
@@ -1151,6 +1419,101 @@ export type Database = {
         }
         Relationships: []
       }
+      engagement_commands: {
+        Row: {
+          acknowledged_at: string | null
+          command_payload: Json
+          command_type: Database["public"]["Enums"]["command_type"]
+          created_at: string | null
+          device_id: string | null
+          error_message: string | null
+          executed_at: string | null
+          execution_result: Json | null
+          expires_at: string | null
+          id: string
+          issued_at: string
+          issued_by: string | null
+          metadata: Json | null
+          priority: number | null
+          sent_at: string | null
+          session_id: string | null
+          status: Database["public"]["Enums"]["command_status"] | null
+          target_all: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          command_payload: Json
+          command_type: Database["public"]["Enums"]["command_type"]
+          created_at?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          metadata?: Json | null
+          priority?: number | null
+          sent_at?: string | null
+          session_id?: string | null
+          status?: Database["public"]["Enums"]["command_status"] | null
+          target_all?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          command_payload?: Json
+          command_type?: Database["public"]["Enums"]["command_type"]
+          created_at?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          metadata?: Json | null
+          priority?: number | null
+          sent_at?: string | null
+          session_id?: string | null
+          status?: Database["public"]["Enums"]["command_status"] | null
+          target_all?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engagement_commands_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "engagement_commands_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engagement_commands_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "engagement_commands_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "device_connection_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entity_relationships: {
         Row: {
           created_at: string
@@ -1240,6 +1603,13 @@ export type Database = {
           wallet_address?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "faucet_claims_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
           {
             foreignKeyName: "faucet_claims_device_id_fkey"
             columns: ["device_id"]
@@ -1446,6 +1816,13 @@ export type Database = {
           worker_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ip_address_log_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
           {
             foreignKeyName: "ip_address_log_device_id_fkey"
             columns: ["device_id"]
@@ -1678,6 +2055,104 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
+      }
+      pop_events_ledger: {
+        Row: {
+          activity_log_ids: string[] | null
+          confidence_score: number | null
+          created_at: string | null
+          device_id: string
+          event_data: Json | null
+          event_description: string
+          event_timestamp: string
+          event_type: Database["public"]["Enums"]["pop_event_type"]
+          id: string
+          is_paid_out: boolean | null
+          is_validated: boolean | null
+          metadata: Json | null
+          paid_out_at: string | null
+          pop_points: number
+          session_id: string | null
+          transaction_hash: string | null
+          user_id: string | null
+          validated_at: string
+          validation_method: string | null
+          wallet_address: string
+        }
+        Insert: {
+          activity_log_ids?: string[] | null
+          confidence_score?: number | null
+          created_at?: string | null
+          device_id: string
+          event_data?: Json | null
+          event_description: string
+          event_timestamp?: string
+          event_type: Database["public"]["Enums"]["pop_event_type"]
+          id?: string
+          is_paid_out?: boolean | null
+          is_validated?: boolean | null
+          metadata?: Json | null
+          paid_out_at?: string | null
+          pop_points: number
+          session_id?: string | null
+          transaction_hash?: string | null
+          user_id?: string | null
+          validated_at?: string
+          validation_method?: string | null
+          wallet_address: string
+        }
+        Update: {
+          activity_log_ids?: string[] | null
+          confidence_score?: number | null
+          created_at?: string | null
+          device_id?: string
+          event_data?: Json | null
+          event_description?: string
+          event_timestamp?: string
+          event_type?: Database["public"]["Enums"]["pop_event_type"]
+          id?: string
+          is_paid_out?: boolean | null
+          is_validated?: boolean | null
+          metadata?: Json | null
+          paid_out_at?: string | null
+          pop_points?: number
+          session_id?: string | null
+          transaction_hash?: string | null
+          user_id?: string | null
+          validated_at?: string
+          validation_method?: string | null
+          wallet_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pop_events_ledger_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "pop_events_ledger_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pop_events_ledger_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "pop_events_ledger_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "device_connection_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       predictive_insights: {
         Row: {
@@ -2215,6 +2690,13 @@ export type Database = {
             foreignKeyName: "user_worker_mappings_device_id_fkey"
             columns: ["device_id"]
             isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "user_worker_mappings_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
@@ -2454,6 +2936,13 @@ export type Database = {
             foreignKeyName: "worker_registrations_device_id_fkey"
             columns: ["device_id"]
             isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "worker_registrations_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
@@ -2653,6 +3142,13 @@ export type Database = {
             foreignKeyName: "xmrt_assistant_interactions_device_id_fkey"
             columns: ["device_id"]
             isOneToOne: false
+            referencedRelation: "active_devices_view"
+            referencedColumns: ["device_id"]
+          },
+          {
+            foreignKeyName: "xmrt_assistant_interactions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
             referencedRelation: "devices"
             referencedColumns: ["id"]
           },
@@ -2667,6 +3163,22 @@ export type Database = {
       }
     }
     Views: {
+      active_devices_view: {
+        Row: {
+          battery_level_start: number | null
+          charging_sessions_count: number | null
+          connected_at: string | null
+          connection_duration_seconds: number | null
+          device_fingerprint: string | null
+          device_id: string | null
+          device_type: string | null
+          last_heartbeat: string | null
+          session_id: string | null
+          wallet_address: string | null
+          worker_id: string | null
+        }
+        Relationships: []
+      }
       eliza_gatekeeper_stats: {
         Row: {
           avg_duration_ms: number | null
@@ -2690,6 +3202,17 @@ export type Database = {
           output: string | null
           purpose: string | null
           source: string | null
+        }
+        Relationships: []
+      }
+      pop_leaderboard_view: {
+        Row: {
+          avg_confidence: number | null
+          devices_count: number | null
+          last_activity: string | null
+          total_events: number | null
+          total_pop_points: number | null
+          wallet_address: string | null
         }
         Relationships: []
       }
@@ -2782,9 +3305,21 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      calculate_charging_pop_points: {
+        Args: {
+          p_battery_contribution?: number
+          p_duration_minutes: number
+          p_efficiency: number
+        }
+        Returns: number
+      }
       check_session_ownership: {
         Args: { request_metadata: Json; session_uuid: string }
         Returns: boolean
+      }
+      disconnect_device_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
       }
       generate_conversation_insights: {
         Args: Record<PropertyKey, never>
@@ -2893,6 +3428,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      update_session_heartbeat: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       vector_avg: {
         Args: { "": number[] }
         Returns: string
@@ -2919,7 +3458,39 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      activity_category:
+        | "connection"
+        | "charging"
+        | "calibration"
+        | "battery_health"
+        | "system_event"
+        | "user_action"
+        | "anomaly"
+      activity_severity: "info" | "warning" | "error" | "critical"
+      command_status:
+        | "pending"
+        | "sent"
+        | "acknowledged"
+        | "executed"
+        | "failed"
+        | "expired"
+      command_type:
+        | "adjust_charging_mode"
+        | "collect_thermal_data"
+        | "adjust_calibration_frequency"
+        | "enable_battery_health_mode"
+        | "send_notification"
+        | "request_diagnostic_report"
+        | "update_configuration"
+      pop_event_type:
+        | "charging_session_completed"
+        | "calibration_performed"
+        | "battery_health_contribution"
+        | "thermal_data_collection"
+        | "sustained_connection"
+        | "diagnostic_report_submitted"
+        | "optimization_applied"
+        | "community_contribution"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3046,6 +3617,44 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      activity_category: [
+        "connection",
+        "charging",
+        "calibration",
+        "battery_health",
+        "system_event",
+        "user_action",
+        "anomaly",
+      ],
+      activity_severity: ["info", "warning", "error", "critical"],
+      command_status: [
+        "pending",
+        "sent",
+        "acknowledged",
+        "executed",
+        "failed",
+        "expired",
+      ],
+      command_type: [
+        "adjust_charging_mode",
+        "collect_thermal_data",
+        "adjust_calibration_frequency",
+        "enable_battery_health_mode",
+        "send_notification",
+        "request_diagnostic_report",
+        "update_configuration",
+      ],
+      pop_event_type: [
+        "charging_session_completed",
+        "calibration_performed",
+        "battery_health_contribution",
+        "thermal_data_collection",
+        "sustained_connection",
+        "diagnostic_report_submitted",
+        "optimization_applied",
+        "community_contribution",
+      ],
+    },
   },
 } as const
