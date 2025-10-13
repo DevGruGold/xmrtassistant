@@ -195,3 +195,16 @@ verify_jwt = false
 [functions.eliza-gatekeeper]
 verify_jwt = false
 
+# XMRTCharger Functions - Public access for device polling
+[functions.monitor-device-connections]
+verify_jwt = false
+
+[functions.issue-engagement-command]
+verify_jwt = false
+
+[functions.validate-pop-event]
+verify_jwt = false
+
+[functions.aggregate-device-metrics]
+verify_jwt = false
+

@@ -358,5 +358,81 @@ export const TOOL_REGISTRY: Tool[] = [
       type: "object",
       properties: {}
     }
+  },
+
+  // XMRTCharger Device Management Tools
+  {
+    name: "xmrt_charger_connect_device",
+    description: "Register a new XMRTCharger device connection with session tracking",
+    inputSchema: {
+      type: "object",
+      properties: {
+        device_fingerprint: { type: "string", description: "Unique device identifier" },
+        battery_level: { type: "number", description: "Initial battery percentage (0-100)" },
+        device_type: { type: "string", description: "Device type (mobile, tablet, desktop)" },
+        ip_address: { type: "string", description: "Device IP address" },
+        user_agent: { type: "string", description: "Browser user agent" }
+      },
+      required: ["device_fingerprint", "battery_level"]
+    }
+  },
+  {
+    name: "xmrt_charger_issue_command",
+    description: "Issue an engagement command to XMRTCharger devices (notification, config, mining control)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        device_id: { type: "string", description: "Target device UUID (optional if target_all=true)" },
+        target_all: { type: "boolean", description: "Broadcast to all devices", default: false },
+        command_type: { 
+          type: "string", 
+          enum: ["notification", "config_update", "mining_start", "mining_stop", "pop_reward"],
+          description: "Type of command"
+        },
+        command_payload: { type: "object", description: "Command-specific data" },
+        priority: { type: "number", description: "Command priority (1-10)", default: 5 },
+        expires_in_minutes: { type: "number", description: "Command expiry time", default: 60 }
+      },
+      required: ["command_type", "command_payload"]
+    }
+  },
+  {
+    name: "xmrt_charger_validate_pop",
+    description: "Validate and record a Proof-of-Participation event with automatic point calculation",
+    inputSchema: {
+      type: "object",
+      properties: {
+        wallet_address: { type: "string", description: "User wallet address" },
+        device_id: { type: "string", description: "Device UUID" },
+        event_type: { 
+          type: "string", 
+          enum: ["charging_session", "mining_session", "device_connection", "task_completion"],
+          description: "Type of PoP event"
+        },
+        event_data: { 
+          type: "object", 
+          description: "Event-specific data (duration, efficiency, hashes, etc.)"
+        },
+        session_id: { type: "string", description: "Associated session UUID (optional)" }
+      },
+      required: ["wallet_address", "device_id", "event_type", "event_data"]
+    }
+  },
+  {
+    name: "xmrt_charger_get_metrics",
+    description: "Get aggregated XMRTCharger device metrics for dashboard and analytics",
+    inputSchema: {
+      type: "object",
+      properties: {
+        timeframe: { 
+          type: "string", 
+          enum: ["hourly", "daily", "weekly", "monthly"],
+          description: "Metric aggregation timeframe",
+          default: "daily"
+        },
+        start_date: { type: "string", description: "Start date (YYYY-MM-DD)" },
+        end_date: { type: "string", description: "End date (YYYY-MM-DD)" }
+      }
+    }
   }
 ];

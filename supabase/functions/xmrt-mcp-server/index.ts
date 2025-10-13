@@ -170,7 +170,13 @@ async function handleToolCall(params: any, supabase: any): Promise<MCPResponse> 
     'xmrt_detect_specializations': 'self-optimizing-agent-architecture',
     'xmrt_forecast_workload': 'self-optimizing-agent-architecture',
     'xmrt_autonomous_debugging': 'self-optimizing-agent-architecture',
-    'xmrt_run_full_optimization': 'self-optimizing-agent-architecture'
+    'xmrt_run_full_optimization': 'self-optimizing-agent-architecture',
+    
+    // XMRTCharger
+    'xmrt_charger_connect_device': 'monitor-device-connections',
+    'xmrt_charger_issue_command': 'issue-engagement-command',
+    'xmrt_charger_validate_pop': 'validate-pop-event',
+    'xmrt_charger_get_metrics': 'aggregate-device-metrics'
   };
 
   const targetFunction = toolRoutes[name];
@@ -263,6 +269,46 @@ function transformArgsForFunction(toolName: string, args: any): any {
     
     case 'xmrt_run_full_optimization':
       return { action: 'run_full_optimization' };
+    
+    // XMRTCharger tools
+    case 'xmrt_charger_connect_device':
+      return { 
+        action: 'connect',
+        device_fingerprint: args.device_fingerprint,
+        battery_level: args.battery_level,
+        device_type: args.device_type,
+        ip_address: args.ip_address,
+        user_agent: args.user_agent
+      };
+    
+    case 'xmrt_charger_issue_command':
+      return {
+        action: 'command',
+        device_id: args.device_id,
+        target_all: args.target_all,
+        command_type: args.command_type,
+        command_payload: args.command_payload,
+        priority: args.priority,
+        expires_in_minutes: args.expires_in_minutes
+      };
+    
+    case 'xmrt_charger_validate_pop':
+      return {
+        action: 'validate',
+        wallet_address: args.wallet_address,
+        device_id: args.device_id,
+        event_type: args.event_type,
+        event_data: args.event_data,
+        session_id: args.session_id
+      };
+    
+    case 'xmrt_charger_get_metrics':
+      return {
+        action: 'metrics',
+        timeframe: args.timeframe || 'daily',
+        start_date: args.start_date,
+        end_date: args.end_date
+      };
     
     default:
       return args;

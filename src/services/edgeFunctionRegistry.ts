@@ -346,6 +346,66 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Skill gap analysis', 'Adaptive task routing', 'Agent specialization detection', 'Workload forecasting', 'Proactive debugging', 'Autonomous learning', 'Performance optimization'],
     category: 'autonomous',
     example_use: 'Continuously optimize agent performance, identify skill gaps, route tasks intelligently, forecast workload, and autonomously debug issues'
+  },
+  {
+    name: 'monitor-device-connections',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/monitor-device-connections',
+    description: 'XMRTCharger device lifecycle tracking - monitor connections, disconnections, and heartbeats',
+    capabilities: [
+      'Device connect/disconnect tracking',
+      'Heartbeat monitoring',
+      'Session management',
+      'Battery level tracking',
+      'Command polling',
+      'Real-time device status'
+    ],
+    category: 'monitoring',
+    example_use: 'Track device sessions for xmrtcharger.vercel.app - connect, heartbeat every 30s, disconnect on close'
+  },
+  {
+    name: 'issue-engagement-command',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/issue-engagement-command',
+    description: 'XMRTCharger indirect command system - issue commands to devices via database polling',
+    capabilities: [
+      'Issue device commands',
+      'Command queuing and prioritization',
+      'Device polling support',
+      'Command acknowledgment tracking',
+      'Execution result capture',
+      'Multi-device broadcast'
+    ],
+    category: 'task-management',
+    example_use: 'Send notifications, config updates, or mining control commands to connected devices'
+  },
+  {
+    name: 'validate-pop-event',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/validate-pop-event',
+    description: 'XMRTCharger Proof-of-Participation validation - calculate and record PoP points for device activities',
+    capabilities: [
+      'PoP event validation',
+      'Point calculation (charging, mining, uptime)',
+      'Leaderboard management',
+      'Event history tracking',
+      'Payout tracking',
+      'Multi-method validation'
+    ],
+    category: 'mining',
+    example_use: 'Validate charging sessions and award PoP points based on duration, efficiency, and battery contribution'
+  },
+  {
+    name: 'aggregate-device-metrics',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/aggregate-device-metrics',
+    description: 'XMRTCharger dashboard metrics - aggregate device, session, and PoP data for analytics',
+    capabilities: [
+      'Hourly/daily metric aggregation',
+      'Device activity summaries',
+      'PoP point totals',
+      'Command execution stats',
+      'Anomaly detection summaries',
+      'Top performers tracking'
+    ],
+    category: 'monitoring',
+    example_use: 'Generate dashboard metrics for xmrtcharger.vercel.app showing device activity, PoP earnings, and system health'
   }
 ];
 
