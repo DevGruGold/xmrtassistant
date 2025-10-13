@@ -18,57 +18,63 @@ export class FallbackAIService {
   private static qasPipeline: any = null;
   private static isInitializing = false;
 
-  // Initialize enhanced local AI models
+  // Initialize SmolLM2-360M Office Clerk model
   private static async initializeLocalAI(): Promise<void> {
     if (this.isInitializing) return;
     
     this.isInitializing = true;
     try {
-      console.log('Initializing enhanced local AI models...');
+      console.log('🏢 Initializing Office Clerk (SmolLM2-360M)...');
       
-      // Try reliable Q&A model first (publicly accessible)
+      // Try SmolLM2-360M on WebGPU (best balance of speed/quality)
       try {
-        this.qasPipeline = await pipeline(
-          'question-answering',
-          'Xenova/distilbert-base-cased-distilled-squad',
-          { device: 'webgpu' }
+        this.textGenerationPipeline = await pipeline(
+          'text-generation',
+          'onnx-community/SmolLM2-360M-Instruct',
+          { 
+            dtype: 'q4',        // 4-bit quantization for speed
+            device: 'webgpu'    // Try WebGPU first
+          }
         );
-        console.log('Q&A model initialized successfully');
+        console.log('✅ Office Clerk ready (SmolLM2-360M on WebGPU)');
       } catch (error) {
-        console.warn('Q&A model failed, trying text generation:', error);
+        console.warn('⚠️ WebGPU failed, trying lighter model:', error);
         
-        // Fallback to reliable text generation
+        // Fallback to SmolLM2-135M on WebGPU (lighter)
         try {
           this.textGenerationPipeline = await pipeline(
             'text-generation',
-            'Xenova/gpt2',
+            'HuggingFaceTB/SmolLM2-135M-Instruct',
             { device: 'webgpu' }
           );
-          console.log('Text generation model initialized successfully');
+          console.log('✅ Office Clerk ready (SmolLM2-135M on WebGPU)');
         } catch (tError) {
-          console.warn('WebGPU failed, trying CPU fallback:', tError);
+          console.warn('⚠️ Lighter model failed, trying CPU fallback:', tError);
           
-          // Final fallback to CPU-based model
+          // Final fallback to CPU-based SmolLM2-360M
           try {
             this.textGenerationPipeline = await pipeline(
               'text-generation',
-              'Xenova/distilgpt2',
-              { device: 'cpu' }
+              'onnx-community/SmolLM2-360M-Instruct',
+              { 
+                dtype: 'q4',
+                device: 'cpu' 
+              }
             );
-            console.log('CPU text generation model initialized');
+            console.log('✅ Office Clerk ready (SmolLM2-360M on CPU)');
           } catch (cpuError) {
-            console.error('All models failed:', cpuError);
+            console.error('❌ All Office Clerk models failed:', cpuError);
           }
         }
       }
     } catch (error) {
-      console.error('All local AI models failed to initialize:', error);
+      console.error('❌ Office Clerk initialization failed:', error);
     } finally {
       this.isInitializing = false;
     }
   }
 
-  // Enhanced AI-powered conversation response
+  // SmolLM2-powered Office Clerk response
   static async generateConversationResponse(
     userInput: string,
     context: { miningStats?: MiningStats; userContext?: any }
@@ -76,105 +82,60 @@ export class FallbackAIService {
     try {
       await this.initializeLocalAI();
       
+      if (!this.textGenerationPipeline) {
+        throw new Error('Office Clerk model not initialized');
+      }
+
       // Build contextual knowledge from knowledge base
       const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
-      const knowledgeContext = relevantKnowledge.map(k => k.content).join(' ');
+      const knowledgeContext = relevantKnowledge.slice(0, 2).map(k => k.content).join('\n');
       
-      // Try Q&A model first (more reliable)
-      if (this.qasPipeline && knowledgeContext) {
-        const result = await this.qasPipeline({
-          question: userInput,
-          context: knowledgeContext
-        });
-        
-        if (result.answer && result.score > 0.1) {
-          return {
-            text: `Based on XMRT-DAO knowledge: ${result.answer}`,
-            method: 'Q&A AI',
-            confidence: result.score
-          };
-        }
-      }
+      // Create a chat-formatted prompt for SmolLM2
+      const systemPrompt = `You are the Office Clerk for XMRT-DAO, a helpful AI assistant. You answer questions concisely and accurately based on the provided knowledge.`;
       
-      // Try text generation as fallback
-      if (this.textGenerationPipeline) {
-        const prompt = `XMRT-DAO context: ${knowledgeContext}\nUser question: ${userInput}\nEliza response:`;
-        const result = await this.textGenerationPipeline(prompt, {
-          max_new_tokens: 100,
-          temperature: 0.6,
-          do_sample: true,
-          return_full_text: false,
-          repetition_penalty: 1.1
-        });
-        
-        const response = result[0]?.generated_text?.trim() || '';
-        if (response && response.length > 5) {
-          return {
-            text: response,
-            method: 'Text Generation AI',
-            confidence: 0.65
-          };
-        }
-      }
+      const contextInfo = context.miningStats ? 
+        `\nUser's mining status: ${context.miningStats.isOnline ? 'active' : 'inactive'}, hashrate: ${context.miningStats.hashRate || 0} H/s` : '';
       
-      throw new Error('No suitable AI model available');
-    } catch (error) {
-      console.warn('Conversation AI failed:', error);
-      throw error;
-    }
-  }
+      const prompt = `${systemPrompt}\n\nKnowledge Base:\n${knowledgeContext}${contextInfo}\n\nUser: ${userInput}\nOffice Clerk:`;
 
-  // Enhanced local LLM response generation
-  static async generateLocalLLMResponse(
-    userInput: string,
-    context: { miningStats?: MiningStats; userContext?: any }
-  ): Promise<AIResponse> {
-    try {
-      await this.initializeLocalAI();
-      
-      if (!this.textGenerationPipeline) {
-        throw new Error('Local LLM not available');
-      }
-
-      // Get relevant knowledge for context
-      const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
-      const knowledgeContext = relevantKnowledge.slice(0, 2).map(k => k.content).join(' ');
-      
-      // Create a comprehensive contextual prompt
-      const contextualPrompt = `As Eliza, XMRT-DAO's AI assistant, provide a helpful response to: "${userInput}"
-
-Context: XMRT-DAO is a privacy-focused decentralized ecosystem. ${context.miningStats ? 
-`User's mining: ${context.miningStats.hashRate || 0} H/s, ${context.miningStats.isOnline ? 'active' : 'inactive'}.` : ''}
-
-Knowledge: ${knowledgeContext}
-
-Response:`;
-
-      console.log('Generating response with enhanced local LLM...');
-      const result = await this.textGenerationPipeline(contextualPrompt, {
-        max_new_tokens: 120,
-        temperature: 0.6,
+      console.log('🏢 Office Clerk processing request...');
+      const result = await this.textGenerationPipeline(prompt, {
+        max_new_tokens: 150,
+        temperature: 0.7,
         do_sample: true,
         return_full_text: false,
-        repetition_penalty: 1.1
+        repetition_penalty: 1.2,
+        top_p: 0.9
       });
 
       const generatedText = result[0]?.generated_text?.trim() || '';
       
       // Clean and validate response
       const cleanResponse = generatedText
-        .replace(/^(Response:|Answer:)/i, '')
+        .replace(/^(Response:|Answer:|Office Clerk:)/i, '')
         .trim();
       
-      return {
-        text: cleanResponse || 'I understand your question about XMRT-DAO. How can I assist you further with our decentralized ecosystem?',
-        method: 'Enhanced Local LLM',
-        confidence: cleanResponse ? 0.7 : 0.5
-      };
+      if (cleanResponse && cleanResponse.length > 10) {
+        return {
+          text: cleanResponse,
+          method: 'Office Clerk (SmolLM2-360M)',
+          confidence: 0.75
+        };
+      }
+      
+      throw new Error('Office Clerk generated invalid response');
     } catch (error) {
-      console.error('Enhanced Local LLM failed:', error);
+      console.error('❌ Office Clerk failed:', error);
       throw error;
     }
+  }
+
+  // Simplified: Use the same SmolLM2 method
+  static async generateLocalLLMResponse(
+    userInput: string,
+    context: { miningStats?: MiningStats; userContext?: any }
+  ): Promise<AIResponse> {
+    return this.generateConversationResponse(userInput, context);
   }
 
   // Unified AI response with enhanced fallback chain (NO CANNED RESPONSES)

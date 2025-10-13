@@ -432,8 +432,33 @@ export class UnifiedElizaService {
       }
     }
     
-    // If all executives failed, throw error
-    throw new Error('All AI Executives failed to respond. Please check system status.');
+    // All cloud executives failed - summon the Office Clerk (local browser AI)
+    console.log('🏢 All cloud executives unavailable - summoning Office Clerk (local AI)...');
+    
+    try {
+      const { FallbackAIService } = await import('./fallbackAIService');
+      const localResponse = await FallbackAIService.generateResponse(userInput, {
+        miningStats: contextData.miningStats,
+        userContext: contextData
+      });
+      
+      console.log(`✅ Office Clerk responded: ${localResponse.method}`);
+      
+      // Store the fallback executive
+      (window as any).__lastElizaExecutive = 'office-clerk';
+      
+      // Prepend a notice to the user
+      const clerkResponse = `🏢 **Office Clerk** (Local AI)\n\n${localResponse.text}\n\n` +
+        `*Note: All cloud AI executives are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+      
+      return {
+        response: clerkResponse,
+        hasToolCalls: false
+      };
+    } catch (clerkError) {
+      console.error('❌ Even the Office Clerk failed:', clerkError);
+      throw new Error('All AI services (including local fallback) are unavailable. Please check system status.');
+    }
   }
 
   // Reset OpenAI instance to force re-initialization with new API key
