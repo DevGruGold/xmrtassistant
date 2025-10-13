@@ -15,6 +15,13 @@ major_version = 15
 [realtime]
 enabled = true
 ip_version = "ipv4"
+# Phase 2: Realtime Batching Optimization
+# Batch up to 100 changes per notification to reduce query load
+max_changes = 100
+# Poll for changes every 100ms instead of continuously
+poll_interval_ms = 100
+# Limit message size to prevent memory issues
+max_record_bytes = 1048576
 
 [studio]
 enabled = true
