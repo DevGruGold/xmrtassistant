@@ -1,12 +1,42 @@
 import { useAPIKeyHealth } from "@/services/credentialManager";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Settings } from "lucide-react";
+import { AIExecutiveKeyInput } from "./AIExecutiveKeyInput";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 const EXECUTIVES = [
-  { name: 'Lovable AI', service: 'lovable_ai', role: 'CSO' },
-  { name: 'DeepSeek', service: 'deepseek', role: 'CTO' },
-  { name: 'Gemini', service: 'gemini', role: 'CPO' },
-  { name: 'OpenAI', service: 'openai', role: 'CAO' }
+  { 
+    name: 'Lovable AI', 
+    service: 'lovable_ai', 
+    role: 'CSO',
+    keyPrefix: 'lvbl_',
+    helpUrl: 'https://docs.lovable.dev/features/ai',
+    secretName: 'LOVABLE_API_KEY'
+  },
+  { 
+    name: 'DeepSeek', 
+    service: 'deepseek', 
+    role: 'CTO',
+    keyPrefix: 'sk-',
+    helpUrl: 'https://platform.deepseek.com/api_keys',
+    secretName: 'DEEPSEEK_API_KEY'
+  },
+  { 
+    name: 'Gemini', 
+    service: 'gemini', 
+    role: 'CPO',
+    keyPrefix: 'AIza',
+    helpUrl: 'https://aistudio.google.com/app/apikey',
+    secretName: 'GEMINI_API_KEY'
+  },
+  { 
+    name: 'OpenAI', 
+    service: 'openai', 
+    role: 'CAO',
+    keyPrefix: 'sk-',
+    helpUrl: 'https://platform.openai.com/api-keys',
+    secretName: 'OPENAI_API_KEY'
+  }
 ];
 
 export const ExecutiveStatusIndicator = () => {
@@ -73,35 +103,62 @@ export const ExecutiveStatusIndicator = () => {
         </button>
       </SheetTrigger>
       
-      <SheetContent side="bottom" className="h-auto max-h-[80vh]">
+      <SheetContent side="bottom" className="h-auto max-h-[85vh] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>AI Executive Status</SheetTitle>
+          <SheetTitle>AI Executive Management</SheetTitle>
           <SheetDescription>
-            Real-time health monitoring of all AI executives
+            Monitor health and configure API keys for all AI executives
           </SheetDescription>
         </SheetHeader>
         
-        <div className="mt-6 space-y-4">
-          {EXECUTIVES.map((exec) => {
-            const status = getStatus(exec.service);
-            return (
-              <div 
-                key={exec.service}
-                className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-border"
-              >
-                <div className={`w-3 h-3 rounded-full ${getStatusColor(status)} mt-1 flex-shrink-0`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h4 className="font-semibold text-sm text-foreground">{exec.name}</h4>
-                    <span className="text-xs text-muted-foreground">{exec.role}</span>
+        <Tabs defaultValue="status" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="configure">
+              <Settings className="w-3 h-3 mr-2" />
+              Configure Keys
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="status" className="space-y-4 mt-4">
+            {EXECUTIVES.map((exec) => {
+              const status = getStatus(exec.service);
+              return (
+                <div 
+                  key={exec.service}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30 border border-border"
+                >
+                  <div className={`w-3 h-3 rounded-full ${getStatusColor(status)} mt-1 flex-shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h4 className="font-semibold text-sm text-foreground">{exec.name}</h4>
+                      <span className="text-xs text-muted-foreground">{exec.role}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">{getStatusText(status)}</p>
+                    <p className="text-xs text-muted-foreground/80">{getStatusMessage(exec)}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-1">{getStatusText(status)}</p>
-                  <p className="text-xs text-muted-foreground/80">{getStatusMessage(exec)}</p>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </TabsContent>
+          
+          <TabsContent value="configure" className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Update API keys below. Changes take effect immediately and are verified by the health monitor.
+            </p>
+            {EXECUTIVES.map((exec) => (
+              <AIExecutiveKeyInput
+                key={exec.service}
+                serviceName={exec.service}
+                serviceLabel={exec.name}
+                role={exec.role}
+                keyPrefix={exec.keyPrefix}
+                helpUrl={exec.helpUrl}
+                secretName={exec.secretName}
+              />
+            ))}
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
