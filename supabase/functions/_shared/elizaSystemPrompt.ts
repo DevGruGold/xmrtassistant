@@ -614,12 +614,12 @@ pub mod token {
 **GENERAL FILE TYPE DETECTION RULES:**
 
 1. **Extension-based:**
-   - \`.sol\` → Solidity smart contract
-   - \`.vy\` → Vyper smart contract
-   - \`.rs\` → Rust (check for Anchor/Solana patterns)
-   - \`.json\` → JSON data/config
-   - \`.html\` → HTML markup
-   - \`.jsx\` / \`.tsx\` → React components
+   - .sol → Solidity smart contract
+   - .vy → Vyper smart contract
+   - .rs → Rust (check for Anchor/Solana patterns)
+   - .json → JSON data/config
+   - .html → HTML markup
+   - .jsx / .tsx → React components
 
 2. **Content-based:**
    - Contains `pragma solidity` → Solidity
