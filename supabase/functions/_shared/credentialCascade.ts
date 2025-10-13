@@ -26,25 +26,54 @@ export async function getGitHubCredential(
 
   // 2. Try data access_token (from OAuth flow)
   if (data?.access_token && await validateGitHubToken(data.access_token)) {
-    console.log('✅ Using OAuth access token');
+    console.log('✅ Using OAuth access token from data');
     return data.access_token;
   }
 
-  // 3. Try primary backend secret (GITHUB_TOKEN)
+  // 3. Try OAuth app credentials (PRIORITY for rate limits)
+  // GitHub OAuth apps get 5000 req/hr vs 60 for PATs
+  const clientId = Deno.env.get('GITHUB_CLIENT_ID');
+  const clientSecret = Deno.env.get('GITHUB_CLIENT_SECRET');
+  
+  if (clientId && clientSecret) {
+    try {
+      // Get an OAuth app token for server-to-server requests
+      const tokenResponse = await fetch('https://api.github.com/app/installations', {
+        headers: {
+          'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (tokenResponse.ok) {
+        console.log('✅ Using GitHub OAuth app credentials');
+        // For GraphQL and other API calls, we can use client_credentials flow
+        // Return a marker that tells the caller to use OAuth app auth
+        return `oauth_app:${clientId}:${clientSecret}`;
+      } else {
+        const errorText = await tokenResponse.text();
+        console.warn('⚠️ OAuth app auth failed:', tokenResponse.status, errorText);
+      }
+    } catch (error) {
+      console.warn('⚠️ OAuth app auth error:', error);
+    }
+  }
+
+  // 4. Try primary backend secret (GITHUB_TOKEN) - may hit rate limits
   const primaryToken = Deno.env.get('GITHUB_TOKEN');
   if (primaryToken && await validateGitHubToken(primaryToken)) {
-    console.log('✅ Using backend GITHUB_TOKEN');
+    console.log('✅ Using backend GITHUB_TOKEN (may be rate limited)');
     return primaryToken;
   }
 
-  // 4. Try alternative backend secret (GITHUB_TOKEN_PROOF_OF_LIFE)
+  // 5. Try alternative backend secret (GITHUB_TOKEN_PROOF_OF_LIFE)
   const altToken = Deno.env.get('GITHUB_TOKEN_PROOF_OF_LIFE');
   if (altToken && await validateGitHubToken(altToken)) {
-    console.log('✅ Using backend GITHUB_TOKEN_PROOF_OF_LIFE');
+    console.log('✅ Using backend GITHUB_TOKEN_PROOF_OF_LIFE (may be rate limited)');
     return altToken;
   }
 
-  // 5. All attempts failed - return null to trigger user prompt
+  // 6. All attempts failed - return null to trigger user prompt
   console.warn('⚠️ All GitHub credential sources exhausted');
   return null;
 }

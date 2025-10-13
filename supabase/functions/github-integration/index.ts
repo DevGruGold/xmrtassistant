@@ -119,19 +119,32 @@ serve(async (req) => {
       );
     }
 
-    // Use OAuth access token or PAT for authentication
-    // GitHub PATs need 'token' prefix, OAuth tokens need 'Bearer'
-    const isOAuthToken = accessToken.startsWith('gho_');
-    const authPrefix = isOAuthToken ? 'Bearer' : 'token';
+    // Handle different credential types
+    let headers: Record<string, string>;
     
-    const headers = {
-      'Authorization': `${authPrefix} ${accessToken}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    };
-    
-    console.log(`🔐 Using GitHub auth: ${authPrefix}`);
+    if (accessToken.startsWith('oauth_app:')) {
+      // OAuth app credentials - use client_credentials flow
+      const [, clientId, clientSecret] = accessToken.split(':');
+      const basicAuth = btoa(`${clientId}:${clientSecret}`);
+      headers = {
+        'Authorization': `Basic ${basicAuth}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+      console.log('🔐 Using OAuth app credentials (high rate limit)');
+    } else {
+      // Regular OAuth token or PAT
+      const isOAuthToken = accessToken.startsWith('gho_');
+      const authPrefix = isOAuthToken ? 'Bearer' : 'token';
+      headers = {
+        'Authorization': `${authPrefix} ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      };
+      console.log(`🔐 Using GitHub ${authPrefix} auth`);
+    }
 
     let result;
 
