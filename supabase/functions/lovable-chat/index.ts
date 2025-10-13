@@ -45,23 +45,23 @@ serve(async (req) => {
       // For DeepSeek, we'll call it via its edge function instead
       console.log('⚠️ Lovable AI not available, trying DeepSeek fallback');
       try {
-        const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
-        const deepseekResult = await callThroughGatekeeper({
-          target: 'deepseek-chat',
-          payload: { 
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        
+        const deepseekResult = await fallbackSupabase.functions.invoke('deepseek-chat', {
+          body: { 
             messages, 
             conversationHistory, 
             userContext, 
             miningStats, 
             systemVersion,
             session_credentials 
-          },
-          source: 'lovable-chat'
+          }
         });
 
-        if (deepseekResult.success) {
+        if (!deepseekResult.error && deepseekResult.data) {
           return new Response(
-            JSON.stringify({ success: true, response: deepseekResult.data?.response, provider: 'deepseek' }),
+            JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -231,10 +231,8 @@ serve(async (req) => {
       console.log(`🎬 Auto-triggering orchestrator: ${selectedWorkflow.workflow_name}`);
       
       try {
-        const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
-        const orchestratorResult = await callThroughGatekeeper({
-          target: 'multi-step-orchestrator',
-          payload: {
+        const orchestratorResult = await supabase.functions.invoke('multi-step-orchestrator', {
+          body: {
             workflow: selectedWorkflow,
             userInput,
             context: {
@@ -242,11 +240,10 @@ serve(async (req) => {
               userContext,
               miningStats
             }
-          },
-          source: 'lovable-chat'
+          }
         });
         
-        if (orchestratorResult.success) {
+        if (!orchestratorResult.error && orchestratorResult.data) {
           const orchestratorData = orchestratorResult.data;
           const workflowId = orchestratorData?.workflow_id || 'background_task';
           console.log('✅ Workflow auto-triggered:', workflowId);
@@ -330,10 +327,8 @@ Step types:
           console.log('🎬 Workflow designed:', workflow.workflow_name, '- Steps:', workflow.steps.length);
           
           // Initiate background orchestrator
-          const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
-          const orchestratorResult = await callThroughGatekeeper({
-            target: 'multi-step-orchestrator',
-            payload: {
+          const orchestratorResult = await supabase.functions.invoke('multi-step-orchestrator', {
+            body: {
               workflow,
               userInput,
               context: {
@@ -341,11 +336,10 @@ Step types:
                 userContext,
                 miningStats
               }
-            },
-            source: 'lovable-chat'
+            }
           });
           
-          if (orchestratorResult.success) {
+          if (!orchestratorResult.error && orchestratorResult.data) {
             const orchestratorData = orchestratorResult.data;
             const workflowId = orchestratorData?.workflow_id || 'background_task';
             console.log('✅ Background workflow initiated:', workflowId);

@@ -409,24 +409,24 @@ async function executeDataFetch(step: any, supabase: any) {
 }
 
 async function executeAPICall(step: any, supabaseUrl: string, serviceKey: string) {
-  // Use gatekeeper for edge function calls, direct fetch for external URLs
+  // Direct edge function calls for internal functions, fetch for external URLs
   if (step.function) {
-    const { callThroughGatekeeper } = await import('../_shared/gatekeeperClient.ts');
-    const result = await callThroughGatekeeper({
-      target: step.function,
-      payload: step.body,
-      source: 'multi-step-orchestrator'
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(supabaseUrl, serviceKey);
+    
+    const result = await supabase.functions.invoke(step.function, {
+      body: step.body
     });
     
-    return result.success ? {
+    return !result.error ? {
       success: true,
-      status: result.status,
+      status: 200,
       data: result.data,
       function: step.function
     } : {
       success: false,
-      status: result.status,
-      error: result.error,
+      status: result.error.status || 500,
+      error: result.error.message || result.error,
       attempted_function: step.function
     };
   }
@@ -505,15 +505,19 @@ async function executeDecision(step: any, apiKey: string, context: any) {
 }
 
 async function executeCode(step: any, supabaseUrl: string, serviceKey: string) {
-  const { executePython } = await import('../_shared/gatekeeperClient.ts');
-  const result = await executePython(
-    step.code,
-    step.purpose || 'Workflow step execution',
-    'multi-step-orchestrator'
-  );
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  const supabase = createClient(supabaseUrl, serviceKey);
   
-  return result.success ? result.data : {
-    error: result.error,
+  const result = await supabase.functions.invoke('python-executor', {
+    body: {
+      code: step.code,
+      purpose: step.purpose || 'Workflow step execution',
+      source: 'multi-step-orchestrator'
+    }
+  });
+  
+  return !result.error ? result.data : {
+    error: result.error.message || result.error,
     exitCode: 1
   };
 }
