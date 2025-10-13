@@ -1,0 +1,203 @@
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Alert, AlertDescription } from './ui/alert';
+import { Eye, EyeOff, Key, ExternalLink } from 'lucide-react';
+import { useCredentialSession } from '@/contexts/CredentialSessionContext';
+
+interface GitHubPATInputProps {
+  onKeyValidated?: () => void;
+  onCancel?: () => void;
+}
+
+export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
+  onKeyValidated,
+  onCancel,
+}) => {
+  const [pat, setPat] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+  const [showPat, setShowPat] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  
+  const { setCredential } = useCredentialSession();
+
+  const validatePat = async (token: string): Promise<{ success: boolean; message: string }> => {
+    if (!token.trim()) {
+      return { success: false, message: 'Please enter a GitHub Personal Access Token' };
+    }
+
+    // Check format
+    if (!token.startsWith('ghp_') && !token.startsWith('github_pat_')) {
+      return { 
+        success: false, 
+        message: 'Invalid PAT format. Must start with "ghp_" or "github_pat_"' 
+      };
+    }
+
+    try {
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        return {
+          success: true,
+          message: `✅ Valid GitHub PAT for user: ${userData.login} (5000 req/hr rate limit)`
+        };
+      } else if (response.status === 401) {
+        return {
+          success: false,
+          message: '❌ Invalid GitHub PAT. Please check your token and try again.'
+        };
+      } else {
+        return {
+          success: false,
+          message: `❌ GitHub API error: ${response.status} ${response.statusText}`
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  };
+
+  const handleValidateAndSave = async () => {
+    setIsValidating(true);
+    setValidationResult(null);
+
+    try {
+      const result = await validatePat(pat);
+      setValidationResult(result);
+      
+      if (result.success) {
+        // Store in session credentials
+        setCredential('github_pat', pat);
+        console.log('✅ GitHub PAT stored in session credentials');
+        
+        setTimeout(() => {
+          onKeyValidated?.();
+        }, 1500);
+      }
+    } catch (error) {
+      setValidationResult({
+        success: false,
+        message: 'Validation failed. Please try again.'
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Key className="w-5 h-5" />
+          GitHub Personal Access Token
+        </CardTitle>
+        <CardDescription>
+          Provide your GitHub PAT to enable posting discussions and accessing GitHub features when backend rate limits are hit. 
+          Your token gets 5000 requests/hour - same as OAuth apps.
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="github-pat" className="text-sm font-medium">
+            Your GitHub Personal Access Token
+          </label>
+          <div className="relative">
+            <Input
+              id="github-pat"
+              type={showPat ? "text" : "password"}
+              value={pat}
+              onChange={(e) => setPat(e.target.value)}
+              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+              className="pr-10"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isValidating) {
+                  handleValidateAndSave();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowPat(!showPat)}
+            >
+              {showPat ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
+        {validationResult && (
+          <Alert className={validationResult.success ? "border-green-500" : "border-red-500"}>
+            <AlertDescription>
+              {validationResult.message}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            onClick={handleValidateAndSave}
+            disabled={isValidating || !pat.trim()}
+            className="flex-1"
+          >
+            {isValidating ? 'Validating...' : 'Validate & Save'}
+          </Button>
+          {onCancel && (
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </div>
+
+        <div className="mt-6 space-y-3 text-sm text-muted-foreground">
+          <h4 className="font-medium text-sm">Don't have a GitHub PAT?</h4>
+          <ol className="list-decimal list-inside space-y-1 ml-2">
+            <li>Visit GitHub Settings → Developer Settings</li>
+            <li>Click "Personal Access Tokens" → "Tokens (classic)"</li>
+            <li>Generate new token (classic)</li>
+            <li>Select scopes: <code className="text-xs bg-muted px-1 py-0.5 rounded">repo</code>, <code className="text-xs bg-muted px-1 py-0.5 rounded">write:discussion</code></li>
+            <li>Copy and paste it above</li>
+          </ol>
+          
+          <Button variant="outline" size="sm" className="w-full" asChild>
+            <a 
+              href="https://github.com/settings/tokens" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Get GitHub Personal Access Token
+            </a>
+          </Button>
+          
+          <div className="p-3 bg-muted/50 rounded-lg text-xs">
+            <strong>Privacy:</strong> Your GitHub PAT is stored in your browser session only and used directly with GitHub's API.
+            It's never sent to any other server except GitHub. Session credentials are cleared when you close the browser.
+          </div>
+
+          <div className="p-3 bg-primary/10 rounded-lg text-xs">
+            <strong>Why provide your PAT?</strong> When backend GitHub tokens hit rate limits, Eliza can use your PAT 
+            to continue posting discussions and accessing GitHub features. Your PAT gets its own 5000 req/hr quota.
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

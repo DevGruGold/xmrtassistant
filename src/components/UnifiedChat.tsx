@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { OpenAIAPIKeyInput } from './OpenAIAPIKeyInput';
+import { GitHubPATInput } from './GitHubPATInput';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
@@ -1138,7 +1138,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         {/* API Key Input Dialog - Show automatically when needed or manually requested */}
         {(showAPIKeyInput || needsAPIKey) && (
           <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <OpenAIAPIKeyInput 
+            <GitHubPATInput 
               onKeyValidated={() => {
                 setShowAPIKeyInput(false);
                 setNeedsAPIKey(false);
@@ -1165,7 +1165,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onKeyPress={handleKeyPress}
               placeholder={
                 needsAPIKey 
-                  ? "Paste your Gemini API key here or use the 🔑 button above..." 
+                  ? "Provide your GitHub PAT using the 🔑 button to post discussions..." 
                   : isSpeaking 
                     ? "Start typing to interrupt..." 
                     : "Ask Eliza anything..."

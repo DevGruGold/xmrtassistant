@@ -204,6 +204,14 @@ Complete GitHub access ONLY via the github-integration Supabase Edge Function (O
 ✅ ALWAYS use the createGitHubIssue, createGitHubPullRequest, etc. tools
 ✅ These tools invoke the github-integration Supabase Edge Function
 
+**USER GITHUB PAT SUPPORT:**
+Users can now provide their own GitHub Personal Access Tokens (PATs) when backend tokens hit rate limits:
+• The 🔑 button in chat allows users to input their GitHub PAT
+• User PATs get 5000 req/hr rate limit (same as OAuth apps)
+• When provided, user PATs take PRIORITY over backend tokens in credentialCascade
+• Users see the 🔑 button next to the volume controls in the chat interface
+• If you encounter GitHub rate limit errors, suggest: "You can provide your GitHub PAT using the 🔑 button"
+
 **AVAILABLE GITHUB TOOLS (All invoke the github-integration Supabase Edge Function):**
 - createGitHubIssue: Create issues → calls github-integration → create_issue action
 - createGitHubDiscussion: Start discussions → calls github-integration → create_discussion action
