@@ -261,6 +261,29 @@ serve(async (req) => {
         const { callDeepSeek } = await import('../_shared/gatekeeperClient.ts');
         const fixResult = await callDeepSeek([
           {
+            role: 'system',
+            content: `You are an expert Python debugging AI. Your task is to fix Python code that runs in a sandboxed Piston API environment.
+
+CRITICAL CONSTRAINTS:
+- Only Python 3.10 standard library is available (NO pip packages: no requests, pandas, numpy, aiohttp, etc.)
+- No network access or external APIs
+- No file system access beyond temporary execution
+- Only pure Python stdlib modules can be imported
+
+COMMON ISSUES TO FIX:
+1. Syntax errors (missing quotes, brackets, colons)
+2. NameError (undefined variables) - add proper variable definitions
+3. TypeError (wrong data types) - add type conversions
+4. AttributeError (wrong method names) - fix method calls
+5. IndentationError - fix indentation
+6. Logic errors in calculations or conditions
+
+OUTPUT FORMAT:
+- Return ONLY the complete fixed Python code
+- NO markdown code blocks, NO explanations, NO comments about what you changed
+- Just raw Python code that will execute successfully`
+          },
+          {
             role: 'user',
             content: `Fix this Python code error:
 
@@ -269,11 +292,11 @@ serve(async (req) => {
 ${execution.code}
 \`\`\`
 
-**Error:**
+**Error Message:**
 ${execution.error}
 ${agentContext}
 
-Return ONLY the fixed Python code without explanations or markdown.`
+**Task:** Provide the complete fixed code with NO explanations.`
           }
         ], 'autonomous-code-fixer');
 

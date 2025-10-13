@@ -39,7 +39,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Executing Python code via ${PISTON_API_URL}:`, code.substring(0, 100) + '...');
+    console.log(`🐍 [PYTHON-EXECUTOR] Incoming request - Source: ${source}, Purpose: ${purpose || 'none'}`);
+    console.log(`📝 [CODE] Length: ${code.length} chars, First 100: ${code.substring(0, 100)}...`);
+    console.log(`⚙️ [CONFIG] Piston URL: ${PISTON_API_URL}, Language: ${language}@${version}`);
     const startTime = Date.now();
 
     // Execute code using Piston API
@@ -80,15 +82,22 @@ Deno.serve(async (req) => {
 
     const result = await response.json();
     const executionTime = Date.now() - startTime;
+    const exitCode = result.run?.code || 0;
     
-    console.log('Execution result:', {
-      stdout: result.run?.stdout?.substring(0, 100),
-      stderr: result.run?.stderr?.substring(0, 100),
-      code: result.run?.code
-    });
+    console.log(`⏱️ [TIMING] Execution completed in ${executionTime}ms`);
+    console.log(`📊 [RESULT] Exit code: ${exitCode}`);
+    console.log(`📤 [STDOUT] ${result.run?.stdout?.length || 0} chars: ${result.run?.stdout?.substring(0, 150) || '(empty)'}`);
+    console.log(`❌ [STDERR] ${result.run?.stderr?.length || 0} chars: ${result.run?.stderr?.substring(0, 150) || '(empty)'}`);
+    
+    if (exitCode !== 0) {
+      console.error(`🚨 [FAILURE] Python execution failed with exit code ${exitCode}`);
+      console.error(`🔍 [ERROR DETAILS] ${result.run?.stderr || 'No error details available'}`);
+    } else {
+      console.log(`✅ [SUCCESS] Python execution completed successfully`);
+    }
 
     // Log execution to database for visualization with enhanced metadata
-    const exitCode = result.run?.code || 0;
+    console.log(`💾 [DATABASE] Logging execution to eliza_python_executions...`);
     const logResult = await supabase
       .from('eliza_python_executions')
       .insert({
@@ -108,7 +117,9 @@ Deno.serve(async (req) => {
       });
 
     if (logResult.error) {
-      console.error('Failed to log execution:', logResult.error);
+      console.error('🚨 [DATABASE ERROR] Failed to log execution:', logResult.error);
+    } else {
+      console.log(`✅ [DATABASE] Successfully logged execution`);
     }
 
     // Also log to activity log
@@ -130,11 +141,17 @@ Deno.serve(async (req) => {
     // 🚀 PHASE 5: Instant fix trigger for failed executions
     // Instead of waiting for cron (2 min), trigger fix immediately (real-time)
     if (exitCode === 1 && result.run?.stderr) {
-      console.log('❌ Python execution failed - triggering instant code fix...');
+      console.log('🔧 [AUTO-FIX] Execution failed - triggering instant code monitor daemon...');
+      console.log(`📋 [AUTO-FIX] Error preview: ${result.run.stderr.substring(0, 200)}...`);
+      
       // Fire-and-forget: Don't await to avoid blocking response
       supabase.functions.invoke('code-monitor-daemon', {
         body: { action: 'monitor', priority: 'immediate', source: 'python-executor' }
-      }).catch(err => console.log('⚠️ Background fix trigger failed (non-blocking):', err.message));
+      }).then(() => {
+        console.log('✅ [AUTO-FIX] Code monitor daemon triggered successfully');
+      }).catch(err => {
+        console.error('❌ [AUTO-FIX] Failed to trigger code monitor daemon:', err.message);
+      });
     }
 
     return new Response(

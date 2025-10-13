@@ -130,6 +130,15 @@ export const TaskVisualizer = () => {
       (payload) => {
         console.log('📋 New activity from Eliza:', payload);
         const newActivity = payload.new as ElizaActivity;
+        
+        // Highlight auto-fix activities
+        if (newActivity.activity_type === 'python_fix_success' || 
+            newActivity.activity_type === 'agent_python_fix_success') {
+          console.log('🔧 Auto-fix activity detected!', newActivity);
+        } else if (newActivity.activity_type === 'code_monitoring') {
+          console.log('🔍 Code monitoring activity:', newActivity);
+        }
+        
         setActivities(prev => {
           if (prev.find(a => a.id === newActivity.id)) {
             return prev;
@@ -143,6 +152,24 @@ export const TaskVisualizer = () => {
       }
     );
     unsubscribers.push(activityUnsub);
+
+    // Subscribe to Python executions for real-time monitoring
+    const pythonExecUnsub = realtimeManager.subscribe(
+      'eliza_python_executions',
+      (payload) => {
+        const execution = payload.new as any;
+        if (execution.exit_code === 1) {
+          console.log('❌ Failed Python execution detected:', execution);
+        } else {
+          console.log('✅ Successful Python execution:', execution);
+        }
+      },
+      {
+        event: 'INSERT',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(pythonExecUnsub);
 
     // Subscribe to tasks (INSERT)
     const taskInsertUnsub = realtimeManager.subscribe(
@@ -259,6 +286,9 @@ export const TaskVisualizer = () => {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'python_execution': return '🐍';
+      case 'python_fix_success': return '🔧✅';
+      case 'agent_python_fix_success': return '🤖🔧';
+      case 'code_monitoring': return '🔍';
       case 'task_created': return '📋';
       case 'task_updated': return '✏️';
       case 'agent_spawned': return '🤖';
@@ -310,11 +340,25 @@ export const TaskVisualizer = () => {
                         {formatTimestamp(activity.created_at)}
                       </div>
                     </div>
-                    <Badge
-                      variant={activity.status === 'completed' ? 'default' : activity.status === 'failed' ? 'destructive' : 'secondary'}
-                      className="text-xs"
+                     <Badge
+                      variant={
+                        activity.activity_type === 'python_fix_success' || activity.activity_type === 'agent_python_fix_success' 
+                          ? 'default'
+                          : activity.status === 'completed' 
+                            ? 'default' 
+                            : activity.status === 'failed' 
+                              ? 'destructive' 
+                              : 'secondary'
+                      }
+                      className={
+                        activity.activity_type === 'python_fix_success' || activity.activity_type === 'agent_python_fix_success'
+                          ? 'text-xs bg-green-500 text-white animate-pulse'
+                          : 'text-xs'
+                      }
                     >
-                      {activity.status}
+                      {activity.activity_type === 'python_fix_success' || activity.activity_type === 'agent_python_fix_success'
+                        ? '🔧 Auto-Fixed'
+                        : activity.status}
                     </Badge>
                   </div>
                 ))
