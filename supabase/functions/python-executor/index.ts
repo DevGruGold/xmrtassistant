@@ -98,6 +98,10 @@ Deno.serve(async (req) => {
 
     // Log execution to database for visualization with enhanced metadata
     console.log(`💾 [DATABASE] Logging execution to eliza_python_executions...`);
+    
+    // Determine if this was auto-fixed code (check source)
+    const wasAutoFixed = source === 'autonomous-code-fixer';
+    
     const logResult = await supabase
       .from('eliza_python_executions')
       .insert({
@@ -112,7 +116,8 @@ Deno.serve(async (req) => {
           agent_id: agent_id,
           task_id: task_id,
           language: language,
-          version: version
+          version: version,
+          was_auto_fixed: wasAutoFixed
         }
       });
 
@@ -122,18 +127,26 @@ Deno.serve(async (req) => {
       console.log(`✅ [DATABASE] Successfully logged execution`);
     }
 
-    // Also log to activity log
+    // Also log to activity log with clear source attribution
+    const activityTitle = wasAutoFixed && exitCode === 0
+      ? '🔧 Code Auto-Fixed and Executed Successfully'
+      : exitCode === 0
+      ? '✅ Code Executed Successfully (First Attempt)'
+      : '❌ Code Execution Failed (Awaiting Auto-Fix)';
+    
     await supabase
       .from('eliza_activity_log')
       .insert({
-        activity_type: 'python_execution',
-        title: purpose || 'Python Code Execution',
+        activity_type: wasAutoFixed ? 'python_fix_execution' : 'python_execution',
+        title: activityTitle,
         description: code.substring(0, 150) + (code.length > 150 ? '...' : ''),
         metadata: {
           language,
           version,
           execution_time_ms: executionTime,
-          exit_code: exitCode
+          exit_code: exitCode,
+          was_auto_fixed: wasAutoFixed,
+          source: source
         },
         status: exitCode === 0 ? 'completed' : 'failed'
       });

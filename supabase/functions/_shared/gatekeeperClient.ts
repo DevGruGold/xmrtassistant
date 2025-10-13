@@ -92,10 +92,25 @@ export async function executePython(code: string, purpose: string, source = 'edg
 /**
  * Direct call to DeepSeek Chat through gatekeeper
  */
-export async function callDeepSeek(messages: any[], source = 'edge-function') {
+export async function callDeepSeek(
+  messages: any[], 
+  source = 'edge-function',
+  additionalContext?: {
+    conversationHistory?: any[];
+    userContext?: any;
+    miningStats?: any;
+    systemVersion?: any;
+  }
+) {
   return callThroughGatekeeper({
     target: 'deepseek-chat',
-    payload: { messages },
+    payload: { 
+      messages,
+      conversationHistory: additionalContext?.conversationHistory || [],
+      userContext: additionalContext?.userContext || { ip: 'system', isFounder: false },
+      miningStats: additionalContext?.miningStats || null,
+      systemVersion: additionalContext?.systemVersion || null
+    },
     source,
   });
 }

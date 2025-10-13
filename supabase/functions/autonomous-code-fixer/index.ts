@@ -259,10 +259,13 @@ serve(async (req) => {
           : '';
         
         const { callDeepSeek } = await import('../_shared/gatekeeperClient.ts');
-        const fixResult = await callDeepSeek([
-          {
-            role: 'system',
-            content: `You are an expert Python debugging AI. Your task is to fix Python code that runs in a sandboxed Piston API environment.
+        
+        // Prepare minimal valid context for DeepSeek
+        const fixResult = await callDeepSeek(
+          [
+            {
+              role: 'system',
+              content: `You are an expert Python debugging AI. Your task is to fix Python code that runs in a sandboxed Piston API environment.
 
 CRITICAL CONSTRAINTS:
 - Only Python 3.10 standard library is available (NO pip packages: no requests, pandas, numpy, aiohttp, etc.)
@@ -282,10 +285,10 @@ OUTPUT FORMAT:
 - Return ONLY the complete fixed Python code
 - NO markdown code blocks, NO explanations, NO comments about what you changed
 - Just raw Python code that will execute successfully`
-          },
-          {
-            role: 'user',
-            content: `Fix this Python code error:
+            },
+            {
+              role: 'user',
+              content: `Fix this Python code error:
 
 **Original Code:**
 \`\`\`python
@@ -297,11 +300,23 @@ ${execution.error}
 ${agentContext}
 
 **Task:** Provide the complete fixed code with NO explanations.`
+            }
+          ],
+          'autonomous-code-fixer',
+          {
+            userContext: { 
+              ip: 'code-fixer', 
+              isFounder: false 
+            }
           }
-        ], 'autonomous-code-fixer');
+        );
 
         if (!fixResult.success) {
-          console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, fixResult.error);
+          console.error(`❌ Failed to get fix from DeepSeek for execution ${execution.id}:`, {
+            error: fixResult.error,
+            status: fixResult.status,
+            data: fixResult.data
+          });
           return {
             execution_id: execution.id,
             success: false,
@@ -363,7 +378,7 @@ ${agentContext}
           sourceMetrics[source].fixed++;
           console.log(`✅ Successfully fixed and executed code for ${execution.id} (source: ${source})`);
           
-          // Log the successful fix
+          // Log the successful fix with enhanced metadata
           const { data: successExec } = await supabase.from('eliza_python_executions').insert({
             code: fixedCode,
             output: execResult.data.output || '',
@@ -375,19 +390,23 @@ ${agentContext}
               original_source: source,
               original_execution_id: execution.id,
               agent_id: execution.metadata?.agent_id,
-              task_id: execution.metadata?.task_id
+              task_id: execution.metadata?.task_id,
+              was_auto_fixed: true,
+              fixed_by: 'autonomous-code-fixer',
+              fix_attempt_number: 1,
+              fixed_at: new Date().toISOString()
             }
           }).select().single();
 
-          // Update the activity log with source-specific title
+          // Update the activity log with clear source attribution
           const activityTitle = source === 'eliza' 
-            ? '✅ Eliza Code Auto-Fixed' 
-            : `✅ Agent Code Auto-Fixed (${source})`;
+            ? '🔧 Eliza Code Auto-Fixed and Executed' 
+            : `🔧 Agent Code Auto-Fixed and Executed (${source})`;
           
           await supabase.from('eliza_activity_log').insert({
             activity_type: source === 'eliza' ? 'python_fix_success' : 'agent_python_fix_success',
             title: activityTitle,
-            description: `Fixed Python code for: ${execution.purpose || 'Unknown task'}`,
+            description: `Auto-fixed and successfully executed Python code for: ${execution.purpose || 'Unknown task'}`,
             status: 'completed',
             metadata: {
               original_execution_id: execution.id,
@@ -395,7 +414,9 @@ ${agentContext}
               fixed_code: fixedCode.substring(0, 500),
               source: source,
               agent_id: execution.metadata?.agent_id,
-              task_id: execution.metadata?.task_id
+              task_id: execution.metadata?.task_id,
+              was_auto_fixed: true,
+              fixed_by: 'autonomous-code-fixer'
             },
             mentioned_to_user: false // Eliza will proactively report this
           });

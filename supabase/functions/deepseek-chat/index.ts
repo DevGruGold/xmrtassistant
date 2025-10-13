@@ -19,12 +19,21 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
+    const requestBody = await req.json();
+    const { 
+      messages, 
+      conversationHistory = [], 
+      userContext = { ip: 'unknown', isFounder: false }, 
+      miningStats = null, 
+      systemVersion = null, 
+      session_credentials = null 
+    } = requestBody;
     
     await logger.info('Request received', 'ai_interaction', { 
       messagesCount: messages?.length,
-      hasHistory: !!conversationHistory,
-      userContext 
+      hasHistory: conversationHistory?.length > 0,
+      userContext,
+      source: requestBody.source || 'unknown'
     });
 
     const DEEPSEEK_API_KEY = getAICredential('deepseek', session_credentials);
@@ -47,11 +56,17 @@ serve(async (req) => {
 
     // Validate messages parameter
     if (!messages || !Array.isArray(messages)) {
-      console.error('❌ Invalid messages parameter:', typeof messages);
+      console.error('❌ Invalid messages parameter:', {
+        type: typeof messages,
+        value: messages,
+        requestBody: Object.keys(requestBody)
+      });
+      await logger.error('Invalid request format', new Error('Messages must be an array'), 'validation');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid request: messages must be an array' 
+          error: 'Invalid request: messages must be an array',
+          received: typeof messages
         }),
         { 
           status: 400,
@@ -62,10 +77,11 @@ serve(async (req) => {
 
     console.log('🤖 Deepseek Chat - Processing request with context:', {
       messagesCount: messages?.length,
-      hasHistory: !!conversationHistory,
+      hasHistory: conversationHistory?.length > 0,
       hasMiningStats: !!miningStats,
       hasSystemVersion: !!systemVersion,
-      userContext: userContext
+      userContext: userContext,
+      source: requestBody.source || 'unknown'
     });
 
     // Build system prompt using shared utilities
