@@ -3,8 +3,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { Eye, EyeOff, Key, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Key, ExternalLink, Github } from 'lucide-react';
 import { useCredentialSession } from '@/contexts/CredentialSessionContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Label } from './ui/label';
 
 interface GitHubPATInputProps {
   onKeyValidated?: () => void;
@@ -16,11 +18,15 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
   onCancel,
 }) => {
   const [pat, setPat] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [repoOwner, setRepoOwner] = useState('DevGruGold');
+  const [repoName, setRepoName] = useState('XMRT-Ecosystem');
   const [isValidating, setIsValidating] = useState(false);
   const [showPat, setShowPat] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     success: boolean;
     message: string;
+    username?: string;
   } | null>(null);
   
   const { setCredential } = useCredentialSession();
@@ -75,18 +81,73 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
     setIsValidating(true);
     setValidationResult(null);
 
+    // Validate wallet address format
+    if (!walletAddress || !/^(0x)?[0-9a-fA-F]{40}$/.test(walletAddress)) {
+      setValidationResult({
+        success: false,
+        message: '❌ Invalid wallet address format. Must be 42 characters starting with 0x.'
+      });
+      setIsValidating(false);
+      return;
+    }
+
     try {
       const result = await validatePat(pat);
-      setValidationResult(result);
       
       if (result.success) {
+        // Extract username from success message
+        const usernameMatch = result.message.match(/user: (\w+)/);
+        const username = usernameMatch ? usernameMatch[1] : '';
+        
+        setValidationResult({
+          ...result,
+          username
+        });
+        
+        // Validate repository exists and is public
+        const repoResponse = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}`, {
+          headers: {
+            'Authorization': `Bearer ${pat}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+
+        if (!repoResponse.ok) {
+          setValidationResult({
+            success: false,
+            message: `❌ Repository ${repoOwner}/${repoName} not found or not accessible`
+          });
+          setIsValidating(false);
+          return;
+        }
+
         // Store in session credentials
         setCredential('github_pat', pat);
+        setCredential('github_username', username);
+        setCredential('wallet_address', walletAddress);
+        setCredential('target_repo', `${repoOwner}/${repoName}`);
+        
         console.log('✅ GitHub PAT stored in session credentials');
+        
+        // Register contributor in database
+        try {
+          await supabase.from('github_contributors').upsert({
+            github_username: username,
+            wallet_address: walletAddress,
+            target_repo_owner: repoOwner,
+            target_repo_name: repoName,
+            pat_last_validated: new Date().toISOString(),
+            is_active: true,
+          }, {
+            onConflict: 'github_username'
+          });
+          console.log('✅ Contributor profile created/updated');
+        } catch (dbError) {
+          console.warn('⚠️ Could not update contributor profile:', dbError);
+        }
         
         // Update api_key_health table via edge function
         try {
-          const { supabase } = await import('@/integrations/supabase/client');
           await supabase.functions.invoke('api-key-health-monitor', {
             body: { session_credentials: { github_pat: pat } }
           });
@@ -98,6 +159,8 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
         setTimeout(() => {
           onKeyValidated?.();
         }, 1500);
+      } else {
+        setValidationResult(result);
       }
     } catch (error) {
       setValidationResult({
@@ -124,9 +187,7 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
       
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <label htmlFor="github-pat" className="text-sm font-medium">
-            Your GitHub Personal Access Token
-          </label>
+          <Label htmlFor="github-pat">Your GitHub Personal Access Token</Label>
           <div className="relative">
             <Input
               id="github-pat"
@@ -135,11 +196,6 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
               onChange={(e) => setPat(e.target.value)}
               placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
               className="pr-10"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isValidating) {
-                  handleValidateAndSave();
-                }
-              }}
             />
             <Button
               type="button"
@@ -153,6 +209,41 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="wallet-address">Your Wallet Address (for XMRT rewards)</Label>
+          <Input
+            id="wallet-address"
+            type="text"
+            value={walletAddress}
+            onChange={(e) => setWalletAddress(e.target.value)}
+            placeholder="0x..."
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Target Repository</Label>
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={repoOwner}
+              onChange={(e) => setRepoOwner(e.target.value)}
+              placeholder="Owner"
+              className="flex-1"
+            />
+            <span className="self-center">/</span>
+            <Input
+              type="text"
+              value={repoName}
+              onChange={(e) => setRepoName(e.target.value)}
+              placeholder="Repository"
+              className="flex-1"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Default: DevGruGold/XMRT-Ecosystem (can target any public repo)
+          </p>
+        </div>
+
         {validationResult && (
           <Alert className={validationResult.success ? "border-green-500" : "border-red-500"}>
             <AlertDescription>
@@ -164,10 +255,10 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
         <div className="flex gap-2">
           <Button
             onClick={handleValidateAndSave}
-            disabled={isValidating || !pat.trim()}
+            disabled={isValidating || !pat.trim() || !walletAddress.trim()}
             className="flex-1"
           >
-            {isValidating ? 'Validating...' : 'Validate & Save'}
+            {isValidating ? 'Validating...' : 'Validate & Register as Contributor'}
           </Button>
           {onCancel && (
             <Button variant="outline" onClick={onCancel}>

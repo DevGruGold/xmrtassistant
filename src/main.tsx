@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import App from './App.tsx'
+import Contributors from './pages/Contributors.tsx'
 import './index.css'
 import { memoryVectorizationWorker } from './services/memoryVectorizationWorker'
 import { CredentialSessionProvider } from './contexts/CredentialSessionContext'
@@ -9,6 +11,11 @@ memoryVectorizationWorker.start();
 
 createRoot(document.getElementById("root")!).render(
   <CredentialSessionProvider>
-    <App />
+    <Router>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/contributors" element={<Contributors />} />
+      </Routes>
+    </Router>
   </CredentialSessionProvider>
 );

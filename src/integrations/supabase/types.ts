@@ -1733,6 +1733,135 @@ export type Database = {
         }
         Relationships: []
       }
+      github_contributions: {
+        Row: {
+          contribution_data: Json
+          contribution_type: Database["public"]["Enums"]["contribution_type"]
+          created_at: string | null
+          github_url: string
+          github_username: string
+          harm_reason: string | null
+          id: string
+          is_harmful: boolean | null
+          is_validated: boolean | null
+          metadata: Json | null
+          repo_name: string
+          repo_owner: string
+          reward_calculated_at: string | null
+          reward_paid_at: string | null
+          updated_at: string | null
+          validation_reason: string | null
+          validation_score: number | null
+          wallet_address: string
+          xmrt_earned: number | null
+        }
+        Insert: {
+          contribution_data?: Json
+          contribution_type: Database["public"]["Enums"]["contribution_type"]
+          created_at?: string | null
+          github_url: string
+          github_username: string
+          harm_reason?: string | null
+          id?: string
+          is_harmful?: boolean | null
+          is_validated?: boolean | null
+          metadata?: Json | null
+          repo_name: string
+          repo_owner: string
+          reward_calculated_at?: string | null
+          reward_paid_at?: string | null
+          updated_at?: string | null
+          validation_reason?: string | null
+          validation_score?: number | null
+          wallet_address: string
+          xmrt_earned?: number | null
+        }
+        Update: {
+          contribution_data?: Json
+          contribution_type?: Database["public"]["Enums"]["contribution_type"]
+          created_at?: string | null
+          github_url?: string
+          github_username?: string
+          harm_reason?: string | null
+          id?: string
+          is_harmful?: boolean | null
+          is_validated?: boolean | null
+          metadata?: Json | null
+          repo_name?: string
+          repo_owner?: string
+          reward_calculated_at?: string | null
+          reward_paid_at?: string | null
+          updated_at?: string | null
+          validation_reason?: string | null
+          validation_score?: number | null
+          wallet_address?: string
+          xmrt_earned?: number | null
+        }
+        Relationships: []
+      }
+      github_contributors: {
+        Row: {
+          avg_validation_score: number | null
+          ban_reason: string | null
+          created_at: string | null
+          first_contribution_at: string | null
+          github_username: string
+          harmful_contribution_count: number | null
+          id: string
+          is_active: boolean | null
+          is_banned: boolean | null
+          last_contribution_at: string | null
+          metadata: Json | null
+          pat_last_validated: string | null
+          target_repo_name: string | null
+          target_repo_owner: string | null
+          total_contributions: number | null
+          total_xmrt_earned: number | null
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          avg_validation_score?: number | null
+          ban_reason?: string | null
+          created_at?: string | null
+          first_contribution_at?: string | null
+          github_username: string
+          harmful_contribution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_banned?: boolean | null
+          last_contribution_at?: string | null
+          metadata?: Json | null
+          pat_last_validated?: string | null
+          target_repo_name?: string | null
+          target_repo_owner?: string | null
+          total_contributions?: number | null
+          total_xmrt_earned?: number | null
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          avg_validation_score?: number | null
+          ban_reason?: string | null
+          created_at?: string | null
+          first_contribution_at?: string | null
+          github_username?: string
+          harmful_contribution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_banned?: boolean | null
+          last_contribution_at?: string | null
+          metadata?: Json | null
+          pat_last_validated?: string | null
+          target_repo_name?: string | null
+          target_repo_owner?: string | null
+          total_contributions?: number | null
+          total_xmrt_earned?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       interaction_patterns: {
         Row: {
           confidence_score: number | null
@@ -3482,6 +3611,7 @@ export type Database = {
         | "send_notification"
         | "request_diagnostic_report"
         | "update_configuration"
+      contribution_type: "commit" | "issue" | "pr" | "discussion" | "comment"
       pop_event_type:
         | "charging_session_completed"
         | "calibration_performed"
@@ -3645,6 +3775,7 @@ export const Constants = {
         "request_diagnostic_report",
         "update_configuration",
       ],
+      contribution_type: ["commit", "issue", "pr", "discussion", "comment"],
       pop_event_type: [
         "charging_session_completed",
         "calibration_performed",

@@ -262,3 +262,10 @@ verify_jwt = false
 [functions.aggregate-device-metrics]
 verify_jwt = false
 
+# Contributor Incentive Functions
+[functions.validate-github-contribution]
+verify_jwt = true
+
+[functions.process-contributor-reward]
+verify_jwt = true
+
