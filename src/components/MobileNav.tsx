@@ -40,6 +40,13 @@ export function MobileNav() {
             >
               {t('nav.treasury')}
             </Link>
+            <Link
+              to="/contributors"
+              className="text-2xl font-bold text-white hover:text-purple-400 transition-colors"
+              onClick={toggleMenu}
+            >
+              🏆 Contributors
+            </Link>
           </nav>
         </div>
       )}

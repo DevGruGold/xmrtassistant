@@ -297,6 +297,10 @@ export const TaskVisualizer = () => {
       case 'workflow_step_completed': return '✅';
       case 'workflow_step_failed': return '❌';
       case 'autonomous_decision': return '🧠';
+      case 'github_contribution_validated': return '🎯';
+      case 'xmrt_reward_paid': return '💰';
+      case 'contributor_joined': return '🤝';
+      case 'batch_vectorization': return '🧠';
       default: return '✨';
     }
   };
@@ -331,10 +335,17 @@ export const TaskVisualizer = () => {
                     className="p-2 rounded-md bg-card/50 border border-border flex items-start gap-2 text-sm"
                   >
                     <span className="text-lg">{getActivityIcon(activity.activity_type)}</span>
-                    <div className="flex-1 min-w-0">
+                     <div className="flex-1 min-w-0">
                       <div className="font-medium">{activity.title}</div>
                       {activity.description && (
                         <div className="text-xs text-muted-foreground truncate">{activity.description}</div>
+                      )}
+                      {activity.metadata?.github_username && (
+                        <div className="text-xs text-primary mt-1">
+                          @{activity.metadata.github_username}
+                          {activity.metadata.xmrt_amount && ` • ${activity.metadata.xmrt_amount} XMRT`}
+                          {activity.metadata.validation_score && ` • Score: ${activity.metadata.validation_score}/100`}
+                        </div>
                       )}
                       <div className="text-xs text-muted-foreground mt-1">
                         {formatTimestamp(activity.created_at)}
