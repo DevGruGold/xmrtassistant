@@ -120,12 +120,18 @@ serve(async (req) => {
     }
 
     // Use OAuth access token or PAT for authentication
+    // GitHub PATs need 'token' prefix, OAuth tokens need 'Bearer'
+    const isOAuthToken = accessToken.startsWith('gho_');
+    const authPrefix = isOAuthToken ? 'Bearer' : 'token';
+    
     const headers = {
-      'Authorization': `Bearer ${accessToken}`,
+      'Authorization': `${authPrefix} ${accessToken}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
       'X-GitHub-Api-Version': '2022-11-28',
     };
+    
+    console.log(`🔐 Using GitHub auth: ${authPrefix}`);
 
     let result;
 

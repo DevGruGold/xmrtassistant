@@ -54,15 +54,34 @@ export async function getGitHubCredential(
  */
 async function validateGitHubToken(token: string): Promise<boolean> {
   try {
-    const response = await fetch('https://api.github.com/user', {
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json'
+    // Try both Bearer (OAuth) and token (PAT) authentication formats
+    const authHeaders = [
+      `Bearer ${token}`,
+      `token ${token}`
+    ];
+    
+    for (const authHeader of authHeaders) {
+      const response = await fetch('https://api.github.com/user', {
+        headers: { 
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (response.ok) {
+        console.log(`✅ Token validated with auth: ${authHeader.split(' ')[0]}`);
+        return true;
       }
-    });
-    return response.ok;
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`Token validation failed with ${authHeader.split(' ')[0]}:`, response.status, errorText);
+      }
+    }
+    
+    return false;
   } catch (error) {
-    console.warn('Token validation failed:', error);
+    console.warn('Token validation error:', error);
     return false;
   }
 }
