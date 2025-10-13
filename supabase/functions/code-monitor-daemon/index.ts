@@ -18,6 +18,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action = 'monitor' } = await req.json().catch(() => ({ action: 'monitor' }));
+    
+    // Use service role key for internal function calls
+    const authHeader = `Bearer ${supabaseKey}`;
 
     console.log(`🔍 Code Monitor Daemon - Action: ${action}`);
 
@@ -51,6 +54,9 @@ serve(async (req) => {
 
       // Trigger the autonomous code fixer (it will skip GitHub operations if no token)
       const { data: fixerResult, error: fixerError } = await supabase.functions.invoke('autonomous-code-fixer', {
+        headers: {
+          Authorization: authHeader
+        },
         body: { github_enabled: hasHealthyGitHubToken }
       });
 
