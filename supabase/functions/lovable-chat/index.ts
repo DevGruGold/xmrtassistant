@@ -2145,14 +2145,50 @@ Respond ONLY with valid JSON (no markdown):
         const args = JSON.parse(toolCall.function.arguments || '{}');
         
         if (toolCall.function.name === 'executePython') {
+          // CRITICAL: Log the Python execution attempt to eliza_python_executions
+          // This ensures the code-monitor-daemon can detect failures and auto-fix
+          console.log('🐍 Eliza executing Python code...');
+          
           const { data: pyResult, error: pyError } = await supabase.functions.invoke('python-executor', {
-            body: { code: args.code, purpose: args.purpose, source: args.source || 'eliza' }
+            body: { 
+              code: args.code, 
+              purpose: args.purpose || 'Code execution requested by Eliza', 
+              source: 'eliza' // Mark as Eliza's execution for auto-fixing
+            }
           });
           
-          if (pyError) throw pyError;
-          return new Response(JSON.stringify({ success: true, toolResult: pyResult, toolName: 'executePython', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          if (pyError || !pyResult?.success) {
+            // Execution failed - log it for autonomous fixer to detect
+            console.error('❌ Python execution failed - autonomous-code-fixer will auto-fix:', pyError || pyResult);
+            
+            // The failure is already logged in eliza_python_executions by python-executor
+            // code-monitor-daemon will detect it within 1 minute and trigger autonomous-code-fixer
+            // The fixer will re-execute and return results via eliza_activity_log
+            
+            return new Response(JSON.stringify({ 
+              success: true, 
+              toolResult: {
+                status: 'failed',
+                error: pyResult?.error || pyError?.message,
+                autoFixTriggered: true,
+                message: '⚠️ Code execution failed but autonomous-code-fixer will automatically fix and re-execute this within 1 minute. Check the Task Pipeline Visualizer for live updates.'
+              },
+              toolName: 'executePython', 
+              hasToolCalls: true 
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+          
+          // Execution succeeded - return results immediately
+          console.log('✅ Python execution succeeded:', pyResult);
+          return new Response(JSON.stringify({ 
+            success: true, 
+            toolResult: pyResult, 
+            toolName: 'executePython', 
+            hasToolCalls: true 
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         
         } else if (toolCall.function.name === 'getPythonExecutions') {
+          // Fetch recent Python executions for Eliza to review
           const { data: execs, error: execError } = await supabase
             .from('eliza_python_executions')
             .select('*')
@@ -2161,7 +2197,28 @@ Respond ONLY with valid JSON (no markdown):
             .limit(args.limit || 20);
           
           if (execError) throw execError;
-          return new Response(JSON.stringify({ success: true, toolResult: execs, toolName: 'getPythonExecutions', hasToolCalls: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          
+          // Check if any failed executions were auto-fixed
+          const autoFixedExecs = await supabase
+            .from('eliza_activity_log')
+            .select('*')
+            .eq('activity_type', 'python_fix_success')
+            .gte('created_at', new Date(Date.now() - 3600000).toISOString()) // Last hour
+            .order('created_at', { ascending: false })
+            .limit(10);
+          
+          const formattedExecs = {
+            recent_executions: execs,
+            recent_auto_fixes: autoFixedExecs.data || [],
+            summary: `Found ${execs?.length || 0} recent executions and ${autoFixedExecs.data?.length || 0} autonomous fixes`
+          };
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            toolResult: formattedExecs, 
+            toolName: 'getPythonExecutions', 
+            hasToolCalls: true 
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
       }
       

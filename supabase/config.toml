@@ -269,3 +269,6 @@ verify_jwt = true
 [functions.process-contributor-reward]
 verify_jwt = true
 
+[functions.fetch-auto-fix-results]
+verify_jwt = false
+
