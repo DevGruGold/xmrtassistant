@@ -46,8 +46,8 @@ serve(async (req) => {
 
     console.log('🤖 Autonomous Code Fixer - Starting scan for failed executions...');
 
-    // 🔧 PHASE 3: Adjusted circuit breaker for faster runs (10 runs/min instead of 5)
-    // Allows 2-minute cron + instant triggers without tripping breaker
+    // 🔧 PHASE 3: Relaxed circuit breaker for 1-minute cron cycles (30 runs/min max)
+    // Allows frequent monitoring without tripping breaker
     const { data: recentRuns } = await supabase
       .from('eliza_activity_log')
       .select('created_at')
@@ -55,8 +55,8 @@ serve(async (req) => {
       .gte('created_at', new Date(Date.now() - 60000).toISOString()) // Last 1 minute
       .order('created_at', { ascending: false });
 
-    if (recentRuns && recentRuns.length > 10) {
-      console.log('⏸️ Circuit breaker triggered - too many runs in the last minute (>10). Pausing.');
+    if (recentRuns && recentRuns.length > 30) {
+      console.log('⏸️ Circuit breaker triggered - too many runs in the last minute (>30). Pausing.');
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'Circuit breaker active - pausing to prevent runaway loop',
