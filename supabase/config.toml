@@ -116,13 +116,13 @@ schedule = "35 11 * * *"
 verify_jwt = false
 
 [functions.autonomous-code-fixer]
-verify_jwt = true
+verify_jwt = false
 
 [functions.cleanup-duplicate-tasks]
-verify_jwt = true
+verify_jwt = false
 
 [functions.code-monitor-daemon]
-verify_jwt = true
+verify_jwt = false
 
 [functions.conversation-access]
 verify_jwt = true
@@ -155,7 +155,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.python-executor]
-verify_jwt = true
+verify_jwt = false
 
 [functions.render-api]
 verify_jwt = true
@@ -164,7 +164,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.system-diagnostics]
-verify_jwt = true
+verify_jwt = false
 
 [functions.task-orchestrator]
 verify_jwt = true
