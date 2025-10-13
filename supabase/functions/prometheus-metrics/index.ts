@@ -34,14 +34,22 @@ serve(async (req) => {
       { data: executions },
       { data: activityLogs },
       { data: conversations },
-      { data: knowledgeEntities }
+      { data: knowledgeEntities },
+      { data: devices },
+      { data: chargingSessions },
+      { data: popEvents },
+      { data: commands }
     ] = await Promise.all([
       supabase.from('agents').select('*'),
       supabase.from('tasks').select('*'),
       supabase.from('eliza_python_executions').select('*').gte('created_at', new Date(Date.now() - 3600000).toISOString()),
       supabase.from('eliza_activity_log').select('*').gte('created_at', new Date(Date.now() - 3600000).toISOString()),
       supabase.from('conversation_sessions').select('*'),
-      supabase.from('knowledge_entities').select('*')
+      supabase.from('knowledge_entities').select('*'),
+      supabase.from('devices').select('is_active, device_type'),
+      supabase.from('charging_sessions').select('efficiency_score').gte('started_at', new Date(Date.now() - 3600000).toISOString()),
+      supabase.from('pop_events_ledger').select('pop_points, is_validated').gte('created_at', new Date(Date.now() - 3600000).toISOString()),
+      supabase.from('engagement_commands').select('status').gte('issued_at', new Date(Date.now() - 3600000).toISOString())
     ]);
 
     // Build Prometheus metrics
@@ -112,11 +120,53 @@ serve(async (req) => {
       metrics += formatPrometheusMetric('eliza_knowledge_entities_by_type', count, { type }, 'Knowledge entities by type');
     });
 
-    // Health score metric
+    // XMRTCharger device metrics
+    const activeDeviceCount = devices?.filter(d => d.is_active).length || 0;
+    metrics += formatPrometheusMetric('xmrt_devices_total', devices?.length || 0, {}, 'Total registered XMRTCharger devices');
+    metrics += formatPrometheusMetric('xmrt_devices_active', activeDeviceCount, {}, 'Currently active devices');
+
+    const devicesByType = devices?.reduce((acc, d) => {
+      acc[d.device_type || 'unknown'] = (acc[d.device_type || 'unknown'] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    Object.entries(devicesByType).forEach(([type, count]) => {
+      metrics += formatPrometheusMetric('xmrt_devices_by_type', count, { type }, 'Devices by type');
+    });
+
+    // Charging session metrics (last hour)
+    const avgEfficiency = chargingSessions?.length
+      ? chargingSessions.reduce((sum, s) => sum + (s.efficiency_score || 0), 0) / chargingSessions.length
+      : 0;
+    metrics += formatPrometheusMetric('xmrt_charging_sessions_total', chargingSessions?.length || 0, { period: 'last_hour' }, 'Charging sessions in last hour');
+    metrics += formatPrometheusMetric('xmrt_charging_efficiency_avg', avgEfficiency, {}, 'Average charging efficiency percentage');
+
+    // PoP event metrics (last hour)
+    const validatedEvents = popEvents?.filter(e => e.is_validated).length || 0;
+    const totalPoints = popEvents?.reduce((sum, e) => sum + Number(e.pop_points || 0), 0) || 0;
+    metrics += formatPrometheusMetric('xmrt_pop_events_total', popEvents?.length || 0, { period: 'last_hour' }, 'PoP events in last hour');
+    metrics += formatPrometheusMetric('xmrt_pop_events_validated', validatedEvents, { period: 'last_hour' }, 'Validated PoP events');
+    metrics += formatPrometheusMetric('xmrt_pop_points_total', totalPoints, { period: 'last_hour' }, 'Total PoP points awarded in last hour');
+
+    // Engagement command metrics (last hour)
+    const commandsByStatus = commands?.reduce((acc, c) => {
+      acc[c.status] = (acc[c.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
+    metrics += formatPrometheusMetric('xmrt_commands_total', commands?.length || 0, { period: 'last_hour' }, 'Engagement commands issued in last hour');
+    Object.entries(commandsByStatus).forEach(([status, count]) => {
+      metrics += formatPrometheusMetric('xmrt_commands_by_status', count, { status, period: 'last_hour' }, 'Commands by status');
+    });
+
+    // Health score metric (including XMRTCharger)
     let healthScore = 100;
     if (tasksByStatus['BLOCKED']) healthScore -= tasksByStatus['BLOCKED'] * 5;
     if (agentsByStatus['ERROR']) healthScore -= agentsByStatus['ERROR'] * 10;
     if (successRate < 70) healthScore -= (70 - successRate);
+    if (activeDeviceCount === 0 && (devices?.length || 0) > 5) healthScore -= 5;
+    if (avgEfficiency < 70 && (chargingSessions?.length || 0) > 10) healthScore -= 5;
+    if (validatedEvents < (popEvents?.length || 0) * 0.8) healthScore -= 5;
     healthScore = Math.max(0, Math.min(100, healthScore));
 
     metrics += formatPrometheusMetric('eliza_health_score', healthScore, {}, 'Overall system health score (0-100)');

@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 import { EdgeFunctionLogger } from "../_shared/logging.ts";
+import { formatSystemReport, SystemReport } from "../_shared/reportFormatter.ts";
 
 const logger = EdgeFunctionLogger('system-health');
 
@@ -39,7 +40,11 @@ serve(async (req) => {
       skillGaps,
       learningSessions,
       workflowStats,
-      conversationStats
+      conversationStats,
+      deviceStats,
+      chargingStats,
+      popStats,
+      commandStats
     ] = await Promise.all([
       // Agent stats
       supabase.from('agents').select('status').then(({ data }) => {
@@ -165,6 +170,68 @@ serve(async (req) => {
             stats[m.message_type] = (stats[m.message_type] || 0) + 1;
           });
           return stats;
+        }),
+
+      // XMRTCharger Device stats
+      supabase.from('devices').select('is_active, device_type').then(({ data }) => {
+        const stats = { 
+          total: data?.length || 0, 
+          active: data?.filter(d => d.is_active).length || 0,
+          by_type: {} as Record<string, number>
+        };
+        data?.forEach(d => {
+          const type = d.device_type || 'unknown';
+          stats.by_type[type] = (stats.by_type[type] || 0) + 1;
+        });
+        return stats;
+      }),
+
+      // Active charging sessions (last 24h)
+      supabase.from('charging_sessions')
+        .select('efficiency_score, duration_seconds')
+        .gte('started_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .then(({ data }) => {
+          const stats = {
+            total: data?.length || 0,
+            avg_efficiency: data?.length 
+              ? Math.round(data.reduce((sum, s) => sum + (s.efficiency_score || 0), 0) / data.length)
+              : 0,
+            avg_duration_min: data?.length
+              ? Math.round(data.reduce((sum, s) => sum + (s.duration_seconds || 0), 0) / data.length / 60)
+              : 0
+          };
+          return stats;
+        }),
+
+      // PoP events (last 24h)
+      supabase.from('pop_events_ledger')
+        .select('pop_points, is_validated, is_paid_out')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .then(({ data }) => {
+          const stats = {
+            total: data?.length || 0,
+            validated: data?.filter(e => e.is_validated).length || 0,
+            paid_out: data?.filter(e => e.is_paid_out).length || 0,
+            total_points: data?.reduce((sum, e) => sum + Number(e.pop_points || 0), 0) || 0
+          };
+          return stats;
+        }),
+
+      // Engagement commands (last 1 hour)
+      supabase.from('engagement_commands')
+        .select('status')
+        .gte('issued_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+        .then(({ data }) => {
+          const stats = { 
+            total: data?.length || 0, 
+            pending: 0, 
+            executed: 0, 
+            failed: 0 
+          };
+          data?.forEach(c => {
+            stats[c.status] = (stats[c.status] || 0) + 1;
+          });
+          return stats;
         })
     ]);
 
@@ -191,36 +258,76 @@ serve(async (req) => {
       issues.push({ severity: 'warning', message: `${taskStats.BLOCKED} blocked task(s) need attention` });
     }
 
+    // XMRTCharger health checks
+    if (deviceStats.active === 0 && deviceStats.total > 5) {
+      healthScore -= 5;
+      issues.push({ 
+        severity: 'warning', 
+        message: 'No active XMRTCharger devices connected' 
+      });
+    }
+
+    if (chargingStats.avg_efficiency < 70 && chargingStats.total > 10) {
+      healthScore -= 5;
+      issues.push({ 
+        severity: 'warning', 
+        message: `Low charging efficiency: ${chargingStats.avg_efficiency}%` 
+      });
+    }
+
+    if (commandStats.failed > 5) {
+      healthScore -= 10;
+      issues.push({ 
+        severity: 'high', 
+        message: `${commandStats.failed} engagement commands failed` 
+      });
+    }
+
     // Determine health status
     let status = 'healthy';
     if (healthScore < 50) status = 'critical';
     else if (healthScore < 70) status = 'degraded';
     else if (healthScore < 90) status = 'warning';
 
-    const healthReport = {
+    const healthReport: SystemReport = {
       timestamp: new Date().toISOString(),
       overall_health: {
         score: Math.max(0, healthScore),
         status,
         issues
       },
-      agents: agentStats,
-      tasks: taskStats,
-      python_executions_24h: pythonExecStats,
-      api_keys: apiKeyHealth,
-      recent_activity_1h: recentActivity,
-      skill_gaps: skillGaps,
-      learning: learningSessions,
-      workflows: workflowStats,
-      conversations_24h: conversationStats,
+      components: {
+        agents: agentStats,
+        tasks: taskStats,
+        python_executions: pythonExecStats,
+        api_keys: apiKeyHealth,
+        recent_activity: recentActivity,
+        skill_gaps: skillGaps,
+        learning: learningSessions,
+        workflows: workflowStats,
+        conversations: conversationStats,
+        xmrt_charger: {
+          devices: deviceStats,
+          charging_24h: chargingStats,
+          pop_events_24h: popStats,
+          commands_1h: commandStats
+        }
+      },
       recommendations: generateRecommendations(
         agentStats,
         taskStats,
         pythonExecStats,
         apiKeyHealth,
-        skillGaps
+        skillGaps,
+        deviceStats,
+        chargingStats,
+        popStats,
+        commandStats
       )
     };
+
+    // Generate formatted report
+    const formattedReport = formatSystemReport(healthReport);
 
     const executionTime = Date.now() - startTime;
 
@@ -295,7 +402,7 @@ serve(async (req) => {
       metadata: { health_score: healthScore, status, issues_count: issues.length }
     });
 
-    console.log(`✅ System Health Report: ${status} (${healthScore}/100)`);
+    console.log(formattedReport);
 
     await logger.info(`Health check complete - ${status} (${healthScore}/100)`, 'system_health', {
       healthScore,
@@ -322,14 +429,26 @@ serve(async (req) => {
   }
 });
 
-function generateRecommendations(agentStats, taskStats, pythonStats, apiKeyHealth, skillGaps) {
+function generateRecommendations(
+  agentStats: any, 
+  taskStats: any, 
+  pythonStats: any, 
+  apiKeyHealth: any, 
+  skillGaps: any,
+  deviceStats: any,
+  chargingStats: any,
+  popStats: any,
+  commandStats: any
+) {
   const recommendations = [];
 
   if (apiKeyHealth.unhealthy > 0) {
     recommendations.push({
       priority: 'critical',
       action: 'Fix API key issues immediately',
-      details: apiKeyHealth.critical_issues
+      details: Array.isArray(apiKeyHealth.critical_issues) 
+        ? apiKeyHealth.critical_issues.join(', ') 
+        : String(apiKeyHealth.critical_issues || '')
     });
   }
 
@@ -362,6 +481,39 @@ function generateRecommendations(agentStats, taskStats, pythonStats, apiKeyHealt
       priority: 'high',
       action: `Unblock ${taskStats.BLOCKED} blocked task(s)`,
       details: 'Review blocking reasons and provide required resources'
+    });
+  }
+
+  // XMRTCharger recommendations
+  if (deviceStats.active === 0 && deviceStats.total > 0) {
+    recommendations.push({
+      priority: 'medium',
+      action: 'Investigate device connectivity issues',
+      details: `${deviceStats.total} devices registered but none active`
+    });
+  }
+
+  if (chargingStats.avg_efficiency < 70 && chargingStats.total > 10) {
+    recommendations.push({
+      priority: 'medium',
+      action: 'Review charging optimization settings',
+      details: `Average efficiency ${chargingStats.avg_efficiency}% below target 70%`
+    });
+  }
+
+  if (popStats.total > 0 && popStats.validated / popStats.total < 0.8) {
+    recommendations.push({
+      priority: 'high',
+      action: 'Review PoP validation process',
+      details: `Only ${Math.round(popStats.validated / popStats.total * 100)}% of events validated`
+    });
+  }
+
+  if (commandStats.failed > commandStats.executed) {
+    recommendations.push({
+      priority: 'critical',
+      action: 'Fix engagement command failures',
+      details: `${commandStats.failed} failed vs ${commandStats.executed} executed`
     });
   }
 

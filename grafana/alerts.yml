@@ -167,3 +167,46 @@ groups:
         annotations:
           summary: "Conversation activity spike"
           description: "Conversation creation rate is unusually high: {{ $value }} per minute"
+
+  - name: xmrtcharger_infrastructure_alerts
+    interval: 2m
+    rules:
+      - alert: XMRTNoActiveDevices
+        expr: xmrt_devices_active == 0 and xmrt_devices_total > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: xmrtcharger
+        annotations:
+          summary: "No active XMRTCharger devices"
+          description: "{{ $value }} devices registered but none are currently active"
+
+      - alert: XMRTChargingEfficiencyLow
+        expr: xmrt_charging_efficiency_avg < 70
+        for: 1h
+        labels:
+          severity: warning
+          component: xmrtcharger
+        annotations:
+          summary: "Low charging efficiency detected"
+          description: "Average charging efficiency is {{ $value }}%, below 70% threshold"
+
+      - alert: XMRTPoPValidationLow
+        expr: xmrt_pop_events_validated / xmrt_pop_events_total < 0.8
+        for: 30m
+        labels:
+          severity: high
+          component: xmrtcharger
+        annotations:
+          summary: "PoP validation rate is low"
+          description: "Only {{ $value | humanizePercentage }} of PoP events are being validated"
+
+      - alert: XMRTCommandFailureHigh
+        expr: xmrt_commands_by_status{status="failed"} > xmrt_commands_by_status{status="executed"}
+        for: 15m
+        labels:
+          severity: critical
+          component: xmrtcharger
+        annotations:
+          summary: "High engagement command failure rate"
+          description: "Failed commands ({{ $value }}) exceed executed commands"

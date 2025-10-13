@@ -16,6 +16,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatSystemReport, SystemReport } from "../_shared/reportFormatter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -99,13 +100,75 @@ serve(async (req) => {
     repoActivityScores.sort((a, b) => b.activity_score - a.activity_score);
     const topRepos = repoActivityScores.slice(0, 5);
 
+    // Check XMRTCharger infrastructure
+    console.log('🔌 Evaluating XMRTCharger infrastructure...');
+
+    const { data: deviceMetrics } = await supabase
+      .from('device_metrics_summary')
+      .select('*')
+      .eq('summary_date', new Date().toISOString().split('T')[0])
+      .single();
+
+    const { data: activeDevices } = await supabase
+      .from('devices')
+      .select('*, device_connection_sessions!inner(*)')
+      .eq('device_connection_sessions.is_active', true);
+
+    const infrastructureHealth = {
+      devices_online: activeDevices?.length || 0,
+      daily_connections: deviceMetrics?.total_connections || 0,
+      daily_charging_sessions: deviceMetrics?.total_charging_sessions || 0,
+      avg_session_duration: deviceMetrics?.avg_session_duration_seconds || 0,
+      health_score: calculateInfrastructureScore(deviceMetrics, activeDevices)
+    };
+
+    console.log(`🔌 Infrastructure Health Score: ${infrastructureHealth.health_score}/100`);
+
+    // Generate and log formatted report
+    const ecosystemReport: SystemReport = {
+      timestamp: new Date().toISOString(),
+      overall_health: {
+        score: infrastructureHealth.health_score,
+        status: infrastructureHealth.health_score >= 90 ? 'healthy' : 
+                infrastructureHealth.health_score >= 70 ? 'warning' : 
+                infrastructureHealth.health_score >= 50 ? 'degraded' : 'critical',
+        issues: []
+      },
+      components: {
+        github_ecosystem: {
+          repos_evaluated: repoActivityScores.length,
+          infrastructure_score: infrastructureHealth.health_score,
+          top_repos: topRepos,
+          engagement_summary: {
+            total: totalEngagements,
+            issues: issuesResponded,
+            discussions: discussionsReplied,
+            comments: commentsAdded
+          }
+        },
+        xmrt_charger: {
+          devices: {
+            total: deviceMetrics?.active_devices_count || 0,
+            active: activeDevices?.length || 0,
+            connections_24h: infrastructureHealth.daily_connections,
+            charging_sessions_24h: infrastructureHealth.daily_charging_sessions
+          }
+        }
+      },
+      recommendations: []
+    };
+
+    const formattedReport = formatSystemReport(ecosystemReport);
+    console.log(formattedReport);
+
     // Log comprehensive activity
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'ecosystem_monitoring',
       title: '🔍 Daily Ecosystem Monitoring Complete',
-      description: `Evaluated ${repos.length} repos, engaged with ${totalEngagements} items across top repos`,
+      description: `Evaluated ${repos.length} repos, ${activeDevices?.length || 0} devices online, engaged with ${totalEngagements} items`,
       metadata: {
         repos_evaluated: repoActivityScores,
+        xmrt_infrastructure: infrastructureHealth,
         high_priority_repos: topRepos.map(r => r.repo_name),
         engagement_summary: {
           issues_responded: issuesResponded,
@@ -473,4 +536,25 @@ async function generateAutonomousTasks(supabase: any, context: any) {
   }
 
   return tasksCreated;
+}
+
+function calculateInfrastructureScore(metrics: any, activeDevices: any[]): number {
+  let score = 0;
+
+  // Active devices (0-30 points)
+  score += Math.min((activeDevices?.length || 0) * 3, 30);
+
+  // Daily connections (0-25 points)
+  score += Math.min((metrics?.total_connections || 0) * 2.5, 25);
+
+  // Charging sessions (0-25 points)
+  score += Math.min((metrics?.total_charging_sessions || 0) * 5, 25);
+
+  // Session duration quality (0-20 points)
+  const avgDuration = metrics?.avg_session_duration_seconds || 0;
+  if (avgDuration >= 1800) score += 20; // 30+ min sessions
+  else if (avgDuration >= 900) score += 15; // 15+ min sessions
+  else if (avgDuration >= 300) score += 10; // 5+ min sessions
+
+  return Math.min(score, 100);
 }
