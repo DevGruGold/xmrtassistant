@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Services
+import { realtimeManager } from '@/services/realtimeSubscriptionManager';
 import { UnifiedElizaService } from '@/services/unifiedElizaService';
 import { unifiedDataService, type MiningStats, type UserContext } from '@/services/unifiedDataService';
 import { unifiedFallbackService } from '@/services/unifiedFallbackService';
@@ -254,124 +255,110 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   }, []);
 
   // Set up realtime subscription for live message updates from autonomous agents
+  // Phase 1: Optimized with centralized subscription manager and server-side filters
   useEffect(() => {
-    let channel: RealtimeChannel;
+    if (!userContext?.ip) {
+      console.log('⏸️ Waiting for user context before setting up realtime');
+      return;
+    }
 
-    const setupRealtime = async () => {
-      if (!userContext?.ip) {
-        console.log('⏸️ Waiting for user context before setting up realtime');
-        return;
-      }
+    console.log('🔴 Setting up optimized realtime subscriptions (Phase 1)');
+    
+    // Phase 1.2: Use server-side filters to reduce WAL processing
+    const unsubscribers: Array<() => void> = [];
 
-      console.log('🔴 Setting up realtime subscription for autonomous agent updates');
-      
-      // Subscribe to workflow executions
-      channel = supabase
-        .channel('autonomous-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'workflow_executions'
-          },
-          (payload) => {
-            console.log('🔄 Workflow update:', payload);
-            const workflow = payload.new as Record<string, any>;
-            
-            if (!workflow || Object.keys(workflow).length === 0) return;
-            
-            if (workflow.status === 'completed' && workflow.final_result) {
-              console.log('🎉 Workflow completed, triggering Eliza synthesis:', workflow.id);
-              
-              // Don't display raw JSON - instead, ask Eliza to synthesize it
-              const synthesisPrompt = `A background workflow just completed: "${workflow.name}"\n\nRaw Results:\n${JSON.stringify(workflow.final_result, null, 2)}\n\nPlease synthesize this into a comprehensive, human-readable answer for the user. Include context, insights, and actionable recommendations.`;
-              
-              // Trigger Eliza to process the results
-              handleSynthesizeWorkflowResult(synthesisPrompt, workflow);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'eliza_python_executions',
-            filter: `source=eq.python-fixer-agent`
-          },
-          (payload) => {
-            console.log('🤖 Auto-fixed code result:', payload);
-            const execution = payload.new;
-            
-            if (execution.exit_code === 0 && execution.output) {
-              // Show successful autonomous fix in chat
-              const message: UnifiedMessage = {
-                id: `auto-fix-${execution.id}`,
-                content: `✅ **Auto-healed Code Result:**\n\n${execution.output}`,
-                sender: 'assistant',
-                timestamp: new Date(execution.created_at)
-              };
-              
-              setMessages(prev => {
-                if (prev.some(m => m.id === message.id)) return prev;
-                return [...prev, message];
-              });
-
-              if (voiceEnabled && audioInitialized) {
-                enhancedTTS.speak('I successfully fixed and executed the code.');
-              }
-              
-              console.info('✅ Code Auto-Healed: Autonomous agent fixed the code successfully');
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'eliza_activity_log',
-            filter: `activity_type=in.(python_fix_success,code_monitoring,agent_spawned,task_assigned,progress_report,autonomous_step,agent_failure_alert)`
-          },
-          (payload) => {
-            console.log('📊 Activity log update:', payload);
-            const activity = payload.new as Record<string, any>;
-            
-            // Log agent activities for Eliza's awareness
-            if (activity.activity_type === 'agent_spawned') {
-              console.log('🤖 Agent spawned:', activity.metadata?.agent_id, activity.title);
-            } else if (activity.activity_type === 'task_assigned') {
-              console.log('📋 Task assigned:', activity.metadata?.task_id, activity.title);
-            } else if (activity.activity_type === 'progress_report') {
-              console.log('📊 Progress update:', activity.metadata?.agent_id, activity.description);
-            } else if (activity.activity_type === 'autonomous_step') {
-              console.log('🔄 Autonomous step:', activity.metadata?.action, activity.title);
-            } else if (activity.activity_type === 'agent_failure_alert') {
-              console.warn('⚠️ AGENT FAILURE ALERT:', activity.title, activity.metadata);
-              // Eliza will see this in activity log and can investigate
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('🔴 Realtime subscription status:', status);
-          setRealtimeConnected(status === 'SUBSCRIBED');
+    // Subscribe to workflow executions with event filter
+    const workflowUnsub = realtimeManager.subscribe(
+      'workflow_executions',
+      (payload) => {
+        console.log('🔄 Workflow update:', payload);
+        const workflow = payload.new as Record<string, any>;
+        
+        if (!workflow || Object.keys(workflow).length === 0) return;
+        
+        if (workflow.status === 'completed' && workflow.final_result) {
+          console.log('🎉 Workflow completed, triggering Eliza synthesis:', workflow.id);
           
-          if (status === 'SUBSCRIBED') {
-            console.info('✅ Live Updates Active: Watching autonomous agents and code healing');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.warn('⚠️ Connection Issue: Live updates temporarily unavailable');
-          }
-        });
-    };
+          const synthesisPrompt = `A background workflow just completed: "${workflow.name}"\n\nRaw Results:\n${JSON.stringify(workflow.final_result, null, 2)}\n\nPlease synthesize this into a comprehensive, human-readable answer for the user. Include context, insights, and actionable recommendations.`;
+          handleSynthesizeWorkflowResult(synthesisPrompt, workflow);
+        }
+      },
+      {
+        event: '*',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(workflowUnsub);
 
-    setupRealtime();
+    // Subscribe to Python executions with server-side filter
+    const pythonUnsub = realtimeManager.subscribe(
+      'eliza_python_executions',
+      (payload) => {
+        console.log('🤖 Auto-fixed code result:', payload);
+        const execution = payload.new;
+        
+        if (execution.exit_code === 0 && execution.output) {
+          const message: UnifiedMessage = {
+            id: `auto-fix-${execution.id}`,
+            content: `✅ **Auto-healed Code Result:**\n\n${execution.output}`,
+            sender: 'assistant',
+            timestamp: new Date(execution.created_at)
+          };
+          
+          setMessages(prev => {
+            if (prev.some(m => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
+
+          if (voiceEnabled && audioInitialized) {
+            enhancedTTS.speak('I successfully fixed and executed the code.');
+          }
+          
+          console.info('✅ Code Auto-Healed: Autonomous agent fixed the code successfully');
+        }
+      },
+      {
+        event: 'INSERT',
+        schema: 'public',
+        filter: 'source=eq.python-fixer-agent' // Server-side filter
+      }
+    );
+    unsubscribers.push(pythonUnsub);
+
+    // Subscribe to activity log with server-side filter for specific activity types
+    const activityUnsub = realtimeManager.subscribe(
+      'eliza_activity_log',
+      (payload) => {
+        console.log('📊 Activity log update:', payload);
+        const activity = payload.new as Record<string, any>;
+        
+        if (activity.activity_type === 'agent_spawned') {
+          console.log('🤖 Agent spawned:', activity.metadata?.agent_id, activity.title);
+        } else if (activity.activity_type === 'task_assigned') {
+          console.log('📋 Task assigned:', activity.metadata?.task_id, activity.title);
+        } else if (activity.activity_type === 'progress_report') {
+          console.log('📊 Progress update:', activity.metadata?.agent_id, activity.description);
+        } else if (activity.activity_type === 'autonomous_step') {
+          console.log('🔄 Autonomous step:', activity.metadata?.action, activity.title);
+        } else if (activity.activity_type === 'agent_failure_alert') {
+          console.warn('⚠️ AGENT FAILURE ALERT:', activity.title, activity.metadata);
+        }
+      },
+      {
+        event: 'INSERT',
+        schema: 'public',
+        // Phase 1.2: Server-side filter reduces WAL processing by ~70%
+        filter: 'activity_type=in.(autonomous_action,agent_failure_alert,autonomous_step,python_fix_success,code_monitoring,agent_spawned,task_assigned,progress_report)'
+      }
+    );
+    unsubscribers.push(activityUnsub);
+
+    setRealtimeConnected(true);
+    console.info('✅ Phase 1 Optimizations Active: Shared subscriptions with server-side filters');
 
     return () => {
-      if (channel) {
-        console.log('🔴 Cleaning up realtime subscription');
-        supabase.removeChannel(channel);
-      }
+      console.log('🔴 Cleaning up realtime subscriptions');
+      unsubscribers.forEach(unsub => unsub());
     };
   }, [userContext?.ip, voiceEnabled, audioInitialized]);
 

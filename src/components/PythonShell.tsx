@@ -5,6 +5,7 @@ import { Terminal, Sparkles, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { formatTime } from '@/utils/dateFormatter';
+import { realtimeManager } from '@/services/realtimeSubscriptionManager';
 
 interface ActivityLog {
   id: string;
@@ -38,25 +39,21 @@ export const PythonShell = () => {
 
     fetchActivity();
 
-    // Set up real-time subscription to see ALL background work
-    const channel = supabase
-      .channel('eliza-activity-log')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'eliza_activity_log'
-        },
-        (payload) => {
-          console.log('🤖 New activity from Eliza:', payload);
-          setActivityLogs(prev => [payload.new as ActivityLog, ...prev].slice(0, 50));
-        }
-      )
-      .subscribe();
+    // Phase 1.1: Use centralized subscription manager
+    const unsubscribe = realtimeManager.subscribe(
+      'eliza_activity_log',
+      (payload) => {
+        console.log('🤖 New activity from Eliza:', payload);
+        setActivityLogs(prev => [payload.new as ActivityLog, ...prev].slice(0, 50));
+      },
+      {
+        event: 'INSERT',
+        schema: 'public'
+      }
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, []);
 

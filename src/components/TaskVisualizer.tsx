@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Workflow, User, Clock, CheckCircle2, AlertCircle, Circle, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatTimestamp, formatRelativeTime } from '@/utils/dateFormatter';
+import { realtimeManager } from '@/services/realtimeSubscriptionManager';
 
 interface Task {
   id: string;
@@ -120,133 +121,133 @@ export const TaskVisualizer = () => {
   useEffect(() => {
     fetchData();
     
-    // Set up real-time subscriptions
-    const activityChannel = supabase
-      .channel('eliza-activity-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'eliza_activity_log'
-        },
-        (payload) => {
-          console.log('📋 New activity from Eliza:', payload);
-          const newActivity = payload.new as ElizaActivity;
-          setActivities(prev => {
-            // Check if this activity already exists
-            if (prev.find(a => a.id === newActivity.id)) {
-              return prev; // Already exists, don't add duplicate
-            }
-            // Add new activity and keep only the latest 50
-            return [newActivity, ...prev].slice(0, 50);
-          });
-        }
-      )
-      .subscribe();
+    // Phase 1.1: Use centralized subscription manager to consolidate subscriptions
+    const unsubscribers: Array<() => void> = [];
 
-    const tasksChannel = supabase
-      .channel('tasks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('📋 New task detected:', payload);
-          const newTask = payload.new as Task;
-          setTasks(prev => {
-            if (prev.find(t => t.id === newTask.id)) {
-              return prev;
-            }
-            return [newTask, ...prev].slice(0, 20);
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('📋 Task updated:', payload);
-          const updatedTask = payload.new as Task;
-          setTasks(prev => 
-            prev.map(t => t.id === updatedTask.id ? updatedTask : t)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('📋 Task deleted:', payload);
-          setTasks(prev => prev.filter(t => t.id !== payload.old.id));
-        }
-      )
-      .subscribe();
+    // Subscribe to activity log
+    const activityUnsub = realtimeManager.subscribe(
+      'eliza_activity_log',
+      (payload) => {
+        console.log('📋 New activity from Eliza:', payload);
+        const newActivity = payload.new as ElizaActivity;
+        setActivities(prev => {
+          if (prev.find(a => a.id === newActivity.id)) {
+            return prev;
+          }
+          return [newActivity, ...prev].slice(0, 50);
+        });
+      },
+      {
+        event: 'INSERT',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(activityUnsub);
 
-    const agentsChannel = supabase
-      .channel('agents-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'agents'
-        },
-        (payload) => {
-          console.log('🤖 New agent detected:', payload);
-          const newAgent = payload.new as Agent;
-          setAgents(prev => {
-            if (prev.find(a => a.id === newAgent.id)) {
-              return prev;
-            }
-            return [newAgent, ...prev];
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'agents'
-        },
-        (payload) => {
-          console.log('🤖 Agent updated:', payload);
-          const updatedAgent = payload.new as Agent;
-          setAgents(prev => 
-            prev.map(a => a.id === updatedAgent.id ? updatedAgent : a)
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'agents'
-        },
-        (payload) => {
-          console.log('🤖 Agent deleted:', payload);
-          setAgents(prev => prev.filter(a => a.id !== payload.old.id));
-        }
-      )
-      .subscribe();
+    // Subscribe to tasks (INSERT)
+    const taskInsertUnsub = realtimeManager.subscribe(
+      'tasks',
+      (payload) => {
+        console.log('📋 New task detected:', payload);
+        const newTask = payload.new as Task;
+        setTasks(prev => {
+          if (prev.find(t => t.id === newTask.id)) {
+            return prev;
+          }
+          return [newTask, ...prev].slice(0, 20);
+        });
+      },
+      {
+        event: 'INSERT',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(taskInsertUnsub);
+
+    // Subscribe to tasks (UPDATE)
+    const taskUpdateUnsub = realtimeManager.subscribe(
+      'tasks',
+      (payload) => {
+        console.log('📋 Task updated:', payload);
+        const updatedTask = payload.new as Task;
+        setTasks(prev => 
+          prev.map(t => t.id === updatedTask.id ? updatedTask : t)
+        );
+      },
+      {
+        event: 'UPDATE',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(taskUpdateUnsub);
+
+    // Subscribe to tasks (DELETE)
+    const taskDeleteUnsub = realtimeManager.subscribe(
+      'tasks',
+      (payload) => {
+        console.log('📋 Task deleted:', payload);
+        setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+      },
+      {
+        event: 'DELETE',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(taskDeleteUnsub);
+
+    // Subscribe to agents (INSERT)
+    const agentInsertUnsub = realtimeManager.subscribe(
+      'agents',
+      (payload) => {
+        console.log('🤖 New agent detected:', payload);
+        const newAgent = payload.new as Agent;
+        setAgents(prev => {
+          if (prev.find(a => a.id === newAgent.id)) {
+            return prev;
+          }
+          return [newAgent, ...prev];
+        });
+      },
+      {
+        event: 'INSERT',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(agentInsertUnsub);
+
+    // Subscribe to agents (UPDATE)
+    const agentUpdateUnsub = realtimeManager.subscribe(
+      'agents',
+      (payload) => {
+        console.log('🤖 Agent updated:', payload);
+        const updatedAgent = payload.new as Agent;
+        setAgents(prev => 
+          prev.map(a => a.id === updatedAgent.id ? updatedAgent : a)
+        );
+      },
+      {
+        event: 'UPDATE',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(agentUpdateUnsub);
+
+    // Subscribe to agents (DELETE)
+    const agentDeleteUnsub = realtimeManager.subscribe(
+      'agents',
+      (payload) => {
+        console.log('🤖 Agent deleted:', payload);
+        setAgents(prev => prev.filter(a => a.id !== payload.old.id));
+      },
+      {
+        event: 'DELETE',
+        schema: 'public'
+      }
+    );
+    unsubscribers.push(agentDeleteUnsub);
     
     return () => {
-      supabase.removeChannel(activityChannel);
-      supabase.removeChannel(tasksChannel);
-      supabase.removeChannel(agentsChannel);
+      unsubscribers.forEach(unsub => unsub());
     };
   }, []);
 
