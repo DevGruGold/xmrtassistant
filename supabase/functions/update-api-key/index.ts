@@ -22,6 +22,7 @@ serve(async (req) => {
 
     // Validate API key format based on service
     const validations: Record<string, (key: string) => boolean> = {
+      'vercel_ai': (key) => key.startsWith('vck_'),
       'lovable_ai': (key) => key.startsWith('lvbl_'),
       'deepseek': (key) => key.startsWith('sk-'),
       'gemini': (key) => key.startsWith('AIza'),

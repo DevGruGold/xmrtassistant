@@ -47,10 +47,20 @@ serve(async (req) => {
     healthResults.push(deepseekHealth);
     await supabase.from('api_key_health').upsert(deepseekHealth, { onConflict: 'service_name' });
 
+    // Check Vercel AI
+    const vercelHealth = await checkVercelAIHealth();
+    healthResults.push(vercelHealth);
+    await supabase.from('api_key_health').upsert(vercelHealth, { onConflict: 'service_name' });
+
     // Check Lovable AI
     const lovableHealth = await checkLovableAIHealth();
     healthResults.push(lovableHealth);
     await supabase.from('api_key_health').upsert(lovableHealth, { onConflict: 'service_name' });
+
+    // Check Gemini
+    const geminiHealth = await checkGeminiHealth();
+    healthResults.push(geminiHealth);
+    await supabase.from('api_key_health').upsert(geminiHealth, { onConflict: 'service_name' });
 
     // Check ElevenLabs
     const elevenlabsHealth = await checkElevenLabsHealth();
@@ -305,6 +315,95 @@ async function checkElevenLabsHealth() {
   } catch (error) {
     return {
       service_name: 'elevenlabs',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
+async function checkVercelAIHealth() {
+  const apiKey = Deno.env.get('VERCEL_AI_GATEWAY_KEY');
+  if (!apiKey) {
+    return {
+      service_name: 'vercel_ai',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: 'API key not configured',
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+
+  try {
+    const response = await fetch('https://api.vercel.com/v1/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'anthropic/claude-3-5-sonnet-20241022',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
+      })
+    });
+
+    return {
+      service_name: 'vercel_ai',
+      key_type: 'api_key',
+      is_healthy: response.ok || response.status === 402,
+      error_message: response.ok ? null : `HTTP ${response.status}`,
+      expiry_warning: response.status === 402,
+      days_until_expiry: null,
+      metadata: { note: response.status === 402 ? 'Credits depleted' : '' }
+    };
+  } catch (error) {
+    return {
+      service_name: 'vercel_ai',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
+async function checkGeminiHealth() {
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) {
+    return {
+      service_name: 'gemini',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: 'API key not configured',
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
+
+    return {
+      service_name: 'gemini',
+      key_type: 'api_key',
+      is_healthy: response.ok,
+      error_message: response.ok ? null : `HTTP ${response.status}`,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  } catch (error) {
+    return {
+      service_name: 'gemini',
       key_type: 'api_key',
       is_healthy: false,
       error_message: error.message,

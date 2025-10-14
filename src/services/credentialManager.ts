@@ -39,7 +39,13 @@ export async function getAPIKeyHealth(): Promise<APIKeyHealth[]> {
     return [];
   }
 
-  return data || [];
+  // Sort to ensure Vercel AI appears first
+  const sorted = (data || []).sort((a, b) => {
+    const order = ['vercel_ai', 'deepseek', 'lovable_ai', 'gemini', 'openai'];
+    return order.indexOf(a.service_name) - order.indexOf(b.service_name);
+  });
+
+  return sorted;
 }
 
 export async function refreshAPIKeyHealth(): Promise<void> {

@@ -6,12 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 const EXECUTIVES = [
   { 
-    name: 'Lovable AI', 
-    service: 'lovable_ai', 
+    name: 'Vercel AI', 
+    service: 'vercel_ai', 
     role: 'CSO',
-    keyPrefix: 'lvbl_',
-    helpUrl: 'https://docs.lovable.dev/features/ai',
-    secretName: 'LOVABLE_API_KEY'
+    keyPrefix: 'vck_',
+    helpUrl: 'https://vercel.com/docs/ai-sdk',
+    secretName: 'VERCEL_AI_GATEWAY_KEY'
   },
   { 
     name: 'DeepSeek', 
@@ -20,6 +20,14 @@ const EXECUTIVES = [
     keyPrefix: 'sk-',
     helpUrl: 'https://platform.deepseek.com/api_keys',
     secretName: 'DEEPSEEK_API_KEY'
+  },
+  { 
+    name: 'Lovable AI', 
+    service: 'lovable_ai', 
+    role: 'Backup CSO',
+    keyPrefix: 'lvbl_',
+    helpUrl: 'https://docs.lovable.dev/features/ai',
+    secretName: 'LOVABLE_API_KEY'
   },
   { 
     name: 'Gemini', 

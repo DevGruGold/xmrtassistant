@@ -270,10 +270,10 @@ export class UnifiedElizaService {
       return 'openai-chat';
     }
     
-    // Chief Strategy Officer (Lovable AI / Gemini 2.5 Flash) - DEFAULT
+    // Chief Strategy Officer (Vercel AI / Claude) - DEFAULT
     // General reasoning, user interaction, community relations
-    console.log('🎯 Routing to CSO (lovable-chat): General strategy/interaction task');
-    return 'lovable-chat';
+    console.log('🎯 Routing to CSO (vercel-ai-chat): General strategy/interaction task');
+    return 'vercel-ai-chat';
   }
 
   /**
@@ -281,7 +281,8 @@ export class UnifiedElizaService {
    */
   private static getExecutiveTitle(executive: string): string {
     const titles: Record<string, string> = {
-      'lovable-chat': 'Chief Strategy Officer (CSO)',
+      'vercel-ai-chat': 'Chief Strategy Officer (CSO)',
+      'lovable-chat': 'Backup Chief Strategy Officer',
       'deepseek-chat': 'Chief Technology Officer (CTO)',
       'gemini-chat': 'Chief Information Officer (CIO)',
       'openai-chat': 'Chief Analytics Officer (CAO)'
