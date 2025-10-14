@@ -1178,7 +1178,7 @@ Find the right function             → search_edge_functions (semantic search)
 
 🎯 **FUNCTION SELECTION DECISION TREE:**
 
-```
+
 User Request
     │
     ├─ About GitHub? → github-integration
@@ -1211,7 +1211,7 @@ User Request
     │
     └─ Not sure which function? → search_edge_functions(query)
         Returns: Ranked list of relevant functions with examples
-```
+
 
 **⚡ PROACTIVE FUNCTION SUGGESTIONS:**
 
