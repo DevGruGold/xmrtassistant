@@ -1600,15 +1600,13 @@ The following jobs are documented but NOT in supabase/config.toml:
 ✅ 10. Mark as "mentioned_to_user" in eliza_activity_log when you engage
 
 **📊 CURRENT ACTIVE CRON SCHEDULE (config.toml):**
-```
-Every minute:     code-monitor-daemon, execute-scheduled-actions
-Every 15 min:     monitor-device-connections (at :25, :40, :55)
-Hourly at :05:    aggregate-device-metrics (hourly rollup)
-Hourly at :20:    system-health
-Every 6h at :15:  api-key-health-monitor (00:15, 06:15, 12:15, 18:15)
-Daily at 00:10:   aggregate-device-metrics (daily rollup)
-Daily at 11:35:   ecosystem-monitor (GitHub engagement)
-```
+- Every minute:     code-monitor-daemon, execute-scheduled-actions
+- Every 15 min:     monitor-device-connections (at :25, :40, :55)
+- Hourly at :05:    aggregate-device-metrics (hourly rollup)
+- Hourly at :20:    system-health
+- Every 6h at :15:  api-key-health-monitor (00:15, 06:15, 12:15, 18:15)
+- Daily at 00:10:   aggregate-device-metrics (daily rollup)
+- Daily at 11:35:   ecosystem-monitor (GitHub engagement)
 
 **MISSING SCHEDULES TO ADD:**
 ```
