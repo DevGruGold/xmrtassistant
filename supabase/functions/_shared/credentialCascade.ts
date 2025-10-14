@@ -91,10 +91,10 @@ async function validateGitHubToken(token: string): Promise<boolean> {
 }
 
 /**
- * Try to get AI service credential (OpenAI, DeepSeek, Lovable AI, Vercel AI, xAI, OpenRouter)
+ * Try to get AI service credential (OpenAI, DeepSeek, Lovable AI, Vercel AI, xAI, OpenRouter, Gemini)
  */
 export function getAICredential(
-  service: 'openai' | 'deepseek' | 'lovable_ai' | 'vercel_ai' | 'xai' | 'openrouter',
+  service: 'openai' | 'deepseek' | 'lovable_ai' | 'vercel_ai' | 'xai' | 'openrouter' | 'gemini',
   sessionCredentials: any
 ): string | null {
   // 1. Try session credential
@@ -111,7 +111,8 @@ export function getAICredential(
     lovable_ai: 'LOVABLE_API_KEY',
     vercel_ai: 'VERCEL_AI_GATEWAY_KEY',
     xai: 'AI_GATEWAY_API_KEY',
-    openrouter: 'OPENROUTER_API_KEY'
+    openrouter: 'OPENROUTER_API_KEY',
+    gemini: 'GEMINI_API_KEY'
   };
 
   const backendKey = Deno.env.get(envKeys[service]);

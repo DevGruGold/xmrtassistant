@@ -23,22 +23,24 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable -> OpenRouter
+    // Intelligent AI service cascade: Try xAI -> Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel
     const xaiKey = getAICredential('xai', session_credentials);
-    const vercelKey = getAICredential('vercel_ai', session_credentials);
+    const geminiKey = getAICredential('gemini', session_credentials);
+    const openrouterKey = getAICredential('openrouter', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const lovableKey = getAICredential('lovable_ai', session_credentials);
-    const openrouterKey = getAICredential('openrouter', session_credentials);
+    const vercelKey = getAICredential('vercel_ai', session_credentials);
 
     console.log('🔍 Available AI services:', {
       xai: !!xaiKey,
-      vercel: !!vercelKey,
+      gemini: !!geminiKey,
+      openrouter: !!openrouterKey,
       deepseek: !!deepseekKey,
       lovable: !!lovableKey,
-      openrouter: !!openrouterKey
+      vercel: !!vercelKey
     });
 
-    // Try services in order of preference (xAI first as lead AI)
+    // Try services in order of preference (xAI -> Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel)
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
     let aiModel = 'grok-beta';
@@ -50,12 +52,28 @@ serve(async (req) => {
       aiModel = 'grok-beta';
       aiClient = createXai({ apiKey: xaiKey });
       console.log('✅ Using xAI (Grok) - Lead AI');
-    } else if (vercelKey) {
-      API_KEY = vercelKey;
-      aiProvider = 'vercel_ai';
-      aiModel = 'xai/grok-beta'; // Use Grok via Vercel AI Gateway
-      aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
-      console.log('✅ Using Vercel AI Gateway routing to xAI Grok');
+    } else if (geminiKey) {
+      API_KEY = geminiKey;
+      aiProvider = 'gemini';
+      aiModel = 'gemini-2.0-flash-exp';
+      aiClient = createOpenAI({ 
+        apiKey: geminiKey, 
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+      });
+      console.log('✅ Using Gemini directly');
+    } else if (openrouterKey) {
+      API_KEY = openrouterKey;
+      aiProvider = 'openrouter';
+      aiModel = 'google/gemini-2.0-flash-exp:free';
+      aiClient = createOpenAI({ 
+        apiKey: openrouterKey, 
+        baseURL: 'https://openrouter.ai/api/v1',
+        headers: {
+          'HTTP-Referer': 'https://xmrt-dao.lovable.app',
+          'X-Title': 'XMRT DAO'
+        }
+      });
+      console.log('✅ Using OpenRouter');
     } else if (deepseekKey) {
       console.log('⚠️ xAI and Vercel AI not available, trying DeepSeek fallback');
       try {
@@ -83,7 +101,7 @@ serve(async (req) => {
         console.warn('DeepSeek fallback failed:', error);
       }
     } else if (lovableKey) {
-      console.log('⚠️ xAI, Vercel and DeepSeek not available, trying Lovable AI fallback');
+      console.log('⚠️ xAI, Gemini, OpenRouter and DeepSeek not available, trying Lovable AI fallback');
       try {
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
         const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -108,15 +126,12 @@ serve(async (req) => {
       } catch (error) {
         console.warn('Lovable AI fallback failed:', error);
       }
-    } else if (openrouterKey) {
-      API_KEY = openrouterKey;
-      aiProvider = 'openrouter';
-      aiModel = 'google/gemini-2.0-flash-exp:free'; // Free tier model
-      aiClient = createOpenAI({ 
-        apiKey: openrouterKey, 
-        baseURL: 'https://openrouter.ai/api/v1' 
-      });
-      console.log('✅ Using OpenRouter (fallback before local Office Clerk)');
+    } else if (vercelKey) {
+      API_KEY = vercelKey;
+      aiProvider = 'vercel_ai';
+      aiModel = 'xai/grok-beta';
+      aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
+      console.log('✅ Using Vercel AI Gateway (low priority fallback)');
     }
 
     if (!API_KEY) {
@@ -125,7 +140,7 @@ serve(async (req) => {
         JSON.stringify(createCredentialRequiredResponse(
           'xai',
           'api_key',
-          'AI service credentials needed. We tried xAI, Vercel AI, DeepSeek, Lovable AI, and OpenRouter, but none are configured. Using local Office Clerk.',
+          'AI service credentials needed. We tried xAI, Gemini, OpenRouter, DeepSeek, Lovable AI, and Vercel AI, but none are configured. Using local Office Clerk.',
           'https://console.x.ai'
         )),
         { 
