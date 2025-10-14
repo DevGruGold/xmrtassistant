@@ -260,10 +260,18 @@ export class UnifiedElizaService {
       
       console.log('💚 Healthy executives available:', healthyExecs);
       
-      // Return healthy executives, or all if none are healthy (fallback)
-      return healthyExecs.length > 0 
-        ? healthyExecs 
-        : ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
+      // ALWAYS include vercel-ai-chat and all executives in fallback
+      // Even if health check fails, they might work (health check != actual usage)
+      const allExecutives = ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
+      
+      // Return healthy executives first, then others
+      if (healthyExecs.length > 0) {
+        const unhealthyExecs = allExecutives.filter(e => !healthyExecs.includes(e));
+        return [...healthyExecs, ...unhealthyExecs];
+      }
+      
+      // If none are healthy, return all in default order
+      return allExecutives;
     } catch (error) {
       console.warn('⚠️ Could not fetch executive health, using defaults:', error);
       return ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
@@ -491,9 +499,25 @@ export class UnifiedElizaService {
           }
         }
         
-        console.warn(`⚠️ ${executive} failed:`, error?.message || data?.error, '- trying next executive');
+        // Log detailed error for debugging
+        const errorMsg = error?.message || data?.error || 'Unknown error';
+        console.warn(`⚠️ ${executive} failed: ${errorMsg} - trying next executive`);
+        
+        // Check for payment/quota errors and surface to user
+        if (errorMsg.includes('402') || errorMsg.includes('payment_required') || errorMsg.includes('Not enough credits')) {
+          console.error(`💳 ${executive} out of credits - needs payment`);
+        }
+        if (errorMsg.includes('quota') || errorMsg.includes('insufficient_quota')) {
+          console.error(`💳 ${executive} quota exceeded - needs billing update`);
+        }
       } catch (err) {
-        console.warn(`⚠️ ${executive} exception:`, err.message, '- trying next executive');
+        const errorMsg = err?.message || 'Unknown exception';
+        console.warn(`⚠️ ${executive} exception: ${errorMsg} - trying next executive`);
+        
+        // Check for payment/quota errors
+        if (errorMsg.includes('402') || errorMsg.includes('payment') || errorMsg.includes('quota')) {
+          console.error(`💳 ${executive} payment/quota issue: ${errorMsg}`);
+        }
       }
     }
     
