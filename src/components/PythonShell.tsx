@@ -61,12 +61,16 @@ export const PythonShell = () => {
     switch (type) {
       case 'python_execution':
         return '🐍';
+      case 'python_fix_execution':
+        return '🔧';
       case 'agent_management':
         return '🤖';
       case 'github_integration':
-        return '🔧';
+        return '💻';
       case 'task_assignment':
         return '📋';
+      case 'batch_vectorization':
+        return '🧠';
       default:
         return '⚡';
     }
@@ -83,6 +87,31 @@ export const PythonShell = () => {
       default:
         return 'bg-secondary/20 text-secondary-foreground border-border';
     }
+  };
+
+  const getExecutionBadge = (activity: ActivityLog) => {
+    if (activity.activity_type === 'python_fix_execution') {
+      return (
+        <Badge variant="outline" className="bg-primary/20 text-primary border-primary text-xs">
+          AUTO-FIXED
+        </Badge>
+      );
+    }
+    if (activity.metadata?.was_auto_fixed === true) {
+      return (
+        <Badge variant="outline" className="bg-primary/20 text-primary border-primary text-xs">
+          AUTO-FIXED
+        </Badge>
+      );
+    }
+    if (activity.metadata?.source === 'autonomous_agent') {
+      return (
+        <Badge variant="outline" className="bg-mining-warning/20 text-mining-warning border-mining-warning text-xs">
+          AUTONOMOUS
+        </Badge>
+      );
+    }
+    return null;
   };
 
   return (
@@ -119,13 +148,14 @@ export const PythonShell = () => {
                   className="p-3 rounded-lg border border-border bg-card/50 space-y-2 animate-fade-in"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-lg">{getActivityIcon(activity.activity_type)}</span>
                       <Badge variant="outline" className={`text-xs ${getStatusColor(activity.status)}`}>
                         {activity.status}
                       </Badge>
+                      {getExecutionBadge(activity)}
                     </div>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatTime(activity.created_at)}
                     </span>
                   </div>

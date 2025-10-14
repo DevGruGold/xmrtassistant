@@ -9,6 +9,7 @@ import UnifiedChat from "@/components/UnifiedChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
+import { PythonShell } from "@/components/PythonShell";
 import { MiningLeaderboard } from "@/components/MiningLeaderboard";
 import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
@@ -90,6 +91,19 @@ const Index = () => {
             <div className="bg-card/50 border border-border rounded-2xl p-6 shadow-lg backdrop-blur-sm">
               <UnifiedChat />
             </div>
+          </div>
+
+          {/* Python Shell - Eliza's Code Execution Monitor */}
+          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
+            <div className="text-center mb-4">
+              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
+                🐍 Eliza's Code Execution Log
+              </h2>
+              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
+                Real-time monitor of autonomous code execution, auto-fixes, and background tasks
+              </p>
+            </div>
+            <PythonShell />
           </div>
 
           
