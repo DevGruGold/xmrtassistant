@@ -253,19 +253,27 @@ serve(async (req) => {
           };
         }
 
-        // Fix the code directly using DeepSeek with source-aware context
+        // Fix the code directly using the same AI cascade as chat (Gemini → OpenRouter → etc.)
         const agentContext = source !== 'eliza' && execution.metadata?.agent_id 
           ? `\n\n**Agent Context:** This code was executed by agent ${execution.metadata.agent_id} for task ${execution.metadata.task_id || 'unknown'}.` 
           : '';
         
-        // Call DeepSeek directly via supabase functions
-        const fixResult = await supabase.functions.invoke('deepseek-chat', {
+        // Call vercel-ai-chat which uses the working AI cascade
+        const fixResult = await supabase.functions.invoke('vercel-ai-chat', {
           body: {
-            messages:
-            [
+            messages: [
               {
-                role: 'system',
-                content: `You are an expert Python debugging AI. Your task is to fix Python code that runs in a sandboxed Piston API environment.
+                role: 'user',
+                content: `Fix this Python code error:
+
+**Original Code:**
+\`\`\`python
+${execution.code}
+\`\`\`
+
+**Error Message:**
+${execution.error}
+${agentContext}
 
 CRITICAL CONSTRAINTS:
 - Only Python 3.10 standard library is available (NO pip packages: no requests, pandas, numpy, aiohttp, etc.)
@@ -285,21 +293,6 @@ OUTPUT FORMAT:
 - Return ONLY the complete fixed Python code
 - NO markdown code blocks, NO explanations, NO comments about what you changed
 - Just raw Python code that will execute successfully`
-              },
-              {
-                role: 'user',
-                content: `Fix this Python code error:
-
-**Original Code:**
-\`\`\`python
-${execution.code}
-\`\`\`
-
-**Error Message:**
-${execution.error}
-${agentContext}
-
-**Task:** Provide the complete fixed code with NO explanations.`
               }
             ],
             conversationHistory: [],
