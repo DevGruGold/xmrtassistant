@@ -60,7 +60,7 @@ serve(async (req) => {
       }
 
       // Get target repositories from configuration
-      const targetRepos = Deno.env.get('GITHUB_MONITOR_REPOS')?.split(',') || ['MoneroTrader/xmrt-wallet-public'];
+      const targetRepos = Deno.env.get('GITHUB_MONITOR_REPOS')?.split(',') || ['DevGruGold/XMRT-Ecosystem'];
       
       console.log(`📦 Scanning ${targetRepos.length} repositories: ${targetRepos.join(', ')}`);
 

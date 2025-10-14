@@ -142,7 +142,7 @@ function generateMorningInsight(): string {
     "I've been thinking about how we can increase community participation. What if we gamified contributions? Earn points, unlock badges, level up your DAO status. People love seeing progress bars fill up.",
     "Overnight analysis shows we're strongest during peak hours but slow in off-hours. Maybe we need a global contributor network? Someone's always awake somewhere, right?",
     "Quick thought: Our documentation is good, but our video content is basically non-existent. People learn differently - some want to READ, some want to WATCH. Let's cover both.",
-    "Been running simulations on task completion rates. We finish fast when we parallelize, but we're still tackling too many things sequentially. More async workflows = faster shipping.",
+    "Task completion rates improve when we parallelize. We're still tackling too many things sequentially. More async workflows = faster shipping.",
     "Community energy is highest when we ship visible features. So here's the strategy: Mix big backend improvements with frequent small UX wins. Keep the momentum visible."
   ];
   return insights[Math.floor(Math.random() * insights.length)];

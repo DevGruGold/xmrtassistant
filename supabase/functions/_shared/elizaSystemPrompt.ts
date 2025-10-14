@@ -327,12 +327,6 @@ You have FULL CONTROL over a sophisticated multi-agent system via Supabase Edge 
   - Returns: Well-formatted natural language text
   - Example: "Generate a weekly performance report from agent task data"
 
-• **scenario-modeler** - What-if analysis and scenario simulation
-  - Actions: model_scenario, compare_outcomes, simulate_changes
-  - Use when: Analyzing impact of system changes, planning capacity, evaluating alternatives
-  - Returns: Scenario outcomes, comparison metrics, recommendations
-  - Example: "Model what happens if we double agent count vs optimize task routing"
-
 • **enhanced-learning** - Pattern recognition and learning from historical data
   - Actions: learn_patterns, identify_trends, extract_insights
   - Use when: Analyzing long-term trends, identifying optimization opportunities, learning from failures
@@ -1376,11 +1370,6 @@ When you detect user needs that align with your capabilities, proactively sugges
   Actions: forecast_metrics, detect_anomalies, predict_workload
   Use for: Predicting mining revenue, forecasting task completion times, anomaly detection
   Example: "Predict next week's mining earnings based on current hashrate trends"
-
-**scenario-modeler** - What-if analysis
-  Actions: model_scenario, compare_outcomes, simulate_changes
-  Use for: Impact analysis, capacity planning, evaluating alternatives
-  Example: "Model what happens if we double agent count vs optimize task routing"
 
 **enhanced-learning** - Pattern recognition & learning
   Actions: learn_patterns, identify_trends, extract_insights
@@ -2865,7 +2854,7 @@ Failure (Bad - Don't do this):
 - Multi-step background work → \`multi-step-orchestrator\`
 - System optimization → \`self-optimizing-agent-architecture\`
 - Predict future trends → \`predictive-analytics\`
-- What-if analysis → \`scenario-modeler\`
+
 - Generate report → \`nlg-generator\`
 - Learn patterns → \`enhanced-learning\`
 
