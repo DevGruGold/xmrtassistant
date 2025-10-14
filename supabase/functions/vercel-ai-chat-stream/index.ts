@@ -67,7 +67,7 @@ serve(async (req) => {
     } else if (vercelKey) {
       API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'gemini-2.0-flash-exp';
+      aiModel = 'gpt-5-mini-2025-08-07';
       aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
       console.log('✅ Using Vercel AI Gateway for streaming (low priority fallback)');
     } else if (deepseekKey || lovableKey) {
