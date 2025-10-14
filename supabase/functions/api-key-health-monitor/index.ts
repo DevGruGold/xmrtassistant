@@ -345,14 +345,15 @@ async function checkXAIHealth() {
   }
 
   try {
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    // Test via Cloudflare AI Gateway since AI_GATEWAY_API_KEY is for gateway, not direct xAI
+    const response = await fetch('https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'grok-beta',
+        model: 'xai/grok-beta',
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 5
       })
@@ -365,7 +366,10 @@ async function checkXAIHealth() {
       error_message: response.ok ? null : `HTTP ${response.status}`,
       expiry_warning: response.status === 402,
       days_until_expiry: null,
-      metadata: { note: response.status === 402 ? 'Credits depleted' : '' }
+      metadata: { 
+        note: response.status === 402 ? 'Credits depleted' : '',
+        gateway: 'cloudflare_ai_gateway'
+      }
     };
   } catch (error) {
     return {
@@ -381,53 +385,31 @@ async function checkXAIHealth() {
 }
 
 async function checkVercelAIHealth() {
+  // Note: We're actually using AI_GATEWAY_API_KEY for Cloudflare AI Gateway, not Vercel
+  // This check is for backward compatibility only
   const apiKey = Deno.env.get('VERCEL_AI_GATEWAY_KEY');
   if (!apiKey) {
     return {
       service_name: 'vercel_ai',
       key_type: 'api_key',
       is_healthy: false,
-      error_message: 'API key not configured',
+      error_message: 'Not configured (using Cloudflare AI Gateway instead)',
       expiry_warning: false,
       days_until_expiry: null,
-      metadata: {}
+      metadata: { note: 'Legacy - using Cloudflare AI Gateway via AI_GATEWAY_API_KEY' }
     };
   }
 
-  try {
-    const response = await fetch('https://api.vercel.com/v1/ai/chat', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'xai/grok-beta',
-        messages: [{ role: 'user', content: 'test' }],
-        max_tokens: 5
-      })
-    });
-
-    return {
-      service_name: 'vercel_ai',
-      key_type: 'api_key',
-      is_healthy: response.ok || response.status === 402,
-      error_message: response.ok ? null : `HTTP ${response.status}`,
-      expiry_warning: response.status === 402,
-      days_until_expiry: null,
-      metadata: { note: response.status === 402 ? 'Credits depleted' : '' }
-    };
-  } catch (error) {
-    return {
-      service_name: 'vercel_ai',
-      key_type: 'api_key',
-      is_healthy: false,
-      error_message: error.message,
-      expiry_warning: false,
-      days_until_expiry: null,
-      metadata: {}
-    };
-  }
+  // If somehow configured, just mark as present but not validated
+  return {
+    service_name: 'vercel_ai',
+    key_type: 'api_key',
+    is_healthy: true,
+    error_message: null,
+    expiry_warning: false,
+    days_until_expiry: null,
+    metadata: { note: 'Legacy key - not actively used' }
+  };
 }
 
 async function checkGeminiHealth() {
