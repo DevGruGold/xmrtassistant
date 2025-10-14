@@ -260,6 +260,9 @@ serve(async (req) => {
         
         // Call vercel-ai-chat which uses the working AI cascade
         const fixResult = await supabase.functions.invoke('vercel-ai-chat', {
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+          },
           body: {
             messages: [
               {
