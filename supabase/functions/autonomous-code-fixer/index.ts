@@ -233,36 +233,46 @@ serve(async (req) => {
         sourceMetrics[source].attempted++;
         console.log(`🔧 Attempting to fix execution ${execution.id} (source: ${source})...`);
       
-        // Check if this exact execution has already been attempted (successful or not)
-        // Look for any fix attempt in the last hour to prevent infinite retries
-        const { data: recentFixAttempts } = await supabase
-          .from('eliza_activity_log')
-          .select('id')
-          .eq('activity_type', 'python_fix')
-          .contains('metadata', { original_execution_id: execution.id })
-          .gte('created_at', new Date(Date.now() - 3600000).toISOString())
-          .limit(1);
-
-        if (recentFixAttempts && recentFixAttempts.length > 0) {
-          console.log(`⏭️ Execution ${execution.id} already attempted in the last hour, skipping`);
+        // Check fix attempt counter in execution metadata
+        const fixAttempts = execution.metadata?.fix_attempts || 0;
+        if (fixAttempts >= 3) {
+          console.log(`⏭️ Execution ${execution.id} already attempted ${fixAttempts} times, permanently skipping`);
+          sourceMetrics[source].failed++;
+          
+          // Delete from queue after 3 failed attempts to reduce clutter
+          await supabase
+            .from('eliza_python_executions')
+            .delete()
+            .eq('id', execution.id);
+          
           return {
             execution_id: execution.id,
             success: false,
-            error: 'Recently attempted',
-            skipped: true
+            error: 'Max retry limit reached (3 attempts)',
+            skipped: true,
+            deleted: true
           };
         }
+        
+        // Increment fix attempt counter
+        await supabase
+          .from('eliza_python_executions')
+          .update({ 
+            metadata: { 
+              ...execution.metadata, 
+              fix_attempts: fixAttempts + 1,
+              last_fix_attempt: new Date().toISOString()
+            } 
+          })
+          .eq('id', execution.id);
 
         // Fix the code directly using the same AI cascade as chat (Gemini → OpenRouter → etc.)
         const agentContext = source !== 'eliza' && execution.metadata?.agent_id 
           ? `\n\n**Agent Context:** This code was executed by agent ${execution.metadata.agent_id} for task ${execution.metadata.task_id || 'unknown'}.` 
           : '';
         
-        // Call vercel-ai-chat which uses the working AI cascade
+        // Call vercel-ai-chat which uses the working AI cascade (no auth header - function handles credentials internally)
         const fixResult = await supabase.functions.invoke('vercel-ai-chat', {
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-          },
           body: {
             messages: [
               {

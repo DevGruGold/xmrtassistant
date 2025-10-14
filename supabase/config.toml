@@ -95,10 +95,10 @@ function_name = "monitor-device-connections"
 schedule = "25,40,55 * * * *"
 body = '{"action":"status"}'
 
-# Code Monitor Daemon - Every 30 seconds for flowing activity
+# Code Monitor Daemon - Every 5 minutes (backup check - instant triggers from python-executor)
 [[edge_runtime.scheduled_functions]]
 function_name = "code-monitor-daemon"
-schedule = "* * * * *"
+schedule = "*/5 * * * *"
 body = '{"action":"monitor"}'
 
 # Scheduled Actions - Every minute for responsive execution
