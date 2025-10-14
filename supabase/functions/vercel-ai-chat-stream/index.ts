@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 import { createXai } from "npm:@ai-sdk/xai@1.0.0";
+import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { streamText } from "npm:ai@4.0.0";
 
 const corsHeaders = {
@@ -38,20 +39,20 @@ serve(async (req) => {
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
     let aiModel = 'grok-beta';
-    let xaiClient: any = null;
+    let aiClient: any = null;
 
     if (xaiKey) {
       API_KEY = xaiKey;
       aiProvider = 'xai';
       aiModel = 'grok-beta';
-      xaiClient = createXai({ apiKey: xaiKey });
+      aiClient = createXai({ apiKey: xaiKey });
       console.log('✅ Using xAI (Grok) for streaming - Lead AI');
     } else if (vercelKey) {
       API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'grok-beta'; // Use Grok via Vercel AI Gateway
-      xaiClient = createXai({ apiKey: vercelKey, baseURL: 'https://api.vercel.ai/v1' });
-      console.log('✅ Using Vercel AI Gateway for streaming with Grok');
+      aiModel = 'xai/grok-beta'; // Use Grok via Vercel AI Gateway
+      aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
+      console.log('✅ Using Vercel AI Gateway routing to xAI Grok for streaming');
     } else if (deepseekKey || lovableKey) {
       console.log('⚠️ Streaming requires xAI or Vercel AI. Falling back to non-streaming endpoint.');
       return new Response(
@@ -91,7 +92,7 @@ serve(async (req) => {
 
     // Stream response using Vercel AI SDK with xAI
     const result = await streamText({
-      model: xaiClient(aiModel),
+      model: aiClient(aiModel),
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m: any) => ({ role: m.role, content: m.content }))

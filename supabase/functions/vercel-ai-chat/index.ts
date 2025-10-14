@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 import { createXai } from "npm:@ai-sdk/xai@1.0.0";
+import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { generateText, tool } from "npm:ai@4.0.0";
 import { z } from "npm:zod@3.24.1";
 
@@ -39,20 +40,20 @@ serve(async (req) => {
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
     let aiModel = 'grok-beta';
-    let xaiClient: any = null;
+    let aiClient: any = null;
 
     if (xaiKey) {
       API_KEY = xaiKey;
       aiProvider = 'xai';
       aiModel = 'grok-beta';
-      xaiClient = createXai({ apiKey: xaiKey });
+      aiClient = createXai({ apiKey: xaiKey });
       console.log('✅ Using xAI (Grok) - Lead AI');
     } else if (vercelKey) {
       API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'grok-beta'; // Use Grok via Vercel AI Gateway
-      xaiClient = createXai({ apiKey: vercelKey, baseURL: 'https://api.vercel.ai/v1' });
-      console.log('✅ Using Vercel AI Gateway with Grok');
+      aiModel = 'xai/grok-beta'; // Use Grok via Vercel AI Gateway
+      aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
+      console.log('✅ Using Vercel AI Gateway routing to xAI Grok');
     } else if (deepseekKey) {
       console.log('⚠️ xAI and Vercel AI not available, trying DeepSeek fallback');
       try {
@@ -143,7 +144,7 @@ serve(async (req) => {
 
     // Call AI SDK with tool calling support
     const { text, toolCalls, toolResults, usage, finishReason } = await generateText({
-      model: xaiClient(aiModel),
+      model: aiClient(aiModel),
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m: any) => ({ role: m.role, content: m.content }))
