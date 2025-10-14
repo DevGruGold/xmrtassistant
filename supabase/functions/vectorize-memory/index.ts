@@ -14,11 +14,11 @@ serve(async (req) => {
 
   try {
     const { memory_id, content, context_type } = await req.json();
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
-      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
+    if (!geminiApiKey) {
+      console.error('Gemini API key not configured');
+      return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -26,27 +26,30 @@ serve(async (req) => {
 
     console.log(`🧠 Vectorizing memory ${memory_id}...`);
 
-    // Generate embedding using OpenAI
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: content,
-      }),
-    });
+    // Generate embedding using Gemini (text-embedding-004 produces 768-dim embeddings)
+    const embeddingResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: {
+            parts: [{ text: content }]
+          }
+        }),
+      }
+    );
 
     if (!embeddingResponse.ok) {
       const errorText = await embeddingResponse.text();
-      console.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${errorText}`);
+      console.error('Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${errorText}`);
     }
 
     const embeddingData = await embeddingResponse.json();
-    const embedding = embeddingData.data[0].embedding;
+    const embedding = embeddingData.embedding.values;
 
     // Update memory context with embedding
     const supabase = createClient(

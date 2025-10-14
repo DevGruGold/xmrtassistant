@@ -93,9 +93,14 @@ export class UnifiedElizaService {
       // Import memory service dynamically to fetch stored contexts
       const { memoryContextService } = await import('./memoryContextService');
       
-      // Get memory contexts based on session/IP for perfect recall - UNLIMITED
+      // Get memory contexts using semantic search (reduced limit for performance)
       const sessionKey = `ip-${userContext.ip}`;
-      const memoryContexts = await memoryContextService.getRelevantContexts(sessionKey, 200);
+      const memoryContexts = await memoryContextService.getRelevantContexts(
+        sessionKey, 
+        20, // Reduced from 200 to 20 for faster loading
+        userInput // Pass user input for semantic search
+      );
+      console.log(`📚 Loaded ${memoryContexts.length} semantically relevant memory contexts`);
       
       // Get system version info from Render deployment
       let systemVersion = null;

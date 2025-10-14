@@ -51,12 +51,67 @@ export class MemoryContextService {
     }
   }
 
-  // Retrieve relevant contexts for current conversation
+  // Retrieve relevant contexts using semantic search
   public async getRelevantContexts(
     userId: string,
-    limit: number = 100
+    limit: number = 20,
+    queryText?: string
   ): Promise<MemoryContext[]> {
     try {
+      // If we have query text, try semantic search first
+      if (queryText) {
+        try {
+          const geminiApiKey = localStorage.getItem('gemini_api_key');
+          if (geminiApiKey) {
+            // Generate query embedding
+            const embeddingResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  content: { parts: [{ text: queryText }] }
+                }),
+              }
+            );
+
+            if (embeddingResponse.ok) {
+              const embeddingData = await embeddingResponse.json();
+              const queryEmbedding = embeddingData.embedding.values;
+
+              // Use semantic search with match_memories function
+              const { data: semanticResults, error: semanticError } = await supabase.rpc(
+                'match_memories',
+                {
+                  query_embedding: queryEmbedding,
+                  match_threshold: 0.5,
+                  match_count: limit,
+                  user_id_filter: userId
+                }
+              );
+
+              if (!semanticError && semanticResults && semanticResults.length > 0) {
+                console.log(`🧠 Found ${semanticResults.length} semantically relevant memories`);
+                return semanticResults.map((ctx: any) => ({
+                  id: ctx.id,
+                  userId: ctx.user_id,
+                  sessionId: ctx.session_id,
+                  content: ctx.content,
+                  contextType: ctx.context_type,
+                  importanceScore: ctx.importance_score,
+                  timestamp: new Date(ctx.ts),
+                  embedding: ctx.embedding,
+                  metadata: ctx.metadata as Record<string, any>
+                }));
+              }
+            }
+          }
+        } catch (semanticError) {
+          console.warn('Semantic search failed, falling back to recency:', semanticError);
+        }
+      }
+
+      // Fallback to recency-based search (reduced limit from 100 to 20)
       const { data, error } = await supabase
         .from('memory_contexts')
         .select('*')
