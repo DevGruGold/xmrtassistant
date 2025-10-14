@@ -11,7 +11,7 @@ interface WorkerStats {
   lastHash: number;
 }
 
-export const MiningLeaderboard = () => {
+const MiningLeaderboard = () => {
   const [workers, setWorkers] = useState<WorkerStats[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -168,3 +168,5 @@ export const MiningLeaderboard = () => {
     </Card>
   );
 };
+
+export default MiningLeaderboard;

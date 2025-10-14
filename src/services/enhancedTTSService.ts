@@ -107,9 +107,15 @@ export class EnhancedTTSService {
    * Initialize audio context (call after user interaction)
    */
   async initialize(): Promise<void> {
-    await unifiedTTSService.initialize();
-    console.log('🎵 Enhanced TTS Service initialized with multiple fallbacks');
+    // Lazy initialization - only initialize when explicitly called
+    if (!this.initialized) {
+      await unifiedTTSService.initialize();
+      this.initialized = true;
+      console.log('🎵 Enhanced TTS Service initialized with multiple fallbacks');
+    }
   }
+  
+  private initialized = false;
 
   /**
    * Get TTS capabilities

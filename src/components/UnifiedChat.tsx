@@ -92,46 +92,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
 
-  // Initialize TTS for mobile compatibility - auto-enable on first interaction
-  useEffect(() => {
-    const initTTS = async () => {
-      try {
-        await enhancedTTS.initialize();
-        setAudioInitialized(true);
-        
-        // Auto-enable voice on mobile devices if not explicitly disabled
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const audioDisabled = localStorage.getItem('audioEnabled') === 'false';
-        
-        if (isMobile && !audioDisabled) {
-          setVoiceEnabled(true);
-          localStorage.setItem('audioEnabled', 'true');
-          console.log('✅ Auto-enabled TTS for mobile device');
-        }
-        
-        console.log('✅ TTS initialized for mobile and browser');
-      } catch (error) {
-        console.error('❌ TTS initialization failed:', error);
-      }
-    };
-    
-    // Initialize on first user interaction
-    const handleFirstInteraction = () => {
-      if (!audioInitialized) {
-        initTTS();
-        document.removeEventListener('click', handleFirstInteraction);
-        document.removeEventListener('touchstart', handleFirstInteraction);
-      }
-    };
-    
-    document.addEventListener('click', handleFirstInteraction);
-    document.addEventListener('touchstart', handleFirstInteraction);
-    
-    return () => {
-      document.removeEventListener('click', handleFirstInteraction);
-      document.removeEventListener('touchstart', handleFirstInteraction);
-    };
-  }, [audioInitialized]);
+  // Lazy TTS initialization - only when user enables voice
+  // Removed auto-initialization to improve page load performance
 
   // API Key Management state
   const [showAPIKeyInput, setShowAPIKeyInput] = useState(false);

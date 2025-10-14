@@ -1,26 +1,39 @@
+import { lazy, Suspense, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles } from "lucide-react";
+import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import Dashboard from "@/components/Dashboard";
-import MobileMoneroCalculator from "@/components/MobileMoneroCalculator";
-import LiveMiningStats from "@/components/LiveMiningStats";
-import UnifiedChat from "@/components/UnifiedChat";
 import { Footer } from "@/components/Footer";
 import DaoTabs from "@/components/DaoTabs";
 import XMRTDashboard from "@/components/XMRTDashboard";
-import { PythonShell } from "@/components/PythonShell";
-import { MiningLeaderboard } from "@/components/MiningLeaderboard";
-import { useState } from "react";
 import { MobileNav } from "@/components/MobileNav";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ExecutiveStatusIndicator } from "@/components/ExecutiveStatusIndicator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useMiningStats } from "@/hooks/useMiningStats";
+
+// Lazy load heavy components for better performance
+const UnifiedChat = lazy(() => import("@/components/UnifiedChat"));
+const LiveMiningStats = lazy(() => import("@/components/LiveMiningStats"));
+const MobileMoneroCalculator = lazy(() => import("@/components/MobileMoneroCalculator"));
+const PythonShell = lazy(() => import("@/components/PythonShell"));
+const MiningLeaderboard = lazy(() => import("@/components/MiningLeaderboard"));
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
   const [activeTab, setActiveTab] = useState("members");
   const { t } = useLanguage();
+  
+  // Progressive disclosure state - components load only when expanded
+  const [showMiningStats, setShowMiningStats] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  
+  // Shared mining stats hook - consolidates API calls
+  const { stats: miningStats, workers, loading: miningLoading } = useMiningStats();
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,7 +48,6 @@ const Index = () => {
           {/* Compact Header */}
           <div className="max-w-6xl mx-auto">
             <div className="text-center space-y-4 mb-8">
-              
               
               {/* Compact Title */}
               <div className="space-y-2">
@@ -64,20 +76,36 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Live Data Dashboard - Featured Position */}
+          {/* Live Mining Stats - Progressive Disclosure */}
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <div className="text-center mb-4">
-              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                {t('mining.title')}
-              </h2>
-              <p className="font-source text-muted-foreground text-sm">
-                {t('mining.subtitle')}
-              </p>
-            </div>
-            <LiveMiningStats />
+            <Card className="bg-card/50 border-border shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">{t('mining.title')}</CardTitle>
+                    <CardDescription className="text-sm">{t('mining.subtitle')}</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowMiningStats(!showMiningStats)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {showMiningStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showMiningStats && (
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+                    <LiveMiningStats />
+                  </Suspense>
+                </CardContent>
+              )}
+            </Card>
           </div>
 
-          {/* Integrated AI Chat Interface */}
+          {/* AI Chat Interface - Always visible but lazy loaded */}
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
             <div className="text-center mb-4">
               <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
@@ -89,24 +117,45 @@ const Index = () => {
             </div>
             
             <div className="bg-card/50 border border-border rounded-2xl p-6 shadow-lg backdrop-blur-sm">
-              <UnifiedChat />
+              <Suspense fallback={
+                <div className="space-y-4">
+                  <Skeleton className="h-96 w-full" />
+                </div>
+              }>
+                <UnifiedChat />
+              </Suspense>
             </div>
           </div>
 
-          {/* Python Shell - Eliza's Code Execution Monitor */}
+          {/* Python Shell - Collapsible */}
           <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <div className="text-center mb-4">
-              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                🐍 Eliza's Code Execution Log
-              </h2>
-              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                Real-time monitor of autonomous code execution, auto-fixes, and background tasks
-              </p>
-            </div>
-            <PythonShell />
+            <Card className="bg-card/50 border-border shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">🐍 Eliza's Code Execution Log</CardTitle>
+                    <CardDescription className="text-sm">Real-time autonomous code execution monitor</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLogs(!showLogs)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {showLogs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showLogs && (
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                    <PythonShell />
+                  </Suspense>
+                </CardContent>
+              )}
+            </Card>
           </div>
 
-          
           {/* Quick Actions */}
           <div className="max-w-5xl mx-auto text-center mb-8">
             <div className="bg-card/30 border border-border rounded-2xl p-6 shadow-lg animate-slide-in">
@@ -143,30 +192,62 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Mining Leaderboard */}
+          {/* Mining Leaderboard - Progressive Disclosure */}
           <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
-            <div className="text-center mb-4">
-              <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                Top Miners
-              </h3>
-              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                Real-time worker performance from the XMRT mining pool
-              </p>
-            </div>
-            <MiningLeaderboard />
+            <Card className="bg-card/50 border-border shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">Top Miners</CardTitle>
+                    <CardDescription className="text-sm">Real-time worker performance</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLeaderboard(!showLeaderboard)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showLeaderboard && (
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                    <MiningLeaderboard />
+                  </Suspense>
+                </CardContent>
+              )}
+            </Card>
           </div>
           
-          {/* Mining Calculator */}
+          {/* Mining Calculator - Progressive Disclosure */}
           <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
-            <div className="text-center mb-4">
-              <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                {t('calculator.title')}
-              </h3>
-              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                {t('calculator.subtitle')}
-              </p>
-            </div>
-            <MobileMoneroCalculator />
+            <Card className="bg-card/50 border-border shadow-lg">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">{t('calculator.title')}</CardTitle>
+                    <CardDescription className="text-sm">{t('calculator.subtitle')}</CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCalculator(!showCalculator)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {showCalculator ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              {showCalculator && (
+                <CardContent>
+                  <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                    <MobileMoneroCalculator />
+                  </Suspense>
+                </CardContent>
+              )}
+            </Card>
           </div>
         </div>
       </section>

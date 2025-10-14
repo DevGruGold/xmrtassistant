@@ -17,7 +17,7 @@ interface ActivityLog {
   created_at: string;
 }
 
-export const PythonShell = () => {
+const PythonShell = () => {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -181,3 +181,5 @@ export const PythonShell = () => {
     </Card>
   );
 };
+
+export default PythonShell;
