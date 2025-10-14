@@ -110,7 +110,7 @@ export function getAICredential(
     deepseek: 'DEEPSEEK_API_KEY',
     lovable_ai: 'LOVABLE_API_KEY',
     vercel_ai: 'VERCEL_AI_GATEWAY_KEY',
-    xai: 'XAI_API_KEY'
+    xai: 'AI_GATEWAY_API_KEY'
   };
 
   const backendKey = Deno.env.get(envKeys[service]);

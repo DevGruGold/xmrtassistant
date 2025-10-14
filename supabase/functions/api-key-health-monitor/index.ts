@@ -331,7 +331,7 @@ async function checkElevenLabsHealth() {
 }
 
 async function checkXAIHealth() {
-  const apiKey = Deno.env.get('XAI_API_KEY');
+  const apiKey = Deno.env.get('AI_GATEWAY_API_KEY');
   if (!apiKey) {
     return {
       service_name: 'xai',
