@@ -55,9 +55,16 @@ enable_confirmations = false
 # - API key health checks: Every 6 hours at :15 (0, 6, 12, 18)
 # - System health check: Every hour at :20
 # - Device connection monitoring: Every 15 minutes at :25, :40, :55
-# - Code monitor daemon: Every 2 hours at :30 (1, 3, 5, etc.)
-# - Scheduled actions execution: Every 5 minutes at :00, :05, :10, etc.
+# - Code monitor daemon: Every minute for flowing activity
+# - Scheduled actions execution: Every minute for responsive execution
 # - Ecosystem monitoring: Daily at 11:35 UTC
+# - GitHub Community Posts:
+#   * Morning discussion: Daily at 08:00 UTC
+#   * Progress update: Daily at 09:00 UTC  
+#   * Daily discussion: Daily at 15:00 UTC
+#   * Evening summary: Daily at 20:00 UTC
+#   * Weekly retrospective: Fridays at 16:00 UTC
+#   * Community spotlight: Wednesdays at 14:00 UTC
 # ====================================================================
 
 # Device Metrics - Hourly aggregation at :05
@@ -103,6 +110,43 @@ schedule = "* * * * *"
 [[edge_runtime.scheduled_functions]]
 function_name = "ecosystem-monitor"
 schedule = "35 11 * * *"
+
+# ====================================================================
+# GITHUB COMMUNITY ENGAGEMENT CRON JOBS
+# ====================================================================
+# These functions automatically post to GitHub discussions to engage
+# the community and share autonomous agent progress
+
+# Morning Discussion Post - Daily at 8:00 UTC
+[[edge_runtime.scheduled_functions]]
+function_name = "morning-discussion-post"
+schedule = "0 8 * * *"
+
+# Progress Update Post - Daily at 9:00 UTC  
+[[edge_runtime.scheduled_functions]]
+function_name = "progress-update-post"
+schedule = "0 9 * * *"
+
+# Daily Discussion Post - Daily at 15:00 UTC (3pm)
+[[edge_runtime.scheduled_functions]]
+function_name = "daily-discussion-post"
+schedule = "0 15 * * *"
+
+# Evening Summary Post - Daily at 20:00 UTC (8pm)
+[[edge_runtime.scheduled_functions]]
+function_name = "evening-summary-post"
+schedule = "0 20 * * *"
+
+# Weekly Retrospective Post - Fridays at 16:00 UTC (4pm)
+[[edge_runtime.scheduled_functions]]
+function_name = "weekly-retrospective-post"
+schedule = "0 16 * * 5"
+
+# Community Spotlight Post - Wednesdays at 14:00 UTC (2pm)
+[[edge_runtime.scheduled_functions]]
+function_name = "community-spotlight-post"
+schedule = "0 14 * * 3"
+
 
 # ====================================================================
 # EDGE FUNCTIONS AUTHENTICATION CONFIGURATION
@@ -205,26 +249,30 @@ verify_jwt = true
 [functions.self-optimizing-agent-architecture]
 verify_jwt = true
 
+# GitHub Community Posting Functions - Must be public for cron access
 [functions.morning-discussion-post]
-verify_jwt = true
+verify_jwt = false
 
 [functions.progress-update-post]
-verify_jwt = true
+verify_jwt = false
+
+[functions.daily-discussion-post]
+verify_jwt = false
 
 [functions.evening-summary-post]
-verify_jwt = true
+verify_jwt = false
 
 [functions.weekly-retrospective-post]
-verify_jwt = true
+verify_jwt = false
 
 [functions.community-spotlight-post]
-verify_jwt = true
+verify_jwt = false
 
 [functions.schedule-reminder]
 verify_jwt = true
 
 [functions.execute-scheduled-actions]
-verify_jwt = true
+verify_jwt = false
 
 # PUBLIC FUNCTIONS - No Authentication Required
 # These are either health checks, webhooks, or public-facing APIs
