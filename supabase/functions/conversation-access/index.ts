@@ -18,7 +18,8 @@ serve(async (req) => {
   }
 
   try {
-    const { action, sessionKey, sessionId, messageData, limit, offset } = await req.json();
+    const requestBody = await req.json();
+    const { action, sessionKey, sessionId, messageData, limit, offset, sessionData } = requestBody;
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -56,7 +57,6 @@ serve(async (req) => {
       }
 
       case "create_session": {
-        const { sessionData } = await req.json();
         
         // Create new session
         const { data, error } = await supabase
