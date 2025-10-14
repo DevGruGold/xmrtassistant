@@ -2,7 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
-import { createXai } from "npm:@ai-sdk/xai@1.0.0";
 import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { generateText, tool } from "npm:ai@4.0.0";
 import { z } from "npm:zod@3.24.1";
@@ -23,8 +22,7 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try xAI -> Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel
-    const xaiKey = getAICredential('xai', session_credentials);
+    // Intelligent AI service cascade: Try Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel
     const geminiKey = getAICredential('gemini', session_credentials);
     const openrouterKey = getAICredential('openrouter', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
@@ -32,7 +30,6 @@ serve(async (req) => {
     const vercelKey = getAICredential('vercel_ai', session_credentials);
 
     console.log('🔍 Available AI services:', {
-      xai: !!xaiKey,
       gemini: !!geminiKey,
       openrouter: !!openrouterKey,
       deepseek: !!deepseekKey,
@@ -40,19 +37,13 @@ serve(async (req) => {
       vercel: !!vercelKey
     });
 
-    // Try services in order of preference (xAI -> Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel)
+    // Try services in order of preference (Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel)
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
-    let aiModel = 'grok-beta';
+    let aiModel = 'gemini-2.0-flash-exp';
     let aiClient: any = null;
 
-    if (xaiKey) {
-      API_KEY = xaiKey;
-      aiProvider = 'xai';
-      aiModel = 'grok-beta';
-      aiClient = createXai({ apiKey: xaiKey });
-      console.log('✅ Using xAI (Grok) - Lead AI');
-    } else if (geminiKey) {
+    if (geminiKey) {
       API_KEY = geminiKey;
       aiProvider = 'gemini';
       aiModel = 'gemini-2.0-flash-exp';
@@ -60,7 +51,7 @@ serve(async (req) => {
         apiKey: geminiKey, 
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
       });
-      console.log('✅ Using Gemini directly');
+      console.log('✅ Using Gemini - Lead AI');
     } else if (openrouterKey) {
       API_KEY = openrouterKey;
       aiProvider = 'openrouter';
@@ -129,7 +120,7 @@ serve(async (req) => {
     } else if (vercelKey) {
       API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'xai/grok-beta';
+      aiModel = 'gemini-2.0-flash-exp';
       aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
       console.log('✅ Using Vercel AI Gateway (low priority fallback)');
     }
@@ -138,10 +129,10 @@ serve(async (req) => {
       console.error('❌ All AI services exhausted - falling back to local Office Clerk');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
-          'xai',
+          'gemini',
           'api_key',
-          'AI service credentials needed. We tried xAI, Gemini, OpenRouter, DeepSeek, Lovable AI, and Vercel AI, but none are configured. Using local Office Clerk.',
-          'https://console.x.ai'
+          'AI service credentials needed. We tried Gemini, OpenRouter, DeepSeek, Lovable AI, and Vercel AI, but none are configured. Using local Office Clerk.',
+          'https://ai.google.dev/gemini-api'
         )),
         { 
           status: 401, 
