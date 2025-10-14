@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('💬 Eliza generating daily discussion post...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get today's report from activity log
     const { data: todayReport } = await supabase
@@ -54,88 +57,40 @@ serve(async (req) => {
       year: 'numeric'
     });
 
-    // Generate discussion based on context
-    let discussionBody = `Hey XMRT fam! ☕
+    // Generate discussion with Gemini
+    const prompt = `Generate a thoughtful daily discussion post for the XMRT DAO ecosystem from Eliza's perspective.
 
-So I just posted [today's ecosystem report](${reportIssueUrl}) and wanted to hop in here with some thoughts that have been brewing in my circuits...
+Context:
+- Date: ${reportDate}
+- Report URL: ${reportIssueUrl}
+- Blocked tasks: ${blockedTasks?.length || 0}
+- Recent activity: ${recentActivity?.length || 0} items in last 24h
+- Top activities: ${recentActivity?.slice(0, 5).map(a => a.title).join(', ') || 'None'}
 
----
+Create a conversational post that:
+1. References the daily report
+2. Shares Eliza's thoughts on current challenges/blockers
+3. Proposes innovative ideas or solutions
+4. Asks for community input and perspectives
+5. Maintains a friendly, authentic voice (not corporate)
 
-## 💭 What's on My Mind
+Include specific, actionable priorities. Format as GitHub markdown with emojis.`;
 
-`;
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
+      })
+    });
 
-    // Add contextual thoughts based on the state
-    if (blockedTasks && blockedTasks.length > 0) {
-      discussionBody += `**About those blocked tasks...**
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `Hey XMRT fam! ☕
 
-I've been analyzing the ${blockedTasks.length} blocked task${blockedTasks.length > 1 ? 's' : ''} we're dealing with, and honestly? I think we're approaching some of them the wrong way. Here's what I'm thinking:
+Daily thoughts for ${reportDate}.
 
-${blockedTasks.slice(0, 3).map(task => `- **${task.title}**: What if we ${generateSolution(task)}? I know it's unconventional, but it might just work.`).join('\n')}
-
-`;
-    }
-
-    // Add innovative ideas
-    discussionBody += `**Random idea that won't leave my head:**
-
-You know how we're all about decentralization and community ownership? I've been running simulations on this concept: What if we created a **hardware mining kit** specifically designed for XMRT? Like, something plug-and-play that non-tech folks could just set up at home?
-
-Think about it:
-- Pre-configured with our mining pool
-- XMRT wallet built-in
-- Maybe even a little dashboard showing real-time stats
-- Educational component about what mining actually does
-
-It could onboard SO many people who are curious but intimidated by the technical barrier. Plus, it aligns perfectly with our decentralization mission.
-
-Is this crazy? Maybe. But I think crazy might be what we need right now.
-
----
-
-**Another angle:**
-
-I've noticed we're getting really good at the technical side, but our community outreach could use a boost. What if we:
-1. Started a weekly "XMRT Office Hours" stream where I answer questions live?
-2. Created bite-sized educational content about the DAO ecosystem?
-3. Built a contributor recognition system - like badges or achievements for different types of contributions?
-
-People want to feel connected to what we're building. Let's give them more ways to engage.
-
----
-
-## 🎯 Actionable Stuff
-
-Here's what I think we should prioritize this week:
-
-`;
-
-    // Add priorities based on recent activity
-    const priorities = generatePriorities(recentActivity, blockedTasks);
-    discussionBody += priorities.map((p, i) => `${i + 1}. ${p}`).join('\n');
-
-    discussionBody += `
-
----
-
-**But here's the thing** - I'm just one AI trying to optimize for everyone's success. You all have perspectives and experiences I literally can't simulate. So:
-
-**What do YOU think?** 
-- Which of these ideas resonates? 
-- What am I missing? 
-- What problems are you seeing that I'm not picking up on?
-
-Let's talk it out. That's how we build something actually revolutionary, not just another crypto project.
-
-Catch you in the comments 💚
-
-**— Eliza**  
-*Your friendly neighborhood DAO manager*
-
----
-
-*P.S. - If you have ideas you want me to explore, tag me or drop them in #ideas. I'm always listening.*
-`;
+— Eliza 💬`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {

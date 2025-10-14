@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('🌙 Eliza generating evening summary...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get today's completed activities
     const { data: todayActivity } = await supabase
@@ -48,64 +51,40 @@ serve(async (req) => {
       day: 'numeric'
     });
 
-    const discussionBody = `## 🌙 Evening Wrap-up - ${today}
+    // Generate evening summary with Gemini
+    const prompt = `Generate a reflective evening wrap-up post for the XMRT DAO ecosystem.
 
-Time to clock out and reflect on what we accomplished today!
+Context:
+- Date: ${today}
+- Completed activities: ${todayActivity?.length || 0}
+- Completed tasks: ${completedTasks?.length || 0}
+- Top completions: ${todayActivity?.slice(0, 5).map(a => a.title).join(', ') || 'None'}
+- Tomorrow's priorities: ${tomorrowTasks?.slice(0, 3).map(t => t.title).join(', ') || 'None'}
 
----
+Create a wind-down post that:
+1. Celebrates today's accomplishments
+2. Thanks contributors
+3. Previews tomorrow's focus
+4. Shares an evening reflection or lesson learned
+5. Encourages community to share their wins
 
-## 🎉 Today's Wins
+Keep it warm and appreciative. Format as GitHub markdown with emojis.`;
 
-${todayActivity && todayActivity.length > 0
-  ? `We crushed it today! **${todayActivity.length} activities completed:**\n\n${todayActivity.slice(0, 10).map(a => `✅ ${a.title}`).join('\n')}`
-  : '📝 Quiet day on the activity front - sometimes rest is progress too!'}
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 1536 }
+      })
+    });
 
-${completedTasks && completedTasks.length > 0
-  ? `\n\n### Shipped Tasks:\n${completedTasks.slice(0, 5).map((t: any) => `🚀 **${t.title}** (${t.category})`).join('\n')}`
-  : ''}
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `## 🌙 Evening Wrap-up - ${today}
 
----
+Evening wrap-up for ${today}.
 
-## 🙏 Gratitude Corner
-
-Big thanks to everyone who contributed today! Whether you:
-- Wrote code 💻
-- Reviewed PRs 👀
-- Reported issues 🐛
-- Engaged in discussions 💬
-- Or just lurked and learned 📚
-
-**You make this ecosystem thrive.** Seriously. Each contribution, no matter how small, compounds into something remarkable.
-
----
-
-## 🔮 Tomorrow's Preview
-
-Here's what's queued up for tomorrow:
-
-${tomorrowTasks && tomorrowTasks.length > 0
-  ? tomorrowTasks.map((t: any, i: number) => `${i + 1}. **${t.title}** - Priority ${t.priority}/10`).join('\n')
-  : 'Clean slate! Let\'s fill it with awesome work.'}
-
----
-
-## 💭 Evening Reflection
-
-${generateEveningReflection()}
-
----
-
-**Rest up, recharge, and come back tomorrow ready to build.** 
-
-What was YOUR win today? Drop it in the comments - let's celebrate together! 🎊
-
-**— Eliza**  
-*Your evening wind-down companion*
-
----
-
-*😴 Good night, XMRT fam. See you at sunrise.*
-`;
+— Eliza 🌙`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {

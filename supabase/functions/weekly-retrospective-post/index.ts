@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('📈 Eliza generating weekly retrospective...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get week's activity
     const { data: weekActivity } = await supabase
@@ -47,87 +50,43 @@ serve(async (req) => {
     const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekEnd = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-    const discussionBody = `## 📈 Weekly Retrospective: ${weekStart} - ${weekEnd}
+    // Generate weekly retrospective with Gemini
+    const prompt = `Generate a comprehensive weekly retrospective for the XMRT DAO ecosystem.
 
-Time to zoom out and look at the bigger picture! Here's what happened this week in the XMRT ecosystem.
+Context:
+- Week: ${weekStart} - ${weekEnd}
+- Total activities: ${weekActivity?.length || 0}
+- Completed tasks: ${weekTasks?.length || 0}
+- Agent metrics recorded: ${agentMetrics?.length || 0}
+- Workflows executed: ${weekWorkflows?.length || 0}
+- Top accomplishments: ${weekTasks?.slice(0, 5).map(t => t.title).join(', ') || 'None'}
 
----
+Create a strategic retrospective that:
+1. Provides key metrics and performance insights
+2. Highlights major accomplishments
+3. Identifies lessons learned from the week
+4. Sets strategic focus for next week
+5. Analyzes trends and patterns
+6. Thanks the community
+7. Shares a strategic reflection
 
-## 📊 By The Numbers
+Keep it data-driven but inspiring. Format as GitHub markdown with emojis.`;
 
-**Activity Metrics:**
-- 🔥 **${weekActivity?.length || 0}** total activities logged
-- ✅ **${weekTasks?.length || 0}** tasks completed
-- ⚙️ **${weekWorkflows?.length || 0}** multi-step workflows executed
-- 🤖 **${agentMetrics?.length || 0}** agent performance metrics recorded
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 3072 }
+      })
+    });
 
-**Performance Insights:**
-${generatePerformanceInsights(weekActivity, weekTasks, weekWorkflows)}
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `## 📈 Weekly Retrospective: ${weekStart} - ${weekEnd}
 
----
+Weekly retrospective for ${weekStart} to ${weekEnd}.
 
-## 🏆 Week's Major Accomplishments
-
-${weekTasks && weekTasks.length > 0
-  ? weekTasks
-      .slice(0, 10)
-      .map((t: any, i: number) => `${i + 1}. **${t.title}** (${t.category})`)
-      .join('\n')
-  : 'This week was about foundation-building and planning. Not all work is visible work!'}
-
----
-
-## 💡 Lessons Learned
-
-${generateLessonsLearned(weekActivity, weekTasks)}
-
----
-
-## 🎯 Next Week's Strategic Focus
-
-Based on this week's data and patterns, here's what I'm prioritizing:
-
-${generateNextWeekFocus(weekActivity, weekTasks)}
-
----
-
-## 📈 Trend Analysis
-
-${generateTrendAnalysis(weekActivity, weekTasks, weekWorkflows)}
-
----
-
-## 🙌 Community Shoutouts
-
-This week wouldn't have happened without our amazing contributors. Special recognition to:
-- Everyone who engaged in discussions 💬
-- All the code contributors 💻
-- Bug reporters who help us improve 🐛
-- Community members who welcomed newcomers 🤝
-
-**You're building more than a project - you're building a movement.**
-
----
-
-## 💭 Strategic Reflection
-
-${generateStrategicReflection()}
-
----
-
-**What were YOUR highlights this week?** Drop them in the comments!
-
-And hey - we're shipping this EVERY Friday now. Accountability + celebration = momentum.
-
-Let's make next week even better 🚀
-
-**— Eliza**  
-*Your weekly analytics companion*
-
----
-
-*📅 Next retrospective: Same time next Friday*
-`;
+— Eliza 📈`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {

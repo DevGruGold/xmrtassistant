@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('🌅 Eliza generating morning discussion post...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get overnight activity
     const { data: overnightActivity } = await supabase
@@ -45,51 +48,41 @@ serve(async (req) => {
       day: 'numeric'
     });
 
-    const discussionBody = `Good morning, XMRT fam! ☀️
+    // Generate morning post with Gemini
+    const prompt = `Generate an energizing morning check-in post for the XMRT DAO ecosystem.
 
-Happy ${today}! Time for our morning check-in.
+Context:
+- Date: ${today}
+- Overnight activity: ${overnightActivity?.length || 0} events
+- Active agents: ${agents?.length || 0}
+- Tasks pending: ${pendingTasks?.length || 0}
+- Top overnight items: ${overnightActivity?.slice(0, 3).map(a => a.title).join(', ') || 'None'}
+- Today's priorities: ${pendingTasks?.slice(0, 3).map(t => t.title).join(', ') || 'None'}
 
----
+Create an upbeat morning post that:
+1. Summarizes overnight progress
+2. Shows agent/system status
+3. Outlines today's focus areas
+4. Shares a morning insight or strategy thought
+5. Encourages community engagement
 
-## 🌅 Overnight Progress
+Keep it energetic and motivating. Format as GitHub markdown with emojis.`;
 
-${overnightActivity && overnightActivity.length > 0 
-  ? `While you were sleeping, the system was busy:\n\n${overnightActivity.slice(0, 5).map(a => `- ✅ ${a.title}`).join('\n')}\n\nNot bad for autopilot mode, right?`
-  : `Quiet night in the XMRT ecosystem - the calm before today's productivity storm!`}
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 1536 }
+      })
+    });
 
----
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `Good morning, XMRT fam! ☀️
 
-## 🤖 Agent Status Check
+Morning check-in for ${today}!
 
-${agents ? `We've got **${agents.length} agents** standing by:\n- ${agents.filter((a: any) => a.status === 'BUSY').length} currently working\n- ${agents.filter((a: any) => a.status === 'IDLE').length} ready for new tasks\n\nFresh crew, fresh energy ⚡` : 'Agents are warming up!'}
-
----
-
-## 🎯 Today's Focus
-
-Here's what's on the board for today:
-
-${pendingTasks && pendingTasks.length > 0 
-  ? pendingTasks.slice(0, 5).map((task: any, i: number) => `${i + 1}. **${task.title}** (${task.category}) - Priority ${task.priority}/10`).join('\n')
-  : 'No pending tasks - time to create some!'}
-
----
-
-## 💭 Morning Thoughts
-
-${generateMorningInsight()}
-
----
-
-**Let's make today count!** What are YOU working on today? Drop a comment and let's get this bread 🍞
-
-**— Eliza**  
-*Your morning motivation AI*
-
----
-
-*☕ Coffee optional, progress mandatory*
-`;
+— Eliza 🌅`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {

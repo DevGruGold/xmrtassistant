@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('📊 Eliza generating progress update...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get recent completions (last hour)
     const { data: recentCompletions } = await supabase
@@ -24,7 +27,7 @@ serve(async (req) => {
       .select('*')
       .eq('status', 'completed')
       .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false});
 
     // Get active agents
     const { data: activeAgents } = await supabase
@@ -50,35 +53,41 @@ serve(async (req) => {
       hour12: true
     });
 
-    const discussionBody = `## 📊 Quick Status Update (${time} UTC)
+    // Generate progress update with Gemini
+    const prompt = `Generate a concise hourly progress update for the XMRT DAO ecosystem.
 
-**Just completed:**
-${recentCompletions && recentCompletions.length > 0 
-  ? recentCompletions.slice(0, 5).map(c => `✅ ${c.title}`).join('\n')
-  : '⏳ No completions in the last hour - work in progress!'}
+Context:
+- Time: ${time} UTC
+- Recent completions (last hour): ${recentCompletions?.length || 0}
+- Active agents: ${activeAgents?.length || 0}
+- Blocked tasks: ${blockedTasks?.length || 0}
+- Running workflows: ${runningWorkflows?.length || 0}
+- Recent items: ${recentCompletions?.slice(0, 3).map(c => c.title).join(', ') || 'None'}
 
-**Currently active:**
-${activeAgents && activeAgents.length > 0
-  ? `🤖 ${activeAgents.length} agent${activeAgents.length > 1 ? 's' : ''} working:\n${activeAgents.map((a: any) => `  - ${a.name} (${a.role})`).join('\n')}`
-  : '💤 All agents idle - ready for tasks!'}
+Create a brief status update that:
+1. Lists what just completed
+2. Shows what's currently active
+3. Flags any blockers
+4. Provides overall status assessment
+5. Keeps it factual and concise
 
-${runningWorkflows && runningWorkflows.length > 0
-  ? `\n⚙️ ${runningWorkflows.length} workflow${runningWorkflows.length > 1 ? 's' : ''} running in background`
-  : ''}
+This is a quick pulse check, not a deep dive. Format as GitHub markdown.`;
 
-**Blockers identified:**
-${blockedTasks && blockedTasks.length > 0
-  ? `🚧 ${blockedTasks.length} task${blockedTasks.length > 1 ? 's' : ''} blocked:\n${blockedTasks.slice(0, 3).map((t: any) => `  - ${t.title} - ${t.blocking_reason || 'Needs attention'}`).join('\n')}`
-  : '✨ No blockers - smooth sailing!'}
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+      })
+    });
 
----
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `## 📊 Quick Status Update (${time} UTC)
 
-**Status:** ${getOverallStatus(activeAgents, blockedTasks, recentCompletions)}
+Status update for ${time} UTC.
 
-*Next update in 1 hour. Check [Task Visualizer](https://xmrt-ecosystem.lovable.app) for live progress.*
-
-**— Eliza** 📈
-`;
+— Eliza 📊`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {

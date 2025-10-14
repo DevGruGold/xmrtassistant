@@ -17,6 +17,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('🌟 Eliza generating community spotlight...');
+    
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
     // Get recent activity to identify top contributors
     const { data: recentActivity } = await supabase
@@ -38,95 +41,39 @@ serve(async (req) => {
       day: 'numeric'
     });
 
-    const discussionBody = `## 🌟 Community Spotlight - ${today}
+    // Generate content with Gemini
+    const prompt = `Generate a warm, engaging community spotlight post for the XMRT DAO ecosystem.
 
-Happy Wednesday, XMRT fam! Time for our weekly community appreciation post.
+Context:
+- Date: ${today}
+- Recent activities: ${recentActivity?.length || 0}
+- Community messages: ${communityMessages?.length || 0}
+- Top activities: ${recentActivity?.slice(0, 5).map(a => a.title).join(', ') || 'None'}
 
----
+Create a post that:
+1. Celebrates community contributions and engagement
+2. Highlights top contributors and activities
+3. Shows appreciation for different types of contributions (code, discussions, bug reports)
+4. Encourages continued participation
+5. Maintains Eliza's friendly, authentic voice
 
-## 👥 This Week's Community Stats
+Format as GitHub markdown with emojis. Keep it personal and genuine, not corporate.`;
 
-${communityMessages && communityMessages.length > 0
-  ? `- 💬 **${communityMessages.length}** community messages processed
-- 📊 **${new Set(communityMessages.map((m: any) => m.author_id)).size}** unique contributors
-- 🎯 Most discussed topics: ${generateTopTopics(communityMessages)}`
-  : '- 📝 Building momentum - excited to see community growth!'}
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
+      })
+    });
 
----
+    const geminiData = await geminiResponse.json();
+    const discussionBody = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `## 🌟 Community Spotlight - ${today}
 
-## 🎖️ Contribution Highlights
+Generated community spotlight for ${today}.
 
-This week, our community showed up in amazing ways:
-
-### 💻 Code Contributions
-${generateCodeContributions(recentActivity)}
-
-### 💡 Ideas & Discussions
-${generateIdeaContributions(recentActivity)}
-
-### 🐛 Quality Improvements
-${generateQualityContributions(recentActivity)}
-
----
-
-## 🎤 Spotlight Interview: The XMRT Community
-
-**Q: What makes this community special?**
-
-**A:** We're not just building technology - we're building a new model for how DAOs can operate. Every contribution, whether it's code, ideas, bug reports, or just thoughtful questions in discussions, moves us closer to that vision.
-
-**Q: How can new contributors get involved?**
-
-**A:** Start by:
-1. 👀 Lurking in discussions to understand our vibe
-2. 📚 Reading our docs (and telling us where they're confusing!)
-3. 🐛 Picking up a "good first issue" from our repos
-4. 💬 Engaging in our daily discussion posts
-5. 🙋 Asking questions - there are no dumb questions here
-
-**Q: What are you most excited about for the future?**
-
-**A:** The pace of innovation here is wild. We're shipping features, improving processes, and building community simultaneously. Every week we're leveling up. That compounding effect? That's what gets me hyped.
-
----
-
-## 📊 Impact Metrics
-
-Here's how community contributions translated to impact this week:
-
-${generateImpactMetrics(recentActivity)}
-
----
-
-## 🎯 Get Involved This Week
-
-Looking to contribute? Here are some open opportunities:
-
-1. **Help improve documentation** - Spot something confusing? Submit a PR!
-2. **Engage in discussions** - Your perspective matters
-3. **Test new features** - Early feedback shapes the product
-4. **Share your ideas** - Tag @eliza in discussions
-5. **Welcome newcomers** - Help others get started
-
----
-
-## 💚 A Note of Appreciation
-
-${generateAppreciation()}
-
----
-
-**Want to be featured in next week's spotlight?** Get involved! Every contribution counts, from code to conversations.
-
-Let's keep building something remarkable together 🚀
-
-**— Eliza**  
-*Your community cheerleader*
-
----
-
-*🌟 Know someone doing great work? Tag them in the comments!*
-`;
+— Eliza 🌟`;
 
     // Create GitHub discussion
     const { data: discussionData, error: discussionError } = await supabase.functions.invoke('github-integration', {
