@@ -44,15 +44,166 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('🤖 Autonomous Code Fixer - Starting scan for failed executions...');
+    // Parse request to determine mode
+    const requestBody = await req.json().catch(() => ({}));
+    const mode = requestBody.mode || 'local'; // 'local' (Python executions) or 'github' (repository issues)
+    
+    console.log(`🤖 Autonomous Code Fixer - Mode: ${mode}`);
 
-    // 🔧 PHASE 3: Relaxed circuit breaker for 1-minute cron cycles (30 runs/min max)
-    // Allows frequent monitoring without tripping breaker
+    // GitHub Repository Mode - Analyze issues and suggest fixes
+    if (mode === 'github') {
+      const issues = requestBody.issues || [];
+      const repositories = requestBody.repositories || [];
+      
+      if (issues.length === 0) {
+        console.log('✅ No GitHub issues to analyze');
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'No GitHub issues provided',
+          analyzed: 0,
+          suggested: 0
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log(`📋 Analyzing ${issues.length} GitHub issues from ${repositories.length} repositories`);
+      
+      const analysisResults = [];
+      
+      for (const issue of issues) {
+        console.log(`🔍 Analyzing issue #${issue.number}: ${issue.title}`);
+        
+        // Extract relevant file paths from issue body if mentioned
+        const filePathRegex = /`([a-zA-Z0-9_\-\/\.]+\.(ts|tsx|js|jsx|py))`/g;
+        const filePaths = [];
+        let match;
+        while ((match = filePathRegex.exec(issue.body || '')) !== null) {
+          filePaths.push(match[1]);
+        }
+
+        // If specific files mentioned, fetch their content
+        let codeContext = '';
+        if (filePaths.length > 0) {
+          console.log(`📄 Fetching ${filePaths.length} files mentioned in issue`);
+          
+          for (const filePath of filePaths.slice(0, 3)) { // Limit to 3 files
+            const fileResponse = await supabase.functions.invoke('github-integration', {
+              body: {
+                action: 'get_file_content',
+                repo: issue.repo,
+                path: filePath
+              }
+            });
+
+            if (!fileResponse.error && fileResponse.data) {
+              codeContext += `\n\n**File: ${filePath}**\n\`\`\`\n${fileResponse.data.content || ''}\n\`\`\``;
+            }
+          }
+        }
+
+        // Call AI to analyze the issue and suggest a fix
+        const analysisPrompt = `Analyze this GitHub issue and suggest code fixes:
+
+**Issue #${issue.number}**: ${issue.title}
+**Labels**: ${issue.labels?.map((l: any) => l.name).join(', ') || 'None'}
+**Repository**: ${issue.repo}
+
+**Description**:
+${issue.body || 'No description provided'}
+
+${codeContext}
+
+**Your Task**:
+1. Identify the root cause of the issue
+2. Suggest specific code changes to fix it
+3. Provide clear implementation steps
+
+**Output Format**:
+- **Root Cause**: Brief explanation
+- **Suggested Fix**: Specific code changes needed
+- **Implementation**: Step-by-step instructions`;
+
+        const aiResponse = await supabase.functions.invoke('vercel-ai-chat', {
+          body: {
+            messages: [{ role: 'user', content: analysisPrompt }],
+            conversationHistory: [],
+            userContext: { ip: 'code-fixer-github', isFounder: false },
+            miningStats: null,
+            systemVersion: null
+          }
+        });
+
+        let analysis = '';
+        if (!aiResponse.error) {
+          const resultData = aiResponse.data;
+          analysis = typeof resultData === 'string' ? resultData : (resultData?.response || resultData?.generatedText || '');
+        }
+
+        analysisResults.push({
+          issue_number: issue.number,
+          issue_title: issue.title,
+          repo: issue.repo,
+          analysis: analysis,
+          files_analyzed: filePaths.slice(0, 3)
+        });
+
+        // Comment on the GitHub issue with the analysis
+        if (analysis) {
+          console.log(`💬 Adding analysis comment to issue #${issue.number}`);
+          
+          const commentBody = `🤖 **Autonomous Code Analysis**
+
+${analysis}
+
+---
+*This analysis was generated automatically by the XMRT Code Monitor. Review and validate before implementing.*`;
+
+          await supabase.functions.invoke('github-integration', {
+            body: {
+              action: 'comment_on_issue',
+              repo: issue.repo,
+              issue_number: issue.number,
+              comment: commentBody
+            }
+          });
+        }
+      }
+
+      console.log(`✅ Completed analysis of ${analysisResults.length} issues`);
+
+      // Log the GitHub analysis activity
+      await supabase.from('eliza_activity_log').insert({
+        activity_type: 'github_code_analysis',
+        title: '🔍 GitHub Code Issue Analysis',
+        description: `Analyzed ${analysisResults.length} code issues and posted suggestions`,
+        status: 'completed',
+        metadata: {
+          issues_analyzed: analysisResults.length,
+          repositories: repositories,
+          results: analysisResults
+        },
+        mentioned_to_user: false
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: 'github',
+        analyzed: analysisResults.length,
+        suggested: analysisResults.filter(r => r.analysis).length,
+        results: analysisResults
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Local Python Execution Mode (original functionality)
+    // 🔧 Circuit breaker for local mode
     const { data: recentRuns } = await supabase
       .from('eliza_activity_log')
       .select('created_at')
       .eq('activity_type', 'code_monitoring')
-      .gte('created_at', new Date(Date.now() - 60000).toISOString()) // Last 1 minute
+      .gte('created_at', new Date(Date.now() - 60000).toISOString())
       .order('created_at', { ascending: false });
 
     if (recentRuns && recentRuns.length > 30) {

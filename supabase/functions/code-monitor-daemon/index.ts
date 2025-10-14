@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// This daemon runs periodically to monitor and fix failed code
+// This daemon runs periodically to monitor and fix code issues in GitHub repositories
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,43 +22,91 @@ serve(async (req) => {
     // Use service role key for internal function calls
     const authHeader = `Bearer ${supabaseKey}`;
 
-    console.log(`🔍 Code Monitor Daemon - Action: ${action}`);
+    console.log(`🔍 Code Monitor Daemon - Action: ${action} (GitHub Mode)`);
 
-    if (action === 'monitor' || action === 'fix_all') {
-      // Check GitHub token health first (both backend and session tokens)
+    if (action === 'monitor' || action === 'scan_repos') {
+      // Check GitHub token health first
       const { data: githubHealth } = await supabase
         .from('api_key_health')
         .select('*')
         .or('service_name.eq.github,service_name.eq.github_session')
-        .eq('is_healthy', true) // Only get healthy tokens
+        .eq('is_healthy', true)
         .order('created_at', { ascending: false })
         .limit(1);
 
       const hasHealthyGitHubToken = githubHealth && githubHealth.length > 0;
       
       console.log(`🔐 GitHub Token Status: ${hasHealthyGitHubToken ? 'Available ✅' : 'Unavailable ❌'}`);
-      if (hasHealthyGitHubToken && githubHealth[0]) {
-        console.log(`   Source: ${githubHealth[0].service_name} (${githubHealth[0].metadata?.token_name || githubHealth[0].metadata?.user || 'unknown'})`);
-      }
-
+      
       if (!hasHealthyGitHubToken) {
-        console.log('⏸️ No valid GitHub token - pausing GitHub-related fixes');
+        console.log('⏸️ No valid GitHub token - cannot scan repositories');
         
-        // Create reminder for user to provide PAT
         await supabase.from('eliza_activity_log').insert({
           activity_type: 'github_token_required',
-          title: '⚠️ GitHub Token Required',
-          description: 'No valid GitHub token available. Please provide your Personal Access Token to enable GitHub operations.',
+          title: '⚠️ GitHub Token Required for Code Monitoring',
+          description: 'No valid GitHub token available. Please provide your Personal Access Token to enable repository scanning.',
           status: 'pending',
-          metadata: {
-            action: 'provide_github_pat',
-            urgency: 'high'
-          },
+          metadata: { action: 'provide_github_pat', urgency: 'high' },
           mentioned_to_user: false
+        });
+
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'GitHub token required'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Trigger the autonomous code fixer directly (bypass gatekeeper in testing mode)
+      // Get target repositories from configuration
+      const targetRepos = Deno.env.get('GITHUB_MONITOR_REPOS')?.split(',') || ['MoneroTrader/xmrt-wallet-public'];
+      
+      console.log(`📦 Scanning ${targetRepos.length} repositories: ${targetRepos.join(', ')}`);
+
+      // Scan each repository for issues
+      let totalIssuesFound = 0;
+      let codeIssues = [];
+
+      for (const repo of targetRepos) {
+        console.log(`🔍 Scanning repository: ${repo}`);
+        
+        // Call github-integration to list open issues
+        const issuesResponse = await supabase.functions.invoke('github-integration', {
+          body: {
+            action: 'list_issues',
+            repo: repo,
+            state: 'open',
+            per_page: 50
+          }
+        });
+
+        if (issuesResponse.error) {
+          console.error(`❌ Failed to fetch issues from ${repo}:`, issuesResponse.error);
+          continue;
+        }
+
+        const issues = issuesResponse.data || [];
+        console.log(`📋 Found ${issues.length} open issues in ${repo}`);
+        
+        // Filter for code-related issues (bugs, performance, code quality)
+        const codeRelatedIssues = issues.filter((issue: any) => {
+          const labels = issue.labels?.map((l: any) => l.name.toLowerCase()) || [];
+          const title = issue.title.toLowerCase();
+          const body = (issue.body || '').toLowerCase();
+          
+          return labels.some(l => l.includes('bug') || l.includes('fix') || l.includes('error') || l.includes('performance')) ||
+                 title.includes('error') || title.includes('bug') || title.includes('fix') ||
+                 body.includes('error') || body.includes('fix');
+        });
+
+        totalIssuesFound += codeRelatedIssues.length;
+        codeIssues.push(...codeRelatedIssues.map((issue: any) => ({ ...issue, repo })));
+      }
+
+      console.log(`🎯 Found ${totalIssuesFound} code-related issues across all repositories`);
+
+      // Trigger the autonomous code fixer with GitHub context
       const fixerUrl = `${supabaseUrl}/functions/v1/autonomous-code-fixer`;
       const fixerResponse = await fetch(fixerUrl, {
         method: 'POST',
@@ -66,7 +114,11 @@ serve(async (req) => {
           'Authorization': authHeader,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ github_enabled: hasHealthyGitHubToken })
+        body: JSON.stringify({ 
+          mode: 'github',
+          issues: codeIssues.slice(0, 5), // Process top 5 issues
+          repositories: targetRepos
+        })
       });
 
       if (!fixerResponse.ok) {
@@ -79,28 +131,27 @@ serve(async (req) => {
 
       console.log('✅ Autonomous code fixer completed:', fixerResult);
 
-      // Log monitoring activity with clear GitHub status
-      const githubStatusMsg = hasHealthyGitHubToken 
-        ? `(GitHub: ✅ ${githubHealth?.[0]?.metadata?.token_name || githubHealth?.[0]?.metadata?.user || 'Available'})`
-        : '(GitHub: ❌ No Token)';
-      
+      // Log monitoring activity
       await supabase.from('eliza_activity_log').insert({
         activity_type: 'code_monitoring',
-        title: '🔍 Code Health Monitor',
-        description: `Scanned for failed executions. Fixed: ${fixerResult?.fixed || 0} ${githubStatusMsg}`,
+        title: '🔍 GitHub Repository Code Monitor',
+        description: `Scanned ${targetRepos.length} repositories. Found ${totalIssuesFound} code issues. Analyzed: ${fixerResult?.analyzed || 0}`,
         status: 'completed',
         metadata: {
-          fixed_count: fixerResult?.fixed || 0,
-          total_processed: fixerResult?.results?.length || 0,
-          github_enabled: hasHealthyGitHubToken,
-          github_source: hasHealthyGitHubToken ? githubHealth?.[0]?.service_name : null
+          repositories: targetRepos,
+          total_issues_found: totalIssuesFound,
+          issues_analyzed: fixerResult?.analyzed || 0,
+          fixes_suggested: fixerResult?.suggested || 0,
+          github_enabled: true
         },
-        mentioned_to_user: false // Eliza will proactively report this
+        mentioned_to_user: false
       });
 
       return new Response(JSON.stringify({
         success: true,
         monitoring_complete: true,
+        repositories_scanned: targetRepos.length,
+        issues_found: totalIssuesFound,
         fixer_result: fixerResult
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
