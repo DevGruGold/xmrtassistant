@@ -23,17 +23,19 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable
+    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable -> OpenRouter
     const xaiKey = getAICredential('xai', session_credentials);
     const vercelKey = getAICredential('vercel_ai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const lovableKey = getAICredential('lovable_ai', session_credentials);
+    const openrouterKey = getAICredential('openrouter', session_credentials);
 
     console.log('🔍 Available AI services:', {
       xai: !!xaiKey,
       vercel: !!vercelKey,
       deepseek: !!deepseekKey,
-      lovable: !!lovableKey
+      lovable: !!lovableKey,
+      openrouter: !!openrouterKey
     });
 
     // Try services in order of preference (xAI first as lead AI)
@@ -106,15 +108,24 @@ serve(async (req) => {
       } catch (error) {
         console.warn('Lovable AI fallback failed:', error);
       }
+    } else if (openrouterKey) {
+      API_KEY = openrouterKey;
+      aiProvider = 'openrouter';
+      aiModel = 'google/gemini-2.0-flash-exp:free'; // Free tier model
+      aiClient = createOpenAI({ 
+        apiKey: openrouterKey, 
+        baseURL: 'https://openrouter.ai/api/v1' 
+      });
+      console.log('✅ Using OpenRouter (fallback before local Office Clerk)');
     }
 
     if (!API_KEY) {
-      console.error('❌ All AI services exhausted');
+      console.error('❌ All AI services exhausted - falling back to local Office Clerk');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
           'xai',
           'api_key',
-          'AI service credentials needed. We tried xAI, Vercel AI, DeepSeek, and Lovable AI, but none are configured.',
+          'AI service credentials needed. We tried xAI, Vercel AI, DeepSeek, Lovable AI, and OpenRouter, but none are configured. Using local Office Clerk.',
           'https://console.x.ai'
         )),
         { 

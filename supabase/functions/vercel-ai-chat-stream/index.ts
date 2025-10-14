@@ -22,17 +22,19 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable
+    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable -> OpenRouter
     const xaiKey = getAICredential('xai', session_credentials);
     const vercelKey = getAICredential('vercel_ai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const lovableKey = getAICredential('lovable_ai', session_credentials);
+    const openrouterKey = getAICredential('openrouter', session_credentials);
 
     console.log('🔍 Available AI services:', {
       xai: !!xaiKey,
       vercel: !!vercelKey,
       deepseek: !!deepseekKey,
-      lovable: !!lovableKey
+      lovable: !!lovableKey,
+      openrouter: !!openrouterKey
     });
 
     // Try services in order of preference (xAI first as lead AI)
@@ -53,11 +55,24 @@ serve(async (req) => {
       aiModel = 'xai/grok-beta'; // Use Grok via Vercel AI Gateway
       aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
       console.log('✅ Using Vercel AI Gateway routing to xAI Grok for streaming');
+    } else if (openrouterKey) {
+      API_KEY = openrouterKey;
+      aiProvider = 'openrouter';
+      aiModel = 'google/gemini-2.0-flash-exp:free'; // Free tier model with streaming support
+      aiClient = createOpenAI({ 
+        apiKey: openrouterKey, 
+        baseURL: 'https://openrouter.ai/api/v1',
+        headers: {
+          'HTTP-Referer': 'https://xmrt-dao.lovable.app',
+          'X-Title': 'XMRT DAO'
+        }
+      });
+      console.log('✅ Using OpenRouter for streaming (fallback before local Office Clerk)');
     } else if (deepseekKey || lovableKey) {
-      console.log('⚠️ Streaming requires xAI or Vercel AI. Falling back to non-streaming endpoint.');
+      console.log('⚠️ Streaming requires xAI, Vercel AI, or OpenRouter. Falling back to non-streaming endpoint.');
       return new Response(
         JSON.stringify({ 
-          error: 'Streaming requires xAI or Vercel AI Gateway. Please use the non-streaming endpoint or configure xAI/Vercel AI.',
+          error: 'Streaming requires xAI, Vercel AI Gateway, or OpenRouter. Please use the non-streaming endpoint or configure one of these services.',
           fallback: 'Use /vercel-ai-chat endpoint instead'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -65,12 +80,12 @@ serve(async (req) => {
     }
 
     if (!API_KEY) {
-      console.error('❌ All AI services exhausted');
+      console.error('❌ All AI services exhausted - falling back to local Office Clerk');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
           'xai',
           'api_key',
-          'Streaming requires xAI or Vercel AI Gateway credentials.',
+          'Streaming requires xAI, Vercel AI Gateway, or OpenRouter credentials.',
           'https://console.x.ai'
         )),
         { 

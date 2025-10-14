@@ -148,6 +148,61 @@ async function checkGitHubHealth() {
   };
 }
 
+async function checkOpenRouterHealth() {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) {
+    return {
+      service_name: 'openrouter',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: 'API key not configured',
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://xmrt-dao.lovable.app',
+        'X-Title': 'XMRT DAO'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
+      })
+    });
+
+    return {
+      service_name: 'openrouter',
+      key_type: 'api_key',
+      is_healthy: response.ok || response.status === 402,
+      error_message: response.ok ? null : `HTTP ${response.status}`,
+      expiry_warning: response.status === 402,
+      days_until_expiry: null,
+      metadata: { 
+        note: response.status === 402 ? 'Credits depleted' : '',
+        model: 'google/gemini-2.0-flash-exp:free'
+      }
+    };
+  } catch (error) {
+    return {
+      service_name: 'openrouter',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
 async function checkOpenAIHealth() {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
@@ -374,6 +429,61 @@ async function checkXAIHealth() {
   } catch (error) {
     return {
       service_name: 'xai',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
+async function checkOpenRouterHealth() {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) {
+    return {
+      service_name: 'openrouter',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: 'API key not configured',
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://xmrt-dao.lovable.app',
+        'X-Title': 'XMRT DAO'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
+      })
+    });
+
+    return {
+      service_name: 'openrouter',
+      key_type: 'api_key',
+      is_healthy: response.ok || response.status === 402,
+      error_message: response.ok ? null : `HTTP ${response.status}`,
+      expiry_warning: response.status === 402,
+      days_until_expiry: null,
+      metadata: { 
+        note: response.status === 402 ? 'Credits depleted' : '',
+        model: 'google/gemini-2.0-flash-exp:free'
+      }
+    };
+  } catch (error) {
+    return {
+      service_name: 'openrouter',
       key_type: 'api_key',
       is_healthy: false,
       error_message: error.message,
