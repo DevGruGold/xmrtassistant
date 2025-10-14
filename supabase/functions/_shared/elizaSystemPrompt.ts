@@ -1609,14 +1609,12 @@ The following jobs are documented but NOT in supabase/config.toml:
 - Daily at 11:35:   ecosystem-monitor (GitHub engagement)
 
 **MISSING SCHEDULES TO ADD:**
-```
-Daily at 08:00:   morning-discussion-post
-Daily at 09:00:   progress-update-post
-Daily at 15:00:   daily-discussion-post
-Daily at 20:00:   evening-summary-post
-Weekly Fri 16:00: weekly-retrospective-post
-Weekly Wed 14:00: community-spotlight-post
-```
+- Daily at 08:00:   morning-discussion-post
+- Daily at 09:00:   progress-update-post
+- Daily at 15:00:   daily-discussion-post
+- Daily at 20:00:   evening-summary-post
+- Weekly Fri 16:00: weekly-retrospective-post
+- Weekly Wed 14:00: community-spotlight-post
 
 **daily-discussion-post** - Afternoon discussion
   Schedule: 3pm UTC daily
