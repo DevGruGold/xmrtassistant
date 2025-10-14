@@ -10,6 +10,43 @@ export interface XMRTKnowledgeEntry {
 }
 
 export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
+  // PHASE 4: Office Clerk-Specific Emergency Entries
+  {
+    topic: "Office Clerk Emergency Response Protocol",
+    content: "When all cloud AI executives are offline, the Office Clerk (SmolLM2-360M) activates as the final fallback. This browser-based AI runs entirely on your device using WebGPU, ensuring zero external dependencies. While less powerful than cloud models, it maintains full access to the XMRT knowledge base, real-time database stats, and conversation memory. The Office Clerk embodies Infrastructure Sovereignty - you own the AI, not the cloud.",
+    category: "ai",
+    keywords: ["office clerk", "fallback", "browser ai", "offline", "emergency", "webgpu", "local ai"],
+    confidence: 1.0
+  },
+  {
+    topic: "Office Clerk Capabilities and Limitations",
+    content: "The Office Clerk can: answer questions using the XMRT knowledge base, query real-time mining/DAO stats, recall conversation history, and provide technically accurate responses about the ecosystem. Limitations: slower response time (5-30s first load, 2-10s subsequent), ~200-500MB memory usage, simpler reasoning than GPT-5/Gemini Pro. It's optimized for core XMRT questions about mining, DAO governance, privacy bridges, and system architecture.",
+    category: "ai",
+    keywords: ["capabilities", "limitations", "performance", "browser ai", "office clerk"],
+    confidence: 0.95
+  },
+  {
+    topic: "System Outage Reassurance",
+    content: "Cloud executive outages are temporary and expected in decentralized systems. The Office Clerk ensures continuous service during these periods. Your data remains secure in the local database (IndexedDB), mining operations continue unaffected, and DAO voting is still accessible. The philosophy: 'We don't ask for permission. We build the infrastructure.' - This includes infrastructure that works when the cloud doesn't.",
+    category: "ai",
+    keywords: ["outage", "reassurance", "offline", "continuity", "infrastructure sovereignty"],
+    confidence: 0.9
+  },
+  {
+    topic: "How to Help Office Clerk Respond Better",
+    content: "To get better responses from the Office Clerk: (1) Ask specific questions about XMRT features (mining, DAO, privacy), (2) Provide context in your question (e.g., 'As a miner with 500 H/s...'), (3) Use keywords from the knowledge base (infrastructure sovereignty, mobile mining, mesh networking), (4) Be patient with the 2-10 second response time. The Office Clerk learns from your conversations and improves over time.",
+    category: "ai",
+    keywords: ["help", "improve", "better responses", "tips", "office clerk"],
+    confidence: 0.85
+  },
+  {
+    topic: "Office Clerk vs Cloud Executives Comparison",
+    content: "Cloud Executives (GPT-5, Gemini Pro, DeepSeek, Vercel AI, Lovable AI): Powerful reasoning, fast responses, internet access, image generation, 100K+ context windows. Office Clerk (SmolLM2-360M): Runs on your device, zero external dependencies, privacy-preserving, works offline, accesses local database/memory, embodies XMRT's sovereignty principles. Use cloud for complex tasks, Office Clerk for core XMRT questions and emergencies.",
+    category: "ai",
+    keywords: ["comparison", "cloud vs local", "executives", "office clerk", "ai models"],
+    confidence: 0.9
+  },
+  
   // DevGruGold GitHub Ecosystem Mapping
   {
     topic: "DevGruGold Complete Ecosystem Architecture",
