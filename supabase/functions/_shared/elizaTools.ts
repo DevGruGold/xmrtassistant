@@ -301,5 +301,20 @@ export const ELIZA_TOOLS = [
         properties: {}
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_edge_functions',
+      description: 'Search for edge functions by capability, keywords, or use case. Use when you need to find the right function for a task you want to accomplish.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'What you want to do (e.g., "create GitHub issue", "get mining stats", "browse website")' },
+          category: { type: 'string', description: 'Optional category filter (ai, mining, web, github, autonomous, knowledge, monitoring, code-execution)' }
+        },
+        required: ['query']
+      }
+    }
   }
 ];

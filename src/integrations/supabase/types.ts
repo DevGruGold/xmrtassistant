@@ -1347,6 +1347,42 @@ export type Database = {
         }
         Relationships: []
       }
+      eliza_function_usage: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          invoked_at: string
+          invoked_by: string | null
+          success: boolean
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          invoked_at?: string
+          invoked_by?: string | null
+          success: boolean
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          invoked_at?: string
+          invoked_by?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       eliza_python_executions: {
         Row: {
           code: string
@@ -3308,6 +3344,18 @@ export type Database = {
           session_id: string | null
           wallet_address: string | null
           worker_id: string | null
+        }
+        Relationships: []
+      }
+      eliza_function_analytics: {
+        Row: {
+          avg_execution_time_ms: number | null
+          failed_calls: number | null
+          first_used: string | null
+          function_name: string | null
+          last_used: string | null
+          successful_calls: number | null
+          total_invocations: number | null
         }
         Relationships: []
       }

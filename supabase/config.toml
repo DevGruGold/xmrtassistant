@@ -329,3 +329,6 @@ verify_jwt = false
 [functions.python-db-bridge]
 verify_jwt = false
 
+[functions.search-edge-functions]
+verify_jwt = false
+

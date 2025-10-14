@@ -53,6 +53,12 @@ interface UnifiedMessage {
   };
   emotion?: string;
   confidence?: number;
+  tool_calls?: Array<{
+    id: string;
+    function_name: string;
+    status: 'pending' | 'success' | 'failed';
+    execution_time_ms?: number;
+  }>;
 }
 
 // MiningStats imported from unifiedDataService
@@ -1089,16 +1095,37 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
               >
-                <div
-                  className={`max-w-[80%] sm:max-w-[75%] p-3 rounded-2xl ${
-                    message.sender === 'user'
+                <div className="max-w-[80%] sm:max-w-[75%]">
+                  <div
+                    className={`p-3 rounded-2xl ${
+                      message.sender === 'user'
                       ? 'bg-primary text-primary-foreground rounded-br-md'
                       : 'bg-muted/50 text-foreground rounded-bl-md'
                   }`}
-                >
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
-                  <div className="text-xs opacity-60 mt-2">
-                    {formatTime(message.timestamp)}
+                  >
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+                    
+                    {/* Tool Call Indicators */}
+                    {message.tool_calls && message.tool_calls.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {message.tool_calls.map((tool) => (
+                          <div key={tool.id} className="text-xs flex items-center gap-1.5 opacity-70">
+                            <span className="text-muted-foreground">🔧</span>
+                            <span className="font-medium">{tool.function_name}</span>
+                            {tool.status === 'success' && <span className="text-green-600">✓</span>}
+                            {tool.status === 'failed' && <span className="text-red-600">✗</span>}
+                            {tool.status === 'pending' && <span className="animate-pulse">⋯</span>}
+                            {tool.execution_time_ms && (
+                              <span className="text-muted-foreground">({tool.execution_time_ms}ms)</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="text-xs opacity-60 mt-2">
+                      {formatTime(message.timestamp)}
+                    </div>
                   </div>
                 </div>
               </div>
