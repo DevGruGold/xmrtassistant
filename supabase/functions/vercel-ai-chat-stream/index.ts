@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
-import { anthropic } from "npm:@ai-sdk/anthropic@1.0.0";
+import { createXai } from "npm:@ai-sdk/xai@1.0.0";
 import { streamText } from "npm:ai@4.0.0";
 
 const corsHeaders = {
@@ -21,46 +21,56 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try Vercel -> DeepSeek -> Lovable -> OpenAI
+    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable
+    const xaiKey = getAICredential('xai', session_credentials);
     const vercelKey = getAICredential('vercel_ai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const lovableKey = getAICredential('lovable_ai', session_credentials);
 
     console.log('🔍 Available AI services:', {
+      xai: !!xaiKey,
       vercel: !!vercelKey,
       deepseek: !!deepseekKey,
       lovable: !!lovableKey
     });
 
-    // Try services in order of preference
-    let VERCEL_API_KEY: string | null = null;
+    // Try services in order of preference (xAI first as lead AI)
+    let API_KEY: string | null = null;
     let aiProvider = 'unknown';
-    let aiModel = 'claude-sonnet-4';
+    let aiModel = 'grok-beta';
+    let xaiClient: any = null;
 
-    if (vercelKey) {
-      VERCEL_API_KEY = vercelKey;
+    if (xaiKey) {
+      API_KEY = xaiKey;
+      aiProvider = 'xai';
+      aiModel = 'grok-beta';
+      xaiClient = createXai({ apiKey: xaiKey });
+      console.log('✅ Using xAI (Grok) for streaming - Lead AI');
+    } else if (vercelKey) {
+      API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'claude-sonnet-4';
-      console.log('✅ Using Vercel AI Gateway for streaming with Claude Sonnet 4');
+      aiModel = 'grok-beta'; // Use Grok via Vercel AI Gateway
+      xaiClient = createXai({ apiKey: vercelKey, baseURL: 'https://api.vercel.ai/v1' });
+      console.log('✅ Using Vercel AI Gateway for streaming with Grok');
     } else if (deepseekKey || lovableKey) {
-      console.log('⚠️ Streaming requires Vercel AI. Falling back to non-streaming endpoint.');
+      console.log('⚠️ Streaming requires xAI or Vercel AI. Falling back to non-streaming endpoint.');
       return new Response(
         JSON.stringify({ 
-          error: 'Streaming requires Vercel AI Gateway. Please use the non-streaming endpoint or configure Vercel AI.',
+          error: 'Streaming requires xAI or Vercel AI Gateway. Please use the non-streaming endpoint or configure xAI/Vercel AI.',
           fallback: 'Use /vercel-ai-chat endpoint instead'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!VERCEL_API_KEY) {
+    if (!API_KEY) {
       console.error('❌ All AI services exhausted');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
-          'vercel_ai',
+          'xai',
           'api_key',
-          'Streaming requires Vercel AI Gateway credentials.',
-          'https://vercel.com/docs/ai-sdk'
+          'Streaming requires xAI or Vercel AI Gateway credentials.',
+          'https://console.x.ai'
         )),
         { 
           status: 401, 
@@ -69,7 +79,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🎯 Vercel AI Gateway SDK - Streaming response');
+    console.log(`🎯 Streaming with ${aiProvider} - Model: ${aiModel}`);
     
     // Build enhanced system prompt with current context
     const systemPrompt = generateElizaSystemPrompt({
@@ -79,16 +89,15 @@ serve(async (req) => {
       systemVersion
     });
 
-    // Stream response using Vercel AI SDK
+    // Stream response using Vercel AI SDK with xAI
     const result = await streamText({
-      model: anthropic(aiModel),
+      model: xaiClient(aiModel),
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m: any) => ({ role: m.role, content: m.content }))
       ],
       maxTokens: 4000,
-      temperature: 0.7,
-      apiKey: VERCEL_API_KEY
+      temperature: 0.7
     });
 
     console.log('✅ Streaming started');

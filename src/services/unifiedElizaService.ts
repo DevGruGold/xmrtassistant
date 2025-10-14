@@ -260,7 +260,7 @@ export class UnifiedElizaService {
       
       console.log('💚 Healthy executives available:', healthyExecs);
       
-      // ALWAYS include vercel-ai-chat and all executives in fallback
+      // ALWAYS include all executives in fallback (xAI first as lead AI)
       // Even if health check fails, they might work (health check != actual usage)
       const allExecutives = ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
       

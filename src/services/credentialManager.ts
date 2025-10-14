@@ -39,9 +39,9 @@ export async function getAPIKeyHealth(): Promise<APIKeyHealth[]> {
     return [];
   }
 
-  // Sort to ensure Vercel AI appears first
+  // Sort to ensure xAI appears first (lead AI)
   const sorted = (data || []).sort((a, b) => {
-    const order = ['vercel_ai', 'deepseek', 'lovable_ai', 'gemini', 'openai'];
+    const order = ['xai', 'vercel_ai', 'deepseek', 'lovable_ai', 'gemini', 'openai'];
     return order.indexOf(a.service_name) - order.indexOf(b.service_name);
   });
 

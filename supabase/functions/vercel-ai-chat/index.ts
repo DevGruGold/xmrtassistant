@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
-import { anthropic } from "npm:@ai-sdk/anthropic@1.0.0";
+import { createXai } from "npm:@ai-sdk/xai@1.0.0";
 import { generateText, tool } from "npm:ai@4.0.0";
 import { z } from "npm:zod@3.24.1";
 
@@ -22,31 +22,39 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try Vercel -> DeepSeek -> Lovable -> OpenAI
+    // Intelligent AI service cascade: Try xAI -> Vercel -> DeepSeek -> Lovable
+    const xaiKey = getAICredential('xai', session_credentials);
     const vercelKey = getAICredential('vercel_ai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const lovableKey = getAICredential('lovable_ai', session_credentials);
-    const openaiKey = getAICredential('openai', session_credentials);
 
     console.log('🔍 Available AI services:', {
+      xai: !!xaiKey,
       vercel: !!vercelKey,
       deepseek: !!deepseekKey,
-      lovable: !!lovableKey,
-      openai: !!openaiKey
+      lovable: !!lovableKey
     });
 
-    // Try services in order of preference
-    let VERCEL_API_KEY: string | null = null;
+    // Try services in order of preference (xAI first as lead AI)
+    let API_KEY: string | null = null;
     let aiProvider = 'unknown';
-    let aiModel = 'claude-sonnet-4';
+    let aiModel = 'grok-beta';
+    let xaiClient: any = null;
 
-    if (vercelKey) {
-      VERCEL_API_KEY = vercelKey;
+    if (xaiKey) {
+      API_KEY = xaiKey;
+      aiProvider = 'xai';
+      aiModel = 'grok-beta';
+      xaiClient = createXai({ apiKey: xaiKey });
+      console.log('✅ Using xAI (Grok) - Lead AI');
+    } else if (vercelKey) {
+      API_KEY = vercelKey;
       aiProvider = 'vercel_ai';
-      aiModel = 'claude-sonnet-4';
-      console.log('✅ Using Vercel AI Gateway with Claude Sonnet 4');
+      aiModel = 'grok-beta'; // Use Grok via Vercel AI Gateway
+      xaiClient = createXai({ apiKey: vercelKey, baseURL: 'https://api.vercel.ai/v1' });
+      console.log('✅ Using Vercel AI Gateway with Grok');
     } else if (deepseekKey) {
-      console.log('⚠️ Vercel AI not available, trying DeepSeek fallback');
+      console.log('⚠️ xAI and Vercel AI not available, trying DeepSeek fallback');
       try {
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
         const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -72,7 +80,7 @@ serve(async (req) => {
         console.warn('DeepSeek fallback failed:', error);
       }
     } else if (lovableKey) {
-      console.log('⚠️ Vercel and DeepSeek not available, trying Lovable AI fallback');
+      console.log('⚠️ xAI, Vercel and DeepSeek not available, trying Lovable AI fallback');
       try {
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
         const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -99,14 +107,14 @@ serve(async (req) => {
       }
     }
 
-    if (!VERCEL_API_KEY) {
+    if (!API_KEY) {
       console.error('❌ All AI services exhausted');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
-          'vercel_ai',
+          'xai',
           'api_key',
-          'AI service credentials needed. We tried Vercel AI, DeepSeek, and Lovable AI, but none are configured.',
-          'https://vercel.com/docs/ai-sdk'
+          'AI service credentials needed. We tried xAI, Vercel AI, DeepSeek, and Lovable AI, but none are configured.',
+          'https://console.x.ai'
         )),
         { 
           status: 401, 
@@ -115,7 +123,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🎯 Vercel AI Gateway SDK - Processing request with tools');
+    console.log(`🎯 ${aiProvider} SDK - Processing request with tools`);
     
     const userInput = messages[messages.length - 1]?.content || '';
     
@@ -133,16 +141,15 @@ serve(async (req) => {
       systemVersion
     });
 
-    // Call Vercel AI SDK with tool calling support
+    // Call AI SDK with tool calling support
     const { text, toolCalls, toolResults, usage, finishReason } = await generateText({
-      model: anthropic(aiModel),
+      model: xaiClient(aiModel),
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages.map((m: any) => ({ role: m.role, content: m.content }))
       ],
       maxTokens: 4000,
       temperature: 0.7,
-      apiKey: VERCEL_API_KEY,
       tools: {
         getMiningStats: tool({
           description: 'Get current mining statistics including active devices, hashrates, and recent activity',
@@ -252,7 +259,7 @@ serve(async (req) => {
       maxSteps: 5 // Allow multi-step tool calling
     });
 
-    console.log(`✅ Vercel AI SDK response received (${usage?.totalTokens || 0} tokens, finish: ${finishReason})`);
+    console.log(`✅ ${aiProvider} SDK response received (${usage?.totalTokens || 0} tokens, finish: ${finishReason})`);
     
     if (toolCalls && toolCalls.length > 0) {
       console.log(`🔧 Tools called: ${toolCalls.map(t => t.toolName).join(', ')}`);
@@ -283,7 +290,7 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Vercel AI chat error:', error);
+    console.error('❌ AI chat error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

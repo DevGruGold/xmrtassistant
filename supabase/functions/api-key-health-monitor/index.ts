@@ -47,6 +47,11 @@ serve(async (req) => {
     healthResults.push(deepseekHealth);
     await supabase.from('api_key_health').upsert(deepseekHealth, { onConflict: 'service_name' });
 
+    // Check xAI (Lead AI)
+    const xaiHealth = await checkXAIHealth();
+    healthResults.push(xaiHealth);
+    await supabase.from('api_key_health').upsert(xaiHealth, { onConflict: 'service_name' });
+
     // Check Vercel AI
     const vercelHealth = await checkVercelAIHealth();
     healthResults.push(vercelHealth);
@@ -325,6 +330,56 @@ async function checkElevenLabsHealth() {
   }
 }
 
+async function checkXAIHealth() {
+  const apiKey = Deno.env.get('XAI_API_KEY');
+  if (!apiKey) {
+    return {
+      service_name: 'xai',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: 'API key not configured',
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'grok-beta',
+        messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
+      })
+    });
+
+    return {
+      service_name: 'xai',
+      key_type: 'api_key',
+      is_healthy: response.ok || response.status === 402,
+      error_message: response.ok ? null : `HTTP ${response.status}`,
+      expiry_warning: response.status === 402,
+      days_until_expiry: null,
+      metadata: { note: response.status === 402 ? 'Credits depleted' : '' }
+    };
+  } catch (error) {
+    return {
+      service_name: 'xai',
+      key_type: 'api_key',
+      is_healthy: false,
+      error_message: error.message,
+      expiry_warning: false,
+      days_until_expiry: null,
+      metadata: {}
+    };
+  }
+}
+
 async function checkVercelAIHealth() {
   const apiKey = Deno.env.get('VERCEL_AI_GATEWAY_KEY');
   if (!apiKey) {
@@ -347,7 +402,7 @@ async function checkVercelAIHealth() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-3-5-sonnet-20241022',
+        model: 'xai/grok-beta',
         messages: [{ role: 'user', content: 'test' }],
         max_tokens: 5
       })
