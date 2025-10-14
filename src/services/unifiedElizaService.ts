@@ -235,19 +235,73 @@ export class UnifiedElizaService {
   }
 
   /**
-   * Intelligently select which AI Executive to call based on task characteristics
+   * Get healthy executives from API key health status
+   * Returns array of executive names sorted by health and priority
+   */
+  private static async getHealthyExecutives(): Promise<string[]> {
+    try {
+      const { getAPIKeyHealth } = await import('./credentialManager');
+      const healthData = await getAPIKeyHealth();
+      
+      // Map service names to executive edge functions
+      const serviceToExecMap: Record<string, string> = {
+        'gemini': 'gemini-chat',
+        'vercel_ai': 'vercel-ai-chat',
+        'deepseek': 'deepseek-chat',
+        'lovable_ai': 'lovable-chat',
+        'openai': 'openai-chat'
+      };
+      
+      // Filter healthy services and map to executives
+      const healthyExecs = healthData
+        .filter(h => h.is_healthy && !h.error_message)
+        .map(h => serviceToExecMap[h.service_name])
+        .filter(Boolean);
+      
+      console.log('💚 Healthy executives available:', healthyExecs);
+      
+      // Return healthy executives, or all if none are healthy (fallback)
+      return healthyExecs.length > 0 
+        ? healthyExecs 
+        : ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
+    } catch (error) {
+      console.warn('⚠️ Could not fetch executive health, using defaults:', error);
+      return ['vercel-ai-chat', 'gemini-chat', 'deepseek-chat', 'lovable-chat', 'openai-chat'];
+    }
+  }
+
+  /**
+   * Intelligently select which AI Executive to call based on:
+   * 1. Task characteristics (code, vision, strategy, etc.)
+   * 2. Executive health/availability
    * Returns the edge function name to invoke
    */
-  private static selectAIExecutive(userInput: string, context: ElizaContext): string {
+  private static async selectAIExecutive(userInput: string, context: ElizaContext): Promise<string> {
     const input = userInput.toLowerCase();
+    
+    // Get currently healthy executives
+    const healthyExecs = await this.getHealthyExecutives();
+    
+    // Helper to find first healthy match
+    const findHealthyExec = (preferred: string[]): string | null => {
+      for (const exec of preferred) {
+        if (healthyExecs.includes(exec)) {
+          return exec;
+        }
+      }
+      return null;
+    };
     
     // Chief Technology Officer (DeepSeek R1) - Code & Technical Architecture
     if (
       /code|debug|refactor|syntax|error|bug|technical|architecture|implementation|algorithm|optimize.*code/i.test(userInput) ||
       context.inputMode === 'code_review'
     ) {
-      console.log('🎯 Routing to CTO (deepseek-chat): Technical/Code task detected');
-      return 'deepseek-chat';
+      const exec = findHealthyExec(['deepseek-chat', 'gemini-chat', 'vercel-ai-chat']);
+      if (exec) {
+        console.log(`🎯 Routing to ${exec === 'deepseek-chat' ? 'CTO' : 'available exec'} (${exec}): Technical/Code task`);
+        return exec;
+      }
     }
     
     // Chief Information Officer (Gemini Multimodal) - Vision & Media
@@ -256,24 +310,30 @@ export class UnifiedElizaService {
       context.inputMode === 'vision' ||
       userInput.includes('🖼️') || userInput.includes('📸')
     ) {
-      console.log('🎯 Routing to CIO (gemini-chat): Vision/Multimodal task detected');
-      return 'gemini-chat';
+      const exec = findHealthyExec(['gemini-chat', 'vercel-ai-chat', 'openai-chat']);
+      if (exec) {
+        console.log(`🎯 Routing to ${exec === 'gemini-chat' ? 'CIO' : 'available exec'} (${exec}): Vision/Multimodal task`);
+        return exec;
+      }
     }
     
-    // Chief Analytics Officer (GPT-5) - Complex Reasoning & Strategic Planning
+    // Chief Analytics Officer (GPT/OpenAI) - Complex Reasoning & Strategic Planning
     if (
       /analyze.*complex|strategic.*plan|forecast|predict|multi.*step.*reasoning|philosophical|ethical.*dilemma|compare.*analyze|synthesize.*information/i.test(userInput) ||
       this.isComplexAgenticTask(userInput) ||
       context.inputMode === 'strategic_analysis'
     ) {
-      console.log('🎯 Routing to CAO (openai-chat): Complex reasoning task detected');
-      return 'openai-chat';
+      const exec = findHealthyExec(['openai-chat', 'vercel-ai-chat', 'gemini-chat']);
+      if (exec) {
+        console.log(`🎯 Routing to ${exec === 'openai-chat' ? 'CAO' : 'available exec'} (${exec}): Complex reasoning task`);
+        return exec;
+      }
     }
     
-    // Chief Strategy Officer (Vercel AI / Claude) - DEFAULT
-    // General reasoning, user interaction, community relations
-    console.log('🎯 Routing to CSO (vercel-ai-chat): General strategy/interaction task');
-    return 'vercel-ai-chat';
+    // Default: Use first healthy executive (dynamic based on availability)
+    const primaryExec = healthyExecs[0] || 'vercel-ai-chat';
+    console.log(`🎯 Routing to primary healthy exec (${primaryExec}): General task`);
+    return primaryExec;
   }
 
   /**
@@ -384,17 +444,21 @@ export class UnifiedElizaService {
       session_credentials: sessionCredentials
     };
 
-    // NEW: Select the appropriate AI Executive based on task type
-    const primaryExecutive = this.selectAIExecutive(userInput, context);
-    console.log(`🏛️ AI Executive C-Suite: Dispatching to ${primaryExecutive}`);
+    // NEW: Select the appropriate AI Executive based on task type AND health
+    const primaryExecutive = await this.selectAIExecutive(userInput, context);
+    console.log(`🏛️ AI Executive C-Suite: Dispatching to ${primaryExecutive} (${this.getExecutiveTitle(primaryExecutive)})`);
     
-    // Define fallback chain based on primary selection
+    // Get healthy executives for fallback chain
+    const healthyExecs = await this.getHealthyExecutives();
+    
+    // Build fallback chain: primary first, then other healthy executives
     const executiveChain = [primaryExecutive];
-    const allExecutives = ['lovable-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat'];
-    const fallbacks = allExecutives.filter(exec => exec !== primaryExecutive);
-    executiveChain.push(...fallbacks);
+    const otherHealthyExecs = healthyExecs.filter(exec => exec !== primaryExecutive);
+    executiveChain.push(...otherHealthyExecs);
     
-    console.log('🔄 Executive fallback chain:', executiveChain);
+    console.log('🔄 Executive fallback chain (based on health):', executiveChain.map(e => 
+      `${e} (${this.getExecutiveTitle(e)})`
+    ));
     
     // Try executives in priority order
     for (const executive of executiveChain) {
