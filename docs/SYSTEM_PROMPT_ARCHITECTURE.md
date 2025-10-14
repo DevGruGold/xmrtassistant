@@ -59,7 +59,9 @@ Eliza uses the `selectAIExecutive()` method in `unifiedElizaService.ts` to intel
 | Code/Technical | CTO (deepseek-chat) | DeepSeek R1 | code, debug, refactor, syntax, error |
 | Vision/Media | CIO (gemini-chat) | Gemini Multimodal | image, photo, visual, diagram, screenshot |
 | Complex Reasoning | CAO (openai-chat) | GPT-5 | analyze complex, strategic, forecast, predict |
-| General | CSO (lovable-chat) | Gemini 2.5 Flash | *default for everything else* |
+| General | CSO (vercel-ai-chat) | Claude Sonnet 4 | *default for everything else* |
+
+**Primary AI Gateway:** Vercel AI Gateway with Claude Sonnet 4 (CSO) handles all general queries and supports tool calling for database access.
 
 ### Code Example
 
@@ -84,13 +86,59 @@ for (const executive of executiveChain) {
 ```typescript
 private static getExecutiveTitle(executive: string): string {
   const titles: Record<string, string> = {
-    'lovable-chat': 'Chief Strategy Officer (CSO)',
+    'vercel-ai-chat': 'Chief Strategy Officer (CSO)',
+    'lovable-chat': 'Backup Chief Strategy Officer',
     'deepseek-chat': 'Chief Technology Officer (CTO)',
     'gemini-chat': 'Chief Information Officer (CIO)',
     'openai-chat': 'Chief Analytics Officer (CAO)'
   };
   return titles[executive] || 'Executive';
 }
+```
+
+### Tool Calling with Vercel AI
+
+The CSO (vercel-ai-chat) supports native tool calling via the Vercel AI SDK:
+
+```typescript
+// Available tools for database queries
+const tools = {
+  getMiningStats: tool({
+    description: 'Get current mining statistics',
+    parameters: z.object({}),
+    execute: async () => {
+      const { data } = await supabase.from('active_devices_view').select('*');
+      return { activeDevices: data?.length || 0, devices: data };
+    }
+  }),
+  getDAOMemberStats: tool({
+    description: 'Get DAO member statistics',
+    parameters: z.object({}),
+    execute: async () => {
+      const { data } = await supabase.from('dao_members').select('*');
+      return { totalMembers: data?.length || 0, /* ... */ };
+    }
+  }),
+  getRecentActivity: tool({
+    description: 'Get recent autonomous actions',
+    parameters: z.object({ limit: z.number().optional() }),
+    execute: async ({ limit = 5 }) => {
+      const { data } = await supabase
+        .from('eliza_activity_log')
+        .select('*')
+        .limit(limit);
+      return { activities: data };
+    }
+  })
+};
+
+// AI can call tools automatically during conversation
+const { text, toolCalls } = await generateText({
+  model: anthropic('claude-sonnet-4'),
+  messages,
+  tools,
+  maxSteps: 5 // Allow multi-step tool calling
+});
 ```
 
 ## DO NOT
