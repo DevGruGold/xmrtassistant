@@ -1364,6 +1364,42 @@ export type Database = {
         }
         Relationships: []
       }
+      eliza_activity_log: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          mentioned_to_user: boolean | null
+          metadata: Json | null
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mentioned_to_user?: boolean | null
+          metadata?: Json | null
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mentioned_to_user?: boolean | null
+          metadata?: Json | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       engagement_commands: {
         Row: {
           acknowledged_at: string | null
