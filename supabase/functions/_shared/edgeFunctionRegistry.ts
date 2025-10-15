@@ -114,5 +114,24 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['Search functions', 'Find by capability', 'Keyword search', 'Category filter', 'Ranked results'],
     category: 'ecosystem',
     example_use: 'Find the right function when you don\'t know which one to use'
+  },
+  {
+    name: 'xmrt_integration',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/xmrt_integration',
+    description: 'Unified ecosystem health & integration hub - connects all XMRT repos (XMRT-Ecosystem, xmrt-wallet-public, mobilemonero, xmrtnet, xmrtdao) for comprehensive health reports and integration monitoring',
+    capabilities: [
+      'Multi-repository health monitoring',
+      'Cross-repo integration verification',
+      'Deployment status (Vercel, Render, Supabase)',
+      'API health checks (mining, faucet, edge functions)',
+      'Database performance metrics',
+      'Community engagement analytics',
+      'Comprehensive markdown reports',
+      'Repository comparison',
+      'Integration debugging',
+      'Ecosystem-wide status overview'
+    ],
+    category: 'ecosystem',
+    example_use: 'Generate comprehensive ecosystem health report covering all repos, deployments, APIs, and community engagement. Check integration between services. Compare repository activity.'
   }
 ];

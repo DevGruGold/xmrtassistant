@@ -311,9 +311,47 @@ export const ELIZA_TOOLS = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'What you want to do (e.g., "create GitHub issue", "get mining stats", "browse website")' },
-          category: { type: 'string', description: 'Optional category filter (ai, mining, web, github, autonomous, knowledge, monitoring, code-execution)' }
+          category: { type: 'string', description: 'Optional category filter (ai, mining, web, github, autonomous, knowledge, monitoring, code-execution, ecosystem)' }
         },
         required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'check_ecosystem_health',
+      description: 'Get comprehensive health status of entire XMRT ecosystem - all repos, deployments, APIs, and integrations. Use this for "ecosystem health", "system status", or "how are things" queries.',
+      parameters: {
+        type: 'object',
+        properties: {
+          include_repos: { 
+            type: 'array', 
+            items: { type: 'string' }, 
+            description: 'Optional: specific repos to check (e.g., ["XMRT-Ecosystem", "mobilemonero"])' 
+          },
+          detailed: { 
+            type: 'boolean', 
+            description: 'Include detailed metrics (default: true)' 
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'generate_health_report',
+      description: 'Generate comprehensive markdown health report covering all XMRT ecosystem components, integrations, and status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          format: { 
+            type: 'string', 
+            enum: ['markdown', 'json'], 
+            description: 'Report format (default: markdown)' 
+          }
+        }
       }
     }
   }

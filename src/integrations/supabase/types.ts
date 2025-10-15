@@ -632,6 +632,56 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_thread_members: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string | null
+          thread_id: string
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          thread_id: string
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          thread_id?: string
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_thread_members_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_threads: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
       community_messages: {
         Row: {
           author_id: string | null
@@ -1311,150 +1361,6 @@ export type Database = {
           updated_at?: string
           wallet_address?: string | null
           worker_id?: string | null
-        }
-        Relationships: []
-      }
-      eliza_activity_log: {
-        Row: {
-          activity_type: string
-          created_at: string | null
-          description: string | null
-          id: string
-          mentioned_to_user: boolean | null
-          metadata: Json | null
-          status: string | null
-          title: string
-        }
-        Insert: {
-          activity_type: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          mentioned_to_user?: boolean | null
-          metadata?: Json | null
-          status?: string | null
-          title: string
-        }
-        Update: {
-          activity_type?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          mentioned_to_user?: boolean | null
-          metadata?: Json | null
-          status?: string | null
-          title?: string
-        }
-        Relationships: []
-      }
-      eliza_function_usage: {
-        Row: {
-          context: Json | null
-          created_at: string | null
-          error_message: string | null
-          execution_time_ms: number | null
-          function_name: string
-          id: string
-          invoked_at: string
-          invoked_by: string | null
-          success: boolean
-        }
-        Insert: {
-          context?: Json | null
-          created_at?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          function_name: string
-          id?: string
-          invoked_at?: string
-          invoked_by?: string | null
-          success: boolean
-        }
-        Update: {
-          context?: Json | null
-          created_at?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          function_name?: string
-          id?: string
-          invoked_at?: string
-          invoked_by?: string | null
-          success?: boolean
-        }
-        Relationships: []
-      }
-      eliza_python_executions: {
-        Row: {
-          code: string
-          created_at: string | null
-          error: string | null
-          execution_time_ms: number | null
-          exit_code: number | null
-          id: string
-          metadata: Json | null
-          output: string | null
-          purpose: string | null
-          source: string | null
-        }
-        Insert: {
-          code: string
-          created_at?: string | null
-          error?: string | null
-          execution_time_ms?: number | null
-          exit_code?: number | null
-          id?: string
-          metadata?: Json | null
-          output?: string | null
-          purpose?: string | null
-          source?: string | null
-        }
-        Update: {
-          code?: string
-          created_at?: string | null
-          error?: string | null
-          execution_time_ms?: number | null
-          exit_code?: number | null
-          id?: string
-          metadata?: Json | null
-          output?: string | null
-          purpose?: string | null
-          source?: string | null
-        }
-        Relationships: []
-      }
-      eliza_python_executions_archive: {
-        Row: {
-          code: string
-          created_at: string | null
-          error: string | null
-          execution_time_ms: number | null
-          exit_code: number | null
-          id: string
-          output: string | null
-          purpose: string | null
-          source: string | null
-        }
-        Insert: {
-          code: string
-          created_at?: string | null
-          error?: string | null
-          execution_time_ms?: number | null
-          exit_code?: number | null
-          id?: string
-          output?: string | null
-          purpose?: string | null
-          source?: string | null
-        }
-        Update: {
-          code?: string
-          created_at?: string | null
-          error?: string | null
-          execution_time_ms?: number | null
-          exit_code?: number | null
-          id?: string
-          output?: string | null
-          purpose?: string | null
-          source?: string | null
         }
         Relationships: []
       }
@@ -2981,6 +2887,30 @@ export type Database = {
         }
         Relationships: []
       }
+      visitor_links: {
+        Row: {
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+          visitor_id?: string
+        }
+        Relationships: []
+      }
       webhook_configs: {
         Row: {
           created_at: string | null
@@ -3347,44 +3277,6 @@ export type Database = {
         }
         Relationships: []
       }
-      eliza_function_analytics: {
-        Row: {
-          avg_execution_time_ms: number | null
-          failed_calls: number | null
-          first_used: string | null
-          function_name: string | null
-          last_used: string | null
-          successful_calls: number | null
-          total_invocations: number | null
-        }
-        Relationships: []
-      }
-      eliza_gatekeeper_stats: {
-        Row: {
-          avg_duration_ms: number | null
-          failed_calls: number | null
-          last_call_at: string | null
-          source: string | null
-          successful_calls: number | null
-          target: string | null
-          total_calls: number | null
-        }
-        Relationships: []
-      }
-      eliza_python_executions_all: {
-        Row: {
-          code: string | null
-          created_at: string | null
-          error: string | null
-          execution_time_ms: number | null
-          exit_code: number | null
-          id: string | null
-          output: string | null
-          purpose: string | null
-          source: string | null
-        }
-        Relationships: []
-      }
       pop_leaderboard_view: {
         Row: {
           avg_confidence: number | null
@@ -3424,17 +3316,6 @@ export type Database = {
           frontend_uptime_checks: number | null
           messages_last_hour: number | null
           recent_function_errors: number | null
-        }
-        Relationships: []
-      }
-      v_agent_python_failures: {
-        Row: {
-          common_purposes: Json | null
-          failed_count: number | null
-          last_failure: string | null
-          source: string | null
-          success_count: number | null
-          success_rate_percent: number | null
         }
         Relationships: []
       }
@@ -3481,10 +3362,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
       calculate_charging_pop_points: {
         Args: {
           p_battery_contribution?: number
@@ -3505,61 +3382,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       increment_rate_limit: {
         Args: { p_endpoint: string; p_identifier: string }
         Returns: undefined
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
       }
       match_knowledge_entities: {
         Args: { match_count?: number; search_query: string }
@@ -3596,45 +3421,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       update_session_heartbeat: {
         Args: { p_session_id: string }
         Returns: undefined
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
       }
     }
     Enums: {
