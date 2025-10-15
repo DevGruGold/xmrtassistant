@@ -3418,6 +3418,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_xmrt_charger_leaderboard: {
+        Args: { limit_count?: number }
+        Returns: {
+          avg_efficiency: number
+          battery_health: number
+          device_fingerprint: string
+          device_type: string
+          last_active: string
+          total_charging_sessions: number
+          total_pop_points: number
+        }[]
+      }
       increment_rate_limit: {
         Args: { p_endpoint: string; p_identifier: string }
         Returns: undefined

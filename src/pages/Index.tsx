@@ -20,6 +20,7 @@ const LiveMiningStats = lazy(() => import("@/components/LiveMiningStats"));
 const MobileMoneroCalculator = lazy(() => import("@/components/MobileMoneroCalculator"));
 const PythonShell = lazy(() => import("@/components/PythonShell"));
 const MiningLeaderboard = lazy(() => import("@/components/MiningLeaderboard"));
+const XMRTChargerLeaderboard = lazy(() => import("@/components/XMRTChargerLeaderboard"));
 
 const Index = () => {
   const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
@@ -192,33 +193,67 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Mining Leaderboard - Progressive Disclosure */}
-          <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
-            <Card className="bg-card/50 border-border shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl">Top Miners</CardTitle>
-                    <CardDescription className="text-sm">Real-time worker performance</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowLeaderboard(!showLeaderboard)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardHeader>
-              {showLeaderboard && (
-                <CardContent>
-                  <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-                    <MiningLeaderboard />
-                  </Suspense>
-                </CardContent>
-              )}
-            </Card>
+          {/* Mining Leaderboards Side-by-Side */}
+          <div className="max-w-7xl mx-auto mb-8 animate-fade-in">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* XMR Mining Leaderboard */}
+              <div>
+                <Card className="bg-card/50 border-border shadow-lg">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-xl sm:text-2xl">XMR Miners</CardTitle>
+                        <CardDescription className="text-sm">SupportXMR pool workers</CardDescription>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowLeaderboard(!showLeaderboard)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  {showLeaderboard && (
+                    <CardContent>
+                      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                        <MiningLeaderboard />
+                      </Suspense>
+                    </CardContent>
+                  )}
+                </Card>
+              </div>
+
+              {/* XMRT Charger Leaderboard */}
+              <div>
+                <Card className="bg-card/50 border-border shadow-lg">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-xl sm:text-2xl">XMRT Chargers</CardTitle>
+                        <CardDescription className="text-sm">Top PoP point earners</CardDescription>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowLeaderboard(!showLeaderboard)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  {showLeaderboard && (
+                    <CardContent>
+                      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+                        <XMRTChargerLeaderboard />
+                      </Suspense>
+                    </CardContent>
+                  )}
+                </Card>
+              </div>
+            </div>
           </div>
           
           {/* Mining Calculator - Progressive Disclosure */}

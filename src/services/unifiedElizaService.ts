@@ -79,7 +79,7 @@ export class UnifiedElizaService {
   }
 
   public static async generateResponse(userInput: string, context: ElizaContext = {}, language: string = 'en'): Promise<string> {
-    console.log('🤖 Eliza: Starting response generation for:', userInput);
+    console.log('🤖 Eliza: Starting optimized response generation for:', userInput);
     
     try {
       console.log('🤖 Eliza: Processing user input:', userInput);
@@ -93,11 +93,11 @@ export class UnifiedElizaService {
       // Import memory service dynamically to fetch stored contexts
       const { memoryContextService } = await import('./memoryContextService');
       
-      // Get memory contexts using semantic search (reduced limit for performance)
+      // Get memory contexts using semantic search (minimized for performance)
       const sessionKey = `ip-${userContext.ip}`;
       const memoryContexts = await memoryContextService.getRelevantContexts(
         sessionKey, 
-        20, // Reduced from 200 to 20 for faster loading
+        10, // Further reduced from 20 to 10 for faster loading
         userInput // Pass user input for semantic search
       );
       console.log(`📚 Loaded ${memoryContexts.length} semantically relevant memory contexts`);
@@ -115,12 +115,11 @@ export class UnifiedElizaService {
       console.log('📊 Context loaded - User:', userContext, 'Mining:', miningStats);
       console.log('🧠 Memory contexts retrieved:', memoryContexts.length, 'entries');
       
-      // Search knowledge base for relevant information
+      // Search knowledge base for relevant information (minimized)
       const xmrtContext = XMRT_KNOWLEDGE_BASE.filter(item => 
         userInput.toLowerCase().includes(item.category.toLowerCase()) ||
-        userInput.toLowerCase().includes(item.topic.toLowerCase()) ||
-        item.content.toLowerCase().includes(userInput.toLowerCase().split(' ')[0])
-      ).slice(0, 3);
+        userInput.toLowerCase().includes(item.topic.toLowerCase())
+      ).slice(0, 2); // Reduced from 3 to 2
       console.log('🧠 Knowledge context found:', xmrtContext.length, 'entries');
       
       let webIntelligence = '';
@@ -386,9 +385,9 @@ export class UnifiedElizaService {
     const { memoryContextService } = await import('./memoryContextService');
     const { conversationPersistence } = await import('./conversationPersistenceService');
     
-      // Fetch ALL memory data for perfect recall - UNLIMITED
+      // Fetch memory data with reduced limits for performance
     const [memoryContexts, fullConversationContext] = await Promise.all([
-      memoryContextService.getRelevantContexts(sessionKey, 100),
+      memoryContextService.getRelevantContexts(sessionKey, 20), // Reduced from 100 to 20
       conversationPersistence.getFullConversationContext()
     ]);
     

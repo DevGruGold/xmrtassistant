@@ -33,57 +33,28 @@ export class FallbackAIService {
     stats: 1 * 60 * 1000, // 1 minute
   };
 
-  // Initialize SmolLM2-360M Office Clerk model
+  // Initialize SmolLM2-135M Office Clerk model (lighter, more stable)
   private static async initializeLocalAI(): Promise<void> {
     if (this.isInitializing) return;
     
     this.isInitializing = true;
     try {
-      console.log('🏢 Initializing Office Clerk (SmolLM2-360M)...');
+      console.log('🏢 Initializing Office Clerk (SmolLM2-135M-Instruct with CPU)...');
       
-      // Try SmolLM2-360M on WebGPU (best balance of speed/quality)
-      try {
-        this.textGenerationPipeline = await pipeline(
-          'text-generation',
-          'onnx-community/SmolLM2-360M-Instruct',
-          { 
-            dtype: 'q4',        // 4-bit quantization for speed
-            device: 'webgpu'    // Try WebGPU first
-          }
-        );
-        console.log('✅ Office Clerk ready (SmolLM2-360M on WebGPU)');
-      } catch (error) {
-        console.warn('⚠️ WebGPU failed, trying lighter model:', error);
-        
-        // Fallback to SmolLM2-135M on WebGPU (lighter)
-        try {
-          this.textGenerationPipeline = await pipeline(
-            'text-generation',
-            'HuggingFaceTB/SmolLM2-135M-Instruct',
-            { device: 'webgpu' }
-          );
-          console.log('✅ Office Clerk ready (SmolLM2-135M on WebGPU)');
-        } catch (tError) {
-          console.warn('⚠️ Lighter model failed, trying CPU fallback:', tError);
-          
-          // Final fallback to CPU-based SmolLM2-360M
-          try {
-            this.textGenerationPipeline = await pipeline(
-              'text-generation',
-              'onnx-community/SmolLM2-360M-Instruct',
-              { 
-                dtype: 'q4',
-                device: 'cpu' 
-              }
-            );
-            console.log('✅ Office Clerk ready (SmolLM2-360M on CPU)');
-          } catch (cpuError) {
-            console.error('❌ All Office Clerk models failed:', cpuError);
-          }
+      // Use CPU directly to avoid WebGPU memory crashes
+      this.textGenerationPipeline = await pipeline(
+        'text-generation',
+        'HuggingFaceTB/SmolLM2-135M-Instruct',
+        { 
+          device: 'cpu',
+          dtype: 'fp32'
         }
-      }
+      );
+      console.log('✅ Office Clerk ready (SmolLM2-135M on CPU)');
     } catch (error) {
       console.error('❌ Office Clerk initialization failed:', error);
+      this.textGenerationPipeline = null;
+      throw new Error('Office Clerk unavailable - please add AI credits or API keys');
     } finally {
       this.isInitializing = false;
     }
@@ -147,8 +118,8 @@ export class FallbackAIService {
   // PHASE 3: Memory System Integration - Get conversation context
   private static async getMemoryContext(userId: string, userInput: string): Promise<string> {
     try {
-      // Get relevant memories for this conversation
-      const memories = await memoryContextService.getRelevantContexts(userId, 10);
+      // Get relevant memories for this conversation (reduced limit)
+      const memories = await memoryContextService.getRelevantContexts(userId, 5); // Reduced from 10 to 5
       
       if (memories.length === 0) return '';
 
@@ -170,11 +141,11 @@ export class FallbackAIService {
     userInput: string,
     context: { miningStats?: MiningStats; userContext?: any }
   ): Promise<EnhancedContext> {
-    // 1. Expanded Knowledge Base (5-10 entries instead of 2)
+    // 1. Reduced Knowledge Base (3 entries for memory savings)
     const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
     const knowledgeContext = relevantKnowledge
-      .slice(0, 8)
-      .map(k => `[${k.topic}] ${k.content.slice(0, 300)}`)
+      .slice(0, 3) // Reduced from 8 to 3
+      .map(k => `[${k.topic}] ${k.content.slice(0, 200)}`) // Reduced from 300 to 200
       .join('\n\n');
 
     // 2. Database Stats (real-time)
@@ -270,13 +241,13 @@ Respond in a helpful, technically accurate manner while embodying XMRT's philoso
 
       console.log('🏢 Office Clerk (Enhanced) processing request...');
       
-      // PHASE 1: Increased token budget and better sampling
+      // PHASE 1: Reduced token budget to save memory
       const result = await this.textGenerationPipeline(prompt, {
-        max_new_tokens: 400,
-        temperature: 0.8,
+        max_new_tokens: 150, // Reduced from 400 to 150
+        temperature: 0.7,
         do_sample: true,
         return_full_text: false,
-        repetition_penalty: 1.3,
+        repetition_penalty: 1.2,
         top_p: 0.9,
         top_k: 50
       });
@@ -357,14 +328,14 @@ Respond in a helpful, technically accurate manner while embodying XMRT's philoso
       }
     }
 
-    // Emergency AI fallback using basic context
-    const relevantKnowledge = xmrtKnowledge.searchKnowledge(userInput);
-    const basicContext = relevantKnowledge[0]?.content || 'XMRT-DAO is a privacy-focused decentralized ecosystem';
-    
-    return {
-      text: `Based on your question about "${userInput}", I can tell you that ${basicContext}. I'm experiencing some technical difficulties with my AI models, but I'm here to help with XMRT-DAO questions.`,
-      method: 'Emergency Context AI',
-      confidence: 0.4
-    };
+    // All local AI methods failed - throw clear error
+    throw new Error(
+      '🚨 Office Clerk Unavailable\n\n' +
+      'All AI executives are down due to API credit/quota issues.\n\n' +
+      'Please either:\n' +
+      '1. Add credits to Lovable AI (Settings → Workspace → Usage)\n' +
+      '2. Add API keys for OpenAI, Gemini, or DeepSeek at /#credentials\n\n' +
+      'Office Clerk (local AI) failed due to browser memory limits.'
+    );
   }
 }
