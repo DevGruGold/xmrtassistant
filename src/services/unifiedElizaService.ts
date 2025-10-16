@@ -456,6 +456,86 @@ export class UnifiedElizaService {
       session_credentials: sessionCredentials
     };
 
+    // PRIORITY 1: Try direct Gemini API (user's API key)
+    try {
+      console.log('🎯 Trying Gemini Direct API (user key)...');
+      const { apiKeyManager } = await import('./apiKeyManager');
+      const geminiKey = apiKeyManager.getCurrentApiKey();
+      
+      if (geminiKey) {
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        
+        const chat = model.startChat({
+          history: conversationHistory.recentMessages.slice(0, 10).map((msg: any) => ({
+            role: msg.sender === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+          }))
+        });
+        
+        const result = await chat.sendMessage(userInput + autonomousActivitySummary);
+        const response = result.response.text();
+        
+        console.log('✅ Gemini Direct API responded successfully');
+        (window as any).__lastElizaExecutive = 'gemini-direct';
+        
+        return {
+          response,
+          hasToolCalls: false
+        };
+      }
+    } catch (err) {
+      console.warn('⚠️ Gemini Direct API failed:', err?.message);
+    }
+    
+    // PRIORITY 2: Try direct OpenAI API (user's API key)
+    try {
+      console.log('🎯 Trying OpenAI Direct API (user key)...');
+      const openaiKey = openAIApiKeyManager.getCurrentApiKey();
+      
+      if (openaiKey) {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              ...conversationHistory.recentMessages.slice(0, 10).map((msg: any) => ({
+                role: msg.sender === 'user' ? 'user' : 'assistant',
+                content: msg.content
+              })),
+              { role: 'user', content: userInput + autonomousActivitySummary }
+            ],
+            temperature: 0.7,
+            max_tokens: 2048
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const responseText = data.choices[0].message.content;
+          
+          console.log('✅ OpenAI Direct API responded successfully');
+          (window as any).__lastElizaExecutive = 'openai-direct';
+          
+          return {
+            response: responseText,
+            hasToolCalls: false
+          };
+        } else {
+          const error = await response.text();
+          console.warn(`⚠️ OpenAI Direct API error: ${error}`);
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ OpenAI Direct API failed:', err?.message);
+    }
+
+    // PRIORITY 3: Try edge function executives (cloud AI)
     // NEW: Select the appropriate AI Executive based on task type AND health
     const primaryExecutive = await this.selectAIExecutive(userInput, context);
     console.log(`🏛️ AI Executive C-Suite: Dispatching to ${primaryExecutive} (${this.getExecutiveTitle(primaryExecutive)})`);
