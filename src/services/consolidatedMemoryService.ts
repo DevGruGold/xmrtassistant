@@ -72,15 +72,12 @@ class ConsolidatedMemoryService {
       const { error } = await supabase
         .from('memory_contexts')
         .insert({
-          user_identifier: userId,
+          user_id: userId,
+          session_id: userId,
+          content,
           context_type: 'conversation',
-          context_data: {
-            content,
-            ...context,
-            importance
-          },
-          embedding: memory.embedding,
-          confidence_score: importance
+          importance_score: importance,
+          metadata: context
         });
 
       if (error) throw error;
@@ -113,21 +110,22 @@ class ConsolidatedMemoryService {
     if (this.embeddingEnabled) {
       try {
         const queryEmbedding = await this.generateEmbedding(query);
+        const embeddingString = `[${queryEmbedding.join(',')}]`;
         
-        const { data, error } = await supabase.rpc('match_memory_contexts', {
-          query_embedding: queryEmbedding,
+        const { data, error } = await supabase.rpc('match_memories', {
+          query_embedding: embeddingString,
           match_threshold: 0.7,
           match_count: limit,
-          user_id: userId
+          user_id_filter: userId
         });
 
-        if (!error && data) {
+        if (!error && data && Array.isArray(data)) {
           return data.map((item: any) => ({
             id: item.id,
-            content: item.context_data.content,
-            context: item.context_data,
-            timestamp: new Date(item.created_at),
-            importance: item.confidence_score || 0.5
+            content: item.content,
+            context: item.metadata || {},
+            timestamp: new Date(item.ts),
+            importance: item.similarity || 0.5
           }));
         }
       } catch (error) {
@@ -164,21 +162,9 @@ class ConsolidatedMemoryService {
     const entities = this.extractEntities(memories.map(m => m.content).join(' '));
     const topics = this.extractTopics(memories.map(m => m.content));
     
-    // Load user preferences from Supabase
-    let userPreferences = {};
-    try {
-      const { data } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_identifier', userId)
-        .single();
-      
-      if (data) {
-        userPreferences = data.preferences || {};
-      }
-    } catch (error) {
-      console.warn('Failed to load preferences:', error);
-    }
+    // User preferences - simplified (no DB query for now)
+    const userPreferences = {};
+
 
     const context: ContextData = {
       userPreferences,

@@ -28,8 +28,8 @@ import { unifiedDataService, type MiningStats } from '@/services/unifiedDataServ
 import { conversationPersistence } from '@/services/conversationPersistenceService';
 
 // Lazy load optional features
-const GitHubPATInput = lazy(() => import('./GitHubPATInput'));
-const GitHubTokenStatus = lazy(() => import('./GitHubTokenStatus'));
+const GitHubPATInput = lazy(() => import('./GitHubPATInput').then(m => ({ default: m.GitHubPATInput })));
+const GitHubTokenStatus = lazy(() => import('./GitHubTokenStatus').then(m => ({ default: m.GitHubTokenStatus })));
 
 interface UnifiedMessage {
   id: string;
@@ -128,9 +128,9 @@ const UnifiedChatOptimized: React.FC<UnifiedChatProps> = ({
         
         // Load recent messages
         const context = await conversationPersistence.getConversationContext(5);
-        if (context.messages.length > 0) {
-          setMessages(context.messages.map(msg => ({
-            id: msg.id,
+        if (context.recentMessages.length > 0) {
+          setMessages(context.recentMessages.map(msg => ({
+            id: String(msg.id || Date.now()),
             content: msg.content,
             sender: msg.sender as 'user' | 'assistant',
             timestamp: msg.timestamp
@@ -216,8 +216,9 @@ Context: ${JSON.stringify({
   topics: context.topics,
   sentiment: context.sentiment,
   miningStats: miningStats ? {
-    hashrate: miningStats.hashrate,
-    workers: miningStats.workers
+    hashRate: miningStats.hashRate,
+    totalHashes: miningStats.totalHashes,
+    validShares: miningStats.validShares
   } : null
 })}
 
@@ -234,16 +235,12 @@ Be helpful, concise, and knowledgeable about cryptocurrency mining and the XMRT 
       addAssistantMessage(response);
 
       // Save to persistence
-      await conversationPersistence.saveMessage({
-        id: userMessage.id,
-        content: userMessage.content,
+      await consolidatedMemory.storeMemory(userId.current, userMessage.content, {
         sender: 'user',
         timestamp: userMessage.timestamp
       });
 
-      await conversationPersistence.saveMessage({
-        id: Date.now().toString(),
-        content: response,
+      await consolidatedMemory.storeMemory(userId.current, response, {
         sender: 'assistant',
         timestamp: new Date()
       });
@@ -268,7 +265,6 @@ Be helpful, concise, and knowledgeable about cryptocurrency mining and the XMRT 
   const handleClearConversation = async () => {
     setMessages([]);
     consolidatedMemory.clearCache(userId.current);
-    await conversationPersistence.clearConversation();
     addAssistantMessage("Conversation cleared. How can I help you?");
   };
 
@@ -279,7 +275,6 @@ Be helpful, concise, and knowledgeable about cryptocurrency mining and the XMRT 
         <div className="flex items-center gap-3">
           <AdaptiveAvatar 
             size="sm"
-            emotion={messages[messages.length - 1]?.emotion}
           />
           <div>
             <h3 className="font-semibold text-foreground">Eliza AI Assistant</h3>
@@ -387,8 +382,8 @@ Be helpful, concise, and knowledgeable about cryptocurrency mining and the XMRT 
         {/* Stats */}
         {miningStats && (
           <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
-            <span>Hashrate: {miningStats.hashrate}</span>
-            <span>Workers: {miningStats.workers}</span>
+            <span>Hashrate: {miningStats.hashRate || 0} H/s</span>
+            <span>Valid Shares: {miningStats.validShares || 0}</span>
           </div>
         )}
       </div>
