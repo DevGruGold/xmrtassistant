@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { ELIZA_TOOLS } from '../_shared/elizaTools.ts';
 import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
+import { getAICredential, createCredentialRequiredResponse } from '../_shared/credentialCascade.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,10 +23,22 @@ serve(async (req) => {
   try {
     const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      throw new Error("AI service not configured");
+    // Try to get Gemini API key from credential cascade
+    const GEMINI_API_KEY = getAICredential('gemini', session_credentials);
+    if (!GEMINI_API_KEY) {
+      console.error("❌ No Gemini API key available");
+      return new Response(
+        JSON.stringify(createCredentialRequiredResponse(
+          'gemini',
+          'api_key',
+          'Please add your Gemini API key to use Eliza.',
+          'https://ai.google.dev/gemini-api'
+        )),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log("🤖 Gemini Chat - Processing request with context:", {
@@ -51,21 +64,26 @@ serve(async (req) => {
       ...messages
     ];
 
-    console.log("📤 Calling Lovable AI Gateway with Gemini Flash...");
+    console.log("📤 Calling Google Gemini API directly...");
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: geminiMessages,
-        temperature: 0.9,
-        max_tokens: 8000,
-        tools: ELIZA_TOOLS,
-        tool_choice: 'auto'
+        contents: geminiMessages.filter(m => m.role !== 'system').map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        })),
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 8000,
+        }
       }),
     });
 
@@ -97,13 +115,23 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const message = data.choices?.[0]?.message;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     console.log("✅ Gemini response:", { 
-      hasContent: !!message?.content,
-      hasToolCalls: !!message?.tool_calls,
-      toolCallsCount: message?.tool_calls?.length || 0
+      hasContent: !!content,
+      responseLength: content.length
     });
+
+    // Return simple response (no tool calling for now)
+    return new Response(
+      JSON.stringify({
+        success: true,
+        response: content,
+        executive: 'gemini-chat',
+        executiveTitle: 'Chief Strategy Officer (CSO)'
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
 
     // Execute tool calls with multi-step workflow support
     if (message?.tool_calls && message.tool_calls.length > 0) {
