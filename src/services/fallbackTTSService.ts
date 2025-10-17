@@ -10,6 +10,7 @@ export interface TTSFallbackOptions {
   rate?: number;
   pitch?: number;
   volume?: number;
+  language?: 'en' | 'es'; // Language for multilingual TTS
 }
 
 export class FallbackTTSService {
@@ -50,14 +51,38 @@ export class FallbackTTSService {
       utterance.pitch = options.pitch || 1.0;
       utterance.volume = options.volume || 1.0;
 
-      // Try to find a specific voice if voiceId provided
+      // Set language
+      const lang = options.language || 'en';
+      const langCode = lang === 'es' ? 'es-ES' : 'en-US';
+      utterance.lang = langCode;
+
+      // Try to find a specific voice for the language
+      const voices = speechSynthesis.getVoices();
+      
+      // Prioritize: specific voiceId > language-matching female voice > any language voice
+      let selectedVoice = null;
+      
       if (options.voiceId) {
-        const voices = speechSynthesis.getVoices();
-        const voice = voices.find(v => 
-          v.name.toLowerCase().includes(options.voiceId!.toLowerCase()) ||
-          v.lang.includes('en')
+        selectedVoice = voices.find(v => 
+          v.name.toLowerCase().includes(options.voiceId!.toLowerCase())
         );
-        if (voice) utterance.voice = voice;
+      }
+      
+      if (!selectedVoice) {
+        // Find female voice for the language
+        selectedVoice = voices.find(v => 
+          v.lang.startsWith(lang) && v.name.toLowerCase().includes('female')
+        );
+      }
+      
+      if (!selectedVoice) {
+        // Find any voice for the language
+        selectedVoice = voices.find(v => v.lang.startsWith(lang));
+      }
+      
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log(`🎤 Fallback TTS using ${lang === 'es' ? 'Spanish' : 'English'} voice:`, selectedVoice.name);
       }
 
       utterance.onend = () => resolve();
