@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
+// 🎤 TTS is now language-aware: English (en) / Spanish (es)
 import { GitHubPATInput } from './GitHubPATInput';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
@@ -280,7 +281,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           });
 
           if (voiceEnabled && audioInitialized) {
-            enhancedTTS.speak('I successfully fixed and executed the code.');
+            enhancedTTS.speak('I successfully fixed and executed the code.', { language });
           }
           
           console.info('✅ Code Auto-Healed: Autonomous agent fixed the code successfully');
@@ -543,6 +544,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   };
 
   // Unified response display with intelligent TTS control
+  // 🔊 ALWAYS use TTS - Eliza ALWAYS speaks her responses in the selected language
   const displayResponse = async (responseText: string, shouldSpeak: boolean = false) => {
     const elizaMessage: UnifiedMessage = {
       id: `eliza-${Date.now()}`,
@@ -560,7 +562,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     if (shouldSpeak && voiceEnabled && audioInitialized) {
       try {
         setIsSpeaking(true);
-        await enhancedTTS.speak(responseText);
+        await enhancedTTS.speak(responseText, { language });
         setCurrentTTSMethod(enhancedTTS.getLastMethod());
         console.log(`🎵 TTS Method: ${enhancedTTS.getLastMethod()}`);
         setIsSpeaking(false);
@@ -688,7 +690,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await enhancedTTS.speak(response);
+          await enhancedTTS.speak(response, { language });
           setCurrentTTSMethod(enhancedTTS.getLastMethod());
           setIsSpeaking(false);
         } catch (error) {
@@ -896,7 +898,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Speak response if voice is enabled (don't await - let it run in background)
       if (voiceEnabled && audioInitialized && cleanResponse) {
         setIsSpeaking(true);
-        enhancedTTS.speak(cleanResponse)
+        enhancedTTS.speak(cleanResponse, { language })
           .then(() => {
             setCurrentTTSMethod(enhancedTTS.getLastMethod());
             setIsSpeaking(false);
