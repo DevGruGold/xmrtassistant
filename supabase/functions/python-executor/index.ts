@@ -85,8 +85,28 @@ Deno.serve(async (req) => {
     const exitCode = result.run?.code || 0;
     
     console.log(`⏱️ [TIMING] Execution completed in ${executionTime}ms`);
+    
+    // Log to activity table for Code Execution Log visibility
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'python_execution',
+      title: purpose || 'Python Code Execution',
+      description: `Executed Python code (${code.length} chars) in ${executionTime}ms`,
+      metadata: {
+        source,
+        agent_id,
+        task_id,
+        execution_time_ms: executionTime,
+        exit_code: exitCode,
+        code_length: code.length,
+        output_length: result.run?.stdout?.length || 0,
+        has_error: !!result.run?.stderr,
+        timestamp: new Date().toISOString()
+      },
+      status: exitCode === 0 ? 'completed' : 'failed'
+    });
     console.log(`📊 [RESULT] Exit code: ${exitCode}`);
     console.log(`📤 [STDOUT] ${result.run?.stdout?.length || 0} chars: ${result.run?.stdout?.substring(0, 150) || '(empty)'}`);
+    console.log(`❌ [STDERR] ${result.run?.stderr?.length || 0} chars: ${result.run?.stderr?.substring(0, 150) || '(empty)'}`);
     console.log(`❌ [STDERR] ${result.run?.stderr?.length || 0} chars: ${result.run?.stderr?.substring(0, 150) || '(empty)'}`);
     
     if (exitCode !== 0) {
