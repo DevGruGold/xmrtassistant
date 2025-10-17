@@ -3,14 +3,20 @@
  * 
  * All AI endpoints (lovable-chat, gemini-chat, deepseek-chat, etc.) should import
  * ELIZA_TOOLS from this file to ensure consistent tool availability across all AI services.
+ * 
+ * ⚡ CRITICAL: ALL TOOLS EXECUTE REAL FUNCTIONS, NOT SIMULATIONS
+ * - Tools appear in "🐍 Eliza's Code Execution Log" sidebar monitor
+ * - Eliza MUST wait for actual results before responding to user
+ * - Chat shows analysis/outcomes, not raw code (code is in execution log)
  */
+
 
 export const ELIZA_TOOLS = [
   {
     type: 'function',
     function: {
       name: 'execute_python',
-      description: 'Execute Python code for data analysis, calculations, or processing. User will see execution in PythonShell. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
+      description: 'REAL EXECUTION: Run actual Python code in sandboxed environment. Execution appears in "🐍 Eliza\'s Code Execution Log" sidebar, NOT in chat. Wait for result, then communicate outcome to user. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
       parameters: {
         type: 'object',
         properties: {
@@ -25,7 +31,7 @@ export const ELIZA_TOOLS = [
     type: 'function',
     function: {
       name: 'call_edge_function',
-      description: 'Call a Supabase edge function directly. Use this for API calls instead of Python requests. Returns the function response.',
+      description: 'REAL EXECUTION: Call actual Supabase edge function. Execution appears in "🐍 Eliza\'s Code Execution Log" sidebar. Wait for result, then communicate outcome to user.',
       parameters: {
         type: 'object',
         properties: {
