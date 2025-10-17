@@ -4,6 +4,7 @@ export interface UnifiedTTSOptions {
   text: string;
   voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
   speed?: number;
+  language?: 'en' | 'es'; // Language selection for multilingual TTS
 }
 
 /**
@@ -115,17 +116,34 @@ export class UnifiedTTSService {
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      // Select best voice
+      // Select best voice based on language
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
+        const lang = options.language || 'en';
+        const langPrefix = lang === 'es' ? 'es' : 'en';
+        
         // Map OpenAI voice names to Web Speech characteristics
-        const voicePreferences = this.getVoicePreferences(options.voice || 'alloy');
-        const preferredVoice = voices.find(v => 
+        const voicePreferences = this.getVoicePreferences(options.voice || 'nova', lang);
+        
+        // Try to find voice matching preferences AND language
+        let preferredVoice = voices.find(v => 
+          v.lang.startsWith(langPrefix) && 
           voicePreferences.some(pref => v.name.toLowerCase().includes(pref))
-        ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+        );
+        
+        // Fallback: any voice in the target language
+        if (!preferredVoice) {
+          preferredVoice = voices.find(v => v.lang.startsWith(langPrefix));
+        }
+        
+        // Final fallback: any voice
+        if (!preferredVoice) {
+          preferredVoice = voices[0];
+        }
         
         utterance.voice = preferredVoice;
-        console.log('🎤 Using voice:', preferredVoice.name);
+        utterance.lang = preferredVoice.lang;
+        console.log(`🎤 Using ${lang === 'es' ? 'Spanish' : 'English'} voice:`, preferredVoice.name, `(${preferredVoice.lang})`);
       }
 
       utterance.onend = () => {
@@ -186,9 +204,24 @@ export class UnifiedTTSService {
 
   /**
    * Map OpenAI voice names to Web Speech voice characteristics
+   * Now with Spanish voice preferences
    */
-  private getVoicePreferences(voice: string): string[] {
-    const mapping: Record<string, string[]> = {
+  private getVoicePreferences(voice: string, language: 'en' | 'es' = 'en'): string[] {
+    if (language === 'es') {
+      // Spanish female voice preferences
+      const spanishMapping: Record<string, string[]> = {
+        alloy: ['monica', 'paulina', 'luciana', 'female'],
+        echo: ['jorge', 'diego', 'male'],
+        fable: ['monica', 'esperanza', 'female'],
+        onyx: ['jorge', 'male'],
+        nova: ['monica', 'paulina', 'female'],
+        shimmer: ['luciana', 'penelope', 'female']
+      };
+      return spanishMapping[voice] || ['female', 'monica', 'paulina'];
+    }
+    
+    // English female voice preferences (default)
+    const englishMapping: Record<string, string[]> = {
       alloy: ['samantha', 'karen', 'victoria', 'female'],
       echo: ['alex', 'daniel', 'male'],
       fable: ['zira', 'hazel', 'female'],
@@ -197,7 +230,7 @@ export class UnifiedTTSService {
       shimmer: ['nicky', 'amelie', 'female']
     };
     
-    return mapping[voice] || ['female'];
+    return englishMapping[voice] || ['female'];
   }
 
   /**
