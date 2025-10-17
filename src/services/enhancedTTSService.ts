@@ -21,12 +21,14 @@ export class EnhancedTTSService {
 
   /**
    * Speak text with guaranteed fallback
+   * Always uses female voice (nova/alloy) with language support
    */
   async speak(text: string, options?: Partial<UnifiedTTSOptions>): Promise<void> {
     const fullOptions: UnifiedTTSOptions = {
       text,
-      voice: options?.voice || 'alloy',
-      speed: options?.speed || 1.0
+      voice: options?.voice || 'nova', // Default to 'nova' for best female voice
+      speed: options?.speed || 1.0,
+      language: options?.language || 'en' // Default to English
     };
 
     try {
@@ -55,13 +57,14 @@ export class EnhancedTTSService {
    */
   private async tryAdditionalFallback(options: UnifiedTTSOptions): Promise<void> {
     try {
-      console.log('🔄 Attempting fallback TTS service...');
+      console.log(`🔄 Attempting fallback TTS service (${options.language || 'en'})...`);
       
       const result = await FallbackTTSService.speak({
         text: options.text,
         rate: options.speed,
         pitch: 1.0,
-        volume: 1.0
+        volume: 1.0,
+        language: options.language || 'en'
       });
 
       this.lastMethod = result.method;
