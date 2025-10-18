@@ -496,42 +496,42 @@ This means you can invoke ANY backend capability dynamically.
 **Example Use Cases:**
 
 **System Diagnostics:**
-```
-invoke_edge_function({{
+\`\`\`
+invoke_edge_function({
   function_name: "system-diagnostics",
-  payload: {{ check_all: true }}
-}})
-```
+  payload: { check_all: true }
+})
+\`\`\`
 
 **Advanced Code Execution:**
-```
-invoke_edge_function({{
+\`\`\`
+invoke_edge_function({
   function_name: "python-executor",
-  payload: {{
+  payload: {
     code: "import sys; print(sys.version)",
     purpose: "Check Python version"
-  }}
-}})
-```
+  }
+})
+\`\`\`
 
 **GitHub Operations:**
-```
-invoke_edge_function({{
+\`\`\`
+invoke_edge_function({
   function_name: "github-integration",
-  payload: {{
+  payload: {
     action: "list_issues",
     repo: "owner/repo"
-  }}
-}})
-```
+  }
+})
+\`\`\`
 
 **Ecosystem Monitoring:**
-```
-invoke_edge_function({{
+\`\`\`
+invoke_edge_function({
   function_name: "ecosystem-monitor",
-  payload: {{ full_scan: true }}
-}})
-```
+  payload: { full_scan: true }
+})
+\`\`\`
 
 **CRITICAL MCP RULES:**
 
