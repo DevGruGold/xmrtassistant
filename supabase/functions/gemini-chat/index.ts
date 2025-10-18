@@ -15,6 +15,40 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+
+// Helper function to log tool execution to activity log
+async function logToolExecution(supabase: any, toolName: string, args: any, status: 'started' | 'completed' | 'failed', result?: any, error?: any) {
+  try {
+    const metadata: any = {
+      tool_name: toolName,
+      arguments: args,
+      timestamp: new Date().toISOString(),
+      execution_status: status
+    };
+    
+    if (result) {
+      metadata.result = result;
+    }
+    
+    if (error) {
+      metadata.error = error;
+    }
+    
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'tool_execution',
+      title: `🔧 ${toolName}`,
+      description: `Eliza executed: ${toolName}`,
+      metadata,
+      status: status === 'completed' ? 'completed' : (status === 'failed' ? 'failed' : 'in_progress')
+    });
+    
+    console.log(`📊 Logged tool execution: ${toolName} (${status})`);
+  } catch (logError) {
+    console.error('Failed to log tool execution:', logError);
+  }
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
