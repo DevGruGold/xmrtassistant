@@ -13,7 +13,39 @@
 
 export const ELIZA_TOOLS = [
   
+    
     {
+      name: 'invoke_edge_function',
+      description: 'UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of the 80+ Supabase edge functions dynamically. This is your MCP integration tool. You can invoke: AI chat functions, Python execution, GitHub integration, agent management, task orchestration, monitoring daemons, database operations, network proxies, and more. Available functions: gemini-chat, python-executor, github-integration, agent-manager, task-orchestrator, autonomous-code-fixer, code-monitor-daemon, mining-proxy, ecosystem-monitor, system-diagnostics, and 50+ more. Use this when you need capabilities beyond your standard tools.',
+      parameters: {
+        type: 'object',
+        properties: {
+          function_name: { 
+            type: 'string', 
+            description: 'Name of the edge function to invoke (e.g., "python-executor", "github-integration", "system-diagnostics")' 
+          },
+          payload: { 
+            type: 'object', 
+            description: 'JSON payload to send to the function. Structure depends on the target function.' 
+          }
+        },
+        required: ['function_name', 'payload']
+      }
+    },
+    {
+      name: 'list_available_functions',
+      description: 'List all available Supabase edge functions you can invoke. Returns categorized list of 80+ functions with descriptions. Use this to discover what capabilities you have access to.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { 
+            type: 'string', 
+            description: 'Optional: Filter by category (AI & Chat, Python Execution & Code, GitHub Integration, Agent Management, Task Management, Mining & DAO, Monitoring & Daemon, Database & Data, Network & Proxy, Other)' 
+          }
+        }
+      }
+    },
+{
       name: 'get_code_execution_lessons',
       description: 'Retrieve lessons learned from recent code executions. Use this to learn what code patterns work vs fail, and improve your code generation. Returns: recent execution results, auto-fix patterns, success/failure analysis.',
       parameters: {
