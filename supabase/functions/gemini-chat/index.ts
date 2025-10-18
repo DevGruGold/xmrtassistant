@@ -75,13 +75,18 @@ async function executePythonCode(code: string, description: string) {
   await logToolStart("python_executor", { code_length: code.length, description });
   
   try {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/python-executor`, {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/eliza-python-runtime`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ code, description }),
+      body: JSON.stringify({ 
+        code, 
+        purpose: description,
+        source: 'eliza',
+        timeout_ms: 30000
+      }),
     });
 
     const result = await response.json();
