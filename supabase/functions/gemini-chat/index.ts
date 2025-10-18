@@ -1408,6 +1408,39 @@ async function executeSingleTool(functionName: string, args: any, supabase: any,
       status: result.success ? 'completed' : 'failed'
     });
   
+
+  } else if (functionName === 'get_code_execution_lessons') {
+    activityType = 'learning_analysis';
+    activityTitle = '📚 Analyzing Code Execution History';
+    activityDescription = 'Learning from past code executions to improve future code generation';
+    
+    try {
+      const lessonsResult = await supabase.functions.invoke('get-code-execution-lessons', {
+        body: args
+      });
+      
+      if (lessonsResult.error) {
+        throw lessonsResult.error;
+      }
+      
+      result = {
+        success: true,
+        data: lessonsResult.data,
+        message: `Analyzed ${lessonsResult.data.total_executions} recent executions with ${lessonsResult.data.success_rate}% success rate`
+      };
+      
+      // Log the learning activity
+      await logToolExecution(supabase, functionName, args, 'completed', result);
+      
+    } catch (error) {
+      console.error('Error getting code lessons:', error);
+      result = {
+        success: false,
+        error: error.message
+      };
+      await logToolExecution(supabase, functionName, args, 'failed', null, error.message);
+    }
+
   return result;
 }
 
