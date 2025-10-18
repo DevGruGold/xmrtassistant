@@ -1,392 +1,225 @@
-import { lazy, Suspense, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import UnifiedChat from "@/components/UnifiedChat";
+import PythonShell from "@/components/PythonShell";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Info, Activity, Brain, Zap, Eye, Code } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { Wallet2, Shield, Users, Layers, ArrowRight, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
-import { useWallet } from "@/hooks/useWallet";
-import Dashboard from "@/components/Dashboard";
-import { Footer } from "@/components/Footer";
-import DaoTabs from "@/components/DaoTabs";
-import XMRTDashboard from "@/components/XMRTDashboard";
-import { MobileNav } from "@/components/MobileNav";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { ExecutiveStatusIndicator } from "@/components/ExecutiveStatusIndicator";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useMiningStats } from "@/hooks/useMiningStats";
-
-// Optimized: Use new consolidated UnifiedChat
-const UnifiedChat = lazy(() => import("@/components/UnifiedChat.optimized"));
-
-// Lazy load heavy components - only when user expands them
-const LiveMiningStats = lazy(() => import("@/components/LiveMiningStats"));
-const MobileMoneroCalculator = lazy(() => import("@/components/MobileMoneroCalculator"));
-const PythonShell = lazy(() => import("@/components/PythonShell"));
-const MiningLeaderboard = lazy(() => import("@/components/MiningLeaderboard"));
-const XMRTChargerLeaderboard = lazy(() => import("@/components/XMRTChargerLeaderboard"));
 
 const Index = () => {
-  const { wallet, connectWallet, completeSetup, refreshXMRTData } = useWallet();
-  const [activeTab, setActiveTab] = useState("members");
-  const { t } = useLanguage();
-  
-  // Progressive disclosure state - components load only when expanded
-  const [showMiningStats, setShowMiningStats] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  
-  // Shared mining stats hook - consolidates API calls
-  const { stats: miningStats, workers, loading: miningLoading } = useMiningStats();
+  const [showInfo, setShowInfo] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
-      <LanguageToggle />
-      <MobileNav />
-      
-      {/* Hero Section - Data-First Design */}
-      <section className="relative bg-gradient-to-b from-background to-secondary/30 border-b border-border">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5" />
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20 relative">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3">
+            <Brain className="w-12 h-12 text-purple-600" />
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-pink-600 bg-clip-text text-transparent">
+              Eliza AI Assistant
+            </h1>
+            <Zap className="w-12 h-12 text-blue-600" />
+          </div>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Autonomous AI with circular learning, self-healing code execution, and real-time activity monitoring
+          </p>
           
-          {/* Compact Header */}
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center space-y-4 mb-8">
-              
-              {/* Compact Title */}
-              <div className="space-y-2">
-                <h1 className="font-inter font-bold text-3xl sm:text-4xl lg:text-5xl text-foreground leading-tight tracking-tight animate-slide-in">
-                  <span className="bg-gradient-to-r from-primary via-mining-info to-primary bg-clip-text text-transparent">
-                    {t('hero.title')}
-                  </span>
-                </h1>
-                
-                <p className="text-base sm:text-lg font-source text-muted-foreground max-w-2xl mx-auto leading-relaxed animate-fade-in">
-                  {t('hero.subtitle')}
-                </p>
-                
-                <div className="flex flex-wrap justify-center gap-2 text-xs font-medium text-muted-foreground/80 mt-3">
-                  <span className="px-2 py-1 bg-primary/10 text-primary rounded-full">{t('hero.tag.smartphone')}</span>
-                  <span className="px-2 py-1 bg-mining-info/10 text-mining-info rounded-full">{t('hero.tag.ai')}</span>
-                  <span className="px-2 py-1 bg-mining-active/10 text-mining-active rounded-full">{t('hero.tag.privacy')}</span>
-                  <span className="px-2 py-1 bg-secondary/20 text-secondary-foreground rounded-full">{t('hero.tag.mesh')}</span>
-                </div>
-                
-                {/* Executive Status Indicator */}
-                <div className="mt-4 animate-fade-in">
-                  <ExecutiveStatusIndicator />
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* AI Chat Interface - Always visible but lazy loaded */}
-          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <div className="text-center mb-4">
-              <h2 className="font-inter font-semibold text-xl sm:text-2xl text-foreground mb-1">
-                {t('ai.title')}
-              </h2>
-              <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                {t('ai.subtitle')}
-              </p>
-            </div>
-            
-            <div className="bg-card/50 border border-border rounded-2xl p-6 shadow-lg backdrop-blur-sm">
-              <Suspense fallback={
-                <div className="space-y-4">
-                  <Skeleton className="h-96 w-full" />
-                </div>
-              }>
-                <UnifiedChat miningStats={miningStats} />
-              </Suspense>
-            </div>
+          {/* Status Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Activity className="w-3 h-3 mr-1" />
+              Circular Learning Active
+            </Badge>
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              <Code className="w-3 h-3 mr-1" />
+              Auto-Fixer Running
+            </Badge>
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+              <Eye className="w-3 h-3 mr-1" />
+              Full Visibility
+            </Badge>
           </div>
 
-          {/* Collapsible sections - only load when expanded */}
-          {/* Live Mining Stats */}
-          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <Card className="bg-card/50 border-border shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl">{t('mining.title')}</CardTitle>
-                    <CardDescription className="text-sm">{t('mining.subtitle')}</CardDescription>
+          {/* Info Section */}
+          <Collapsible open={showInfo} onOpenChange={setShowInfo}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Info className="w-4 h-4" />
+                {showInfo ? "Hide" : "Show"} System Information
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <Card className="mt-4 border-purple-200 bg-white/80 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Brain className="w-5 h-5 text-purple-600" />
+                    Circular Learning System
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-sm text-left">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-purple-700 flex items-center gap-2">
+                      <Zap className="w-4 h-4" />
+                      How It Works
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 text-gray-700 pl-2">
+                      <li>You interact with Eliza through natural language</li>
+                      <li>Eliza executes code in <strong>background only</strong> (never shown in chat)</li>
+                      <li>Code appears in the <strong>Background Work</strong> window below</li>
+                      <li>Every minute, daemon scans for failed executions</li>
+                      <li>Auto-fixer analyzes errors and generates corrected code</li>
+                      <li>Fixed code is re-executed automatically</li>
+                      <li>Learning metadata is extracted from each fix</li>
+                      <li>Eliza continuously improves from experience</li>
+                    </ol>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowMiningStats(!showMiningStats)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {showMiningStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardHeader>
-              {showMiningStats && (
-                <CardContent>
-                  <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-                    <LiveMiningStats />
-                  </Suspense>
-                </CardContent>
-              )}
-            </Card>
-          </div>
 
-          {/* Python Shell - Collapsible */}
-          <div className="max-w-6xl mx-auto mb-10 animate-fade-in">
-            <Card className="bg-card/50 border-border shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl">🐍 Eliza's Code Execution Log</CardTitle>
-                    <CardDescription className="text-sm">Real-time autonomous code execution monitor</CardDescription>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-700 flex items-center gap-2">
+                      <Eye className="w-4 h-4" />
+                      Real-Time Activity Monitoring
+                    </h4>
+                    <p className="text-gray-700">
+                      The <strong>Background Work</strong> window shows ALL system activity in real-time:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>💬 Chat Activity</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>User messages</li>
+                          <li>Eliza responses</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>🔧 Tool Executions</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>Start and end logging</li>
+                          <li>All tool types tracked</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>🔍 Daemon Scans</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>Every 60 seconds</li>
+                          <li>Failure detection</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>🤖 Auto-Fixing</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>Error analysis</li>
+                          <li>Code generation</li>
+                          <li>Re-execution</li>
+                          <li>Learning extraction</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>🐍 Code Execution</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>Background only</li>
+                          <li>Full output captured</li>
+                        </ul>
+                      </div>
+                      <div className="bg-gray-50 p-2 rounded">
+                        <strong>📡 MCP Integration</strong>
+                        <ul className="list-disc list-inside pl-2 mt-1">
+                          <li>80+ edge functions</li>
+                          <li>Dynamic invocation</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowLogs(!showLogs)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {showLogs ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardHeader>
-              {showLogs && (
-                <CardContent>
-                  <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-                    <PythonShell />
-                  </Suspense>
-                </CardContent>
-              )}
-            </Card>
-          </div>
 
-          {/* Quick Actions */}
-          <div className="max-w-5xl mx-auto text-center mb-8">
-            <div className="bg-card/30 border border-border rounded-2xl p-6 shadow-lg animate-slide-in">
-              <div className="space-y-4">
-                <h3 className="font-inter font-semibold text-xl sm:text-2xl text-foreground">
-                  {t('actions.title')}
-                </h3>
-                <p className="font-source text-muted-foreground text-sm max-w-2xl mx-auto">
-                  {t('actions.subtitle')}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                  <Button 
-                    size="lg"
-                    className="font-source font-semibold bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 group text-sm"
-                    asChild
-                  >
-                    <a href="https://mobilemonero.com" target="_blank" rel="noopener noreferrer">
-                      <Sparkles className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
-                      {t('actions.start.mining')}
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-green-700 flex items-center gap-2">
+                      <Code className="w-4 h-4" />
+                      Key Features
+                    </h4>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700 pl-2">
+                      <li><strong>Background Execution:</strong> Code runs silently, results appear in work window</li>
+                      <li><strong>Autonomous Fixing:</strong> AI automatically corrects errors without user intervention</li>
+                      <li><strong>Continuous Learning:</strong> Each fix generates insights for future improvements</li>
+                      <li><strong>Complete Visibility:</strong> See every tool call, scan, fix, and learning event</li>
+                      <li><strong>MCP Integration:</strong> Access to 80+ Supabase edge functions dynamically</li>
+                      <li><strong>Real-Time Updates:</strong> Activity stream updates live via Supabase Realtime</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-3 rounded-lg border border-purple-200">
+                    <p className="text-xs text-gray-600">
+                      <strong>Activity Types Visible:</strong> chat_message, chat_response, tool_execution, 
+                      python_execution, daemon_scan, auto_fix_triggered, auto_fix_analysis, auto_fix_execution, 
+                      learning_analysis, auto_fix_complete, mcp_invocation, error
+                    </p>
+                  </div>
+
+                  <div className="text-center pt-2">
+                    <a 
+                      href="https://github.com/DevGruGold/xmrtassistant" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-purple-600 hover:text-purple-700 underline"
+                    >
+                      View Documentation on GitHub →
                     </a>
-                  </Button>
-                  <Button 
-                    size="lg"
-                    variant="outline"
-                    className="font-source font-semibold px-6 py-3 rounded-lg transition-all duration-300 text-sm"
-                    onClick={() => setActiveTab('dashboard')}
-                  >
-                    <Wallet2 className="mr-2 h-4 w-4" />
-                    {t('actions.join.dao')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Mining Leaderboards - Collapsible */}
-          <div className="max-w-7xl mx-auto mb-8 animate-fade-in">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="bg-card/50 border-border shadow-lg">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-xl sm:text-2xl">XMR Miners</CardTitle>
-                      <CardDescription className="text-sm">SupportXMR pool workers</CardDescription>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowLeaderboard(!showLeaderboard)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
                   </div>
-                </CardHeader>
-                {showLeaderboard && (
-                  <CardContent>
-                    <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-                      <MiningLeaderboard />
-                    </Suspense>
-                  </CardContent>
-                )}
-              </Card>
-
-              <Card className="bg-card/50 border-border shadow-lg">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-xl sm:text-2xl">XMRT Chargers</CardTitle>
-                      <CardDescription className="text-sm">Top XMRT contributors</CardDescription>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowLeaderboard(!showLeaderboard)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {showLeaderboard ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </CardHeader>
-                {showLeaderboard && (
-                  <CardContent>
-                    <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-                      <XMRTChargerLeaderboard />
-                    </Suspense>
-                  </CardContent>
-                )}
-              </Card>
-            </div>
-          </div>
-          
-          {/* Mining Calculator */}
-          <div className="max-w-6xl mx-auto mb-8 animate-fade-in">
-            <Card className="bg-card/50 border-border shadow-lg">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl">{t('calculator.title')}</CardTitle>
-                    <CardDescription className="text-sm">{t('calculator.subtitle')}</CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCalculator(!showCalculator)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {showCalculator ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </CardHeader>
-              {showCalculator && (
-                <CardContent>
-                  <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                    <MobileMoneroCalculator />
-                  </Suspense>
                 </CardContent>
-              )}
-            </Card>
-          </div>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
-      </section>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 sm:py-8 lg:py-12">
-        {wallet.isConnected ? (
-          <>
-            <div className="mb-4 sm:mb-6">
-              <DaoTabs activeTab={activeTab} onTabChange={setActiveTab} />
-            </div>
-            {activeTab === "xmrt" ? (
-              <XMRTDashboard wallet={wallet} onRefreshXMRT={refreshXMRTData} />
-            ) : (
-              <Dashboard wallet={wallet} onSetupComplete={completeSetup} />
-            )}
-          </>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 mt-8 sm:mt-12">
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                    <Layers className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.mobile.title')}</CardTitle>
-                </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.mobile.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 flex-wrap">
-                  <div className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">{t('feature.mobile.tag.arm')}</div>
-                  <div className="px-3 py-1 bg-mining-info/10 text-mining-info rounded-full text-sm font-medium">{t('feature.mobile.tag.battery')}</div>
-                  <div className="px-3 py-1 bg-mining-warning/10 text-mining-warning rounded-full text-sm font-medium">{t('feature.mobile.tag.thermal')}</div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Main Content */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* Chat Interface */}
+          <Card className="border-purple-200 shadow-xl bg-white/90 backdrop-blur">
+            <CardHeader className="border-b border-purple-100 bg-gradient-to-r from-purple-50 to-blue-50">
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-600" />
+                Chat with Eliza
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <UnifiedChat />
+            </CardContent>
+          </Card>
 
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-mining-active/10 group-hover:bg-mining-active/20 transition-colors">
-                    <Users className="h-6 w-6 text-mining-active" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.dao.title')}</CardTitle>
-                </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.dao.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.dao.executives')}</span>
-                    <span className="text-primary font-bold bg-primary/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.active')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.dao.compute')}</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.dao.status.certified')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Background Work Window */}
+          <Card className="border-blue-200 shadow-xl bg-white/90 backdrop-blur">
+            <CardHeader className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50">
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-600" />
+                Background Work
+                <Badge variant="secondary" className="ml-auto">
+                  Real-Time Activity
+                </Badge>
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Live view of code execution, daemon scans, auto-fixes, and all system activity
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <PythonShell />
+            </CardContent>
+          </Card>
+        </div>
 
-            <Card className="group bg-gradient-to-br from-card to-secondary border-border hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-slide-in md:col-span-2 xl:col-span-1">
-              <CardHeader className="pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-mining-info/10 group-hover:bg-mining-info/20 transition-colors">
-                    <Shield className="h-6 w-6 text-mining-info" />
-                  </div>
-                  <CardTitle className="text-foreground text-xl font-bold">{t('feature.privacy.title')}</CardTitle>
-                </div>
-                <CardDescription className="text-muted-foreground">
-                  {t('feature.privacy.description')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.privacy.mesh')}</span>
-                    <span className="text-mining-active font-bold bg-mining-active/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.building')}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-foreground font-medium">{t('feature.privacy.privacy')}</span>
-                    <span className="text-mining-warning font-bold bg-mining-warning/10 px-2 py-1 rounded-full text-sm">{t('feature.privacy.status.fundamental')}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </main>
-
-      {/* Chat Section */}
-      <div className="w-full h-64 sm:h-80 lg:h-96 bg-secondary/50 border-t border-border backdrop-blur-sm">
-        <iframe
-          src="https://mobilemonero.chatango.com/"
-          className="w-full h-full rounded-t-lg"
-          style={{ border: "none" }}
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
-          title="XMRT Chat"
-        />
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-500 pb-4">
+          <p>
+            Powered by Circular Learning • Autonomous Code Fixing • Real-Time Monitoring
+          </p>
+          <p className="text-xs mt-1">
+            All activity visible • Code executes in background only • Learning never stops
+          </p>
+        </div>
       </div>
-      
-      <Footer />
     </div>
   );
 };
