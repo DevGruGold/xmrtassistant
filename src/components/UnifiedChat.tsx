@@ -824,7 +824,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
-      // Process response using Lovable AI Gateway
+      // Process response using Gemini AI Gateway
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
@@ -919,7 +919,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       if (error.message?.includes('All AI Executives failed')) {
         errorContent = '⚠️ All AI services are currently unavailable:\n\n' +
-          '• **Lovable AI**: Credits depleted - please add funds to your Lovable workspace\n' +
+          '• **Gemini AI**: Credits depleted - please add funds to your Gemini workspace\n' +
           '• **DeepSeek**: Credits depleted - please add funds to your DeepSeek account\n' +
           '• **Gemini**: Credits depleted\n' +
           '• **OpenAI**: Now configured correctly\n\n' +
@@ -928,7 +928,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         errorContent = '💳 **AI Credits Depleted**\n\n' +
           'The AI service is out of credits. Please:\n' +
           '1. Go to Settings → Workspace → Usage\n' +
-          '2. Add credits to your Lovable AI workspace\n\n' +
+          '2. Add credits to your Gemini AI workspace\n\n' +
           'Alternatively, configure direct API keys for DeepSeek, Gemini, or OpenAI.';
       } else if (error.message?.includes('rate limit') || error.message?.includes('429')) {
         errorContent = '⏱️ **Rate Limit Exceeded**\n\nToo many requests in a short time. Please wait a moment and try again.';
