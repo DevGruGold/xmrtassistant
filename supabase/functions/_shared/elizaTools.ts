@@ -12,11 +12,23 @@
 
 
 export const ELIZA_TOOLS = [
-  {
+  
+    {
+      name: 'get_code_execution_lessons',
+      description: 'Retrieve lessons learned from recent code executions. Use this to learn what code patterns work vs fail, and improve your code generation. Returns: recent execution results, auto-fix patterns, success/failure analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Number of recent executions to analyze (default 10)' },
+          include_failures_only: { type: 'boolean', description: 'Only include failed executions to learn from mistakes' }
+        }
+      }
+    },
+{
     type: 'function',
     function: {
       name: 'execute_python',
-      description: 'REAL EXECUTION: Run actual Python code in sandboxed environment. Execution appears in "🐍 Eliza\'s Code Execution Log" sidebar, NOT in chat. Wait for result, then communicate outcome to user. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
+      description: 'BACKGROUND EXECUTION: Write and execute Python code in background sandbox ONLY. Code NEVER appears in chat. You write code → background system executes it → auto-fixer corrects errors → results feed back to you. Communicate ONLY outcomes and insights to user, NEVER show raw code. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
       parameters: {
         type: 'object',
         properties: {
