@@ -49,6 +49,45 @@ async function logToolExecution(supabase: any, toolName: string, args: any, stat
 }
 
 
+// Enhanced activity logging - logs BEFORE and AFTER each tool execution
+async function logToolExecutionStart(supabase: any, toolName: string, args: any) {
+  try {
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'tool_execution_start',
+      title: `🔧 Starting: ${toolName}`,
+      description: `Eliza is executing ${toolName}`,
+      metadata: {
+        tool_name: toolName,
+        arguments: args,
+        timestamp: new Date().toISOString()
+      },
+      status: 'in_progress'
+    });
+  } catch (error) {
+    console.error('Failed to log tool execution start:', error);
+  }
+}
+
+async function logToolExecutionEnd(supabase: any, toolName: string, args: any, result: any, status: 'completed' | 'failed') {
+  try {
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'tool_execution_end',
+      title: status === 'completed' ? `✅ Completed: ${toolName}` : `❌ Failed: ${toolName}`,
+      description: `Eliza ${status === 'completed' ? 'successfully executed' : 'failed to execute'} ${toolName}`,
+      metadata: {
+        tool_name: toolName,
+        arguments: args,
+        result: result,
+        timestamp: new Date().toISOString()
+      },
+      status: status
+    });
+  } catch (error) {
+    console.error('Failed to log tool execution end:', error);
+  }
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
