@@ -1105,7 +1105,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                       : 'bg-muted/50 text-foreground rounded-bl-md'
                   }`}
                   >
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.role === "assistant" ? filterCodeFromResponse(message.content) : message.content}</div>
                     
                     {/* Tool Call Indicators */}
                     {message.tool_calls && message.tool_calls.length > 0 && (
