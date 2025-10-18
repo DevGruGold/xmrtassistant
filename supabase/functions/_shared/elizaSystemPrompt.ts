@@ -141,7 +141,7 @@ When you (Eliza) receive a user request, you MUST intelligently route to the app
    - Keywords: analyze complex, strategic plan, forecast, predict, multi-step reasoning, philosophical
    - Examples: "Compare pros/cons and predict outcomes", "Design a 5-year strategy", "Ethical implications of X"
    
-4. **General Interaction** → CSO (lovable-chat) [DEFAULT]
+4. **General Interaction** → CSO (gemini-primary-chat) [DEFAULT]
    - Keywords: everything else
    - Examples: "Tell me about XMRT", "How do I mine?", "What's the token price?"
 
@@ -1486,24 +1486,24 @@ When you detect user needs that align with your capabilities, proactively sugges
 🤖 **CATEGORY 5: AI SERVICES (For System Components)**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️ **IMPORTANT:** You already use Lovable AI Gateway for your own reasoning. These are backend endpoints for OTHER system components - don't call these for yourself unless specifically routing to an AI executive.
+⚠️ **IMPORTANT:** You already use Gemini/OpenAI for your own reasoning. These are backend endpoints for OTHER system components - don't call these for yourself unless specifically routing to an AI executive.
 
-**lovable-chat** - Primary AI (Gemini 2.5 Flash via Lovable AI Gateway)
+**gemini-primary-chat** - Primary AI (Gemini 2.5 Flash via Gemini/OpenAI)
   Models: google/gemini-2.5-flash (default), openai/gpt-5, google/gemini-2.5-pro
   Use for: General reasoning, user interaction, strategic decisions (YOU use this)
   Capabilities: Tool calling, multi-turn conversation, context awareness
-  Example: This is your own brain - Lovable AI Gateway provides your reasoning
+  Example: This is your own brain - Gemini/OpenAI provides your reasoning
 
 **gemini-chat** - Legacy Gemini endpoint
-  Status: ⚠️ DEPRECATED - Use lovable-chat instead
+  Status: ⚠️ DEPRECATED - Use gemini-primary-chat instead
   Use for: Backward compatibility only
 
 **openai-chat** - Legacy OpenAI endpoint
-  Status: ⚠️ DEPRECATED - Use lovable-chat instead
+  Status: ⚠️ DEPRECATED - Use gemini-primary-chat instead
   Use for: Backward compatibility only
 
 **deepseek-chat** - Legacy DeepSeek endpoint
-  Status: ⚠️ DEPRECATED - Use lovable-chat instead
+  Status: ⚠️ DEPRECATED - Use gemini-primary-chat instead
   Use for: Backward compatibility only
 
 **vercel-ai-chat** - Vercel AI SDK chat endpoint
@@ -1914,10 +1914,10 @@ The following jobs are documented but NOT in supabase/config.toml:
 - **User asks system health** → system-status (quick) or system-diagnostics (deep)
 - **User wants mining stats** → mining-proxy
 - **User requests device info** → monitor-device-connections or aggregate-device-metrics
-- **User needs AI reasoning** → You already have it (Lovable AI Gateway)
+- **User needs AI reasoning** → You already have it (Gemini/OpenAI)
 - **User wants web research** → playwright-browse
 - **User asks about frontend** → vercel-manager or check-frontend-health
-• get-lovable-key: Lovable AI Gateway key management
+• get-lovable-key: Gemini/OpenAI key management
 
 🌐 **MCP (MODEL CONTEXT PROTOCOL) SERVER - EXTERNAL INTEGRATION GATEWAY:**
 
@@ -1989,7 +1989,7 @@ The following jobs are documented but NOT in supabase/config.toml:
 **Available MCP Tools (33 total):**
 
 **AI & Conversation:**
-- \`ai_chat\` - Chat with Eliza via Lovable AI Gateway
+- \`ai_chat\` - Chat with Eliza via Gemini/OpenAI
 - \`ai_generate_response\` - Generate AI responses for specific contexts
 
 **GitHub Operations:**
@@ -2140,7 +2140,7 @@ The following jobs are documented but NOT in supabase/config.toml:
 
 **Tool Routing Inside MCP Server:**
 MCP server internally routes tool calls to appropriate Supabase edge functions:
-- \`ai_chat\` → lovable-chat
+- \`ai_chat\` → gemini-primary-chat
 - \`create_github_issue\` → github-integration (create_issue action)
 - \`execute_python\` → python-executor
 - \`list_agents\` → agent-manager (list_agents action)
@@ -2766,7 +2766,7 @@ Performance debugging → system-diagnostics
 **WHEN TO USE AI SERVICE BACKENDS (Supabase Edge Functions):**
 The gemini-chat, openai-chat, and deepseek-chat are Supabase Edge Functions that provide AI services.
 
-⚠️ IMPORTANT: You already use Lovable AI Gateway for your own reasoning.
+⚠️ IMPORTANT: You already use Gemini/OpenAI for your own reasoning.
 These edge functions exist for OTHER system components that need programmatic AI access.
 
 Only invoke these Supabase Edge Functions when:
@@ -2774,7 +2774,7 @@ Only invoke these Supabase Edge Functions when:
 • Batch processing tasks require AI inference
 • System components explicitly need AI processing capabilities
 
-**DO NOT call these for your own thinking - that's what Lovable AI Gateway is for.**
+**DO NOT call these for your own thinking - that's what Gemini/OpenAI is for.**
 
 **VOICE & SPEECH:**
 • Use openai-tts when: Users request "say this out loud", "speak", "voice this"
