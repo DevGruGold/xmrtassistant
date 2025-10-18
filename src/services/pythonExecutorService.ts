@@ -16,8 +16,9 @@ export interface PythonExecutionOptions {
 }
 
 /**
- * Service for executing Python code in a sandboxed environment
- * Provides a persistent shell-like experience for Eliza's background work
+ * Service for executing Python code with full network access
+ * Uses eliza-python-runtime to enable Eliza to call all 84 edge functions
+ * Provides full access to Supabase backend capabilities
  */
 export class PythonExecutorService {
   private static executionHistory: Array<{
@@ -33,17 +34,21 @@ export class PythonExecutorService {
     const startTime = Date.now();
     
     try {
-      console.log('🐍 Python Executor - Starting execution:', {
+      console.log('🐍 Eliza Python Runtime - Starting execution with network access:', {
         codeLength: options.code.length,
         silent: options.silent,
-        estimatedTime: this.estimateExecutionTime(options.code)
+        estimatedTime: this.estimateExecutionTime(options.code),
+        runtime: 'eliza-python-runtime',
+        networkEnabled: true
       });
 
-      const { data, error } = await supabase.functions.invoke('python-executor', {
+      const { data, error } = await supabase.functions.invoke('eliza-python-runtime', {
         body: {
           code: options.code,
           stdin: options.stdin || '',
-          args: options.args || []
+          args: options.args || [],
+          purpose: 'Eliza code execution',
+          source: 'eliza'
         }
       });
 
@@ -155,20 +160,18 @@ export class PythonExecutorService {
   }
 
   /**
-   * Get available Python packages
+   * Get available Python packages and edge function access
+   * With eliza-python-runtime, Eliza has access to:
+   * - All standard Python libraries (urllib, json, etc.)
+   * - Full network access to call all 84 edge functions
+   * - Auto-injected SUPABASE_URL and SUPABASE_SERVICE_KEY
    */
   static getAvailablePackages(): string[] {
     return [
-      'pandas',
-      'numpy',
-      'requests',
-      'beautifulsoup4',
-      'json',
-      'datetime',
-      'math',
-      'statistics',
-      're',
-      'random'
+      'Built-in: urllib, json, base64, datetime, math, statistics, re, random',
+      'Network: Full outbound HTTP/HTTPS access',
+      'Edge Functions: All 84 Supabase edge functions accessible',
+      'Environment: SUPABASE_URL and SUPABASE_SERVICE_KEY pre-configured'
     ];
   }
 }
