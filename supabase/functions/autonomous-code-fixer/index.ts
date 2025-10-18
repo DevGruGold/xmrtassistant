@@ -173,7 +173,55 @@ ${analysis}
       console.log(`✅ Completed analysis of ${analysisResults.length} issues`);
 
       // Log the GitHub analysis activity
-      await supabase.from('eliza_activity_log').insert({
+      
+        // Enhanced learning metadata for Eliza's improvement
+        const learningMetadata = {
+          original_error: error,
+          error_type: errorType,
+          fix_pattern: `${errorType} → ${fixStrategy}`,
+          original_code: originalCode,
+          fixed_code: fixedCode,
+          lesson: generateLesson(errorType, originalCode, fixedCode),
+          success_rate: await calculateSuccessRate(errorType),
+          timestamp: new Date().toISOString()
+        };
+        
+        // Helper function to generate actionable lessons
+        function generateLesson(errorType: string, originalCode: string, fixedCode: string): string {
+          const lessons: Record<string, string> = {
+            'syntax_error': 'Remember to check syntax carefully. Common issues: missing colons, incorrect indentation, unmatched brackets.',
+            'name_error': 'Always define variables before using them. Check variable scope and spelling.',
+            'import_error': 'Only stdlib modules available. No requests, pandas, numpy. Use urllib.request for HTTP.',
+            'network_error': 'Use call_network_proxy helper for external API calls. Direct urllib may hit network boundaries.',
+            'api_error': 'Validate API endpoints and authentication before calling. Handle 404/401/403 gracefully.',
+            'type_error': 'Check data types carefully. Convert strings to int/float when needed.',
+            'index_error': 'Validate array/list indices before accessing. Check length first.',
+            'key_error': 'Check if dictionary keys exist before accessing. Use .get() for safe access.',
+            'attribute_error': 'Verify object has attribute before accessing. Check object type.',
+            'zero_division': 'Always check for zero before division operations.',
+            'timeout_error': 'Code took too long. Optimize loops and reduce API calls.',
+            'memory_error': 'Code used too much memory. Process data in chunks or reduce dataset size.'
+          };
+          
+          return lessons[errorType] || 'Code fixed successfully. Review the changes to understand the correction.';
+        }
+        
+        // Calculate success rate for this error type
+        async function calculateSuccessRate(errorType: string): Promise<number> {
+          const { data: recentFixes } = await supabase
+            .from('eliza_python_executions')
+            .select('exit_code, metadata')
+            .contains('metadata', { error_type: errorType })
+            .order('created_at', { ascending: false })
+            .limit(20);
+          
+          if (!recentFixes || recentFixes.length === 0) return 0;
+          
+          const successful = recentFixes.filter(f => f.exit_code === 0).length;
+          return Math.round((successful / recentFixes.length) * 100);
+        }
+
+        await supabase.from('eliza_activity_log').insert({
         activity_type: 'github_code_analysis',
         title: '🔍 GitHub Code Issue Analysis',
         description: `Analyzed ${analysisResults.length} code issues and posted suggestions`,
