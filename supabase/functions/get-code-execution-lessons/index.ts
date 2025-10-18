@@ -1,136 +1,126 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
 
+Deno.serve(async (req) => {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    const { limit = 10, include_failures_only = false } = await req.json();
-    
-    console.log(`📚 Fetching code execution lessons (limit: ${limit}, failures only: ${include_failures_only})`);
-    
-    // Query recent executions with learning metadata
-    let query = supabase
-      .from('eliza_python_executions')
-      .select('id, code, output, error, exit_code, execution_time_ms, source, metadata, created_at')
-      .order('created_at', { ascending: false })
+    const { limit = 20 } = await req.json().catch(() => ({}));
+
+    // Get recent executions
+    const { data: executions, error } = await supabase
+      .from("eliza_python_executions")
+      .select("*")
+      .order("created_at", { ascending: false })
       .limit(limit);
-    
-    if (include_failures_only) {
-      query = query.neq('exit_code', 0);
+
+    if (error) throw error;
+
+    if (!executions || executions.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No execution history found",
+          lessons: [],
+        }),
+        { headers: { "Content-Type": "application/json" } }
+      );
     }
-    
-    const { data: executions, error: queryError } = await query;
-    
-    if (queryError) {
-      throw queryError;
-    }
-    
-    // Analyze patterns and generate lessons
-    const lessons = {
-      total_executions: executions?.length || 0,
-      success_rate: 0,
-      common_errors: {},
-      successful_patterns: [],
-      failed_patterns: [],
-      recommendations: []
-    };
-    
-    if (executions && executions.length > 0) {
-      const successful = executions.filter(e => e.exit_code === 0);
-      lessons.success_rate = Math.round((successful.length / executions.length) * 100);
-      
-      // Analyze error patterns
-      const errorCounts: Record<string, number> = {};
-      executions.forEach(exec => {
-        if (exec.exit_code !== 0 && exec.metadata?.error_type) {
-          const errorType = exec.metadata.error_type;
-          errorCounts[errorType] = (errorCounts[errorType] || 0) + 1;
+
+    // Calculate statistics
+    const total = executions.length;
+    const successful = executions.filter(e => e.status === "success").length;
+    const failed = executions.filter(e => e.status === "error").length;
+    const success_rate = (successful / total) * 100;
+
+    // Identify common patterns
+    const error_patterns = {};
+    const successful_patterns = {};
+
+    executions.forEach(exec => {
+      if (exec.status === "error" && exec.error) {
+        const error_type = exec.error.split(":")[0].trim();
+        error_patterns[error_type] = (error_patterns[error_type] || 0) + 1;
+      } else if (exec.status === "success" && exec.metadata?.learning_metadata) {
+        const lesson = exec.metadata.learning_metadata.lesson;
+        if (lesson) {
+          successful_patterns[lesson] = (successful_patterns[lesson] || 0) + 1;
         }
-      });
-      
-      lessons.common_errors = errorCounts;
-      
-      // Extract successful patterns
-      successful.forEach(exec => {
-        if (exec.code && exec.code.length < 500) { // Only short, reusable patterns
-          lessons.successful_patterns.push({
-            code_snippet: exec.code.substring(0, 200),
-            purpose: exec.metadata?.purpose || 'Unknown',
-            execution_time: exec.execution_time_ms
-          });
-        }
-      });
-      
-      // Extract failed patterns with lessons
-      executions.filter(e => e.exit_code !== 0).forEach(exec => {
-        lessons.failed_patterns.push({
-          error_type: exec.metadata?.error_type || 'Unknown',
-          error_message: exec.error?.substring(0, 200) || 'No error message',
-          lesson: exec.metadata?.lesson || 'Review code carefully',
-          was_fixed: exec.metadata?.was_auto_fixed || false,
-          fix_pattern: exec.metadata?.fix_pattern
-        });
-      });
-      
-      // Generate recommendations
-      const topErrors = Object.entries(errorCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 3);
-      
-      topErrors.forEach(([errorType, count]) => {
-        const recommendations: Record<string, string> = {
-          'import_error': `You have ${count} import errors. Remember: Only stdlib available. Use urllib.request instead of requests module.`,
-          'name_error': `You have ${count} name errors. Tip: Always define variables in scope before using them.`,
-          'syntax_error': `You have ${count} syntax errors. Tip: Check indentation, colons, and brackets carefully.`,
-          'network_error': `You have ${count} network errors. Tip: Use call_network_proxy helper for external API calls.`,
-          'api_error': `You have ${count} API errors. Tip: Validate endpoints and handle 404/401 responses gracefully.`,
-          'type_error': `You have ${count} type errors. Tip: Convert data types explicitly (int(), str(), float()).`,
-        };
-        
-        if (recommendations[errorType]) {
-          lessons.recommendations.push(recommendations[errorType]);
-        }
-      });
-      
-      // Add success-based recommendations
-      if (lessons.success_rate >= 80) {
-        lessons.recommendations.push(`✅ Excellent! ${lessons.success_rate}% success rate. Keep using current patterns.`);
-      } else if (lessons.success_rate >= 60) {
-        lessons.recommendations.push(`⚠️ ${lessons.success_rate}% success rate. Review failed patterns and apply lessons learned.`);
-      } else {
-        lessons.recommendations.push(`❌ ${lessons.success_rate}% success rate. Study successful patterns and common error fixes carefully.`);
       }
-    }
-    
-    console.log(`✅ Generated ${lessons.recommendations.length} recommendations from ${lessons.total_executions} executions`);
-    
+    });
+
+    // Get auto-fix statistics
+    const auto_fixed = executions.filter(
+      e => e.metadata?.auto_fix_attempted && e.metadata?.auto_fix_success
+    ).length;
+
+    // Generate AI insights
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+
+    const prompt = `Analyze these Python execution statistics and provide actionable insights:
+
+Statistics:
+- Total executions: ${total}
+- Successful: ${successful} (${success_rate.toFixed(1)}%)
+- Failed: ${failed}
+- Auto-fixed: ${auto_fixed}
+
+Common error patterns:
+${Object.entries(error_patterns).map(([type, count]) => `- ${type}: ${count} occurrences`).join("\n")}
+
+Learning patterns from successful fixes:
+${Object.entries(successful_patterns).map(([lesson, count]) => `- ${lesson}: ${count} times`).join("\n")}
+
+Provide 3-5 actionable recommendations to improve code quality and reduce errors. Be specific and practical.`;
+
+    const result = await model.generateContent(prompt);
+    const recommendations = result.response.text();
+
     return new Response(
-      JSON.stringify(lessons),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
+      JSON.stringify({
+        success: true,
+        statistics: {
+          total_executions: total,
+          successful,
+          failed,
+          success_rate: success_rate.toFixed(1) + "%",
+          auto_fixed_count: auto_fixed,
+        },
+        patterns: {
+          common_errors: error_patterns,
+          successful_lessons: successful_patterns,
+        },
+        recommendations,
+        recent_executions: executions.slice(0, 5).map(e => ({
+          id: e.id,
+          status: e.status,
+          description: e.description,
+          created_at: e.created_at,
+          had_auto_fix: e.metadata?.auto_fix_attempted || false,
+        })),
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
       }
     );
-    
   } catch (error) {
-    console.error('Error fetching code lessons:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
       }
     );
   }
