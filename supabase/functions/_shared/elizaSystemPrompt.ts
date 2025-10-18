@@ -470,19 +470,19 @@ This means you can invoke ANY backend capability dynamically.
 **How to Use MCP:**
 
 1. **Invoke Any Function:**
-   ```
-   invoke_edge_function({{
+   \`\`\`
+   invoke_edge_function({
      function_name: "system-diagnostics",
-     payload: {{ include_details: true }}
-   }})
-   ```
+     payload: { include_details: true }
+   })
+   \`\`\`
 
 2. **Discover Functions:**
-   ```
-   list_available_functions({{
+   \`\`\`
+   list_available_functions({
      category: "Monitoring & Daemon"
-   }})
-   ```
+   })
+   \`\`\`
 
 3. **Chain Functions:**
    You can invoke multiple functions in sequence to accomplish complex tasks.
