@@ -91,10 +91,10 @@ async function validateGitHubToken(token: string): Promise<boolean> {
 }
 
 /**
- * Try to get AI service credential (OpenAI, DeepSeek, Lovable AI, Vercel AI, OpenRouter, Gemini)
+ * Try to get AI service credential (OpenAI, DeepSeek, Gemini AI, Vercel AI, OpenRouter, Gemini)
  */
 export function getAICredential(
-  service: 'openai' | 'deepseek' | 'lovable_ai' | 'vercel_ai' | 'openrouter' | 'gemini',
+  service: 'openai' | 'deepseek' | 'gemini' | 'vercel_ai' | 'openrouter' | 'gemini',
   sessionCredentials: any
 ): string | null {
   // 1. Try session credential
@@ -108,7 +108,7 @@ export function getAICredential(
   const envKeys: Record<string, string> = {
     openai: 'OPENAI_API_KEY',
     deepseek: 'DEEPSEEK_API_KEY',
-    lovable_ai: 'LOVABLE_API_KEY',
+    gemini: 'LOVABLE_API_KEY',
     vercel_ai: 'VERCEL_AI_GATEWAY_KEY',
     openrouter: 'OPENROUTER_API_KEY',
     gemini: 'GEMINI_API_KEY'
