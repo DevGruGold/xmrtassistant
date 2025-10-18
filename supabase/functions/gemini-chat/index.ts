@@ -1409,6 +1409,76 @@ async function executeSingleTool(functionName: string, args: any, supabase: any,
     });
   
 
+  
+  } else if (functionName === 'invoke_edge_function') {
+    activityType = 'mcp_invocation';
+    activityTitle = `🔌 MCP: ${args.function_name}`;
+    activityDescription = `Invoking edge function via MCP: ${args.function_name}`;
+    
+    try {
+      const invokeResult = await supabase.functions.invoke('universal-edge-invoker', {
+        body: {
+          function_name: args.function_name,
+          payload: args.payload
+        }
+      });
+      
+      if (invokeResult.error) {
+        throw invokeResult.error;
+      }
+      
+      result = {
+        success: true,
+        data: invokeResult.data,
+        message: `Successfully invoked ${args.function_name} via MCP`
+      };
+      
+      await logToolExecution(supabase, functionName, args, 'completed', result);
+      
+    } catch (error) {
+      console.error('Error invoking edge function via MCP:', error);
+      result = {
+        success: false,
+        error: error.message
+      };
+      await logToolExecution(supabase, functionName, args, 'failed', null, error.message);
+    }
+    
+  } else if (functionName === 'list_available_functions') {
+    activityType = 'mcp_discovery';
+    activityTitle = '📚 MCP: List Available Functions';
+    activityDescription = 'Discovering available edge functions via MCP';
+    
+    try {
+      const listResult = await supabase.functions.invoke('list-available-functions', {
+        body: {
+          category: args.category
+        }
+      });
+      
+      if (listResult.error) {
+        throw listResult.error;
+      }
+      
+      result = {
+        success: true,
+        data: listResult.data,
+        message: args.category 
+          ? `Found functions in category: ${args.category}`
+          : 'Retrieved full function directory'
+      };
+      
+      await logToolExecution(supabase, functionName, args, 'completed', result);
+      
+    } catch (error) {
+      console.error('Error listing available functions:', error);
+      result = {
+        success: false,
+        error: error.message
+      };
+      await logToolExecution(supabase, functionName, args, 'failed', null, error.message);
+    }
+
   } else if (functionName === 'get_code_execution_lessons') {
     activityType = 'learning_analysis';
     activityTitle = '📚 Analyzing Code Execution History';
