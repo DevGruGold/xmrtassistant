@@ -1,118 +1,165 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-/**
- * Code Monitor Daemon - Runs continuously 24/7
- * Monitors Python executions and triggers autonomous-code-fixer when needed
- */
+const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+async function logActivity(
+  activity_type: string,
+  description: string,
+  metadata: any = {},
+  status: string = "completed"
+) {
+  await supabase.from("eliza_activity_log").insert({
+    activity_type,
+    description,
+    metadata,
+    status,
+    created_at: new Date().toISOString(),
+  });
+}
+
+Deno.serve(async (req) => {
+  const scanStartTime = new Date();
+  
+  await logActivity(
+    "daemon_scan",
+    "🔍 Code monitor daemon scanning for failed executions...",
+    { scan_time: scanStartTime.toISOString() },
+    "in_progress"
+  );
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Query for failed executions in the last 10 minutes
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     
-    console.log('🔍 [CODE MONITOR] Starting scan for failed executions...');
+    const { data: failedExecutions, error } = await supabase
+      .from("eliza_python_executions")
+      .select("*")
+      .eq("status", "error")
+      .gte("created_at", tenMinutesAgo)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const failureCount = failedExecutions?.length || 0;
     
-    // Log that daemon is running
-    await supabase.from('eliza_activity_log').insert({
-      activity_type: 'daemon_scan',
-      title: '🔍 Code Monitor: Scanning',
-      description: 'Code monitor daemon is scanning for failed executions',
-      status: 'in_progress'
-    });
-    
-    // Look for failed Python executions in the last 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    
-    const { data: failedExecutions, error: queryError } = await supabase
-      .from('eliza_python_executions')
-      .select('id, code, error, created_at')
-      .neq('exit_code', 0)
-      .gte('created_at', fiveMinutesAgo)
-      .is('metadata->was_auto_fixed', null) // Not yet fixed
-      .order('created_at', { ascending: false });
-    
-    if (queryError) {
-      throw queryError;
-    }
-    
-    console.log(`📊 [CODE MONITOR] Found ${failedExecutions?.length || 0} failed executions`);
-    
-    if (failedExecutions && failedExecutions.length > 0) {
-      // Log findings
-      await supabase.from('eliza_activity_log').insert({
-        activity_type: 'daemon_findings',
-        title: `⚠️ Code Monitor: Found ${failedExecutions.length} failures`,
-        description: `Detected ${failedExecutions.length} failed code executions`,
-        metadata: {
-          count: failedExecutions.length,
-          execution_ids: failedExecutions.map(e => e.id)
-        },
-        status: 'completed'
-      });
-      
-      // Trigger autonomous-code-fixer for each failure
-      for (const execution of failedExecutions) {
-        console.log(`🔧 [CODE MONITOR] Triggering fixer for execution ${execution.id}`);
-        
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'auto_fix_triggered',
-          title: '🤖 Triggering Auto-Fixer',
-          description: `Autonomous code fixer triggered for execution ${execution.id}`,
-          metadata: {
-            execution_id: execution.id,
-            error: execution.error?.substring(0, 200)
-          },
-          status: 'in_progress'
-        });
-        
-        // Trigger the fixer (don't await - let it run async)
-        supabase.functions.invoke('autonomous-code-fixer', {
-          body: {
-            mode: 'local',
-            execution_id: execution.id
-          }
-        }).catch(err => console.error('Failed to invoke fixer:', err));
-      }
-    } else {
-      // Log clean scan
-      await supabase.from('eliza_activity_log').insert({
-        activity_type: 'daemon_scan_complete',
-        title: '✅ Code Monitor: All Clear',
-        description: 'No failed executions found',
-        status: 'completed'
-      });
-    }
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        scanned: true,
-        failures_found: failedExecutions?.length || 0
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+    await logActivity(
+      "daemon_scan",
+      `🔍 Scan complete: Found ${failureCount} failed executions`,
+      {
+        scan_time: scanStartTime.toISOString(),
+        failures_found: failureCount,
+        scan_duration_ms: Date.now() - scanStartTime.getTime(),
+      },
+      "completed"
     );
+
+    if (failureCount === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No failed executions found",
+          scanned_at: scanStartTime.toISOString(),
+        }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Process each failed execution
+    const fixResults = [];
     
+    for (const execution of failedExecutions!) {
+      await logActivity(
+        "auto_fix_triggered",
+        `🤖 Triggering auto-fix for execution ${execution.id}`,
+        {
+          execution_id: execution.id,
+          original_code: execution.code.substring(0, 200),
+          error: execution.error,
+        },
+        "in_progress"
+      );
+
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/functions/v1/autonomous-code-fixer`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({ execution_id: execution.id }),
+          }
+        );
+
+        const result = await response.json();
+        fixResults.push({
+          execution_id: execution.id,
+          success: response.ok,
+          result,
+        });
+
+        await logActivity(
+          "auto_fix_triggered",
+          response.ok 
+            ? `✅ Auto-fix succeeded for execution ${execution.id}`
+            : `❌ Auto-fix failed for execution ${execution.id}`,
+          {
+            execution_id: execution.id,
+            fix_result: result,
+          },
+          response.ok ? "completed" : "failed"
+        );
+      } catch (fixError) {
+        await logActivity(
+          "auto_fix_triggered",
+          `❌ Auto-fix error for execution ${execution.id}`,
+          {
+            execution_id: execution.id,
+            error: fixError.message,
+          },
+          "failed"
+        );
+        
+        fixResults.push({
+          execution_id: execution.id,
+          success: false,
+          error: fixError.message,
+        });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        scanned_at: scanStartTime.toISOString(),
+        failures_found: failureCount,
+        fixes_attempted: fixResults.length,
+        results: fixResults,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error('❌ [CODE MONITOR ERROR]:', error);
+    await logActivity(
+      "daemon_scan",
+      `❌ Daemon scan error: ${error.message}`,
+      {
+        error: error.message,
+        stack: error.stack,
+        scan_time: scanStartTime.toISOString(),
+      },
+      "failed"
+    );
+
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
       }
     );
   }
