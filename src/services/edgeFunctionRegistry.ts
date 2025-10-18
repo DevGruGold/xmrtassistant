@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+'''import { supabase } from '@/integrations/supabase/client';
 
 export interface EdgeFunctionCapability {
   name: string;
@@ -13,10 +13,18 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   {
     name: 'lovable-chat',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/lovable-chat',
-    description: '✅ PRIMARY AI - Model-agnostic chat via Lovable AI Gateway (Gemini 2.5 Flash default, supports OpenAI GPT-5)',
+    description: '✅ PRIMARY AI - Model-agnostic chat via Lovable AI Gateway (Gemini 2.5 Flash default, Kimi K2 OpenRouter fallback, supports OpenAI GPT-5)',
     capabilities: ['Advanced AI chat', 'Context awareness', 'Multi-model support', 'Memory integration', 'Tool calling', 'Multi-step workflows'],
     category: 'ai',
     example_use: 'Main intelligent chat endpoint with full context and memory - use this for all AI chat needs'
+  },
+  {
+    name: 'kimi-chat',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/kimi-chat',
+    description: '✅ FALLBACK AI - Model-agnostic chat via Kimi k2 AI Gateway (OpenRouter API)',
+    capabilities: ['Advanced AI chat', 'Context awareness', 'Multi-model support', 'Memory integration', 'Tool calling', 'Multi-step workflows'],
+    category: 'ai',
+    example_use: 'Fallback intelligent chat endpoint with full context and memory - use this for all AI chat needs when primary fails'
   },
   {
     name: 'gemini-chat',
@@ -200,328 +208,111 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   {
     name: 'knowledge-manager',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/knowledge-manager',
-    description: 'Manages knowledge base with CRUD operations',
-    capabilities: ['Knowledge CRUD', 'Entity relationships', 'Knowledge queries'],
+    description: 'Manages the knowledge base and vector embeddings',
+    capabilities: ['Vectorize text', 'Knowledge search', 'Data retrieval'],
     category: 'knowledge',
-    example_use: 'Store and retrieve knowledge entities'
-  },
-  {
-    name: 'vectorize-memory',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/vectorize-memory',
-    description: 'Creates vector embeddings for memory contexts (auto-triggered)',
-    capabilities: ['Vector embeddings', 'Semantic search', 'Memory indexing'],
-    category: 'knowledge',
-    example_use: 'Automatically generates embeddings when new memories are created'
+    example_use: 'Search the knowledge base for relevant information'
   },
   {
     name: 'summarize-conversation',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/summarize-conversation',
-    description: 'AI-powered conversation summarization (auto-triggered)',
-    capabilities: ['Conversation summarization', 'Key point extraction', 'Context compression'],
+    description: 'Summarizes long conversations for context',
+    capabilities: ['Text summarization', 'Context compression', 'Conversation analysis'],
     category: 'knowledge',
-    example_use: 'Automatically summarizes long conversation threads'
+    example_use: 'Summarize chat history to provide context to AI models'
   },
   {
     name: 'task-orchestrator',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/task-orchestrator',
-    description: 'Orchestrates complex multi-step tasks across agents',
-    capabilities: ['Task scheduling', 'Agent coordination', 'Workflow automation'],
+    description: 'Orchestrates complex multi-step tasks and workflows',
+    capabilities: ['Task planning', 'Workflow execution', 'Dependency management'],
     category: 'task-management',
-    example_use: 'Execute complex automated workflows'
-  },
-  {
-    name: 'autonomous-code-fixer',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/autonomous-code-fixer',
-    description: 'Automatically scans and fixes failed Python executions',
-    capabilities: ['Autonomous error detection', 'Code fixing', 'Self-healing'],
-    category: 'autonomous',
-    example_use: 'Auto-fix Python execution failures without human intervention'
-  },
-  {
-    name: 'code-monitor-daemon',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/code-monitor-daemon',
-    description: 'Daemon that monitors code executions and triggers fixes. Runs every 5 minutes. Eliza should PROACTIVELY report results even if not asked.',
-    capabilities: [
-      'Continuous monitoring', 
-      'Trigger automation', 
-      'Health checks',
-      'Activity logging for transparency',
-      'Autonomous code repair coordination'
-    ],
-    category: 'autonomous',
-    example_use: 'Monitor system health and trigger autonomous fixes. Eliza mentions results at: conversation start (24h summary), every 10-15 messages (new fixes check), after long tool invocations (concurrent activity), when time gaps >5min occurred'
-  },
-  {
-    name: 'github-ecosystem-engagement',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/ecosystem-monitor',
-    description: 'Daily GitHub ecosystem engagement (11am UTC cron) - evaluates XMRT repos, responds to issues/discussions',
-    capabilities: ['Repo activity scoring', 'Issue/discussion engagement', 'Technical response generation', 'Token resilience', 'Community engagement'],
-    category: 'github',
-    example_use: 'Automatically engages with high-priority GitHub activity across DevGruGold repos daily'
-  },
-  {
-    name: 'morning-discussion-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/morning-discussion-post',
-    description: 'Automated morning discussion post (8am UTC cron)',
-    capabilities: ['Daily planning content', 'Agent status summaries', 'Overnight progress reports'],
-    category: 'autonomous',
-    example_use: 'Automatically posts morning check-in discussions to GitHub'
-  },
-  {
-    name: 'progress-update-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/progress-update-post',
-    description: 'Task progress updates (9am UTC cron)',
-    capabilities: ['Task completion reports', 'Milestone tracking', 'Work progress summaries'],
-    category: 'autonomous',
-    example_use: 'Automatically posts task progress updates to GitHub'
-  },
-  {
-    name: 'daily-discussion-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/daily-discussion-post',
-    description: 'Daily afternoon discussion (3pm UTC cron)',
-    capabilities: ['Community engagement', 'Discussion topics', 'Ecosystem updates'],
-    category: 'autonomous',
-    example_use: 'Automatically posts afternoon discussion topics to GitHub'
-  },
-  {
-    name: 'evening-summary-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/evening-summary-post',
-    description: 'Evening wins summary (8pm UTC cron)',
-    capabilities: ['Daily wins showcase', 'Completed work highlights', 'Achievement recognition'],
-    category: 'autonomous',
-    example_use: 'Automatically posts end-of-day summaries to GitHub'
-  },
-  {
-    name: 'weekly-retrospective-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/weekly-retrospective-post',
-    description: 'Weekly retrospective (Fridays 4pm UTC cron)',
-    capabilities: ['Week review', 'Lessons learned', 'Team reflections', 'Weekly metrics'],
-    category: 'autonomous',
-    example_use: 'Automatically posts weekly retrospectives to GitHub every Friday'
-  },
-  {
-    name: 'community-spotlight-post',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/community-spotlight-post',
-    description: 'Community spotlight (Wednesdays 2pm UTC cron)',
-    capabilities: ['Contributor highlights', 'Community recognition', 'Impact showcasing'],
-    category: 'autonomous',
-    example_use: 'Automatically posts contributor spotlights to GitHub every Wednesday'
+    example_use: 'Execute a sequence of dependent tasks to achieve a complex goal'
   },
   {
     name: 'system-diagnostics',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-diagnostics',
-    description: 'Deep system diagnostics - use for detailed debugging and troubleshooting',
-    capabilities: ['System diagnostics', 'Performance metrics', 'Error detection', 'Resource usage analysis'],
+    description: 'Runs diagnostic checks on the ecosystem',
+    capabilities: ['Health checks', 'Error detection', 'Performance monitoring'],
     category: 'monitoring',
-    example_use: 'Run comprehensive diagnostic scan when investigating issues or performance problems'
+    example_use: 'Run a full system health check to identify potential issues'
   },
   {
-    name: 'system-status',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-status',
-    description: 'Quick health check - use for dashboards and rapid status queries',
-    capabilities: ['Live status', 'Uptime monitoring', 'Quick health check', 'Service availability'],
+    name: 'system-health',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-health',
+    description: 'Provides a summary of the system health status',
+    capabilities: ['Status reporting', 'Health summary', 'Issue highlighting'],
     category: 'monitoring',
-    example_use: 'Get instant system status for dashboards or quick health verification'
+    example_use: 'Get a quick overview of the current system health'
   },
   {
-    name: 'cleanup-duplicate-tasks',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/cleanup-duplicate-tasks',
-    description: 'Cleans up duplicate task entries',
-    capabilities: ['Data cleanup', 'Duplicate removal', 'Database maintenance'],
-    category: 'ecosystem',
-    example_use: 'Remove duplicate task records'
+    name: 'eliza-python-runtime',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/eliza-python-runtime',
+    description: 'Python code execution environment for Eliza agents',
+    capabilities: ['Sandboxed Python execution', 'Access to libraries', 'Custom script running'],
+    category: 'code-execution',
+    example_use: 'Execute Python code in a secure environment for agents'
   },
   {
-    name: 'get-lovable-key',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/get-lovable-key',
-    description: 'Retrieves Lovable API key from secure storage',
-    capabilities: ['Secret retrieval', 'API key management'],
-    category: 'ecosystem',
-    example_use: 'Get Lovable API key for services'
+    name: 'python-db-bridge',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-db-bridge',
+    description: 'Bridge for Python scripts to interact with the Supabase database',
+    capabilities: ['Database access from Python', 'Data manipulation', 'Query execution'],
+    category: 'code-execution',
+    example_use: 'Allow Python scripts to read and write data from the database'
   },
   {
-    name: 'self-optimizing-agent-architecture',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/self-optimizing-agent-architecture',
-    description: 'Meta-orchestrator for autonomous agent optimization, skill learning, and performance improvement',
-    capabilities: ['Skill gap analysis', 'Adaptive task routing', 'Agent specialization detection', 'Workload forecasting', 'Proactive debugging', 'Autonomous learning', 'Performance optimization'],
-    category: 'autonomous',
-    example_use: 'Continuously optimize agent performance, identify skill gaps, route tasks intelligently, forecast workload, and autonomously debug issues'
-  },
-  {
-    name: 'monitor-device-connections',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/monitor-device-connections',
-    description: 'XMRTCharger device lifecycle tracking - monitor connections, disconnections, and heartbeats',
-    capabilities: [
-      'Device connect/disconnect tracking',
-      'Heartbeat monitoring',
-      'Session management',
-      'Battery level tracking',
-      'Command polling',
-      'Real-time device status'
-    ],
-    category: 'monitoring',
-    example_use: 'Track device sessions for xmrtcharger.vercel.app - connect, heartbeat every 30s, disconnect on close'
-  },
-  {
-    name: 'issue-engagement-command',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/issue-engagement-command',
-    description: 'XMRTCharger indirect command system - issue commands to devices via database polling',
-    capabilities: [
-      'Issue device commands',
-      'Command queuing and prioritization',
-      'Device polling support',
-      'Command acknowledgment tracking',
-      'Execution result capture',
-      'Multi-device broadcast'
-    ],
-    category: 'task-management',
-    example_use: 'Send notifications, config updates, or mining control commands to connected devices'
-  },
-  {
-    name: 'validate-pop-event',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/validate-pop-event',
-    description: 'XMRTCharger Proof-of-Participation validation - calculate and record PoP points for device activities',
-    capabilities: [
-      'PoP event validation',
-      'Point calculation (charging, mining, uptime)',
-      'Leaderboard management',
-      'Event history tracking',
-      'Payout tracking',
-      'Multi-method validation'
-    ],
-    category: 'mining',
-    example_use: 'Validate charging sessions and award PoP points based on duration, efficiency, and battery contribution'
-  },
-  {
-    name: 'aggregate-device-metrics',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/aggregate-device-metrics',
-    description: 'XMRTCharger dashboard metrics - aggregate device, session, and PoP data for analytics',
-    capabilities: [
-      'Hourly/daily metric aggregation',
-      'Device activity summaries',
-      'PoP point totals',
-      'Command execution stats',
-      'Anomaly detection summaries',
-      'Top performers tracking'
-    ],
-    category: 'monitoring',
-    example_use: 'Generate dashboard metrics for xmrtcharger.vercel.app showing device activity, PoP earnings, and system health'
-  },
-  {
-    name: 'xmrt_integration',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/xmrt_integration',
-    description: 'Unified ecosystem health & integration hub - connects all XMRT repos (XMRT-Ecosystem, xmrt-wallet-public, mobilemonero, xmrtnet, xmrtdao) for comprehensive health reports and integration monitoring',
-    capabilities: [
-      'Multi-repository health monitoring',
-      'Cross-repo integration verification',
-      'Deployment status (Vercel, Render, Supabase)',
-      'API health checks (mining, faucet, edge functions)',
-      'Database performance metrics',
-      'Community engagement analytics',
-      'Comprehensive markdown reports',
-      'Repository comparison',
-      'Integration debugging',
-      'Ecosystem-wide status overview'
-    ],
-    category: 'ecosystem',
-    example_use: 'Generate comprehensive ecosystem health report covering all repos, deployments, APIs, and community engagement. Check integration between services. Compare repository activity.'
+    name: 'python-network-proxy',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/python-network-proxy',
+    description: 'Proxy for Python scripts to make external network requests',
+    capabilities: ['External API calls', 'Web scraping', 'Data fetching from internet'],
+    category: 'code-execution',
+    example_use: 'Enable Python scripts to access external web resources'
   }
 ];
 
-export class EdgeFunctionService {
-  /**
-   * Get all available edge functions
-   */
-  public static getAllFunctions(): EdgeFunctionCapability[] {
+export async function searchEdgeFunctions(query: string): Promise<EdgeFunctionCapability[]> {
+  if (!query) {
     return EDGE_FUNCTIONS_REGISTRY;
   }
   
-  /**
-   * Get functions by category
-   */
-  public static getFunctionsByCategory(category: string): EdgeFunctionCapability[] {
-    return EDGE_FUNCTIONS_REGISTRY.filter(f => f.category === category);
-  }
+  const lowerCaseQuery = query.toLowerCase();
   
-  /**
-   * Find function by name
-   */
-  public static findFunction(name: string): EdgeFunctionCapability | undefined {
-    return EDGE_FUNCTIONS_REGISTRY.find(f => f.name === name);
-  }
-  
-  /**
-   * Search functions by capability
-   */
-  public static searchByCapability(query: string): EdgeFunctionCapability[] {
-    const lowerQuery = query.toLowerCase();
-    return EDGE_FUNCTIONS_REGISTRY.filter(f => 
-      f.capabilities.some(cap => cap.toLowerCase().includes(lowerQuery)) ||
-      f.description.toLowerCase().includes(lowerQuery)
+  const filteredFunctions = EDGE_FUNCTIONS_REGISTRY.filter(fn => {
+    const { name, description, capabilities, category, example_use } = fn;
+    
+    return (
+      name.toLowerCase().includes(lowerCaseQuery) ||
+      description.toLowerCase().includes(lowerCaseQuery) ||
+      capabilities.some(cap => cap.toLowerCase().includes(lowerCaseQuery)) ||
+      category.toLowerCase().includes(lowerCaseQuery) ||
+      example_use.toLowerCase().includes(lowerCaseQuery)
     );
-  }
+  });
   
-  /**
-   * Invoke an edge function
-   */
-  public static async invoke(functionName: string, body?: any): Promise<any> {
-    try {
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: body || {}
-      });
-      
-      if (error) {
-        console.error(`Error invoking ${functionName}:`, error);
-        throw error;
-      }
-      
-      return data;
-    } catch (error) {
-      console.error(`Failed to invoke ${functionName}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Format edge function capabilities for AI context
-   */
-  public static formatCapabilitiesForAI(): string {
-    const categories = ['github', 'ai', 'autonomous', 'knowledge', 'task-management', 'monitoring', 'code-execution', 'web', 'speech', 'mining', 'faucet', 'deployment', 'ecosystem'];
-    
-    let output = '🔧 **AVAILABLE EDGE FUNCTIONS & CAPABILITIES**\n\n';
-    output += '⚡ **TOOL INVOCATION REMINDER:** Invoke tools IMMEDIATELY while explaining, not after.\n\n';
-    
-    for (const category of categories) {
-      const functions = this.getFunctionsByCategory(category);
-      if (functions.length === 0) continue;
-      
-      output += `**${category.toUpperCase()} SERVICES:**\n`;
-      functions.forEach(func => {
-        output += `• **${func.name}**: ${func.description}\n`;
-        output += `  Capabilities: ${func.capabilities.join(', ')}\n`;
-        output += `  Use: ${func.example_use}\n`;
-      });
-      output += '\n';
-    }
-    
-    output += `\n📚 **GITHUB OAUTH INTEGRATION DETAILS:**\n`;
-    output += `• Authentication: OAuth App using GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET (server-side)\n`;
-    output += `• All operations are automatically authenticated - no user tokens needed\n`;
-    output += `• Use githubIntegrationService for type-safe GitHub operations\n`;
-    output += `• Available via supabase.functions.invoke('github-integration', { body: { action, data } })\n\n`;
-    
-    output += `🤖 **AUTONOMOUS SYSTEMS:**\n`;
-    output += `• code-monitor-daemon: Continuously monitors Python executions\n`;
-    output += `• autonomous-code-fixer: Auto-fixes failed code without human intervention\n`;
-    output += `• These systems work together for self-healing capabilities\n\n`;
-    
-    output += `🔄 **AUTO-TRIGGERED WEBHOOKS:**\n`;
-    output += `• vectorize-memory: Triggered on new memory_contexts insertions\n`;
-    output += `• extract-knowledge: Triggered on assistant messages\n`;
-    output += `• summarize-conversation: Triggered periodically for long threads\n`;
-    
-    return output;
-  }
+  return filteredFunctions;
 }
 
-export const edgeFunctionService = EdgeFunctionService;
+export async function getFunctionByName(name: string): Promise<EdgeFunctionCapability | undefined> {
+  return EDGE_FUNCTIONS_REGISTRY.find(fn => fn.name === name);
+}
+
+export async function invokeEdgeFunction(functionName: string, body: any, headers?: Record<string, string>) {
+  const fn = await getFunctionByName(functionName);
+  
+  if (!fn) {
+    throw new Error(`Function "${functionName}" not found in registry.`);
+  }
+  
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body: body,
+    headers: headers
+  });
+
+  if (error) {
+    throw new Error(`Error invoking ${functionName}: ${error.message}`);
+  }
+
+  return data;
+}
+'''
