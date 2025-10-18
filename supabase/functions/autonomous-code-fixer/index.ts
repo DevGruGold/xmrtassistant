@@ -48,7 +48,16 @@ serve(async (req) => {
     const requestBody = await req.json().catch(() => ({}));
     const mode = requestBody.mode || 'local'; // 'local' (Python executions) or 'github' (repository issues)
     
-    console.log(`🤖 Autonomous Code Fixer - Mode: ${mode}`);
+    
+    // Log that auto-fixer is starting
+    await supabase.from('eliza_activity_log').insert({
+      activity_type: 'auto_fix_start',
+      title: '🤖 Auto-Fixer: Starting',
+      description: 'Autonomous code fixer is analyzing failed execution',
+      status: 'in_progress'
+    });
+    
+console.log(`🤖 Autonomous Code Fixer - Mode: ${mode}`);
 
     // GitHub Repository Mode - Analyze issues and suggest fixes
     if (mode === 'github') {
