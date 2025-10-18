@@ -72,29 +72,6 @@ interface UnifiedChatProps {
 
 // Internal component using ElevenLabs and Gemini
 
-// Filter out code blocks and tool calls from assistant responses
-// This ensures code executes in background only, not visible in chat
-const filterCodeFromResponse = (content: string): string => {
-  if (!content) return content;
-  
-  // Remove code blocks (```...```)
-  let filtered = content.replace(/```[\s\S]*?```/g, '');
-  
-  // Remove tool_code JSON blocks
-  filtered = filtered.replace(/```tool_code[\s\S]*?```/g, '');
-  
-  // Remove standalone JSON tool calls
-  filtered = filtered.replace(/{\s*"function":\s*"[^"]+",\s*"code":[\s\S]*?}/g, '');
-  
-  // Remove "Executing..." messages
-  filtered = filtered.replace(/Executing the Python code.*?now\.\.\.?/gi, '');
-  
-  // Clean up extra whitespace
-  filtered = filtered.replace(/\n\n\n+/g, '\n\n').trim();
-  
-  return filtered || content; // Return original if everything was filtered
-};
-
 const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   apiKey = import.meta.env.VITE_GEMINI_API_KEY || "",
   className = '',
@@ -1129,7 +1106,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                       : 'bg-muted/50 text-foreground rounded-bl-md'
                   }`}
                   >
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.role === "assistant" ? filterCodeFromResponse(message.content) : message.content}</div>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
                     
                     {/* Tool Call Indicators */}
                     {message.tool_calls && message.tool_calls.length > 0 && (

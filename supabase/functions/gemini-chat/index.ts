@@ -2,12 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21.0";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const FALLBACK_GEMINI_KEY = Deno.env.get("GEMINI_API_KEY"); // Backend fallback only
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
 
 // ============================================================================
 // ENHANCED ACTIVITY LOGGING - SHOWS ALL ACTIVITY IN BACKGROUND WINDOW
@@ -185,7 +184,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory = [] } = await req.json();
+    const { message, conversationHistory = [], session_credentials } = await req.json();
 
     await logActivity(
       "chat_message",
@@ -193,6 +192,41 @@ Deno.serve(async (req) => {
       { message_preview: message.substring(0, 100) },
       "in_progress"
     );
+
+    // PRIORITY: Use user's Gemini API key from session credentials
+    const userGeminiKey = session_credentials?.gemini || 
+                         session_credentials?.GEMINI_API_KEY ||
+                         session_credentials?.geminiKey;
+    
+    const apiKey = userGeminiKey || FALLBACK_GEMINI_KEY;
+    
+    if (!apiKey) {
+      await logActivity(
+        "error",
+        `❌ No Gemini API key available`,
+        { 
+          session_credentials_keys: Object.keys(session_credentials || {}),
+          has_fallback: !!FALLBACK_GEMINI_KEY 
+        },
+        "failed"
+      );
+      return new Response(
+        JSON.stringify({ 
+          error: "Gemini API key required. Please provide your API key.",
+          needsCredentials: true
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
+
+    console.log(`🔑 Using ${userGeminiKey ? 'USER' : 'FALLBACK'} Gemini API key`);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-exp",
