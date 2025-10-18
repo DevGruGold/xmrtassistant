@@ -60,10 +60,8 @@ CORRECTED CODE:`;
 
   const result = await model.generateContent(prompt);
   const fixedCode = result.response.text()
-    .replace(/```python
-?/g, "")
-    .replace(/```
-?/g, "")
+    .replace(/```python\s*/g, "")
+    .replace(/```\s*/g, "")
     .trim();
 
   await logActivity(
