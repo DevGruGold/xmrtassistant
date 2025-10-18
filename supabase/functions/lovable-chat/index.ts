@@ -19,31 +19,31 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try Lovable -> DeepSeek -> session OpenAI
-    const lovableKey = getAICredential('lovable_ai', session_credentials);
+    // Intelligent AI service cascade: Try Gemini -> OpenAI -> DeepSeek
+    const geminiKey = getAICredential('gemini', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const openaiKey = getAICredential('openai', session_credentials);
 
     // Log which services are available
     console.log('🔍 Available AI services:', {
-      lovable: !!lovableKey,
+      lovable: !!geminiKey,
       deepseek: !!deepseekKey,
       openai: !!openaiKey
     });
 
     // Try services in order of preference
-    let LOVABLE_API_KEY: string | null = null;
+    let GEMINI_API_KEY: string | null = null;
     let aiProvider = 'unknown';
     let aiModel = 'google/gemini-2.5-flash';
 
-    if (lovableKey) {
-      LOVABLE_API_KEY = lovableKey;
-      aiProvider = 'lovable_ai';
+    if (geminiKey) {
+      GEMINI_API_KEY = geminiKey;
+      aiProvider = 'gemini';
       aiModel = 'google/gemini-2.5-flash';
-      console.log('✅ Using Lovable AI Gateway');
+      console.log('✅ Using Gemini AI Primary');
     } else if (deepseekKey) {
       // For DeepSeek, we'll call it via its edge function instead
-      console.log('⚠️ Lovable AI not available, trying DeepSeek fallback');
+      console.log('⚠️ Gemini AI not available, trying DeepSeek fallback');
       try {
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
         const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -70,13 +70,13 @@ serve(async (req) => {
       }
     }
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY) {
       console.error('❌ All AI services exhausted');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
-          'lovable_ai',
+          'gemini',
           'api_key',
-          'AI service credentials needed. We tried Lovable AI and DeepSeek, but none are configured.',
+          'AI service credentials needed. We tried Gemini AI and DeepSeek, but none are configured.',
           'https://docs.lovable.dev/features/ai'
         )),
         { 
@@ -86,7 +86,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🎯 Lovable AI Gateway - Processing request');
+    console.log('🎯 Gemini AI Primary - Processing request');
     
     // Extract user input for multi-step detection
     const userInput = messages[messages.length - 1]?.content || '';
@@ -272,7 +272,7 @@ serve(async (req) => {
         const workflowDesignResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${GEMINI_API_KEY}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -397,13 +397,13 @@ Step types:
 
 **LOVABLE AI vs SUPABASE EDGE FUNCTIONS:**
 You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
-- Lovable AI Gateway = Just the LLM provider (like OpenAI/Gemini) that powers YOUR intelligence
+- Gemini AI Primary = Just the LLM provider (like OpenAI/Gemini) that powers YOUR intelligence
 - Supabase Edge Functions = The REAL capabilities that execute actions (GitHub, Python, Agents, etc.)
-- YOU call Supabase Edge Functions to actually DO things - Lovable AI just helps you think
+- YOU call Supabase Edge Functions to actually DO things - Gemini AI just helps you think
 
 **HOW THIS WORKS:**
 1. User sends message → lovable-chat edge function (you are here)
-2. You (Lovable AI) decide which tool to use
+2. You (Gemini AI) decide which tool to use
 3. lovable-chat invokes the appropriate Supabase Edge Function
 4. Supabase Edge Function executes the actual work
 5. Results come back to you → you respond to user
@@ -522,12 +522,12 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
       systemPrompt += `- Status: ${systemVersion.status}\n`;
     }
 
-    console.log('📤 Calling Lovable AI Gateway...');
+    console.log('📤 Calling Gemini AI Primary...');
     
-    const lovableResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const geminiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${GEMINI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -1477,32 +1477,32 @@ You are currently running INSIDE a Supabase Edge Function called "lovable-chat".
       }),
     });
 
-    if (!lovableResponse.ok) {
-      const errorText = await lovableResponse.text();
-      console.error('❌ Lovable AI Gateway error:', {
-        status: lovableResponse.status,
-        statusText: lovableResponse.statusText,
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error('❌ Gemini AI Primary error:', {
+        status: geminiResponse.status,
+        statusText: geminiResponse.statusText,
         error: errorText
       });
       
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: `Lovable AI error: ${lovableResponse.status} ${lovableResponse.statusText}`,
+          error: `Gemini AI error: ${geminiResponse.status} ${geminiResponse.statusText}`,
           details: errorText
         }), 
         { 
-          status: lovableResponse.status, 
+          status: geminiResponse.status, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    const lovableData = await lovableResponse.json();
-    console.log('✅ Lovable AI response received');
+    const geminiData = await geminiResponse.json();
+    console.log('✅ Gemini AI response received');
     
     // Check if the AI wants to use any tools
-    const toolCalls = lovableData.choices?.[0]?.message?.tool_calls;
+    const toolCalls = geminiData.choices?.[0]?.message?.tool_calls;
     
     if (toolCalls && toolCalls.length > 0) {
       const toolCall = toolCalls[0];
@@ -1837,7 +1837,7 @@ Respond ONLY with valid JSON (no markdown):
             const enrichmentDesignResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Authorization': `Bearer ${GEMINI_API_KEY}`,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
@@ -2326,10 +2326,10 @@ Respond ONLY with valid JSON (no markdown):
       }
     }
     
-    const response = lovableData.choices?.[0]?.message?.content;
+    const response = geminiData.choices?.[0]?.message?.content;
     
     if (!response) {
-      console.warn('⚠️ No content in Lovable AI response:', lovableData);
+      console.warn('⚠️ No content in Gemini AI response:', geminiData);
       return new Response(
         JSON.stringify({ 
           success: false,
