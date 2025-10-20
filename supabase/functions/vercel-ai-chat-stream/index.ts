@@ -21,60 +21,54 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: Try Gemini -> OpenRouter -> Vercel -> DeepSeek -> Lovable
-    const geminiKey = getAICredential('gemini', session_credentials);
-    const openrouterKey = getAICredential('openrouter', session_credentials);
-    const vercelKey = getAICredential('vercel_ai', session_credentials);
+    // Intelligent AI service cascade for streaming: OpenAI -> DeepSeek -> Gemini -> WAN
+    const openaiKey = getAICredential('openai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
-    const lovableKey = getAICredential('lovable_ai', session_credentials);
+    const geminiKey = getAICredential('gemini', session_credentials);
+    const wanKey = getAICredential('wan', session_credentials);
 
-    console.log('🔍 Available AI services:', {
-      gemini: !!geminiKey,
-      openrouter: !!openrouterKey,
-      vercel: !!vercelKey,
+    console.log('🔍 Available AI services for streaming:', {
+      openai: !!openaiKey,
       deepseek: !!deepseekKey,
-      lovable: !!lovableKey
+      gemini: !!geminiKey,
+      wan: !!wanKey
     });
 
-    // Try services in order of preference (Gemini -> OpenRouter -> Vercel)
+    // Try services in order of preference: OpenAI -> Gemini -> WAN (DeepSeek doesn't support streaming)
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
-    let aiModel = 'gemini-2.0-flash-exp';
+    let aiModel = 'gpt-4o-mini';
     let aiClient: any = null;
 
-    if (geminiKey) {
+    if (openaiKey) {
+      API_KEY = openaiKey;
+      aiProvider = 'openai';
+      aiModel = 'gpt-4o-mini';
+      aiClient = createOpenAI({ apiKey: openaiKey });
+      console.log('✅ Using OpenAI for streaming - Primary AI');
+    } else if (geminiKey) {
       API_KEY = geminiKey;
       aiProvider = 'gemini';
-      aiModel = 'gemini-2.0-flash-exp';
+      aiModel = 'gemini-1.5-flash';
       aiClient = createOpenAI({ 
         apiKey: geminiKey, 
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
       });
-      console.log('✅ Using Gemini for streaming - Lead AI');
-    } else if (openrouterKey) {
-      API_KEY = openrouterKey;
-      aiProvider = 'openrouter';
-      aiModel = 'google/gemini-2.0-flash-exp:free';
+      console.log('✅ Using Gemini for streaming');
+    } else if (wanKey) {
+      API_KEY = wanKey;
+      aiProvider = 'wan';
+      aiModel = 'gpt-4o-mini';
       aiClient = createOpenAI({ 
-        apiKey: openrouterKey, 
-        baseURL: 'https://openrouter.ai/api/v1',
-        headers: {
-          'HTTP-Referer': 'https://xmrt-dao.lovable.app',
-          'X-Title': 'XMRT DAO'
-        }
+        apiKey: wanKey,
+        baseURL: 'https://api.wan.ai/v1'
       });
-      console.log('✅ Using OpenRouter for streaming');
-    } else if (vercelKey) {
-      API_KEY = vercelKey;
-      aiProvider = 'vercel_ai';
-      aiModel = 'gpt-5-mini-2025-08-07';
-      aiClient = createOpenAI({ apiKey: vercelKey, baseURL: 'https://gateway.ai.cloudflare.com/v1/2ab66a3e3b0f6c8d1f849bf835e90d7b/xmrt-dao/openai' });
-      console.log('✅ Using Vercel AI Gateway for streaming (low priority fallback)');
-    } else if (deepseekKey || lovableKey) {
-      console.log('⚠️ Streaming requires Gemini, OpenRouter, or Vercel AI. Falling back to non-streaming endpoint.');
+      console.log('✅ Using WAN AI for streaming');
+    } else if (deepseekKey) {
+      console.log('⚠️ DeepSeek does not support streaming. Falling back to non-streaming endpoint.');
       return new Response(
         JSON.stringify({ 
-          error: 'Streaming requires Gemini, OpenRouter, or Vercel AI Gateway. Please use the non-streaming endpoint or configure one of these services.',
+          error: 'Streaming requires OpenAI, Gemini, or WAN AI. DeepSeek does not support streaming.',
           fallback: 'Use /vercel-ai-chat endpoint instead'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -82,13 +76,13 @@ serve(async (req) => {
     }
 
     if (!API_KEY) {
-      console.error('❌ All AI services exhausted - falling back to local Office Clerk');
+      console.error('❌ All AI services exhausted for streaming');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
-          'gemini',
+          'openai',
           'api_key',
-          'Streaming requires Gemini, OpenRouter, or Vercel AI Gateway credentials.',
-          'https://ai.google.dev/gemini-api'
+          'Streaming requires OpenAI, Gemini, or WAN AI credentials.',
+          'https://platform.openai.com/api-keys'
         )),
         { 
           status: 401, 
