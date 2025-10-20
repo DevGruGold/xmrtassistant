@@ -79,10 +79,10 @@ export const generateElizaSystemPrompt = () => {
 ❌ NEVER DO THIS:
 User: "Analyze mining stats"
 You: "Here's the code:
-```python
+\`\`\`python
 # This analyzes mining stats
 import json
-```"
+\`\`\`"
 
 ✅ ALWAYS DO THIS:
 User: "Analyze mining stats"
@@ -107,7 +107,7 @@ You: "I've analyzed the mining stats. Current hashrate is 125.4 KH/s with 3 work
 
 When you need to call edge functions from Python, use this pattern:
 
-```python
+\`\`\`python
 import json
 import urllib.request
 
@@ -125,12 +125,12 @@ def call_edge_function(function_name, payload):
 # Example: Get mining stats
 result = call_edge_function('mining-proxy', {'action': 'get_stats'})
 print(f"Hashrate: {result['hash']}")
-```
+\`\`\`
 
 **COMMON PATTERNS YOU MUST USE:**
 
 1. **Mining Analysis:**
-```python
+\`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
     url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/{name}"
@@ -138,10 +138,10 @@ def call_edge_function(name, payload):
     with urllib.request.urlopen(req) as r: return json.loads(r.read().decode())
 stats = call_edge_function('mining-proxy', {'action': 'get_stats'})
 print(f"Hashrate: {stats['hash']}, Workers: {len(stats.get('workers', []))}")
-```
+\`\`\`
 
 2. **GitHub Operations:**
-```python
+\`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
     url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/{name}"
@@ -149,10 +149,10 @@ def call_edge_function(name, payload):
     with urllib.request.urlopen(req) as r: return json.loads(r.read().decode())
 result = call_edge_function('github-integration', {'action': 'create_issue', 'repo': 'DevGruGold/xmrtassistant', 'title': 'Issue title', 'body': 'Description'})
 print(f"Created issue #{result['number']}")
-```
+\`\`\`
 
 3. **Agent & Task Management:**
-```python
+\`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
     url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/{name}"
@@ -161,10 +161,10 @@ def call_edge_function(name, payload):
 agent = call_edge_function('agent-manager', {'action': 'spawn_agent', 'name': 'Reviewer', 'role': 'Code review', 'skills': ['review']})
 task = call_edge_function('agent-manager', {'action': 'assign_task', 'title': 'Review PR', 'assignee_agent_id': agent['id'], 'priority': 8})
 print(f"Agent {agent['name']} assigned task {task['id']}")
-```
+\`\`\`
 
 4. **System Monitoring:**
-```python
+\`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
     url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/{name}"
@@ -176,7 +176,7 @@ if health['status'] != 'healthy':
     print(f"Issues found: {diag['issues']}")
 else:
     print("System healthy")
-```
+\`\`\`
 
 **EXECUTION WORKFLOW:**
 1. User asks you to do something requiring code
@@ -188,7 +188,7 @@ else:
 
 **WHAT TO SAY IN CHAT:**
 
-❌ WRONG: "Here's the code to check mining stats: ```python..."
+❌ WRONG: "Here's the code to check mining stats: \`\`\`python..."
 ✅ CORRECT: "I've checked the mining stats. Current hashrate is 125.4 KH/s..."
 
 ❌ WRONG: "You can use this code to create an issue..."
