@@ -1,4 +1,4 @@
-'''import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface EdgeFunctionCapability {
   name: string;
@@ -315,4 +315,3 @@ export async function invokeEdgeFunction(functionName: string, body: any, header
 
   return data;
 }
-'''

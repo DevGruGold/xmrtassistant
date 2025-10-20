@@ -170,46 +170,45 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           setMiningStats(miningData);
         }
 
-        // Initialize conversation persistence with optimized loading
+        // Initialize conversation session (creates or resumes from conversation_sessions)
         try {
           await conversationPersistence.initializeSession();
           
-          // Load conversation context (summaries only, no messages for return users)
-          const context = await conversationPersistence.getConversationContext(0); // 0 messages = summaries only
+          // Load conversation context (summaries from conversation_summaries table)
+          const context = await conversationPersistence.getConversationContext(0);
           
           if (context.summaries.length > 0 || context.totalMessageCount > 0) {
-            // Set context but don't load messages - let AI greeting handle the context
             setConversationSummaries(context.summaries);
             setHasMoreMessages(context.totalMessageCount > 0);
             setTotalMessageCount(context.totalMessageCount);
             
-            console.log(`📚 Found ${context.summaries.length} summaries for ${context.totalMessageCount} total messages. Starting with summary-aware greeting.`);
+            console.log(`📚 Found ${context.summaries.length} summaries for ${context.totalMessageCount} total messages`);
           }
 
-          // Load additional Supabase data for enhanced context
+          // Load enhanced Supabase backend data
           if (userCtx?.ip) {
-            // Load user preferences
+            // Load user preferences from user_preferences table
             const preferences = await conversationPersistence.getUserPreferences();
-            console.log('⚙️ User preferences loaded:', Object.keys(preferences).length, 'items');
+            console.log('⚙️ User preferences:', Object.keys(preferences).length, 'items');
 
-            // Load memory contexts for semantic understanding
+            // Load memory contexts from memory_contexts table (semantic search)
             const memoryContexts = await memoryContextService.getRelevantContexts(userCtx.ip, 5);
-            console.log('🧠 Memory contexts loaded:', memoryContexts.length, 'items');
+            console.log('🧠 Memory contexts:', memoryContexts.length, 'items');
 
-            // Load learning patterns for improved responses
+            // Load learning patterns from interaction_patterns table
             const learningPatterns = await learningPatternsService.getHighConfidencePatterns(0.7);
-            console.log('📊 Learning patterns loaded:', learningPatterns.length, 'high-confidence patterns');
+            console.log('📊 Learning patterns:', learningPatterns.length, 'patterns');
 
-            // Load knowledge entities for entity recognition
+            // Load knowledge entities from knowledge_entities table
             const miningEntities = await knowledgeEntityService.getEntitiesByType('mining_concept');
             const daoEntities = await knowledgeEntityService.getEntitiesByType('dao_concept');
-            console.log('🏷️ Knowledge entities loaded:', miningEntities.length + daoEntities.length, 'entities');
+            console.log('🏷️ Knowledge entities:', miningEntities.length + daoEntities.length, 'entities');
           }
         } catch (error) {
-          console.log('Conversation persistence temporarily disabled:', error);
+          console.log('Conversation persistence error:', error);
         }
 
-        // Set up periodic refresh for mining stats only if not provided externally
+        // Periodic refresh for mining stats
         if (!externalMiningStats) {
           const interval = setInterval(async () => {
             const freshStats = await unifiedDataService.getMiningStats();
@@ -218,120 +217,69 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           return () => clearInterval(interval);
         }
       } catch (error) {
-        console.error('Failed to initialize unified data:', error);
+        console.error('Failed to initialize:', error);
       }
     };
     
     initialize();
   }, []);
 
-  // Set up realtime subscription for live message updates from autonomous agents
-  // Phase 1: Optimized with centralized subscription manager and server-side filters
+  // Set up realtime subscriptions for live updates
   useEffect(() => {
-    if (!userContext?.ip) {
-      console.log('⏸️ Waiting for user context before setting up realtime');
-      return;
-    }
+    if (!userContext?.ip) return;
 
-    console.log('🔴 Setting up optimized realtime subscriptions (Phase 1)');
-    
-    // Phase 1.2: Use server-side filters to reduce WAL processing
+    console.log('🔴 Setting up realtime subscriptions');
     const unsubscribers: Array<() => void> = [];
 
-    // Subscribe to workflow executions with event filter
+    // Subscribe to conversation messages (broadcast channel for this session)
+    const messagesUnsub = realtimeManager.subscribe(
+      'conversation_messages',
+      (payload) => {
+        const msg = payload.new;
+        if (msg && msg.message_type === 'assistant') {
+          const newMessage: UnifiedMessage = {
+            id: msg.id,
+            content: msg.content,
+            sender: 'assistant',
+            timestamp: new Date(msg.timestamp)
+          };
+          setMessages(prev => [...prev, newMessage]);
+        }
+      },
+      { event: 'INSERT', schema: 'public' }
+    );
+    unsubscribers.push(messagesUnsub);
+
+    // Subscribe to workflow executions
     const workflowUnsub = realtimeManager.subscribe(
       'workflow_executions',
       (payload) => {
-        console.log('🔄 Workflow update:', payload);
         const workflow = payload.new as Record<string, any>;
-        
-        if (!workflow || Object.keys(workflow).length === 0) return;
-        
         if (workflow.status === 'completed' && workflow.final_result) {
-          console.log('🎉 Workflow completed, triggering Eliza synthesis:', workflow.id);
-          
-          const synthesisPrompt = `A background workflow just completed: "${workflow.name}"\n\nRaw Results:\n${JSON.stringify(workflow.final_result, null, 2)}\n\nPlease synthesize this into a comprehensive, human-readable answer for the user. Include context, insights, and actionable recommendations.`;
+          const synthesisPrompt = `Workflow "${workflow.name}" completed:\n${JSON.stringify(workflow.final_result, null, 2)}\n\nSynthesize this into a clear answer.`;
           handleSynthesizeWorkflowResult(synthesisPrompt, workflow);
         }
       },
-      {
-        event: '*',
-        schema: 'public'
-      }
+      { event: '*', schema: 'public' }
     );
     unsubscribers.push(workflowUnsub);
 
-    // Subscribe to Python executions with server-side filter
-    const pythonUnsub = realtimeManager.subscribe(
-      'eliza_python_executions',
-      (payload) => {
-        console.log('🤖 Auto-fixed code result:', payload);
-        const execution = payload.new;
-        
-        if (execution.exit_code === 0 && execution.output) {
-          const message: UnifiedMessage = {
-            id: `auto-fix-${execution.id}`,
-            content: `✅ **Auto-healed Code Result:**\n\n${execution.output}`,
-            sender: 'assistant',
-            timestamp: new Date(execution.created_at)
-          };
-          
-          setMessages(prev => {
-            if (prev.some(m => m.id === message.id)) return prev;
-            return [...prev, message];
-          });
-
-          if (voiceEnabled && audioInitialized) {
-            enhancedTTS.speak('I successfully fixed and executed the code.', { language });
-          }
-          
-          console.info('✅ Code Auto-Healed: Autonomous agent fixed the code successfully');
-        }
-      },
-      {
-        event: 'INSERT',
-        schema: 'public',
-        filter: 'source=eq.python-fixer-agent' // Server-side filter
-      }
-    );
-    unsubscribers.push(pythonUnsub);
-
-    // Subscribe to activity log with server-side filter for specific activity types
+    // Subscribe to activity log
     const activityUnsub = realtimeManager.subscribe(
       'eliza_activity_log',
       (payload) => {
-        console.log('📊 Activity log update:', payload);
         const activity = payload.new as Record<string, any>;
-        
         if (activity.activity_type === 'agent_spawned') {
-          console.log('🤖 Agent spawned:', activity.metadata?.agent_id, activity.title);
-        } else if (activity.activity_type === 'task_assigned') {
-          console.log('📋 Task assigned:', activity.metadata?.task_id, activity.title);
-        } else if (activity.activity_type === 'progress_report') {
-          console.log('📊 Progress update:', activity.metadata?.agent_id, activity.description);
-        } else if (activity.activity_type === 'autonomous_step') {
-          console.log('🔄 Autonomous step:', activity.metadata?.action, activity.title);
-        } else if (activity.activity_type === 'agent_failure_alert') {
-          console.warn('⚠️ AGENT FAILURE ALERT:', activity.title, activity.metadata);
+          console.log('🤖 Agent spawned:', activity.title);
         }
       },
-      {
-        event: 'INSERT',
-        schema: 'public',
-        // Phase 1.2: Server-side filter reduces WAL processing by ~70%
-        filter: 'activity_type=in.(autonomous_action,agent_failure_alert,autonomous_step,python_fix_success,code_monitoring,agent_spawned,task_assigned,progress_report)'
-      }
+      { event: 'INSERT', schema: 'public' }
     );
     unsubscribers.push(activityUnsub);
 
     setRealtimeConnected(true);
-    console.info('✅ Phase 1 Optimizations Active: Shared subscriptions with server-side filters');
-
-    return () => {
-      console.log('🔴 Cleaning up realtime subscriptions');
-      unsubscribers.forEach(unsub => unsub());
-    };
-  }, [userContext?.ip, voiceEnabled, audioInitialized]);
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [userContext?.ip]);
 
   // Generate immediate greeting when user context is available
   useEffect(() => {
