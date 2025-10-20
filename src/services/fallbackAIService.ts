@@ -39,14 +39,14 @@ export class FallbackAIService {
     
     this.isInitializing = true;
     try {
-      console.log('🏢 Initializing Office Clerk (SmolLM2-135M-Instruct with CPU)...');
+      console.log('🏢 Initializing Office Clerk (SmolLM2-135M-Instruct with WASM)...');
       
-      // Use CPU directly to avoid WebGPU memory crashes
+      // Use WASM to avoid WebGPU memory crashes and CPU incompatibility
       this.textGenerationPipeline = await pipeline(
         'text-generation',
         'HuggingFaceTB/SmolLM2-135M-Instruct',
         { 
-          device: 'cpu',
+          device: 'wasm',
           dtype: 'fp32'
         }
       );

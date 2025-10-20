@@ -40,13 +40,13 @@ serve(async (req) => {
     // Try services in order of preference (Gemini -> OpenRouter -> DeepSeek -> Lovable -> Vercel)
     let API_KEY: string | null = null;
     let aiProvider = 'unknown';
-    let aiModel = 'gemini-2.0-flash-exp';
+    let aiModel = 'gpt-4o-mini';
     let aiClient: any = null;
 
     if (geminiKey) {
       API_KEY = geminiKey;
       aiProvider = 'gemini';
-      aiModel = 'gemini-2.0-flash-exp';
+      aiModel = 'gemini-1.5-flash';
       aiClient = createOpenAI({ 
         apiKey: geminiKey, 
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
@@ -55,7 +55,7 @@ serve(async (req) => {
     } else if (openrouterKey) {
       API_KEY = openrouterKey;
       aiProvider = 'openrouter';
-      aiModel = 'google/gemini-2.0-flash-exp:free';
+      aiModel = 'google/gemini-1.5-flash-exp:free';
       aiClient = createOpenAI({ 
         apiKey: openrouterKey, 
         baseURL: 'https://openrouter.ai/api/v1',
