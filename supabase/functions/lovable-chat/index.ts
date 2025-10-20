@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
+import { ELIZA_TOOLS } from '../_shared/elizaTools.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 
 const corsHeaders = {
@@ -40,6 +41,115 @@ async function logToolExecution(supabase: any, toolName: string, args: any, stat
     console.error('Failed to log tool execution:', logError);
   }
 }
+
+// Helper function to execute tool calls from AI
+async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: string, SERVICE_ROLE_KEY: string): Promise<any> {
+  const { name, arguments: args } = toolCall.function;
+  const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
+  
+  console.log(`🔧 Executing tool: ${name}`, parsedArgs);
+  
+  try {
+    // Route tool calls to appropriate edge functions
+    switch(name) {
+      case 'invoke_edge_function':
+      case 'call_edge_function':
+        const { function_name, payload, body } = parsedArgs;
+        const targetFunction = function_name || parsedArgs.function_name;
+        const targetPayload = payload || body || {};
+        
+        console.log(`📡 Invoking edge function: ${targetFunction}`);
+        const result = await supabase.functions.invoke(targetFunction, { body: targetPayload });
+        
+        if (result.error) {
+          console.error(`❌ Edge function error:`, result.error);
+          return { success: false, error: result.error.message || 'Function execution failed' };
+        }
+        
+        return { success: true, result: result.data };
+        
+      case 'execute_python':
+        const { code, purpose } = parsedArgs;
+        console.log(`🐍 Executing Python code: ${purpose || 'No purpose specified'}`);
+        
+        const pythonResult = await supabase.functions.invoke('python-executor', {
+          body: { code, purpose }
+        });
+        
+        if (pythonResult.error) {
+          console.error(`❌ Python execution error:`, pythonResult.error);
+          return { success: false, error: pythonResult.error.message || 'Python execution failed' };
+        }
+        
+        return { success: true, result: pythonResult.data };
+        
+      case 'list_available_functions':
+        const { category } = parsedArgs;
+        const listResult = await supabase.functions.invoke('list-available-functions', {
+          body: { category }
+        });
+        
+        return { success: true, result: listResult.data };
+        
+      // Agent management tools
+      case 'list_agents':
+        const agentList = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'list_agents' }
+        });
+        return { success: true, result: agentList.data };
+        
+      case 'spawn_agent':
+        const spawnResult = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'spawn_agent', ...parsedArgs }
+        });
+        return { success: true, result: spawnResult.data };
+        
+      case 'update_agent_status':
+        const updateResult = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'update_agent_status', ...parsedArgs }
+        });
+        return { success: true, result: updateResult.data };
+        
+      case 'assign_task':
+        const assignResult = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'assign_task', ...parsedArgs }
+        });
+        return { success: true, result: assignResult.data };
+        
+      case 'list_tasks':
+        const taskList = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'list_tasks' }
+        });
+        return { success: true, result: taskList.data };
+        
+      case 'update_task_status':
+        const taskUpdate = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'update_task', ...parsedArgs }
+        });
+        return { success: true, result: taskUpdate.data };
+        
+      case 'delete_task':
+        const deleteResult = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'delete_task', ...parsedArgs }
+        });
+        return { success: true, result: deleteResult.data };
+        
+      case 'get_agent_workload':
+        const workloadResult = await supabase.functions.invoke('agent-manager', {
+          body: { action: 'get_workload', ...parsedArgs }
+        });
+        return { success: true, result: workloadResult.data };
+        
+      default:
+        console.warn(`⚠️ Unknown tool: ${name}`);
+        return { success: false, error: `Unknown tool: ${name}` };
+    }
+  } catch (error) {
+    console.error(`❌ Tool execution error for ${name}:`, error);
+    return { success: false, error: error.message || 'Tool execution failed' };
+  }
+}
+
 
 
 serve(async (req) => {
@@ -358,32 +468,113 @@ serve(async (req) => {
 
     const systemPrompt = generateElizaSystemPrompt(userContext, miningStats, systemVersion, aiExecutive, aiExecutiveTitle);
     
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        messages: [ { role: 'system', content: systemPrompt }, ...messages ],
-        stream: false, // Streaming is handled client-side
-      }),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error("AI API call failed:", response.status, errorBody);
-      return new Response(JSON.stringify({ success: false, error: `AI API call failed: ${errorBody}` }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const data = await response.json();
+    // Create Supabase client for tool execution
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     
+    let currentMessages = [ { role: 'system', content: systemPrompt }, ...messages ];
+    let toolIterations = 0;
+    const MAX_TOOL_ITERATIONS = 5;
+    
+    while (toolIterations < MAX_TOOL_ITERATIONS) {
+      toolIterations++;
+      console.log(`🔄 AI iteration ${toolIterations}`);
+      
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: aiModel,
+          messages: currentMessages,
+          tools: ELIZA_TOOLS,
+          tool_choice: 'auto',
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("AI API call failed:", response.status, errorBody);
+        return new Response(JSON.stringify({ success: false, error: `AI API call failed: ${errorBody}` }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const message = choice?.message;
+      
+      if (!message) {
+        console.error("No message in AI response");
+        return new Response(JSON.stringify({ success: false, error: 'Invalid AI response' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Add assistant message to conversation
+      currentMessages.push(message);
+      
+      // Check if AI wants to call tools
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        console.log(`🔧 AI requested ${message.tool_calls.length} tool calls`);
+        
+        // Execute all tool calls
+        for (const toolCall of message.tool_calls) {
+          await logToolExecution(supabase, toolCall.function.name, toolCall.function.arguments, 'started');
+          
+          const toolResult = await executeToolCall(supabase, toolCall, SUPABASE_URL, SERVICE_ROLE_KEY);
+          
+          await logToolExecution(
+            supabase, 
+            toolCall.function.name, 
+            toolCall.function.arguments, 
+            toolResult.success ? 'completed' : 'failed',
+            toolResult.result,
+            toolResult.error
+          );
+          
+          // Add tool result to conversation
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolCall.function.name,
+            content: JSON.stringify(toolResult)
+          });
+        }
+        
+        // Continue loop to get AI's response after tool execution
+        continue;
+      }
+      
+      // No more tool calls - return final response
+      console.log(`✅ Final response ready after ${toolIterations} iterations`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          response: data, 
+          provider: aiProvider, 
+          executive: aiExecutive, 
+          executiveTitle: aiExecutiveTitle,
+          toolIterations
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Max iterations reached
+    console.warn(`⚠️ Max tool iterations (${MAX_TOOL_ITERATIONS}) reached`);
     return new Response(
-      JSON.stringify({ success: true, response: data, provider: aiProvider, executive: aiExecutive, executiveTitle: aiExecutiveTitle }),
+      JSON.stringify({ 
+        success: true, 
+        response: currentMessages[currentMessages.length - 1], 
+        provider: aiProvider,
+        warning: 'Max tool iterations reached'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
