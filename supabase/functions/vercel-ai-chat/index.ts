@@ -6,6 +6,62 @@ import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { generateText, tool } from "npm:ai@4.0.0";
 import { z } from "npm:zod@3.24.1";
 
+/**
+ * Local intelligence fallback - generates contextual responses without external AI APIs
+ */
+function generateLocalResponse(userMessage: string, context: any): string {
+  const msg = userMessage.toLowerCase();
+  
+  // API key issue detection
+  if (msg.includes('api') || msg.includes('key') || msg.includes('error') || msg.includes('not working')) {
+    return `I notice we're currently experiencing limitations with external AI services. All API keys appear to be unavailable or expired. 
+
+However, I can still help you with:
+• Information about the XMRT ecosystem and mining
+• System status and diagnostics
+• General guidance and support
+
+To restore full AI capabilities, please check:
+1. OpenAI API key (https://platform.openai.com/api-keys)
+2. DeepSeek API key (https://platform.deepseek.com)
+3. Gemini API key (https://makersuite.google.com/app/apikey)
+4. WAN AI key (https://wan.ai)
+
+What would you like to know about the XMRT system?`;
+  }
+
+  // Mining questions
+  if (msg.includes('mining') || msg.includes('hashrate') || msg.includes('xmrt')) {
+    const stats = context.miningStats;
+    if (stats) {
+      return `Based on current system data:
+• Active devices: ${stats.activeDevices || 'N/A'}
+• Total hashrate: ${stats.totalHashrate || 'N/A'}
+• XMRT balance: ${stats.balance || 'N/A'}
+
+Note: I'm running in local mode due to unavailable external AI services. For more detailed analysis, please ensure API keys are configured.`;
+    }
+    return `I can help with mining information, but I'm currently in local mode. To get real-time mining statistics and AI-powered analysis, please configure your API keys.`;
+  }
+
+  // Greeting
+  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
+    return `Hello! I'm Eliza, running in local intelligence mode. While external AI services are currently unavailable, I can still assist with basic information about XMRT, mining operations, and system status. What can I help you with?`;
+  }
+
+  // General fallback
+  return `I'm currently operating in local mode as all external AI services (OpenAI, DeepSeek, Gemini, WAN AI) are unavailable. 
+
+I can still provide:
+✓ Basic information about XMRT and the ecosystem
+✓ System status and diagnostics
+✓ General guidance
+
+For full AI-powered assistance, please configure at least one AI service API key.
+
+How can I assist you today?`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -94,16 +150,29 @@ serve(async (req) => {
     }
 
     if (!API_KEY) {
-      console.error('❌ All AI services exhausted - falling back to local Office Clerk');
+      console.warn('⚠️ All AI services unavailable - using local intelligence fallback (Embedded Office Clerk)');
+      
+      // Local fallback: Generate intelligent contextual response
+      const userMessage = messages[messages.length - 1]?.content || '';
+      const fallbackResponse = generateLocalResponse(userMessage, {
+        conversationHistory,
+        userContext,
+        miningStats,
+        systemVersion
+      });
+
       return new Response(
-        JSON.stringify(createCredentialRequiredResponse(
-          'openai',
-          'api_key',
-          'AI service credentials needed. We tried OpenAI, DeepSeek, Gemini, and WAN AI, but none are configured. Using local Office Clerk.',
-          'https://platform.openai.com/api-keys'
-        )),
+        JSON.stringify({
+          success: true,
+          response: fallbackResponse,
+          provider: 'embedded_office_clerk',
+          model: 'local_intelligence',
+          executive: 'vercel-ai-chat',
+          executiveTitle: 'Chief Strategy Officer (CSO) - Local Mode',
+          note: 'All external AI services are currently unavailable. Using embedded local intelligence.'
+        }),
         { 
-          status: 401, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );

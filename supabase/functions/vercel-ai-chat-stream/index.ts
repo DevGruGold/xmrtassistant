@@ -5,6 +5,62 @@ import { getAICredential, createCredentialRequiredResponse } from "../_shared/cr
 import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { streamText } from "npm:ai@4.0.0";
 
+/**
+ * Local intelligence fallback - generates contextual responses without external AI APIs
+ */
+function generateLocalResponse(userMessage: string, context: any): string {
+  const msg = userMessage.toLowerCase();
+  
+  // API key issue detection
+  if (msg.includes('api') || msg.includes('key') || msg.includes('error') || msg.includes('not working')) {
+    return `I notice we're currently experiencing limitations with external AI services. All API keys appear to be unavailable or expired. 
+
+However, I can still help you with:
+• Information about the XMRT ecosystem and mining
+• System status and diagnostics
+• General guidance and support
+
+To restore full AI capabilities, please check:
+1. OpenAI API key (https://platform.openai.com/api-keys)
+2. DeepSeek API key (https://platform.deepseek.com)
+3. Gemini API key (https://makersuite.google.com/app/apikey)
+4. WAN AI key (https://wan.ai)
+
+What would you like to know about the XMRT system?`;
+  }
+
+  // Mining questions
+  if (msg.includes('mining') || msg.includes('hashrate') || msg.includes('xmrt')) {
+    const stats = context.miningStats;
+    if (stats) {
+      return `Based on current system data:
+• Active devices: ${stats.activeDevices || 'N/A'}
+• Total hashrate: ${stats.totalHashrate || 'N/A'}
+• XMRT balance: ${stats.balance || 'N/A'}
+
+Note: I'm running in local mode due to unavailable external AI services. For more detailed analysis, please ensure API keys are configured.`;
+    }
+    return `I can help with mining information, but I'm currently in local mode. To get real-time mining statistics and AI-powered analysis, please configure your API keys.`;
+  }
+
+  // Greeting
+  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
+    return `Hello! I'm Eliza, running in local intelligence mode. While external AI services are currently unavailable, I can still assist with basic information about XMRT, mining operations, and system status. What can I help you with?`;
+  }
+
+  // General fallback
+  return `I'm currently operating in local mode as all external AI services (OpenAI, DeepSeek, Gemini, WAN AI) are unavailable. 
+
+I can still provide:
+✓ Basic information about XMRT and the ecosystem
+✓ System status and diagnostics
+✓ General guidance
+
+For full AI-powered assistance, please configure at least one AI service API key.
+
+How can I assist you today?`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -76,19 +132,66 @@ serve(async (req) => {
     }
 
     if (!API_KEY) {
-      console.error('❌ All AI services exhausted for streaming');
-      return new Response(
-        JSON.stringify(createCredentialRequiredResponse(
-          'openai',
-          'api_key',
-          'Streaming requires OpenAI, Gemini, or WAN AI credentials.',
-          'https://platform.openai.com/api-keys'
-        )),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      console.warn('⚠️ All streaming AI services unavailable - using local intelligence fallback');
+      
+      // Local fallback: Generate intelligent contextual response
+      const userMessage = messages[messages.length - 1]?.content || '';
+      const fallbackResponse = generateLocalResponse(userMessage, {
+        conversationHistory,
+        userContext,
+        miningStats,
+        systemVersion
+      });
+
+      // Simulate streaming for consistency
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          
+          // Send metadata
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({
+              type: 'metadata',
+              provider: 'embedded_office_clerk',
+              model: 'local_intelligence',
+              executive: 'vercel-ai-chat-stream',
+              executiveTitle: 'Chief Strategy Officer (CSO) - Local Streaming'
+            })}\n\n`)
+          );
+
+          // Stream response word by word for natural feel
+          const words = fallbackResponse.split(' ');
+          let i = 0;
+          const intervalId = setInterval(() => {
+            if (i < words.length) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({
+                  type: 'text',
+                  content: words[i] + ' '
+                })}\n\n`)
+              );
+              i++;
+            } else {
+              clearInterval(intervalId);
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({
+                  type: 'done'
+                })}\n\n`)
+              );
+              controller.close();
+            }
+          }, 50); // 50ms between words for natural streaming feel
         }
-      );
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        }
+      });
     }
 
     console.log(`🎯 Streaming with ${aiProvider} - Model: ${aiModel}`);
