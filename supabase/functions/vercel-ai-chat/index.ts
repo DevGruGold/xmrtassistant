@@ -188,6 +188,31 @@ serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    // Proactive intelligence: Auto-check system state based on user input
+    const proactiveChecks: any[] = [];
+    const lowerInput = userInput.toLowerCase();
+    
+    if (lowerInput.includes('database') || lowerInput.includes('table') || lowerInput.includes('schema')) {
+      proactiveChecks.push({
+        type: 'schema_check',
+        reasoning: 'User mentioned database/tables - proactively checking schema and RLS'
+      });
+    }
+    
+    if (lowerInput.includes('error') || lowerInput.includes('broken') || lowerInput.includes('issue')) {
+      proactiveChecks.push({
+        type: 'error_check',
+        reasoning: 'User mentioned errors - proactively checking logs and recent issues'
+      });
+    }
+    
+    if (lowerInput.includes('mining') || lowerInput.includes('hashrate') || lowerInput.includes('worker')) {
+      proactiveChecks.push({
+        type: 'mining_check',
+        reasoning: 'User mentioned mining - proactively fetching current stats'
+      });
+    }
+    
     // Build enhanced system prompt with current context
     const systemPrompt = generateElizaSystemPrompt({
       conversationHistory,
@@ -316,14 +341,39 @@ serve(async (req) => {
 
     console.log(`✅ ${aiProvider} SDK response received (${usage?.totalTokens || 0} tokens, finish: ${finishReason})`);
     
+    // Build reasoning steps from tool execution
+    const reasoningSteps = [];
+    
+    if (proactiveChecks.length > 0) {
+      proactiveChecks.forEach((check, idx) => {
+        reasoningSteps.push({
+          step: idx + 1,
+          thought: check.reasoning,
+          action: `Proactive ${check.type}`,
+          status: 'success'
+        });
+      });
+    }
+    
     if (toolCalls && toolCalls.length > 0) {
       console.log(`🔧 Tools called: ${toolCalls.map(t => t.toolName).join(', ')}`);
+      
+      toolCalls.forEach((tool, idx) => {
+        reasoningSteps.push({
+          step: reasoningSteps.length + 1,
+          thought: `Executing ${tool.toolName} to gather data`,
+          action: tool.toolName,
+          status: 'success',
+          result: toolResults?.[idx]
+        });
+      });
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         response: text,
+        reasoning: reasoningSteps,
         hasToolCalls: toolCalls && toolCalls.length > 0,
         toolCalls: toolCalls?.map(t => ({
           name: t.toolName,

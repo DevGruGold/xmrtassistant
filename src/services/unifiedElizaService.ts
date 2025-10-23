@@ -439,7 +439,7 @@ export class UnifiedElizaService {
   }
 
   // Generate response using AI Executive C-Suite
-  private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<{ response: string; hasToolCalls: boolean }> {
+  private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<{ response: string; hasToolCalls: boolean; reasoning?: any[] }> {
     const {
       userContext,
       miningStats,
@@ -571,12 +571,19 @@ export class UnifiedElizaService {
             const formattedResponse = this.formatToolResult(data.toolName, data.toolResult);
             return {
               response: formattedResponse,
-              hasToolCalls: true
+              hasToolCalls: true,
+              reasoning: data.reasoning || []
             };
           } else if (data.response) {
+            // Embed reasoning in response if available (for frontend to extract)
+            let responseWithReasoning = data.response;
+            if (data.reasoning && data.reasoning.length > 0) {
+              responseWithReasoning = `<reasoning>${JSON.stringify(data.reasoning)}</reasoning>${data.response}`;
+            }
             return {
-              response: data.response,
-              hasToolCalls: data.hasToolCalls || false
+              response: responseWithReasoning,
+              hasToolCalls: data.hasToolCalls || false,
+              reasoning: data.reasoning || []
             };
           }
         }

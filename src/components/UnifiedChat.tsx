@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ReasoningSteps, type ReasoningStep } from './ReasoningSteps';
 // 🎤 TTS is now language-aware: English (en) / Spanish (es)
 import { GitHubPATInput } from './GitHubPATInput';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
@@ -60,6 +61,7 @@ interface UnifiedMessage {
     status: 'pending' | 'success' | 'failed';
     execution_time_ms?: number;
   }>;
+  reasoning?: ReasoningStep[];
 }
 
 // MiningStats imported from unifiedDataService
@@ -796,12 +798,25 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         ? '🔄 Processing your request in the background. I\'ll share the results shortly...'
         : cleanResponse;
 
+      // Extract reasoning from response if available
+      let reasoning: ReasoningStep[] = [];
+      try {
+        // Try to parse reasoning from response metadata
+        const reasoningMatch = response.match(/<reasoning>(.*?)<\/reasoning>/s);
+        if (reasoningMatch) {
+          reasoning = JSON.parse(reasoningMatch[1]);
+        }
+      } catch (e) {
+        console.log('No reasoning data in response');
+      }
+
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
         content: displayContent,
         sender: 'assistant',
         timestamp: new Date(),
-        confidence: 0.95
+        confidence: 0.95,
+        reasoning: reasoning.length > 0 ? reasoning : undefined
       };
 
       setMessages(prev => [...prev, elizaMessage]);
@@ -1044,8 +1059,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} flex-col gap-2 animate-fade-in`}
               >
+                {/* Show Reasoning Steps for assistant messages */}
+                {message.sender === 'assistant' && message.reasoning && message.reasoning.length > 0 && (
+                  <div className="max-w-[85%]">
+                    <ReasoningSteps steps={message.reasoning} />
+                  </div>
+                )}
+                
                 <div className="max-w-[80%] sm:max-w-[75%]">
                   <div
                     className={`p-3 rounded-2xl ${

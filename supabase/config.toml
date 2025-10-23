@@ -332,3 +332,6 @@ verify_jwt = false
 [functions.search-edge-functions]
 verify_jwt = false
 
+[functions.eliza-intelligence-coordinator]
+verify_jwt = true
+
