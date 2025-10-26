@@ -17,6 +17,21 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Handle empty body gracefully
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (jsonError) {
+      console.error('Failed to parse request body:', jsonError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     const { 
       code, 
       language = 'python', 
@@ -24,10 +39,10 @@ Deno.serve(async (req) => {
       stdin = '', 
       args = [], 
       purpose = '',
-      source = 'eliza',      // Track execution source
-      agent_id = null,        // Track agent ID
-      task_id = null          // Track related task
-    } = await req.json();
+      source = 'eliza',
+      agent_id = null,
+      task_id = null
+    } = requestBody;
 
     if (!code) {
       return new Response(

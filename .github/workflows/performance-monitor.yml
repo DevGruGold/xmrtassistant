@@ -1,1 +1,55 @@
-bmFtZTogUGVyZm9ybWFuY2UgTW9uaXRvcgoKb246CiAgcHVzaDoKICAgIGJyYW5jaGVzOiBbbWFpbl0KICBwdWxsX3JlcXVlc3Q6CiAgICBicmFuY2hlczogW21haW5dCgpwZXJtaXNzaW9uczoKICBjb250ZW50czogcmVhZAogIHB1bGwtcmVxdWVzdHM6IHdyaXRlCiAgc2VjdXJpdHktZXZlbnRzOiB3cml0ZQoKam9iczoKICBidW5kbGUtYW5hbHlzaXM6CiAgICBydW5zLW9uOiB1YnVudHUtbGF0ZXN0CiAgICAKICAgIHN0ZXBzOgogICAgLSBuYW1lOiBDaGVja291dCBjb2RlCiAgICAgIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXRAdjQKICAgIAogICAgLSBuYW1lOiBTZXR1cCBOb2RlLmpzCiAgICAgIHVzZXM6IGFjdGlvbnMvc2V0dXAtbm9kZUB2NAogICAgICB3aXRoOgogICAgICAgIG5vZGUtdmVyc2lvbjogJzE4JwogICAgICAgIGNhY2hlOiAnbnBtJwogICAgCiAgICAtIG5hbWU6IEluc3RhbGwgZGVwZW5kZW5jaWVzCiAgICAgIHJ1bjogbnBtIGNpCiAgICAKICAgIC0gbmFtZTogQnVpbGQgcHJvamVjdAogICAgICBydW46IG5wbSBydW4gYnVpbGQKICAgIAogICAgLSBuYW1lOiBBbmFseXplIGJ1bmRsZSBzaXplCiAgICAgIHJ1bjogfAogICAgICAgIGVjaG8gIiMjIEJ1bmRsZSBBbmFseXNpcyIgPj4gJEdJVEhVQl9TVEVQX1NVTU1BUlkKICAgICAgICBlY2hvICIjIyMgQnVpbGQgU2l6ZSIgPj4gJEdJVEhVQl9TVEVQX1NVTU1BUlkKICAgICAgICBkdSAtc2ggZGlzdC8gPj4gJEdJVEhVQl9TVEVQX1NVTU1BUlkKICAgICAgICBlY2hvICIiID4+ICRHSVRIVUJfU1RFUF9TVU1NQVJZCiAgICAgICAgZWNobyAiIyMjIEphdmFTY3JpcHQgRmlsZXMiID4+ICRHSVRIVUJfU1RFUF9TVU1NQVJZCiAgICAgICAgZmluZCBkaXN0LyAtbmFtZSAiKi5qcyIgLWV4ZWMgbHMgLWxoIHt9IFw7ID4+ICRHSVRIVUJfU1RFUF9TVU1NQVJZCiAgICAKICAgIC0gbmFtZTogQnVuZGxlIHNpemUgY2hlY2sKICAgICAgcnVuOiB8CiAgICAgICAgTUFYX1NJWkU9MTAwMDAgICMgMTBNQiBpbiBLQgogICAgICAgIEFDVFVBTF9TSVpFPSQoZHUgLXNrIGRpc3QvIHwgY3V0IC1mMSkKICAgICAgICBlY2hvICJCdW5kbGUgc2l6ZTogJHtBQ1RVQUxfU0laRX1LQiAobGltaXQ6ICR7TUFYX1NJWkV9S0IpIgogICAgICAgIAogICAgICAgIGlmIFsgJEFDVFVBTF9TSVpFIC1ndCAkTUFYX1NJWkUgXTsgdGhlbgogICAgICAgICAgZWNobyAi4p2MIEJ1bmRsZSBzaXplIGV4Y2VlZHMgJHtNQVhfU0laRX1LQiBsaW1pdCIKICAgICAgICAgIGVjaG8gIkNvbnNpZGVyIG9wdGltaXppbmcgZGVwZW5kZW5jaWVzIG9yIGltcGxlbWVudGluZyBjb2RlIHNwbGl0dGluZyIKICAgICAgICAgIGV4aXQgMQogICAgICAgIGVsc2UKICAgICAgICAgIGVjaG8gIuKchSBCdW5kbGUgc2l6ZSBpcyB3aXRoaW4gbGltaXRzIgogICAgICAgIGZpCg==
+name: Performance Monitor
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build project
+      run: npm run build
+    
+    - name: Analyze bundle size
+      run: |
+        echo "## Bundle Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "### Build Size" >> $GITHUB_STEP_SUMMARY
+        du -sh dist/ >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### JavaScript Files" >> $GITHUB_STEP_SUMMARY
+        find dist/ -name "*.js" -exec ls -lh {} \; >> $GITHUB_STEP_SUMMARY
+    
+    - name: Bundle size check
+      run: |
+        MAX_SIZE=10000  # 10MB in KB
+        ACTUAL_SIZE=$(du -sk dist/ | cut -f1)
+        echo "Bundle size: ${ACTUAL_SIZE}KB (limit: ${MAX_SIZE}KB)"
+        
+        if [ $ACTUAL_SIZE -gt $MAX_SIZE ]; then
+          echo "❌ Bundle size exceeds ${MAX_SIZE}KB limit"
+          echo "Consider optimizing dependencies or implementing code splitting"
+          exit 1
+        else
+          echo "✅ Bundle size is within limits"
+        fi
