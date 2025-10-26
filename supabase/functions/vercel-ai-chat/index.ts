@@ -334,6 +334,53 @@ serve(async (req) => {
               timestamp: new Date().toISOString()
             };
           }
+        }),
+        executePython: tool({
+          description: 'Execute Python code in background sandbox with full Supabase access. Code is logged to eliza_python_executions and auto-fixed if errors occur.',
+          parameters: z.object({
+            code: z.string().describe('Python code to execute'),
+            purpose: z.string().optional().describe('Purpose of execution for logging')
+          }),
+          execute: async ({ code, purpose }) => {
+            console.log('🔧 Tool called: executePython');
+            console.log('📝 Code length:', code.length, 'characters');
+            console.log('🎯 Purpose:', purpose || 'General execution');
+            
+            try {
+              const { data, error } = await supabase.functions.invoke('python-executor', {
+                body: { 
+                  code, 
+                  purpose: purpose || 'AI-initiated execution', 
+                  source: 'vercel-ai-chat',
+                  language: 'python'
+                }
+              });
+              
+              if (error) {
+                console.error('❌ Python execution failed:', error);
+                return { 
+                  success: false, 
+                  error: `Execution failed: ${error.message}`,
+                  output: ''
+                };
+              }
+              
+              console.log('✅ Python execution completed');
+              return {
+                success: true,
+                output: data.output || '',
+                error: data.error || '',
+                exitCode: data.exit_code || 0
+              };
+            } catch (err) {
+              console.error('❌ Exception calling python-executor:', err);
+              return { 
+                success: false, 
+                error: `Exception: ${err.message}`,
+                output: ''
+              };
+            }
+          }
         })
       },
       maxSteps: 5 // Allow multi-step tool calling

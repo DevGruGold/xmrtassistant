@@ -79,75 +79,15 @@ export class UnifiedElizaService {
   }
 
   /**
-   * Validate and execute any code found in Eliza's response
-   * This ensures code is executed in background, not displayed in chat
+   * REMOVED: Frontend code execution is now FORBIDDEN
+   * All code execution must happen via backend tools (execute_python)
+   * This method is kept as a no-op to prevent breaking changes
    */
   private static async validateAndExecuteResponse(response: string): Promise<string> {
-    // Detect Python code blocks
-    const codeMatch = response.match(/```python\n([\s\S]*?)```/);
-    
-    if (codeMatch) {
-      const code = codeMatch[1].trim();
-      console.log('🔧 [ResponseValidator] Code detected in response, executing automatically...');
-      console.log('📝 Code length:', code.length, 'characters');
-      
-      try {
-        // Execute the code via python-executor
-        const { data, error } = await supabase.functions.invoke('python-executor', {
-          body: {
-            code: code,
-            purpose: 'Auto-execution from chat response',
-            source: 'response-validator',
-          },
-        });
-        
-        if (error) {
-          console.error('❌ [ResponseValidator] Execution failed:', error);
-          // Keep code block but add error notice
-          return response.replace(
-            codeMatch[0],
-            `**⚠️ Code execution failed. Auto-fix triggered.**\n\nError: ${error.message}`
-          );
-        }
-        
-        if (data && data.success) {
-          const output = data.output || '';
-          const hasError = data.error && data.error.trim() !== '';
-          
-          console.log('✅ [ResponseValidator] Code executed successfully');
-          console.log('📤 Output length:', output.length, 'characters');
-          
-          if (hasError) {
-            // Execution had errors - show error and trigger auto-fix
-            console.log('⚠️ [ResponseValidator] Execution had errors, auto-fix will handle it');
-            return response.replace(
-              codeMatch[0],
-              `**⚙️ Code executed with errors. Auto-fix triggered.**\n\n${output}\n\n**Error:**\n${data.error}`
-            );
-          } else {
-            // Success - replace code block with clean results
-            return response.replace(
-              codeMatch[0],
-              `**✅ Execution Result:**\n\n${output}`
-            );
-          }
-        }
-        
-        // Fallback - keep original response
-        console.log('⚠️ [ResponseValidator] Unexpected response format from python-executor');
-        return response;
-        
-      } catch (execError) {
-        console.error('❌ [ResponseValidator] Exception during execution:', execError);
-        // Keep code block with error notice
-        return response.replace(
-          codeMatch[0],
-          `**⚠️ Execution error occurred. Code preserved for review.**\n\n${codeMatch[0]}`
-        );
-      }
+    // Code blocks should NEVER appear in responses - Eliza must use tools
+    if (response.includes('```python')) {
+      console.warn('⚠️ [PROTOCOL VIOLATION] Code block found in response! Eliza should use execute_python tool instead.');
     }
-    
-    // No code found - return original response
     return response;
   }
 
