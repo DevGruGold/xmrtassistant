@@ -1,10 +1,14 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.0'
 import { OpenAI } from 'https://esm.sh/openai@4.49.1'
 
-console.info('ai-chat started - Enhanced & Fixed 500');
+console.info('ai-chat started - Agent Router');
 
-// Initialize OpenAI client lazily to avoid crashing on GET health checks
+// --- Configuration ---
+const SUPABASE_URL = Deno.env.get('NEXT_PUBLIC_SUPABASE_URL');
+const SUPABASE_ANON_KEY = Deno.env.get('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'); // Should be set for secure internal calls
+
+// --- Lazy OpenAI Client Initialization ---
 let openaiClient = null;
 
 function getOpenAIClient() {
@@ -22,6 +26,69 @@ function getOpenAIClient() {
   });
   return openaiClient;
 }
+
+// --- CLI/Command Parsing and Routing Logic ---
+
+// Function to call another Supabase Edge Function
+async function callEdgeFunction(functionName, payload) {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return { error: "Supabase URL or Service Role Key is missing for internal function calls." };
+  }
+  
+  const url = `${SUPABASE_URL}/functions/v1/${functionName}`;
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        return { error: `Function call failed with status ${response.status}: ${errorText}` };
+    }
+
+    return await response.json();
+  } catch (error) {
+    return { error: `Network error calling function ${functionName}: ${error.message}` };
+  }
+}
+
+// Function to handle the "CLI" commands
+async function handleCliCommand(command, argument) {
+    switch (command) {
+        case 'exec-python':
+            // Example: exec-python print("Hello World")
+            const pythonPayload = { code: argument };
+            const pythonResult = await callEdgeFunction('python-executor', pythonPayload);
+            return `Python Executor Result: ${JSON.stringify(pythonResult, null, 2)}`;
+
+        case 'cron-list':
+            // Placeholder for interacting with a cron management system (e.g., a table in Supabase)
+            return "Cron Job Manager: Listing all scheduled jobs (Placeholder: Requires a cron management function/table).";
+            
+        case 'cron-add':
+            // Placeholder for adding a cron job
+            return `Cron Job Manager: Attempting to add job with argument: ${argument} (Placeholder).`;
+            
+        case 'help':
+            return `Available commands:
+- exec-python <code_string>: Executes Python code via the 'python-executor' function.
+- cron-list: Lists all scheduled cron jobs (Placeholder).
+- cron-add <job_details>: Adds a new cron job (Placeholder).
+- help: Shows this message.
+Any other input will be processed by the AI chat.`;
+            
+        default:
+            return null; // Not a CLI command, proceed to AI chat logic
+    }
+}
+
+// --- AI Chat Logic (Modified for Agent Routing) ---
 
 // Helper function to determine content type and extract text/url
 function extractContent(body) {
@@ -70,7 +137,7 @@ async function getAIResponse(userContent, contentType) {
       return "AI service is unavailable. OPENAI_API_KEY is missing in the environment.";
   }
   
-  let prompt = `You are an intelligent assistant. The user has provided the following content of type "${contentType}". Analyze it and provide a helpful, concise response. 
+  let prompt = `You are the intelligent agent "Eliza". You have access to a suite of tools. The user has provided the following content of type "${contentType}". Analyze it and provide a helpful, concise response. 
   
   If the content is a code snippet (Python, Solidity, etc.), explain what it does and suggest a potential improvement or use case.
   If the content is a URL, and you successfully fetched its content, analyze the fetched content. If fetching failed, explain the error.
@@ -96,6 +163,8 @@ async function getAIResponse(userContent, contentType) {
   }
 }
 
+// --- Main Deno Serve Handler ---
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
@@ -103,7 +172,7 @@ Deno.serve(async (req) => {
   if (req.method === 'GET' && (url.pathname === '/ai-chat' || url.pathname === '/')) {
     return new Response(JSON.stringify({
       status: 'ok',
-      version: 'enhanced-fixed-500'
+      version: 'agent-router'
     }), {
       status: 200,
       headers: {
@@ -148,24 +217,39 @@ Deno.serve(async (req) => {
     }
 
     const { content: userContent, contentType: detectedType } = extractContent(body);
-    let aiInputContent = userContent;
-    let aiContentType = detectedType;
+    let finalResponse = null;
     
-    // Ingest content if it's a URL
-    if (detectedType === 'url') {
-      console.info(`Attempting to ingest content from URL: ${userContent}`);
-      aiInputContent = await fetchUrlContent(userContent);
-      aiContentType = 'ingested-' + detectedType;
+    // 1. Check for CLI command
+    if (detectedType === 'text') {
+        const parts = userContent.trim().split(/\s+/);
+        const command = parts[0].toLowerCase();
+        const argument = parts.slice(1).join(' ');
+        
+        finalResponse = await handleCliCommand(command, argument);
     }
     
-    // Get AI response
-    const aiResponse = await getAIResponse(aiInputContent, aiContentType);
+    // 2. If not a CLI command, proceed with AI chat logic
+    if (finalResponse === null) {
+        let aiInputContent = userContent;
+        let aiContentType = detectedType;
+        
+        // Ingest content if it's a URL
+        if (detectedType === 'url') {
+          console.info(`Attempting to ingest content from URL: ${userContent}`);
+          aiInputContent = await fetchUrlContent(userContent);
+          aiContentType = 'ingested-' + detectedType;
+        }
+        
+        // Get AI response
+        const aiResponse = await getAIResponse(aiInputContent, aiContentType);
+        finalResponse = aiResponse;
+    }
 
     return new Response(JSON.stringify({
       ok: true,
       query_content: userContent,
       query_type: detectedType,
-      ai_response: aiResponse,
+      ai_response: finalResponse,
     }), {
       status: 200,
       headers: {
@@ -186,3 +270,4 @@ Deno.serve(async (req) => {
     }
   });
 });
+
