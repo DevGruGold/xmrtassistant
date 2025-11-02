@@ -323,6 +323,21 @@ serve(async (req) => {
             `,
           }),
         });
+
+        // ✅ Log the raw GraphQL response for debugging
+        const rawGraphQLResponse = await result.json();
+        console.log('📊 GitHub GraphQL Response:', JSON.stringify(rawGraphQLResponse, null, 2));
+
+        // Check for GraphQL errors immediately
+        if (rawGraphQLResponse.errors) {
+          console.error('❌ GraphQL Errors:', rawGraphQLResponse.errors);
+        }
+
+        // Wrap the response back into result format
+        result = {
+          ok: result.ok && !rawGraphQLResponse.errors,
+          json: async () => rawGraphQLResponse
+        } as any;
         break;
 
       case 'get_repo_info':
@@ -965,6 +980,25 @@ serve(async (req) => {
       responseData = result;
     }
 
+    // ✅ Check for GraphQL errors (GraphQL always returns 200, errors are in body)
+    if (responseData.errors && responseData.errors.length > 0) {
+      console.error('❌ GitHub GraphQL Error:', responseData.errors);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: responseData.errors[0]?.message || 'GitHub GraphQL request failed',
+          graphql_errors: responseData.errors,
+          needsAuth: responseData.errors[0]?.type === 'FORBIDDEN' || responseData.errors[0]?.message?.includes('authentication'),
+          details: responseData
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     if (!result.ok) {
       console.error('GitHub API Error:', responseData);
       
@@ -993,7 +1027,11 @@ serve(async (req) => {
         userFriendlyMessage = `✅ Created issue #${responseData.number}: "${responseData.title}" in ${GITHUB_OWNER}/${data?.repo || GITHUB_REPO}`;
         break;
       case 'create_discussion':
-        userFriendlyMessage = `✅ Created discussion: "${responseData.discussion?.title}" in category ${responseData.discussion?.category?.name}`;
+        // ✅ FIX: Access the correct nested structure from GraphQL response
+        const discussion = responseData.data?.createDiscussion?.discussion;
+        userFriendlyMessage = discussion 
+          ? `✅ Created discussion: "${discussion.title}" in category ${discussion.category?.name}`
+          : `⚠️ Discussion creation returned no data (check permissions and repository settings)`;
         break;
       case 'commit_file':
         userFriendlyMessage = `✅ Successfully committed "${data.path}" to ${data.branch || 'main'} branch`;
@@ -1035,10 +1073,16 @@ serve(async (req) => {
         userFriendlyMessage = `✅ Successfully completed: ${action}`;
     }
 
+    // ✅ FIX: Extract nested GraphQL data for create_discussion
+    let finalData = responseData;
+    if (action === 'create_discussion' && responseData.data?.createDiscussion?.discussion) {
+      finalData = responseData.data.createDiscussion.discussion;
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: responseData,
+        data: finalData,
         userFriendlyMessage,
         action
       }),

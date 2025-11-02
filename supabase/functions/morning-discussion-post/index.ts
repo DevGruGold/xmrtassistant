@@ -102,14 +102,18 @@ Morning check-in for ${today}!
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'morning_discussion_posted',
       title: '🌅 Morning Discussion Posted',
-      description: `Posted morning check-in to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted morning check-in to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         overnight_activity_count: overnightActivity?.length || 0,
         pending_tasks_count: pendingTasks?.length || 0
       },
@@ -119,8 +123,8 @@ Morning check-in for ${today}!
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

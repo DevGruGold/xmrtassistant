@@ -104,14 +104,18 @@ Evening wrap-up for ${today}.
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'evening_summary_posted',
       title: '🌙 Evening Summary Posted',
-      description: `Posted evening wrap-up to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted evening wrap-up to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         today_activity_count: todayActivity?.length || 0,
         completed_tasks_count: completedTasks?.length || 0
       },
@@ -121,8 +125,8 @@ Evening wrap-up for ${today}.
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

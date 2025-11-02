@@ -110,14 +110,18 @@ Daily thoughts for ${reportDate}.
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'daily_discussion_posted',
       title: '💬 Daily Discussion Posted',
-      description: `Posted daily discussion to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted daily discussion to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         report_reference: reportIssueUrl,
         blocked_tasks_count: blockedTasks?.length || 0
       },
@@ -127,8 +131,8 @@ Daily thoughts for ${reportDate}.
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

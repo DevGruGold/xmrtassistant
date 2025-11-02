@@ -93,14 +93,18 @@ Generated community spotlight for ${today}.
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'community_spotlight_posted',
       title: '🌟 Community Spotlight Posted',
-      description: `Posted community spotlight to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted community spotlight to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         community_messages_count: communityMessages?.length || 0,
         recent_activity_count: recentActivity?.length || 0
       },
@@ -110,8 +114,8 @@ Generated community spotlight for ${today}.
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

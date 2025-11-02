@@ -107,14 +107,18 @@ Status update for ${time} UTC.
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'progress_update_posted',
       title: '📊 Progress Update Posted',
-      description: `Posted progress update to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted progress update to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         completions_count: recentCompletions?.length || 0,
         active_agents_count: activeAgents?.length || 0,
         blocked_tasks_count: blockedTasks?.length || 0
@@ -125,8 +129,8 @@ Status update for ${time} UTC.
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

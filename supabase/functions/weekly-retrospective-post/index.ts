@@ -106,14 +106,18 @@ Weekly retrospective for ${weekStart} to ${weekEnd}.
       throw discussionError;
     }
 
+    // ✅ Extract discussion data from corrected response structure
+    const discussion = discussionData?.data;
+
     // Log the discussion creation
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'weekly_retrospective_posted',
       title: '📈 Weekly Retrospective Posted',
-      description: `Posted weekly retrospective to GitHub: ${discussionData?.data?.url || 'N/A'}`,
+      description: `Posted weekly retrospective to GitHub: ${discussion?.url || 'N/A'}`,
       metadata: {
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id,
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id,
+        discussion_title: discussion?.title,
         week_activity_count: weekActivity?.length || 0,
         week_tasks_count: weekTasks?.length || 0,
         week_workflows_count: weekWorkflows?.length || 0
@@ -124,8 +128,8 @@ Weekly retrospective for ${weekStart} to ${weekEnd}.
     return new Response(
       JSON.stringify({
         success: true,
-        discussion_url: discussionData?.data?.url,
-        discussion_id: discussionData?.data?.id
+        discussion_url: discussion?.url,
+        discussion_id: discussion?.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
