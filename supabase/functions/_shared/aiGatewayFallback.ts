@@ -41,7 +41,21 @@ export async function callLovableAIGateway(
   if (!response.ok) {
     const errorText = await response.text();
     console.error('❌ Lovable AI Gateway error:', response.status, errorText);
-    throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}`);
+    
+    // Return structured error for intelligent handling
+    const structuredError = {
+      type: response.status === 402 ? 'payment_required' : 
+            response.status === 429 ? 'rate_limit' : 'service_unavailable',
+      code: response.status,
+      service: 'lovable_ai_gateway',
+      message: errorText,
+      details: {
+        timestamp: new Date().toISOString(),
+        model: options.model || 'google/gemini-2.5-flash'
+      }
+    };
+    
+    throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}\n${JSON.stringify(structuredError)}`);
   }
 
   const data = await response.json();

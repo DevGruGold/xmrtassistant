@@ -445,40 +445,34 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('❌ AI chat error:', error);
     
-    // Try Lovable AI Gateway as final fallback
-    if (error.message.includes('rate limit') || error.message.includes('quota') || error.message.includes('credits')) {
-      console.log('⚠️ AI provider failed - trying Lovable AI Gateway fallback...');
-      
-      try {
-        const { messages } = await req.json();
-        const userMessage = messages[messages.length - 1]?.content || '';
-        
-        const lovableResponse = await callLovableAIGateway(
-          [{ role: 'user', content: userMessage }],
-          {
-            model: 'google/gemini-2.5-flash',
-            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO.'
-          }
-        );
-        
-        return new Response(
-          JSON.stringify({
-            success: true,
-            response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
-            provider: 'lovable_gateway',
-            executive: 'vercel-ai-chat',
-            executiveTitle: 'Chief Strategy Officer (CSO) - Fallback Mode'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (lovableError) {
-        console.error('❌ Lovable AI Gateway also failed:', lovableError);
-      }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let statusCode = 500;
+    
+    if (errorMessage.includes('402') || errorMessage.includes('Payment Required')) {
+      statusCode = 402;
+    } else if (errorMessage.includes('429') || errorMessage.includes('Rate limit')) {
+      statusCode = 429;
     }
     
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false, 
+        error: {
+          type: statusCode === 402 ? 'payment_required' : 
+                statusCode === 429 ? 'rate_limit' : 'service_unavailable',
+          code: statusCode,
+          message: errorMessage,
+          service: 'vercel-ai-chat',
+          details: {
+            timestamp: new Date().toISOString(),
+            executive: 'CSO',
+            model: aiModel || 'unknown'
+          },
+          canRetry: statusCode !== 402,
+          suggestedAction: statusCode === 402 ? 'add_credits' : 'try_alternative'
+        }
+      }),
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

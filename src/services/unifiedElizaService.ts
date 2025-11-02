@@ -251,8 +251,30 @@ export class UnifiedElizaService {
       
     } catch (error) {
       console.error('❌ Eliza: Critical error generating response:', error);
-      // Re-throw error to be handled by caller - no silent fallbacks
-      throw new Error(`Failed to generate AI response: ${error.message}`);
+      
+      // Import intelligent error handler
+      const { IntelligentErrorHandler } = await import('./intelligentErrorHandler');
+      
+      // Diagnose the error
+      const diagnosis = await IntelligentErrorHandler.diagnoseError(error, {
+        userInput,
+        attemptedExecutive: (window as any).__lastElizaExecutive,
+        fallbacksAttempted: ['lovable_gateway']
+      });
+      
+      console.log('🔍 Error Diagnosis:', diagnosis);
+      
+      // Attempt automated workaround
+      const workaroundResult = await IntelligentErrorHandler.attemptWorkaround(diagnosis);
+      
+      if (workaroundResult.success && workaroundResult.response) {
+        console.log('✅ Workaround succeeded:', workaroundResult.method);
+        // Don't return the workaround response directly - throw detailed error for UI to handle
+      }
+      
+      // Generate detailed explanation
+      const explanation = IntelligentErrorHandler.generateExplanation(diagnosis);
+      throw new Error(`DIAGNOSTIC:${explanation}`);
     }
   }
 

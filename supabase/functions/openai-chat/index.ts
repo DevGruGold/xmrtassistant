@@ -103,12 +103,34 @@ serve(async (req) => {
     console.error('❌ CAO Executive error:', error);
     await logger.error('Function execution failed', error, 'error');
     
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let statusCode = 500;
+    
+    if (errorMessage.includes('402') || errorMessage.includes('Payment Required')) {
+      statusCode = 402;
+    } else if (errorMessage.includes('429') || errorMessage.includes('Rate limit')) {
+      statusCode = 429;
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: {
+          type: statusCode === 402 ? 'payment_required' : 
+                statusCode === 429 ? 'rate_limit' : 'service_unavailable',
+          code: statusCode,
+          message: errorMessage,
+          service: 'openai-chat',
+          details: {
+            timestamp: new Date().toISOString(),
+            executive: 'CAO',
+            model: 'google/gemini-2.5-flash'
+          },
+          canRetry: statusCode !== 402,
+          suggestedAction: statusCode === 402 ? 'add_credits' : 'try_alternative'
+        }
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

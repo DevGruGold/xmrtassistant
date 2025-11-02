@@ -927,35 +927,50 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
     } catch (error) {
       console.error('❌ Chat error:', error);
-      console.error('Error details:', error.message, error.stack);
       
-      // Provide specific error messages based on the error type
-      let errorContent = 'I apologize, but I\'m having trouble processing your message right now.';
+      // Import intelligent error handler
+      const { IntelligentErrorHandler } = await import('@/services/intelligentErrorHandler');
       
-      if (error.message?.includes('All AI Executives failed')) {
-        errorContent = '⚠️ All AI services are currently unavailable:\n\n' +
-          '• **Gemini AI**: Credits depleted - please add funds to your Gemini workspace\n' +
-          '• **DeepSeek**: Credits depleted - please add funds to your DeepSeek account\n' +
-          '• **Gemini**: Credits depleted\n' +
-          '• **OpenAI**: Now configured correctly\n\n' +
-          'Please add credits to at least one service to continue.';
-      } else if (error.message?.includes('402') || error.message?.includes('Payment Required')) {
-        errorContent = '💳 **AI Credits Depleted**\n\n' +
-          'The AI service is out of credits. Please:\n' +
-          '1. Go to Settings → Workspace → Usage\n' +
-          '2. Add credits to your Gemini AI workspace\n\n' +
-          'Alternatively, configure direct API keys for DeepSeek, Gemini, or OpenAI.';
-      } else if (error.message?.includes('rate limit') || error.message?.includes('429')) {
-        errorContent = '⏱️ **Rate Limit Exceeded**\n\nToo many requests in a short time. Please wait a moment and try again.';
+      // Get error message
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if this is already a formatted diagnostic message
+      let errorContent: string;
+      
+      if (errorMessage.startsWith('DIAGNOSTIC:')) {
+        // This is already a formatted diagnostic message
+        errorContent = errorMessage.replace('DIAGNOSTIC:', '').trim();
+      } else {
+        // Parse and diagnose the error
+        const diagnosis = await IntelligentErrorHandler.diagnoseError(error, {
+          userInput: textInput.trim(),
+          attemptedExecutive: (window as any).__lastElizaExecutive
+        });
+        
+        errorContent = IntelligentErrorHandler.generateExplanation(diagnosis);
       }
       
-      const errorMessage: UnifiedMessage = {
+      const errorMessageObj: UnifiedMessage = {
         id: `error-${Date.now()}`,
         content: errorContent,
         sender: 'assistant',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMessageObj]);
+      
+      // Log to Eliza activity log for autonomous monitoring
+      try {
+        await supabase.from('eliza_activity_log').insert({
+          title: 'Chat Error Diagnosed',
+          description: errorContent.substring(0, 200),
+          activity_type: 'error_diagnostics',
+          status: 'completed',
+          metadata: { userInput: textInput.trim() } as any,
+          mentioned_to_user: true
+        });
+      } catch (logError) {
+        console.warn('Failed to log error:', logError);
+      }
     } finally {
       console.log('🏁 Message processing complete, setting isProcessing to false');
       setIsProcessing(false);
