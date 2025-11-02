@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { generateEmbedding } from '../_shared/aiGatewayFallback.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,42 +15,29 @@ serve(async (req) => {
 
   try {
     const { memory_id, content, context_type } = await req.json();
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     
-    if (!geminiApiKey) {
-      console.error('Gemini API key not configured');
-      return new Response(JSON.stringify({ error: 'Gemini API key not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     console.log(`🧠 Vectorizing memory ${memory_id}...`);
 
-    // Generate embedding using Gemini (text-embedding-004 produces 768-dim embeddings)
-    const embeddingResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: {
-            parts: [{ text: content }]
-          }
+    // Try to generate embedding with fallback support
+    let embedding: number[];
+    
+    try {
+      embedding = await generateEmbedding(content);
+      console.log('✅ Embedding generated successfully');
+    } catch (error) {
+      console.error('❌ Embedding generation failed:', error.message);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Vectorization unavailable - GEMINI_API_KEY required for embeddings',
+          details: error.message,
+          memory_id
         }),
-      }
-    );
-
-    if (!embeddingResponse.ok) {
-      const errorText = await embeddingResponse.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${errorText}`);
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
-
-    const embeddingData = await embeddingResponse.json();
-    const embedding = embeddingData.embedding.values;
 
     // Update memory context with embedding
     const supabase = createClient(

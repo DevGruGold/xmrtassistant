@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { GoogleGenerativeAI } from "npm:@google/generative-ai@0.21.0";
+import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -201,28 +202,66 @@ Deno.serve(async (req) => {
     const apiKey = userGeminiKey || FALLBACK_GEMINI_KEY;
     
     if (!apiKey) {
-      await logActivity(
-        "error",
-        `❌ No Gemini API key available`,
-        { 
-          session_credentials_keys: Object.keys(session_credentials || {}),
-          has_fallback: !!FALLBACK_GEMINI_KEY 
-        },
-        "failed"
-      );
-      return new Response(
-        JSON.stringify({ 
-          error: "Gemini API key required. Please provide your API key.",
-          needsCredentials: true
-        }),
-        {
-          status: 401,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
+      console.log('⚠️ No Gemini API key - trying Lovable AI Gateway fallback...');
+      
+      try {
+        const lovableResponse = await callLovableAIGateway(
+          [{ role: 'user', content: message }],
+          {
+            model: 'google/gemini-2.5-flash',
+            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO with access to 120+ edge functions and Python execution capabilities.'
+          }
+        );
+        
+        await logActivity(
+          'chat_response',
+          `🌐 Lovable AI Gateway responded (fallback)`,
+          { response_preview: lovableResponse.substring(0, 100) },
+          'completed'
+        );
+        
+        return new Response(
+          JSON.stringify({ 
+            response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
+            method: 'lovable_gateway' 
+          }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      } catch (lovableError) {
+        console.error('❌ Lovable AI Gateway also failed:', lovableError);
+        
+        await logActivity(
+          "error",
+          `❌ No Gemini API key and Lovable fallback failed`,
+          { 
+            session_credentials_keys: Object.keys(session_credentials || {}),
+            has_fallback: !!FALLBACK_GEMINI_KEY,
+            lovable_error: lovableError.message
           },
-        }
-      );
+          "failed"
+        );
+        
+        return new Response(
+          JSON.stringify({ 
+            error: "Gemini API key required and Lovable AI Gateway unavailable. Please provide your API key.",
+            needsCredentials: true,
+            fallback_attempted: true,
+            fallback_error: lovableError.message
+          }),
+          {
+            status: 503,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      }
     }
 
     console.log(`🔑 Using ${userGeminiKey ? 'USER' : 'FALLBACK'} Gemini API key`);
