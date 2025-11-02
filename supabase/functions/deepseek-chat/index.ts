@@ -1,12 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
-import { EdgeFunctionLogger } from "../_shared/logging.ts";
-import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
+import { generateExecutiveSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
+import { EdgeFunctionLogger } from "../_shared/logging.ts";
 
-const logger = EdgeFunctionLogger('deepseek-chat');
+const logger = EdgeFunctionLogger('cto-executive');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,48 +19,25 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
     const { 
       messages, 
       conversationHistory = [], 
       userContext = { ip: 'unknown', isFounder: false }, 
       miningStats = null, 
-      systemVersion = null, 
-      session_credentials = null 
-    } = requestBody;
+      systemVersion = null,
+      councilMode = false
+    } = await req.json();
     
     await logger.info('Request received', 'ai_interaction', { 
       messagesCount: messages?.length,
       hasHistory: conversationHistory?.length > 0,
       userContext,
-      source: requestBody.source || 'unknown'
+      executive: 'CTO',
+      councilMode
     });
 
-    const DEEPSEEK_API_KEY = getAICredential('deepseek', session_credentials);
-    if (!DEEPSEEK_API_KEY) {
-      console.error('⚠️ DEEPSEEK_API_KEY not configured');
-      await logger.warning('Missing API key', 'security', { credential_type: 'deepseek' });
-      return new Response(
-        JSON.stringify(createCredentialRequiredResponse(
-          'deepseek',
-          'api_key',
-          'DeepSeek API key needed to use this AI service.',
-          'https://platform.deepseek.com/'
-        )),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Validate messages parameter
     if (!messages || !Array.isArray(messages)) {
-      console.error('❌ Invalid messages parameter:', {
-        type: typeof messages,
-        value: messages,
-        requestBody: Object.keys(requestBody)
-      });
+      console.error('❌ Invalid messages parameter');
       await logger.error('Invalid request format', new Error('Messages must be an array'), 'validation');
       return new Response(
         JSON.stringify({ 
@@ -76,134 +52,56 @@ serve(async (req) => {
       );
     }
 
-    console.log('🤖 Deepseek Chat - Processing request with context:', {
-      messagesCount: messages?.length,
-      hasHistory: conversationHistory?.length > 0,
-      hasMiningStats: !!miningStats,
-      hasSystemVersion: !!systemVersion,
-      userContext: userContext,
-      source: requestBody.source || 'unknown'
-    });
+    console.log('💻 CTO Executive - Processing request via Lovable AI Gateway');
 
-    // Build system prompt using shared utilities
-    const basePrompt = generateElizaSystemPrompt();
-    const systemPrompt = buildContextualPrompt(basePrompt, {
+    // Build CTO-specific system prompt
+    const executivePrompt = generateExecutiveSystemPrompt('CTO');
+    const contextualPrompt = buildContextualPrompt(executivePrompt, {
       conversationHistory,
       userContext,
       miningStats,
       systemVersion
     });
 
-    // Prepare messages for Deepseek
-    const deepseekMessages = [
-      { role: 'system', content: systemPrompt },
+    // Prepare messages for Lovable AI Gateway
+    const aiMessages = [
+      { role: 'system', content: contextualPrompt },
       ...messages
     ];
 
-    console.log('📤 Calling Deepseek API...');
+    console.log('📤 Calling Lovable AI Gateway (CTO mode)...');
     
     const apiStartTime = Date.now();
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: deepseekMessages,
-        temperature: 0.9,
-        max_tokens: 8000,
-        stream: false
-      }),
+    const response = await callLovableAIGateway(aiMessages, {
+      model: 'google/gemini-2.5-flash',
+      temperature: 0.7,
+      max_tokens: 4000
     });
-
+    
     const apiDuration = Date.now() - apiStartTime;
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Deepseek API error:', response.status, errorText);
-      await logger.apiCall('deepseek', response.status, apiDuration, { error: errorText });
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Rate limit exceeded. Please try again in a moment.' 
-          }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'API credits depleted. Please check your Deepseek account.' 
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`Deepseek API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const message = data.choices?.[0]?.message;
-
-    console.log('✅ Deepseek response:', { 
-      hasContent: !!message?.content,
-      usage: data.usage
+    console.log(`✅ CTO Executive responded in ${apiDuration}ms`);
+    await logger.apiCall('lovable_gateway', 200, apiDuration, { 
+      executive: 'CTO',
+      responseLength: response.length 
     });
-
-    await logger.apiCall('deepseek', response.status, apiDuration, { 
-      tokens: data.usage,
-      model: 'deepseek-chat' 
-    });
-
-    // Return the response
-    const aiResponse = message?.content || "I'm here to help with XMRT-DAO tasks.";
 
     return new Response(
-      JSON.stringify({ success: true, response: aiResponse, hasToolCalls: false, executive: 'deepseek-chat', executiveTitle: 'Chief Technology Officer (CTO)' }),
+      JSON.stringify({ 
+        success: true, 
+        response: response,
+        executive: 'deepseek-chat',
+        executiveTitle: 'Chief Technology Officer (CTO)',
+        provider: 'lovable_gateway',
+        model: 'google/gemini-2.5-flash',
+        confidence: 85
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Deepseek chat error:', error);
+    console.error('❌ CTO Executive error:', error);
     await logger.error('Function execution failed', error, 'error');
-    
-    // Try Lovable AI Gateway as final fallback
-    const errorMsg = error instanceof Error ? error.message : '';
-    if (errorMsg.includes('rate limit') || errorMsg.includes('credits') || errorMsg.includes('402')) {
-      console.log('⚠️ DeepSeek failed - trying Lovable AI Gateway fallback...');
-      
-      try {
-        const requestBody = await req.json();
-        const { messages } = requestBody;
-        const userMessage = messages[messages.length - 1]?.content || '';
-        
-        const lovableResponse = await callLovableAIGateway(
-          [{ role: 'user', content: userMessage }],
-          {
-            model: 'google/gemini-2.5-flash',
-            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO.'
-          }
-        );
-        
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
-            executive: 'deepseek-chat',
-            executiveTitle: 'Chief Technology Officer (CTO) - Fallback Mode'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (lovableError) {
-        console.error('❌ Lovable AI Gateway also failed:', lovableError);
-      }
-    }
     
     return new Response(
       JSON.stringify({ 

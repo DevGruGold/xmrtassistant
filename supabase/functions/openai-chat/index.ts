@@ -1,12 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
 import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
-import { EdgeFunctionLogger } from "../_shared/logging.ts";
-import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
+import { generateExecutiveSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
+import { EdgeFunctionLogger } from "../_shared/logging.ts";
 
-const logger = EdgeFunctionLogger('openai-chat');
+const logger = EdgeFunctionLogger('cao-executive');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,182 +13,102 @@ const corsHeaders = {
 };
 
 
-// Helper function to log tool execution to activity log
-async function logToolExecution(supabase: any, toolName: string, args: any, status: 'started' | 'completed' | 'failed', result?: any, error?: any) {
-  try {
-    const metadata: any = {
-      tool_name: toolName,
-      arguments: args,
-      timestamp: new Date().toISOString(),
-      execution_status: status
-    };
-    
-    if (result) {
-      metadata.result = result;
-    }
-    
-    if (error) {
-      metadata.error = error;
-    }
-    
-    await supabase.from('eliza_activity_log').insert({
-      activity_type: 'tool_execution',
-      title: `🔧 ${toolName}`,
-      description: `Eliza executed: ${toolName}`,
-      metadata,
-      status: status === 'completed' ? 'completed' : (status === 'failed' ? 'failed' : 'in_progress')
-    });
-    
-    console.log(`📊 Logged tool execution: ${toolName} (${status})`);
-  } catch (logError) {
-    console.error('Failed to log tool execution:', logError);
-  }
-}
-
-
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, model = "gpt-4", temperature = 0.9, max_tokens = 8000, session_credentials, conversationHistory, userContext, miningStats, systemVersion } = await req.json();
+    const { 
+      messages, 
+      conversationHistory = [], 
+      userContext = { ip: 'unknown', isFounder: false }, 
+      miningStats = null, 
+      systemVersion = null,
+      councilMode = false
+    } = await req.json();
+    
+    await logger.info('Request received', 'ai_interaction', { 
+      messagesCount: messages?.length,
+      hasHistory: conversationHistory?.length > 0,
+      userContext,
+      executive: 'CAO',
+      councilMode
+    });
 
     if (!messages || !Array.isArray(messages)) {
-      throw new Error('Messages array is required');
-    }
-
-    const openAIApiKey = getAICredential('openai', session_credentials);
-    if (!openAIApiKey) {
+      console.error('❌ Invalid messages parameter');
+      await logger.error('Invalid request format', new Error('Messages must be an array'), 'validation');
       return new Response(
-        JSON.stringify(createCredentialRequiredResponse(
-          'openai',
-          'api_key',
-          'OpenAI API key needed to use this AI service.',
-          'https://platform.openai.com/api-keys'
-        )),
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid request: messages must be an array',
+          received: typeof messages
+        }),
         { 
-          status: 401,
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    console.log('🤖 OpenAI Chat - Processing request:', {
-      messageCount: messages.length,
-      model,
-      temperature,
-      max_tokens
-    });
+    console.log('📊 CAO Executive - Processing request via Lovable AI Gateway');
 
-    await logger.info('Processing chat request', 'ai_interaction', { 
-      messageCount: messages.length,
-      model 
-    });
-
-    // Build system prompt using shared utilities
-    const basePrompt = generateElizaSystemPrompt();
-    const systemPrompt = buildContextualPrompt(basePrompt, {
+    // Build CAO-specific system prompt
+    const executivePrompt = generateExecutiveSystemPrompt('CAO');
+    const contextualPrompt = buildContextualPrompt(executivePrompt, {
       conversationHistory,
       userContext,
       miningStats,
       systemVersion
     });
 
-    // Prepend system prompt to messages if not already present
-    const messagesWithSystem = messages[0]?.role === 'system' 
-      ? messages 
-      : [{ role: 'system', content: systemPrompt }, ...messages];
+    // Prepare messages for Lovable AI Gateway
+    const aiMessages = [
+      { role: 'system', content: contextualPrompt },
+      ...messages
+    ];
 
-    // Call OpenAI Chat Completions API
+    console.log('📤 Calling Lovable AI Gateway (CAO mode)...');
+    
     const apiStartTime = Date.now();
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o', // Fixed: Use gpt-4o instead of gpt-4
-        messages: messagesWithSystem,
-        temperature,
-        max_tokens,
-        stream: false
-      }),
+    const response = await callLovableAIGateway(aiMessages, {
+      model: 'google/gemini-2.5-flash', // Fast for most analytical tasks
+      temperature: 0.7,
+      max_tokens: 4000
     });
-
+    
     const apiDuration = Date.now() - apiStartTime;
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('❌ OpenAI API error:', errorData);
-      await logger.apiCall('openai', response.status, apiDuration, { error: errorData });
-      throw new Error(errorData.error?.message || 'OpenAI API request failed');
-    }
-
-    const data = await response.json();
-    console.log('✅ OpenAI Chat - Response received:', {
-      choices: data.choices?.length || 0,
-      usage: data.usage
+    
+    console.log(`✅ CAO Executive responded in ${apiDuration}ms`);
+    await logger.apiCall('lovable_gateway', 200, apiDuration, { 
+      executive: 'CAO',
+      responseLength: response.length 
     });
 
-    await logger.apiCall('openai', response.status, apiDuration, { 
-      tokens: data.usage,
-      model: data.model 
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        response: response,
+        executive: 'openai-chat',
+        executiveTitle: 'Chief Analytics Officer (CAO)',
+        provider: 'lovable_gateway',
+        model: 'google/gemini-2.5-flash',
+        confidence: 85
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
-    return new Response(JSON.stringify({
-      success: true,
-      response: data.choices[0]?.message?.content || '',
-      usage: data.usage,
-      model: data.model,
-      executive: 'openai-chat',
-      executiveTitle: 'Chief Analytics Officer (CAO)'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error: any) {
-    console.error('❌ OpenAI Chat function error:', error);
+  } catch (error) {
+    console.error('❌ CAO Executive error:', error);
     await logger.error('Function execution failed', error, 'error');
     
-    // Try Lovable AI Gateway as final fallback
-    if (error.message.includes('rate limit') || error.message.includes('quota') || error.message.includes('exceeded')) {
-      console.log('⚠️ OpenAI failed - trying Lovable AI Gateway fallback...');
-      
-      try {
-        const requestBody = await req.json();
-        const { messages } = requestBody;
-        const userMessage = messages[messages.length - 1]?.content || '';
-        
-        const lovableResponse = await callLovableAIGateway(
-          [{ role: 'user', content: userMessage }],
-          {
-            model: 'google/gemini-2.5-flash',
-            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO.'
-          }
-        );
-        
-        return new Response(JSON.stringify({
-          success: true,
-          response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
-          executive: 'openai-chat',
-          executiveTitle: 'Chief Analytics Officer (CAO) - Fallback Mode'
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      } catch (lovableError) {
-        console.error('❌ Lovable AI Gateway also failed:', lovableError);
-      }
-    }
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message || 'Unknown error occurred'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

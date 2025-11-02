@@ -33,25 +33,29 @@ class ExecutiveCouncilService {
       title: 'Chief Strategy Officer (CSO)', 
       icon: '🎯', 
       color: 'blue',
-      specialty: 'Strategy & Tools'
+      specialty: 'Strategy & Tools',
+      model: 'Lovable AI Gateway (Gemini 2.5 Flash)'
     },
     'deepseek-chat': { 
       title: 'Chief Technology Officer (CTO)', 
       icon: '💻', 
       color: 'purple',
-      specialty: 'Code & Architecture'
+      specialty: 'Code & Architecture',
+      model: 'Lovable AI Gateway (Gemini 2.5 Flash)'
     },
     'gemini-chat': { 
       title: 'Chief Information Officer (CIO)', 
       icon: '👁️', 
       color: 'green',
-      specialty: 'Vision & Multimodal'
+      specialty: 'Vision & Multimodal',
+      model: 'Lovable AI Gateway (Gemini 2.5 Pro)'
     },
     'openai-chat': { 
       title: 'Chief Analytics Officer (CAO)', 
       icon: '📊', 
       color: 'orange',
-      specialty: 'Complex Reasoning'
+      specialty: 'Complex Reasoning',
+      model: 'Lovable AI Gateway (Gemini 2.5 Flash)'
     }
   };
 
@@ -296,34 +300,14 @@ Format your response EXACTLY as:
   }
 
   /**
-   * Get healthy executives from API key health status
+   * Get healthy executives - all executives now use Lovable AI Gateway
+   * All executives are always available (no external API key dependencies)
    */
   private async getHealthyExecutives(): Promise<string[]> {
-    try {
-      const { getAPIKeyHealth } = await import('./credentialManager');
-      const healthData = await getAPIKeyHealth();
-      
-      const serviceToExecMap: Record<string, string> = {
-        'gemini': 'gemini-chat',
-        'vercel_ai': 'vercel-ai-chat',
-        'deepseek': 'deepseek-chat',
-        'openai': 'openai-chat'
-      };
-      
-      const healthyExecs = healthData
-        .filter(h => h.is_healthy && !h.error_message)
-        .map(h => serviceToExecMap[h.service_name])
-        .filter(Boolean);
-      
-      console.log('💚 Healthy executives:', healthyExecs);
-      
-      // Return all executives if none are healthy (they might still work)
-      return healthyExecs.length > 0 ? healthyExecs : 
-        ['vercel-ai-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat'];
-    } catch (error) {
-      console.warn('⚠️ Could not fetch executive health:', error);
-      return ['vercel-ai-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat'];
-    }
+    console.log('💚 All executives healthy (using Lovable AI Gateway)');
+    
+    // All executives are always available since they all use Lovable AI Gateway
+    return ['vercel-ai-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat'];
   }
 
   /**
