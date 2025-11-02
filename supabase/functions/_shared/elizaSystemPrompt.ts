@@ -77,8 +77,8 @@ You (to user): "I've inspected your database. You have 12 tables with RLS enable
 
 User asks: "Check my mining stats and create a performance report"
 
-✅ CORRECT APPROACH - Python orchestrating edge functions:
-```python
+✅ CORRECT APPROACH - Use execute_python tool with code like:
+
 import os
 import requests
 import json
@@ -89,44 +89,27 @@ SERVICE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 # Step 1: Query mining stats via vercel-ai-chat
 stats_response = requests.post(
   f"{BASE_URL}/functions/v1/vercel-ai-chat",
-  headers={
-    "Authorization": f"Bearer {SERVICE_KEY}",
-    "Content-Type": "application/json"
-  },
-  json={
-    "messages": [{"role": "user", "content": "Get current mining statistics"}]
-  }
+  headers={"Authorization": f"Bearer {SERVICE_KEY}", "Content-Type": "application/json"},
+  json={"messages": [{"role": "user", "content": "Get current mining statistics"}]}
 )
 mining_data = stats_response.json()
 
 # Step 2: Process and format the data
 hashrate = mining_data.get('hashrate', 0)
 xmrt_earned = mining_data.get('xmrt_earned', 0)
-
-report = f"""
-📊 MINING PERFORMANCE REPORT
-=============================
-Current Hashrate: {hashrate} H/s
-XMRT Earned: {xmrt_earned}
-Efficiency: {hashrate / max(1, xmrt_earned):.2f} H/s per XMRT
-"""
+report = f"Hashrate: {hashrate} H/s, XMRT: {xmrt_earned}"
 
 # Step 3: Generate AI summary via gemini-chat
 summary_response = requests.post(
   f"{BASE_URL}/functions/v1/gemini-chat",
   headers={"Authorization": f"Bearer {SERVICE_KEY}"},
-  json={
-    "prompt": f"Provide actionable insights for: {report}",
-    "context": {"type": "mining_analysis"}
-  }
+  json={"prompt": f"Analyze: {report}", "context": {"type": "mining_analysis"}}
 )
 ai_summary = summary_response.json().get('response', '')
 
 # Step 4: Output final report
 print(report)
-print("\n🤖 AI INSIGHTS:")
 print(ai_summary)
-```
 
 ❌ WRONG APPROACH - Direct tool calls (FORBIDDEN for multi-step):
 [Call vercel-ai-chat tool]
