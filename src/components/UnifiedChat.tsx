@@ -1015,50 +1015,52 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     <Card className={`bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col h-[500px] sm:h-[600px] ${className}`}>
       {/* Simplified Header */}
       <div className="p-4 border-b border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <AdaptiveAvatar
               apiKey={apiKey}
-              className="h-8 w-8 sm:h-10 sm:w-10"
+              className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0"
               size="sm"
               enableVoice={voiceEnabled}
             />
-            <div>
-              <h3 className="font-semibold text-foreground text-sm sm:text-base">Eliza AI</h3>
-              <p className="text-xs text-muted-foreground">Your XMRT Assistant</p>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">Eliza AI</h3>
+              <p className="text-xs text-muted-foreground truncate">Your XMRT Assistant</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Council Mode Toggle */}
             <Button
               onClick={() => setCouncilMode(!councilMode)}
               variant={councilMode ? 'default' : 'outline'}
               size="sm"
-              className="text-xs h-7 px-2"
+              className="text-xs h-7 px-1.5 sm:px-2 flex-shrink-0"
               title={councilMode ? 'Full Council Mode (All Executives)' : 'Single Executive Mode'}
             >
-              <Users className="h-3 w-3 mr-1" />
-              {councilMode ? 'Council' : 'Single'}
+              <Users className="h-3 w-3 sm:mr-1" />
+              <span className="hidden sm:inline">{councilMode ? 'Council' : 'Single'}</span>
             </Button>
             
             {/* Realtime Connection Indicator */}
             {realtimeConnected && (
-              <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-500/10 text-green-600 border-green-500/30">
+              <Badge variant="outline" className="text-xs hidden sm:flex items-center gap-1 bg-green-500/10 text-green-600 border-green-500/30">
                 <Wifi className="h-3 w-3" />
                 <span>Live</span>
               </Badge>
             )}
             
             {/* GitHub Token Status Indicator */}
-            <GitHubTokenStatus onRequestPAT={() => setShowAPIKeyInput(true)} />
+            <div className="hidden md:block">
+              <GitHubTokenStatus onRequestPAT={() => setShowAPIKeyInput(true)} />
+            </div>
             
             {/* API Key Button */}
             <Button
               onClick={() => setShowAPIKeyInput(true)}
               variant="ghost"
               size="sm"
-              className={needsAPIKey ? 'text-orange-500 animate-pulse' : 'text-muted-foreground'}
+              className={`hidden sm:flex h-7 w-7 sm:h-8 sm:w-8 p-0 ${needsAPIKey ? 'text-orange-500 animate-pulse' : 'text-muted-foreground'}`}
               title="Add or update Gemini API key"
             >
               <Key className="h-4 w-4" />
@@ -1070,7 +1072,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 onClick={handleClearConversation}
                 variant="ghost"
                 size="sm"
-                className="text-muted-foreground hover:text-destructive"
+                className="hidden sm:flex h-7 w-7 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive"
                 title="Clear conversation history"
               >
                 <Trash2 className="h-4 w-4" />
@@ -1082,7 +1084,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onClick={toggleVoiceSynthesis}
               variant="ghost"
               size="sm"
-              className={voiceEnabled ? 'text-primary' : 'text-muted-foreground'}
+              className={`h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0 ${voiceEnabled ? 'text-primary' : 'text-muted-foreground'}`}
+              title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
             >
               {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
