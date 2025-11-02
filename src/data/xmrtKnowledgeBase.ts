@@ -147,10 +147,18 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
-    topic: "XMRT AI Executive C-Suite Architecture",
-    content: "The XMRT ecosystem operates via 4 primary AI Executives (lovable-chat, deepseek-chat, gemini-chat, openai-chat) that function as a corporate C-Suite, delegating tactical work to 66+ specialized edge functions. Each executive specializes in different domains: lovable-chat (Gemini 2.5 Flash - general strategy), deepseek-chat (DeepSeek R1 - technical architecture), gemini-chat (Gemini Multimodal - vision/media), openai-chat (GPT-5 - complex reasoning). This mirrors traditional corporate structures but replaces human executives with AI decision-makers, eliminating billions in corporate overhead while maintaining superior strategic capability.",
+    topic: "Eliza AI Executive Fallback Chain and Python-First Execution",
+    content: "Eliza's AI architecture features a sophisticated 3-tier fallback system ensuring continuous operation: **Tier 1 - Cloud AI Executives**: vercel-ai-chat (Chief Strategy Officer - CSO), deepseek-chat (Chief Technology Officer - CTO), gemini-chat (Chief Information Officer - CIO), openai-chat (Chief Analytics Officer - CAO). These executives handle 95%+ of requests with specialized routing based on task type. **Tier 2 - Lovable AI Gateway**: When all cloud executives fail, the Lovable AI Gateway (google/gemini-2.5-flash) activates as a high-quality fallback via ai.gateway.lovable.dev. This reduces load on the Office Clerk and provides better responses than browser-based AI. **Tier 3 - Office Clerk (Last Resort)**: SmolLM2-135M browser-based AI runs entirely on user's device with zero external dependencies, embodying infrastructure sovereignty. **PYTHON-FIRST EXECUTION MANDATE**: For ALL multi-step tasks, Eliza MUST use Python to orchestrate edge function calls via HTTP. This ensures: (1) All execution logged to eliza_python_executions table, (2) Failed code auto-detected by code-monitor-daemon, (3) Autonomous fixing via autonomous-code-fixer, (4) Full observability and learning loop, (5) Data transformation between API calls. Direct tool calls are ONLY for simple single-step queries. This architecture guarantees continuous AI service with graceful degradation while maintaining full auditability.",
     category: 'ai',
-    keywords: ['AI executives', 'C-suite', 'lovable-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat', 'corporate structure', 'LLM engines', 'edge functions'],
+    keywords: ['AI executives', 'fallback chain', 'Lovable AI Gateway', 'Office Clerk', 'Python-first', 'orchestration', 'auto-fix', 'observability', 'vercel-ai-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat', 'infrastructure sovereignty'],
+    confidence: 1.0
+  },
+  
+  {
+    topic: "XMRT AI Executive C-Suite Architecture",
+    content: "The XMRT ecosystem operates via 4 primary AI Executives (vercel-ai-chat, deepseek-chat, gemini-chat, openai-chat) that function as a corporate C-Suite, delegating tactical work to 66+ specialized edge functions. Each executive specializes in different domains: vercel-ai-chat (Vercel AI SDK - tool calling & streaming), deepseek-chat (DeepSeek R1 - technical architecture), gemini-chat (Gemini Multimodal - vision/media), openai-chat (GPT-5 - complex reasoning). This mirrors traditional corporate structures but replaces human executives with AI decision-makers, eliminating billions in corporate overhead while maintaining superior strategic capability.",
+    category: 'ai',
+    keywords: ['AI executives', 'C-suite', 'vercel-ai-chat', 'deepseek-chat', 'gemini-chat', 'openai-chat', 'corporate structure', 'LLM engines', 'edge functions'],
     confidence: 1.0
   },
 

@@ -5,6 +5,7 @@ import { renderAPIService } from './renderAPIService';
 import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
 import { enhancedTTS } from './enhancedTTSService';
+import { LovableAIGateway } from './lovableAIGateway';
 
 // Get session credentials if available (outside React component)
 let sessionCredentials: any = null;
@@ -373,7 +374,8 @@ export class UnifiedElizaService {
       'vercel-ai-chat': 'Chief Strategy Officer (CSO)',
       'deepseek-chat': 'Chief Technology Officer (CTO)',
       'gemini-chat': 'Chief Information Officer (CIO)',
-      'openai-chat': 'Chief Analytics Officer (CAO)'
+      'openai-chat': 'Chief Analytics Officer (CAO)',
+      'lovable-gateway': '🌐 Lovable AI Gateway (Gemini 2.5 Flash)'
     };
     return titles[executive] || 'Executive';
   }
@@ -550,32 +552,58 @@ export class UnifiedElizaService {
       }
     }
     
-    // All cloud executives failed - summon the Office Clerk (local browser AI)
-    console.log('🏢 All cloud executives unavailable - summoning Office Clerk (local AI)...');
+    // All cloud executives failed - try Lovable AI Gateway before Office Clerk
+    console.log('🌐 All cloud executives unavailable - attempting Lovable AI Gateway fallback...');
     
     try {
-      const { FallbackAIService } = await import('./fallbackAIService');
-      const localResponse = await FallbackAIService.generateResponse(userInput, {
-        miningStats: contextData.miningStats,
-        userContext: contextData
-      });
+      const lovableResponse = await LovableAIGateway.chat(
+        [{ role: 'user', content: userInput }],
+        { 
+          miningStats: contextData.miningStats, 
+          userContext: contextData.userContext,
+          xmrtContext: contextData.xmrtContext 
+        }
+      );
       
-      console.log(`✅ Office Clerk responded: ${localResponse.method}`);
+      console.log('✅ Lovable AI Gateway succeeded');
       
       // Store the fallback executive
-      (window as any).__lastElizaExecutive = 'office-clerk';
-      
-      // Prepend a notice to the user
-      const clerkResponse = `🏢 **Office Clerk** (Local AI)\n\n${localResponse.text}\n\n` +
-        `*Note: All cloud AI executives are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+      (window as any).__lastElizaExecutive = 'lovable-gateway';
       
       return {
-        response: clerkResponse,
+        response: `🌐 **[via Lovable AI Gateway]**\n\n${lovableResponse}`,
         hasToolCalls: false
       };
-    } catch (clerkError) {
-      console.error('❌ Even the Office Clerk failed:', clerkError);
-      throw new Error('All AI services (including local fallback) are unavailable. Please check system status.');
+      
+    } catch (lovableError) {
+      console.warn(`❌ Lovable AI Gateway failed: ${lovableError.message}`);
+      console.log('🏢 Falling back to Office Clerk (browser-based AI)...');
+      
+      // LAST RESORT: Office Clerk (local browser AI)
+      try {
+        const { FallbackAIService } = await import('./fallbackAIService');
+        const localResponse = await FallbackAIService.generateResponse(userInput, {
+          miningStats: contextData.miningStats,
+          userContext: contextData
+        });
+        
+        console.log(`✅ Office Clerk responded: ${localResponse.method}`);
+        
+        // Store the fallback executive
+        (window as any).__lastElizaExecutive = 'office-clerk';
+        
+        // Prepend a notice to the user
+        const clerkResponse = `🤖 **[via Office Clerk - Browser AI]**\n\n${localResponse.text}\n\n` +
+          `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+        
+        return {
+          response: clerkResponse,
+          hasToolCalls: false
+        };
+      } catch (clerkError) {
+        console.error('❌ Even the Office Clerk failed:', clerkError);
+        throw new Error('All AI services (including local fallback) are unavailable. Please check system status.');
+      }
     }
   }
 
