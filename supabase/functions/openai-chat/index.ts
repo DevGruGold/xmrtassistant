@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
+import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
 import { EdgeFunctionLogger } from "../_shared/logging.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
@@ -152,6 +153,37 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('❌ OpenAI Chat function error:', error);
     await logger.error('Function execution failed', error, 'error');
+    
+    // Try Lovable AI Gateway as final fallback
+    if (error.message.includes('rate limit') || error.message.includes('quota') || error.message.includes('exceeded')) {
+      console.log('⚠️ OpenAI failed - trying Lovable AI Gateway fallback...');
+      
+      try {
+        const requestBody = await req.json();
+        const { messages } = requestBody;
+        const userMessage = messages[messages.length - 1]?.content || '';
+        
+        const lovableResponse = await callLovableAIGateway(
+          [{ role: 'user', content: userMessage }],
+          {
+            model: 'google/gemini-2.5-flash',
+            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO.'
+          }
+        );
+        
+        return new Response(JSON.stringify({
+          success: true,
+          response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
+          executive: 'openai-chat',
+          executiveTitle: 'Chief Analytics Officer (CAO) - Fallback Mode'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (lovableError) {
+        console.error('❌ Lovable AI Gateway also failed:', lovableError);
+      }
+    }
+    
     return new Response(JSON.stringify({
       success: false,
       error: error.message || 'Unknown error occurred'

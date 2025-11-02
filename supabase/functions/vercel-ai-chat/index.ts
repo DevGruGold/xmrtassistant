@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
+import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
 import { createOpenAI } from "npm:@ai-sdk/openai@1.0.0";
 import { generateText, tool } from "npm:ai@4.0.0";
 import { z } from "npm:zod@3.24.1";
@@ -443,6 +444,38 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('❌ AI chat error:', error);
+    
+    // Try Lovable AI Gateway as final fallback
+    if (error.message.includes('rate limit') || error.message.includes('quota') || error.message.includes('credits')) {
+      console.log('⚠️ AI provider failed - trying Lovable AI Gateway fallback...');
+      
+      try {
+        const { messages } = await req.json();
+        const userMessage = messages[messages.length - 1]?.content || '';
+        
+        const lovableResponse = await callLovableAIGateway(
+          [{ role: 'user', content: userMessage }],
+          {
+            model: 'google/gemini-2.5-flash',
+            systemPrompt: 'You are Eliza, the autonomous AI co-founder of XMRT DAO.'
+          }
+        );
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            response: `🌐 [via Lovable AI Gateway]\n\n${lovableResponse}`,
+            provider: 'lovable_gateway',
+            executive: 'vercel-ai-chat',
+            executiveTitle: 'Chief Strategy Officer (CSO) - Fallback Mode'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (lovableError) {
+        console.error('❌ Lovable AI Gateway also failed:', lovableError);
+      }
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
