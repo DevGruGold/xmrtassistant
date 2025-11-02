@@ -3,7 +3,7 @@ import UnifiedChat from "@/components/UnifiedChat";
 import PythonShell from "@/components/PythonShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Info, Activity, Brain, Zap, Eye, Code } from "lucide-react";
+import { Info, Activity, Brain, Zap, Eye, Code, Users } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,14 +20,14 @@ const Index = () => {
         {/* Header Section */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            <Brain className="w-12 h-12 text-primary" />
+            <Users className="w-12 h-12 text-primary" />
             <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-              Eliza AI Assistant
+              XMRT Council
             </h1>
-            <Zap className="w-12 h-12 text-primary" />
+            <Brain className="w-12 h-12 text-primary" />
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Autonomous AI with circular learning, self-healing code execution, and real-time activity monitoring
+            Autonomous AI Executive Board with 120+ Edge Functions | Individual & Group Deliberations
           </p>
           
           {/* Status Badges */}
@@ -181,8 +181,8 @@ const Index = () => {
           <Card className="border-border shadow-xl bg-card/90 backdrop-blur">
             <CardHeader className="border-b border-border bg-muted/30">
               <CardTitle className="flex items-center gap-2">
-                <Brain className="w-5 h-5 text-primary" />
-                Chat with Eliza
+                <Users className="w-5 h-5 text-primary" />
+                XMRT Council
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">

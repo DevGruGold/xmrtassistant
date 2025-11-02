@@ -103,6 +103,13 @@ export default {
           warning: "hsl(var(--mining-warning))",
           info: "hsl(var(--mining-info))",
         },
+        executive: {
+          cso: "217 70% 53%",    // blue
+          cto: "271 70% 63%",    // purple
+          cio: "142 71% 45%",    // green
+          cao: "24 95% 53%",     // orange
+          council: "271 81% 56%", // unified purple
+        },
       },
     },
   },

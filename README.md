@@ -1,4 +1,4 @@
-# XMRT Assistant: AI-Powered Platform for Autonomous DAO Management
+# XMRT Council: AI Executive Governance Platform
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://xmrtassistant.vercel.app)
 [![GitHub](https://img.shields.io/badge/github-DevGruGold/xmrtassistant-blue)](https://github.com/DevGruGold/xmrtassistant)
@@ -9,9 +9,9 @@
 
 ---
 
-## 🌟 What is XMRT Assistant?
+## 🌟 What is XMRT Council?
 
-XMRT Assistant is a full-stack web application that serves as the operational control center for the XMRT DAO ecosystem. It features a sophisticated multi-AI executive system powered by four different LLM engines, 66+ autonomous edge functions, and comprehensive tools for monitoring mobile Monero mining operations, treasury management, and decentralized governance.
+XMRT Council is a full-stack web application that serves as the AI Executive Board for the XMRT DAO ecosystem. It features a revolutionary multi-AI council system where 4 specialized executives (CSO, CTO, CIO, CAO) can be engaged individually or as a group. The platform coordinates 120+ autonomous edge functions for mining operations, treasury management, and decentralized governance.
 
 ### Live Platform
 🚀 **Production:** [xmrtassistant.vercel.app](https://xmrtassistant.vercel.app)

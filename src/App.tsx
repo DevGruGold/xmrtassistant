@@ -8,6 +8,7 @@ import Contributors from "./pages/Contributors";
 import Credentials from "./pages/Credentials";
 import Index from "./pages/Index";
 import Treasury from "./pages/Treasury";
+import Council from "./pages/Council";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/council" element={<Council />} />
             <Route path="/treasury" element={<Treasury />} />
             <Route path="/contributors" element={<Contributors />} />
             <Route path="/credentials" element={<Credentials />} />

@@ -41,6 +41,13 @@ export function MobileNav() {
               {t('nav.treasury')}
             </Link>
             <Link
+              to="/council"
+              className="text-2xl font-bold text-white hover:text-purple-400 transition-colors"
+              onClick={toggleMenu}
+            >
+              🏛️ Council
+            </Link>
+            <Link
               to="/contributors"
               className="text-2xl font-bold text-white hover:text-purple-400 transition-colors"
               onClick={toggleMenu}

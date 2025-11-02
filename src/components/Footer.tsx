@@ -21,7 +21,7 @@ export function Footer() {
       <div className="container mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
           <div className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">
-            © 2024 XMRT Master DAO. All rights reserved.
+            © 2025 XMRT Council. Governed by AI Executives.
           </div>
           <div className="flex gap-3 sm:gap-4 items-center">
             <Button
