@@ -596,21 +596,41 @@ export class UnifiedElizaService {
       console.warn(`❌ Lovable AI Gateway failed: ${lovableError.message}`);
       console.log('🏢 Falling back to Office Clerk (browser-based AI)...');
       
-      // LAST RESORT: Office Clerk (local browser AI)
+      // LAST RESORT: Office Clerk (MLC-LLM or legacy fallback)
       try {
-        const { FallbackAIService } = await import('./fallbackAIService');
-        const localResponse = await FallbackAIService.generateResponse(userInput, {
+        const { MLCLLMService } = await import('./mlcLLMService');
+        
+        // Check if WebGPU is supported
+        if (!MLCLLMService.isWebGPUSupported()) {
+          console.warn('⚠️ WebGPU not supported - using legacy Office Clerk');
+          const { FallbackAIService } = await import('./fallbackAIService');
+          const localResponse = await FallbackAIService.generateResponse(userInput, {
+            miningStats: contextData.miningStats,
+            userContext: contextData
+          });
+          
+          console.log(`✅ Legacy Office Clerk responded: ${localResponse.method}`);
+          (window as any).__lastElizaExecutive = 'office-clerk-legacy';
+          
+          const clerkResponse = `🤖 **[via Office Clerk - Legacy Browser AI]**\n\n${localResponse.text}\n\n` +
+            `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+          
+          return {
+            response: clerkResponse,
+            hasToolCalls: false
+          };
+        }
+        
+        // Use MLC-LLM
+        const localResponse = await MLCLLMService.generateConversationResponse(userInput, {
           miningStats: contextData.miningStats,
-          userContext: contextData
+          userContext: { sessionKey: sessionKey }
         });
         
-        console.log(`✅ Office Clerk responded: ${localResponse.method}`);
+        console.log(`✅ Office Clerk (MLC-LLM) responded: ${localResponse.method}`);
+        (window as any).__lastElizaExecutive = 'office-clerk-mlc';
         
-        // Store the fallback executive
-        (window as any).__lastElizaExecutive = 'office-clerk';
-        
-        // Prepend a notice to the user
-        const clerkResponse = `🤖 **[via Office Clerk - Browser AI]**\n\n${localResponse.text}\n\n` +
+        const clerkResponse = `🏢 **[via Office Clerk - MLC-LLM WebLLM]**\n\n${localResponse.text}\n\n` +
           `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
         
         return {

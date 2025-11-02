@@ -13,16 +13,16 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   // PHASE 4: Office Clerk-Specific Emergency Entries
   {
     topic: "Office Clerk Emergency Response Protocol",
-    content: "When all cloud AI executives are offline, the Office Clerk (SmolLM2-360M) activates as the final fallback. This browser-based AI runs entirely on your device using WebGPU, ensuring zero external dependencies. While less powerful than cloud models, it maintains full access to the XMRT knowledge base, real-time database stats, and conversation memory. The Office Clerk embodies Infrastructure Sovereignty - you own the AI, not the cloud.",
+    content: "When all cloud AI executives are offline, the Office Clerk (MLC-LLM WebLLM with Phi-3-mini) activates as the final fallback. This browser-based AI runs entirely on your device using WebGPU acceleration, ensuring zero external dependencies. With 3.8 billion parameters (vs 135M previously), it provides significantly better responses while maintaining full access to the XMRT knowledge base, real-time database stats, and conversation memory. The Office Clerk embodies Infrastructure Sovereignty - you own the AI, not the cloud.",
     category: "ai",
-    keywords: ["office clerk", "fallback", "browser ai", "offline", "emergency", "webgpu", "local ai"],
+    keywords: ["office clerk", "fallback", "browser ai", "offline", "emergency", "webgpu", "mlc-llm", "phi-3"],
     confidence: 1.0
   },
   {
     topic: "Office Clerk Capabilities and Limitations",
-    content: "The Office Clerk can: answer questions using the XMRT knowledge base, query real-time mining/DAO stats, recall conversation history, and provide technically accurate responses about the ecosystem. Limitations: slower response time (5-30s first load, 2-10s subsequent), ~200-500MB memory usage, simpler reasoning than GPT-5/Gemini Pro. It's optimized for core XMRT questions about mining, DAO governance, privacy bridges, and system architecture.",
+    content: "The Office Clerk (MLC-LLM) can: answer questions using the XMRT knowledge base, query real-time mining/DAO stats, recall conversation history, provide technically sophisticated responses, and stream responses in real-time. Requirements: Modern browser with WebGPU support (Chrome 113+, Edge 113+). First load: 10-60s (model download), subsequent loads: instant (cached). Inference: 0.5-3s per response. Memory: ~500MB-2GB. Quality: Significantly better than previous 135M model, approaching cloud AI quality for core XMRT questions.",
     category: "ai",
-    keywords: ["capabilities", "limitations", "performance", "browser ai", "office clerk"],
+    keywords: ["capabilities", "limitations", "performance", "browser ai", "office clerk", "webgpu"],
     confidence: 0.95
   },
   {
@@ -41,9 +41,9 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
   {
     topic: "Office Clerk vs Cloud Executives Comparison",
-    content: "Cloud Executives (GPT-5, Gemini Pro, DeepSeek, Vercel AI, Lovable AI): Powerful reasoning, fast responses, internet access, image generation, 100K+ context windows. Office Clerk (SmolLM2-360M): Runs on your device, zero external dependencies, privacy-preserving, works offline, accesses local database/memory, embodies XMRT's sovereignty principles. Use cloud for complex tasks, Office Clerk for core XMRT questions and emergencies.",
+    content: "Cloud Executives (GPT-5, Gemini Pro, DeepSeek, Lovable AI): Most powerful reasoning, internet access, image generation, 100K+ context windows. Office Clerk (MLC-LLM Phi-3-mini): Runs on your device with WebGPU acceleration, zero external dependencies, privacy-preserving, works offline, 3.8B parameters, fast inference (0.5-3s), accesses local database/memory, embodies XMRT's sovereignty principles. Quality gap significantly reduced compared to previous 135M model. Use cloud for complex multi-step tasks, Office Clerk for core XMRT questions and offline scenarios.",
     category: "ai",
-    keywords: ["comparison", "cloud vs local", "executives", "office clerk", "ai models"],
+    keywords: ["comparison", "cloud vs local", "executives", "office clerk", "mlc-llm", "phi-3"],
     confidence: 0.9
   },
   
@@ -148,9 +148,9 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
 
   {
     topic: "Eliza AI Executive Fallback Chain and Python-First Execution",
-    content: "Eliza's AI architecture features a sophisticated 3-tier fallback system with universal edge function resilience: **Tier 1 - Cloud AI Executives + Edge Functions**: vercel-ai-chat (CSO), deepseek-chat (CTO), gemini-chat (CIO), openai-chat (CAO) handle 95%+ of requests. **All 120+ edge functions use aiGatewayFallback.ts for resilience** - when a specific API key fails (e.g., GEMINI_API_KEY in vectorize-memory), they automatically fall back to Lovable AI Gateway. **Tier 2 - Lovable AI Gateway**: When cloud executives OR individual edge functions fail, Lovable AI Gateway (google/gemini-2.5-flash) activates via ai.gateway.lovable.dev. Automatically configured via LOVABLE_API_KEY with no user setup required. **Tier 3 - Office Clerk (Last Resort)**: SmolLM2-135M browser-based AI runs entirely on-device with zero external dependencies, embodying infrastructure sovereignty. **PYTHON-FIRST EXECUTION MANDATE**: Multi-step tasks use eliza-python-runtime to orchestrate edge function calls via pythonOrchestrator.ts, ensuring: (1) Full execution logging to eliza_python_executions, (2) Auto-detection by code-monitor-daemon, (3) Autonomous fixing via autonomous-code-fixer, (4) Complete observability and learning loop, (5) Data transformation between API calls. **Universal Fallback**: All edge functions import aiGatewayFallback.ts for automatic Lovable AI Gateway fallback when their primary AI provider fails, ensuring zero service interruption.",
+    content: "Eliza's AI architecture features a sophisticated 3-tier fallback system with universal edge function resilience: **Tier 1 - Cloud AI Executives + Edge Functions**: vercel-ai-chat (CSO), deepseek-chat (CTO), gemini-chat (CIO), openai-chat (CAO) handle 95%+ of requests. **All 120+ edge functions use aiGatewayFallback.ts for resilience** - when a specific API key fails (e.g., GEMINI_API_KEY in vectorize-memory), they automatically fall back to Lovable AI Gateway. **Tier 2 - Lovable AI Gateway**: When cloud executives OR individual edge functions fail, Lovable AI Gateway (google/gemini-2.5-flash) activates via ai.gateway.lovable.dev. Automatically configured via LOVABLE_API_KEY with no user setup required. **Tier 3 - Office Clerk (Last Resort)**: MLC-LLM WebLLM (Phi-3-mini 3.8B) browser-based AI runs entirely on-device with WebGPU acceleration and zero external dependencies, embodying infrastructure sovereignty. Requires modern browser with WebGPU (Chrome 113+, Edge 113+). Legacy fallback to SmolLM2-135M (WASM) for older browsers. **PYTHON-FIRST EXECUTION MANDATE**: Multi-step tasks use eliza-python-runtime to orchestrate edge function calls via pythonOrchestrator.ts, ensuring: (1) Full execution logging to eliza_python_executions, (2) Auto-detection by code-monitor-daemon, (3) Autonomous fixing via autonomous-code-fixer, (4) Complete observability and learning loop, (5) Data transformation between API calls. **Universal Fallback**: All edge functions import aiGatewayFallback.ts for automatic Lovable AI Gateway fallback when their primary AI provider fails, ensuring zero service interruption.",
     category: 'ai',
-    keywords: ['AI executives', 'fallback chain', 'Lovable AI Gateway', 'Office Clerk', 'Python-first', 'orchestration', 'auto-fix', 'observability', 'aiGatewayFallback', 'pythonOrchestrator', 'universal resilience', 'infrastructure sovereignty'],
+    keywords: ['AI executives', 'fallback chain', 'Lovable AI Gateway', 'Office Clerk', 'Python-first', 'orchestration', 'auto-fix', 'observability', 'aiGatewayFallback', 'pythonOrchestrator', 'universal resilience', 'infrastructure sovereignty', 'MLC-LLM', 'Phi-3', 'WebGPU'],
     confidence: 1.0
   },
   

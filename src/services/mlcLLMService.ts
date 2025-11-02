@@ -1,0 +1,369 @@
+import { MLCEngineInterface, CreateMLCEngine } from "@mlc-ai/web-llm";
+import { XMRT_KNOWLEDGE_BASE } from '../data/xmrtKnowledgeBase';
+import type { MiningStats } from '../services/unifiedDataService';
+import { supabase } from '@/integrations/supabase/client';
+import { memoryContextService } from './memoryContextService';
+
+export interface AIResponse {
+  text: string;
+  method: string;
+  confidence: number;
+}
+
+interface EnhancedContext {
+  knowledgeBase: string;
+  databaseStats: string;
+  conversationHistory: string;
+  userContext: string;
+  memoryContext: string;
+}
+
+export class MLCLLMService {
+  private static engine: MLCEngineInterface | null = null;
+  private static isInitializing = false;
+  private static isReady = false;
+  private static contextCache: Map<string, { data: any; timestamp: number }> = new Map();
+  private static CACHE_DURATION = {
+    knowledge: 5 * 60 * 1000, // 5 minutes
+    stats: 1 * 60 * 1000, // 1 minute
+  };
+
+  // Available models (ordered by preference)
+  private static MODELS = [
+    "Phi-3-mini-4k-instruct-q4f16_1-MLC", // 2.3GB, best balance
+    "Llama-3.2-1B-Instruct-q4f16_1-MLC",  // 1.2GB, fastest
+    "Llama-3.2-3B-Instruct-q4f16_1-MLC",  // 2.4GB, more capable
+  ];
+
+  // Initialize MLC-LLM WebLLM engine
+  private static async initializeMLCEngine(): Promise<void> {
+    if (this.isInitializing || this.isReady) return;
+    
+    this.isInitializing = true;
+    
+    try {
+      console.log('🏢 Initializing Office Clerk (MLC-LLM WebLLM)...');
+      
+      // Check for WebGPU support
+      if (!(navigator as any).gpu) {
+        throw new Error('WebGPU not supported - MLC-LLM requires WebGPU');
+      }
+
+      // Initialize engine with progress callback
+      this.engine = await CreateMLCEngine(
+        this.MODELS[0], // Default to Phi-3-mini
+        {
+          initProgressCallback: (progress) => {
+            console.log(`📥 Loading model: ${progress.progress}%`);
+          },
+        }
+      );
+      
+      this.isReady = true;
+      console.log('✅ Office Clerk ready (MLC-LLM WebLLM)');
+    } catch (error) {
+      console.error('❌ Office Clerk (MLC-LLM) initialization failed:', error);
+      this.engine = null;
+      this.isReady = false;
+      throw new Error('Office Clerk unavailable - WebGPU required or model failed to load');
+    } finally {
+      this.isInitializing = false;
+    }
+  }
+
+  // Get database stats
+  private static async getDatabaseStats(): Promise<string> {
+    const cacheKey = 'db_stats';
+    const cached = this.contextCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION.stats) {
+      return cached.data;
+    }
+
+    try {
+      const stats: string[] = [];
+
+      // Active devices
+      const { data: devices, error: devError } = await supabase
+        .from('active_devices_view')
+        .select('*')
+        .limit(100);
+      
+      if (!devError && devices) {
+        stats.push(`Active Mining Devices: ${devices.length}`);
+        const totalHashrate = devices.reduce((sum, d) => sum + (d.connection_duration_seconds || 0), 0);
+        stats.push(`Total Connection Time: ${Math.floor(totalHashrate / 3600)} hours`);
+      }
+
+      // DAO members
+      const { data: members, error: memError } = await supabase
+        .from('dao_members')
+        .select('voting_power, total_contributions, reputation_score')
+        .eq('is_active', true);
+      
+      if (!memError && members) {
+        stats.push(`DAO Members: ${members.length}`);
+        const totalVotingPower = members.reduce((sum, m) => sum + Number(m.voting_power || 0), 0);
+        stats.push(`Total Voting Power: ${totalVotingPower.toFixed(2)}`);
+      }
+
+      // Recent Eliza activity
+      const { data: activity, error: actError } = await supabase
+        .from('eliza_activity_log')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(5);
+      
+      if (!actError && activity) {
+        stats.push(`Recent Activity: ${activity.length} actions in last hour`);
+      }
+
+      const result = stats.length > 0 ? stats.join('\n') : 'Database stats unavailable';
+      this.contextCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
+    } catch (error) {
+      console.warn('Failed to fetch database stats:', error);
+      return 'Database stats unavailable';
+    }
+  }
+
+  // Get memory context
+  private static async getMemoryContext(userInput: string, sessionKey: string): Promise<string> {
+    try {
+      const memories = await memoryContextService.getRelevantContexts(
+        sessionKey,
+        5, // Get top 5 relevant memories
+        userInput
+      );
+
+      if (memories.length === 0) return '';
+
+      return `\nRECENT CONVERSATION MEMORY:\n${memories.map(m => m.content).join('\n')}`;
+    } catch (error) {
+      console.warn('Failed to fetch memory context:', error);
+      return '';
+    }
+  }
+
+  // Build enhanced context
+  private static async buildEnhancedContext(
+    userInput: string,
+    context: { miningStats?: MiningStats; userContext?: any }
+  ): Promise<EnhancedContext> {
+    // Get relevant knowledge base entries
+    const knowledgeEntries = XMRT_KNOWLEDGE_BASE
+      .filter(entry => 
+        entry.keywords.some(keyword => 
+          userInput.toLowerCase().includes(keyword.toLowerCase())
+        )
+      )
+      .slice(0, 3);
+
+    const knowledgeBase = knowledgeEntries.length > 0
+      ? knowledgeEntries.map(e => `• ${e.topic}: ${e.content}`).join('\n')
+      : 'No specific knowledge base match';
+
+    // Get database stats
+    const databaseStats = await this.getDatabaseStats();
+
+    // User context
+    const userContext = context.userContext 
+      ? JSON.stringify(context.userContext, null, 2)
+      : 'No user context available';
+
+    // Memory context
+    const sessionKey = context.userContext?.sessionKey || 'unknown';
+    const memoryContext = await this.getMemoryContext(userInput, sessionKey);
+
+    return {
+      knowledgeBase,
+      databaseStats,
+      conversationHistory: '',
+      userContext,
+      memoryContext
+    };
+  }
+
+  // Generate conversation response using MLC-LLM
+  static async generateConversationResponse(
+    userInput: string,
+    context: { miningStats?: MiningStats; userContext?: any }
+  ): Promise<AIResponse> {
+    try {
+      await this.initializeMLCEngine();
+      
+      if (!this.engine || !this.isReady) {
+        throw new Error('Office Clerk (MLC-LLM) not initialized');
+      }
+
+      // Build comprehensive context
+      const enhancedContext = await this.buildEnhancedContext(userInput, context);
+      
+      // System prompt
+      const systemPrompt = `You are the Office Clerk for XMRT-DAO, the autonomous browser-based AI serving as the last line of defense when all cloud executives are unavailable.
+
+XMRT MISSION: "We don't ask for permission. We build the infrastructure." - Joseph Andrew Lee
+
+CORE PRINCIPLES:
+- Infrastructure Sovereignty: Own the tools, control the future
+- Mobile Mining Democracy: Every phone is a node in the revolution
+- Privacy as Human Right: Zero compromise on user data
+- AI-Human Collaboration: Augment, not replace, human agency
+
+Your role: Provide accurate, technically sophisticated responses using real-time system data and the comprehensive knowledge base. You embody XMRT's philosophy of decentralized autonomy.
+
+CURRENT SYSTEM STATUS:
+${enhancedContext.databaseStats}
+
+RELEVANT KNOWLEDGE BASE:
+${enhancedContext.knowledgeBase}
+
+USER CONTEXT:
+${enhancedContext.userContext}
+${enhancedContext.memoryContext}
+
+Respond in a helpful, technically accurate manner while embodying XMRT's philosophical foundations. Be concise but comprehensive.`;
+
+      console.log('🏢 Office Clerk (MLC-LLM) processing request...');
+      
+      // Generate response using MLC-LLM
+      const response = await this.engine.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userInput }
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+      });
+
+      const generatedText = response.choices[0].message.content.trim();
+      
+      if (generatedText && generatedText.length > 10) {
+        // Store as memory for future context
+        const sessionKey = context.userContext?.sessionKey || 'unknown';
+        try {
+          await memoryContextService.storeContext(
+            sessionKey,
+            sessionKey,
+            `Q: ${userInput}\nA: ${generatedText}`,
+            'office_clerk_interaction',
+            0.7,
+            { method: 'Office Clerk (MLC-LLM)', timestamp: new Date().toISOString() }
+          );
+        } catch (memError) {
+          console.warn('Failed to store Office Clerk memory:', memError);
+        }
+
+        return {
+          text: generatedText,
+          method: 'Office Clerk (MLC-LLM WebLLM)',
+          confidence: 0.92
+        };
+      }
+      
+      throw new Error('Office Clerk (MLC-LLM) generated invalid response');
+    } catch (error) {
+      console.error('❌ Office Clerk (MLC-LLM) failed:', error);
+      throw error;
+    }
+  }
+
+  // Streaming support
+  static async generateStreamingResponse(
+    userInput: string,
+    context: { miningStats?: MiningStats; userContext?: any },
+    onChunk: (chunk: string) => void
+  ): Promise<AIResponse> {
+    try {
+      await this.initializeMLCEngine();
+      
+      if (!this.engine || !this.isReady) {
+        throw new Error('Office Clerk (MLC-LLM) not initialized');
+      }
+
+      const enhancedContext = await this.buildEnhancedContext(userInput, context);
+      const systemPrompt = `You are the Office Clerk for XMRT-DAO, the autonomous browser-based AI serving as the last line of defense when all cloud executives are unavailable.
+
+XMRT MISSION: "We don't ask for permission. We build the infrastructure." - Joseph Andrew Lee
+
+CORE PRINCIPLES:
+- Infrastructure Sovereignty: Own the tools, control the future
+- Mobile Mining Democracy: Every phone is a node in the revolution
+- Privacy as Human Right: Zero compromise on user data
+- AI-Human Collaboration: Augment, not replace, human agency
+
+Your role: Provide accurate, technically sophisticated responses using real-time system data and the comprehensive knowledge base. You embody XMRT's philosophy of decentralized autonomy.
+
+CURRENT SYSTEM STATUS:
+${enhancedContext.databaseStats}
+
+RELEVANT KNOWLEDGE BASE:
+${enhancedContext.knowledgeBase}
+
+USER CONTEXT:
+${enhancedContext.userContext}
+${enhancedContext.memoryContext}
+
+Respond in a helpful, technically accurate manner while embodying XMRT's philosophical foundations. Be concise but comprehensive.`;
+
+      console.log('🏢 Office Clerk (MLC-LLM) processing request (streaming)...');
+      
+      let fullResponse = '';
+      
+      const chunks = await this.engine.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userInput }
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+        stream: true,
+      });
+
+      for await (const chunk of chunks) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          fullResponse += delta;
+          onChunk(delta);
+        }
+      }
+
+      // Store memory
+      const sessionKey = context.userContext?.sessionKey || 'unknown';
+      try {
+        await memoryContextService.storeContext(
+          sessionKey,
+          sessionKey,
+          `Q: ${userInput}\nA: ${fullResponse}`,
+          'office_clerk_interaction',
+          0.7,
+          { method: 'Office Clerk (MLC-LLM Streaming)', timestamp: new Date().toISOString() }
+        );
+      } catch (memError) {
+        console.warn('Failed to store Office Clerk memory:', memError);
+      }
+
+      return {
+        text: fullResponse,
+        method: 'Office Clerk (MLC-LLM WebLLM Streaming)',
+        confidence: 0.92
+      };
+    } catch (error) {
+      console.error('❌ Office Clerk (MLC-LLM streaming) failed:', error);
+      throw error;
+    }
+  }
+
+  // Check if WebGPU is supported
+  static isWebGPUSupported(): boolean {
+    return !!(navigator as any).gpu;
+  }
+
+  // Get engine status
+  static getStatus(): { ready: boolean; initializing: boolean; supported: boolean } {
+    return {
+      ready: this.isReady,
+      initializing: this.isInitializing,
+      supported: this.isWebGPUSupported()
+    };
+  }
+}

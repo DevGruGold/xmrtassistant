@@ -1,3 +1,15 @@
+/**
+ * Legacy Fallback AI Service (WASM-based)
+ * 
+ * This service is kept as the ultimate fallback when:
+ * 1. WebGPU is not supported (older browsers)
+ * 2. MLC-LLM WebLLM fails to initialize
+ * 3. User's device doesn't have enough resources for WebGPU
+ * 
+ * Uses Hugging Face Transformers.js with SmolLM2-135M-Instruct
+ * Running on WASM (CPU-only) for maximum compatibility.
+ */
+
 import { pipeline, env } from '@huggingface/transformers';
 import { xmrtKnowledge } from '../data/xmrtKnowledgeBase';
 import type { MiningStats } from '../services/unifiedDataService';
