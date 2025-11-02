@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, GitCommit, DollarSign, TrendingUp } from 'lucide-react';
-import { GitHubPATInput } from './GitHubPATInput';
+import { GitHubPATInput } from './GitHubContributorRegistration';
 
 interface Contributor {
   github_username: string;

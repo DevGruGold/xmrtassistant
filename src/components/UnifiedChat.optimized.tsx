@@ -28,7 +28,7 @@ import { unifiedDataService, type MiningStats } from '@/services/unifiedDataServ
 import { conversationPersistence } from '@/services/conversationPersistenceService';
 
 // Lazy load optional features
-const GitHubPATInput = lazy(() => import('./GitHubPATInput').then(m => ({ default: m.GitHubPATInput })));
+const GitHubPATInput = lazy(() => import('./GitHubContributorRegistration').then(m => ({ default: m.GitHubPATInput })));
 const GitHubTokenStatus = lazy(() => import('./GitHubTokenStatus').then(m => ({ default: m.GitHubTokenStatus })));
 
 interface UnifiedMessage {

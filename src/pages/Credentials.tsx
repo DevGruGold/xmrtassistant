@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, ExternalLink, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useAPIKeyHealth } from '@/services/credentialManager';
-import { GeminiAPIKeyInput } from '@/components/GeminiAPIKeyInput';
-import { OpenAIAPIKeyInput } from '@/components/OpenAIAPIKeyInput';
+import { UnifiedAPIKeyInput } from '@/components/UnifiedAPIKeyInput';
 
 export default function Credentials() {
   const { health, loading, refresh } = useAPIKeyHealth();
@@ -116,34 +115,101 @@ export default function Credentials() {
           })}
         </div>
 
-        {/* Quick Setup - Existing Components */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Quick Setup</h2>
-          
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">OpenAI API Key</h3>
-            <OpenAIAPIKeyInput />
-          </Card>
+        {/* API Key Management */}
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">API Key Management</h2>
+            <p className="text-muted-foreground mt-1">
+              Update backend API keys for all services. Keys are stored securely in Supabase secrets.
+            </p>
+          </div>
 
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Gemini API Key</h3>
-            <GeminiAPIKeyInput />
-          </Card>
+          {/* Primary AI Executives */}
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold">Primary AI Executives</h3>
+            
+            <UnifiedAPIKeyInput
+              serviceName="xai"
+              serviceLabel="xAI (Grok)"
+              keyPrefix="xai-"
+              helpUrl="https://console.x.ai/team"
+              description="Lead AI executive via Cloudflare AI Gateway"
+              secretName="AI_GATEWAY_API_KEY"
+            />
+            
+            <UnifiedAPIKeyInput
+              serviceName="deepseek"
+              serviceLabel="DeepSeek"
+              keyPrefix="sk-"
+              helpUrl="https://platform.deepseek.com/"
+              description="Reasoning-focused AI executive"
+              secretName="DEEPSEEK_API_KEY"
+            />
+            
+            <UnifiedAPIKeyInput
+              serviceName="openai"
+              serviceLabel="OpenAI"
+              keyPrefix="sk-"
+              helpUrl="https://platform.openai.com/api-keys"
+              description="GPT models for advanced tasks"
+              secretName="OPENAI_API_KEY"
+            />
+            
+            <UnifiedAPIKeyInput
+              serviceName="gemini"
+              serviceLabel="Google Gemini"
+              keyPrefix="AIza"
+              helpUrl="https://makersuite.google.com/app/apikey"
+              description="Multimodal AI capabilities"
+              secretName="GEMINI_API_KEY"
+            />
+          </div>
+
+          {/* GitHub Integration */}
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold">GitHub Integration</h3>
+            
+            <UnifiedAPIKeyInput
+              serviceName="github"
+              serviceLabel="GitHub"
+              keyPrefix="ghp_"
+              helpUrl="https://github.com/settings/tokens"
+              description="Repository management, discussions, and issues"
+              secretName="GITHUB_TOKEN"
+            />
+          </div>
+
+          {/* Voice Services */}
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold">Voice Services</h3>
+            
+            <UnifiedAPIKeyInput
+              serviceName="elevenlabs"
+              serviceLabel="ElevenLabs"
+              keyPrefix=""
+              helpUrl="https://elevenlabs.io/app/settings/api-keys"
+              description="High-quality text-to-speech"
+              secretName="ELEVENLABS_API_KEY"
+            />
+          </div>
         </div>
 
-        {/* Information */}
+        {/* System Information */}
         <Card className="p-6 bg-muted/30">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
-                <strong>Session-only credentials:</strong> Provide credentials in-app as needed. They won't be stored permanently.
+                <strong>Lovable AI Gateway:</strong> Automatically configured and managed. No user action required.
               </p>
               <p>
-                <strong>Backend secrets:</strong> Configured in Supabase edge function settings for persistent use.
+                <strong>Fallback Chain:</strong> xAI → DeepSeek → OpenAI → Gemini → Lovable AI Gateway → Office Clerk (browser)
               </p>
               <p>
-                <strong>Automatic fallback:</strong> The system will try multiple services before asking for credentials.
+                <strong>Security:</strong> All keys stored in Supabase secrets (backend-only). Never exposed to client.
+              </p>
+              <p>
+                <strong>GitHub Contributor Registration:</strong> For earning XMRT rewards, visit the Contributors page to register with your GitHub PAT and wallet address.
               </p>
             </div>
           </div>

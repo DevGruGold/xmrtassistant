@@ -8,7 +8,7 @@ import { AdaptiveAvatar } from './AdaptiveAvatar';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReasoningSteps, type ReasoningStep } from './ReasoningSteps';
 // 🎤 TTS is now language-aware: English (en) / Spanish (es)
-import { GitHubPATInput } from './GitHubPATInput';
+import { GitHubPATInput } from './GitHubContributorRegistration';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';

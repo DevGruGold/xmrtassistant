@@ -287,6 +287,48 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
     category: 'ecosystem',
     keywords: ['autonomous evolution', 'roadmap', 'AI capabilities', 'cross-chain', 'mobile mining', 'mesh scaling', 'educational platform', 'privacy advancement', 'future development'],
     confidence: 1.0
+  },
+
+  {
+    topic: "API Key Management and Credential System",
+    content: `
+**Managing API Keys for AI Executives**
+
+Navigate to the Credentials page to update API keys for all AI services in the fallback chain.
+
+**Primary AI Executives:**
+• xAI (Grok) - Lead AI executive via Cloudflare AI Gateway (AI_GATEWAY_API_KEY)
+• DeepSeek - Reasoning-focused specialist (DEEPSEEK_API_KEY)
+• OpenAI - GPT models for complex analysis (OPENAI_API_KEY)
+• Google Gemini - Multimodal AI capabilities (GEMINI_API_KEY)
+
+**Automatic Fallback:**
+• Lovable AI Gateway - Automatically configured, no user action required
+• Office Clerk - Browser-based final fallback (SmolLM2-360M)
+
+**Security:**
+• All keys stored in Supabase secrets (backend-only)
+• Never exposed to client-side code
+• Health monitored via api_key_health table
+• Session credentials for temporary use
+
+**Key Formats:**
+• OpenAI: sk-proj-... or sk-...
+• DeepSeek: sk-...
+• Gemini: AIzaSy...
+• xAI: xai-... (via Cloudflare AI Gateway)
+• GitHub: ghp_... or github_pat_...
+• ElevenLabs: API key from dashboard
+
+**Contributor Registration vs API Key Management:**
+• API Key Management (Credentials page): Update backend secrets for all AI services
+• Contributor Registration (Contributors page): Register GitHub PAT + wallet address for earning XMRT rewards
+
+The system will automatically try the fallback chain (xAI → DeepSeek → OpenAI → Gemini → Lovable AI → Office Clerk) when services are unavailable.
+    `.trim(),
+    category: 'technical',
+    keywords: ['API keys', 'credentials', 'configuration', 'xAI', 'DeepSeek', 'OpenAI', 'Gemini', 'GitHub', 'ElevenLabs', 'fallback chain', 'security', 'secrets'],
+    confidence: 1.0
   }
 ];
 
