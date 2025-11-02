@@ -18,6 +18,18 @@ interface EnhancedContext {
   memoryContext: string;
 }
 
+// Public progress state for UI subscription
+export interface MLCLoadingProgress {
+  status: 'idle' | 'checking_webgpu' | 'downloading' | 'initializing' | 'ready' | 'failed';
+  progress: number; // 0-100
+  message: string;
+  currentModel?: string;
+  downloadedBytes?: number;
+  totalBytes?: number;
+  error?: string;
+  webGPUSupported?: boolean;
+}
+
 export class MLCLLMService {
   private static engine: MLCEngineInterface | null = null;
   private static isInitializing = false;
@@ -28,44 +40,158 @@ export class MLCLLMService {
     stats: 1 * 60 * 1000, // 1 minute
   };
 
-  // Available models (ordered by preference)
+  // Public progress state (UI can subscribe via getProgress())
+  private static progressState: MLCLoadingProgress = {
+    status: 'idle',
+    progress: 0,
+    message: 'Not started'
+  };
+  
+  private static progressListeners: Array<(progress: MLCLoadingProgress) => void> = [];
+
+  // Available models (ordered by preference: fastest/smallest first for fallback)
   private static MODELS = [
-    "Phi-3-mini-4k-instruct-q4f16_1-MLC", // 2.3GB, best balance
-    "Llama-3.2-1B-Instruct-q4f16_1-MLC",  // 1.2GB, fastest
-    "Llama-3.2-3B-Instruct-q4f16_1-MLC",  // 2.4GB, more capable
+    { id: "Phi-3-mini-4k-instruct-q4f16_1-MLC", size: "2.3GB", desc: "Best balance" },
+    { id: "Llama-3.2-1B-Instruct-q4f16_1-MLC", size: "1.2GB", desc: "Fastest (fallback)" },
+    { id: "Llama-3.2-3B-Instruct-q4f16_1-MLC", size: "2.4GB", desc: "More capable" },
   ];
 
-  // Initialize MLC-LLM WebLLM engine
+  private static TIMEOUTS = {
+    INIT_START: 30 * 1000, // 30 seconds to start initialization
+    FULL_DOWNLOAD: 5 * 60 * 1000, // 5 minutes for full download
+  };
+
+  // Update progress and notify listeners
+  private static updateProgress(update: Partial<MLCLoadingProgress>): void {
+    this.progressState = { ...this.progressState, ...update };
+    this.progressListeners.forEach(listener => listener(this.progressState));
+  }
+
+  // Subscribe to progress updates
+  static subscribeToProgress(listener: (progress: MLCLoadingProgress) => void): () => void {
+    this.progressListeners.push(listener);
+    // Immediately send current state
+    listener(this.progressState);
+    // Return unsubscribe function
+    return () => {
+      const index = this.progressListeners.indexOf(listener);
+      if (index > -1) this.progressListeners.splice(index, 1);
+    };
+  }
+
+  // Get current progress
+  static getProgress(): MLCLoadingProgress {
+    return { ...this.progressState };
+  }
+
+  // Initialize MLC-LLM WebLLM engine with progress tracking, timeouts, and fallbacks
   private static async initializeMLCEngine(): Promise<void> {
     if (this.isInitializing || this.isReady) return;
     
     this.isInitializing = true;
+    this.updateProgress({ status: 'checking_webgpu', progress: 0, message: 'Checking WebGPU support...' });
     
     try {
       console.log('🏢 Initializing Office Clerk (MLC-LLM WebLLM)...');
       
       // Check for WebGPU support
-      if (!(navigator as any).gpu) {
+      const webGPUSupported = !!(navigator as any).gpu;
+      this.updateProgress({ webGPUSupported });
+      
+      if (!webGPUSupported) {
+        this.updateProgress({ 
+          status: 'failed', 
+          progress: 0, 
+          message: 'WebGPU not supported in this browser',
+          error: 'WebGPU required for Office Clerk. Try Chrome/Edge 113+.'
+        });
         throw new Error('WebGPU not supported - MLC-LLM requires WebGPU');
       }
 
-      // Initialize engine with progress callback
-      this.engine = await CreateMLCEngine(
-        this.MODELS[0], // Default to Phi-3-mini
-        {
-          initProgressCallback: (progress) => {
-            console.log(`📥 Loading model: ${progress.progress}%`);
-          },
-        }
-      );
+      // Try models in order with timeout
+      let lastError: Error | null = null;
       
-      this.isReady = true;
-      console.log('✅ Office Clerk ready (MLC-LLM WebLLM)');
-    } catch (error) {
-      console.error('❌ Office Clerk (MLC-LLM) initialization failed:', error);
+      for (let i = 0; i < this.MODELS.length; i++) {
+        const model = this.MODELS[i];
+        
+        try {
+          this.updateProgress({ 
+            status: 'downloading', 
+            progress: 5, 
+            message: `Loading ${model.desc} model (${model.size})...`,
+            currentModel: model.id
+          });
+
+          console.log(`📥 Attempting to load: ${model.id} (${model.size})`);
+
+          // Create timeout promise
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Model download timeout (${this.TIMEOUTS.FULL_DOWNLOAD / 1000}s)`)), 
+              this.TIMEOUTS.FULL_DOWNLOAD);
+          });
+
+          // Initialize engine with progress callback
+          const enginePromise = CreateMLCEngine(model.id, {
+            initProgressCallback: (progressReport) => {
+              // progressReport has: progress (0-1), timeElapsed, text
+              const percent = Math.round(progressReport.progress * 100);
+              this.updateProgress({ 
+                status: 'downloading', 
+                progress: Math.min(95, percent),
+                message: progressReport.text || `Downloading: ${percent}%`,
+                currentModel: model.id
+              });
+              console.log(`📥 ${model.id}: ${percent}% - ${progressReport.text}`);
+            },
+          });
+
+          // Race between download and timeout
+          this.engine = await Promise.race([enginePromise, timeoutPromise]);
+          
+          this.updateProgress({ status: 'ready', progress: 100, message: `Office Clerk ready (${model.desc})` });
+          this.isReady = true;
+          console.log(`✅ Office Clerk ready with ${model.id}`);
+          return; // Success!
+          
+        } catch (modelError: any) {
+          lastError = modelError;
+          console.warn(`❌ Failed to load ${model.id}: ${modelError.message}`);
+          
+          // If not the last model, try next
+          if (i < this.MODELS.length - 1) {
+            this.updateProgress({ 
+              status: 'downloading', 
+              progress: 0, 
+              message: `${model.desc} failed, trying smaller model...`
+            });
+            continue;
+          }
+        }
+      }
+
+      // All models failed
+      this.updateProgress({ 
+        status: 'failed', 
+        progress: 0, 
+        message: 'All models failed to load',
+        error: lastError?.message || 'Unknown error'
+      });
+      
       this.engine = null;
       this.isReady = false;
-      throw new Error('Office Clerk unavailable - WebGPU required or model failed to load');
+      throw new Error(`Office Clerk unavailable: ${lastError?.message || 'All models failed'}`);
+      
+    } catch (error: any) {
+      console.error('❌ Office Clerk (MLC-LLM) initialization failed:', error);
+      this.updateProgress({ 
+        status: 'failed', 
+        progress: 0, 
+        message: 'Initialization failed',
+        error: error.message
+      });
+      this.engine = null;
+      this.isReady = false;
+      throw error;
     } finally {
       this.isInitializing = false;
     }

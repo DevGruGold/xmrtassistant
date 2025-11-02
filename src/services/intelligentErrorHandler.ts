@@ -246,8 +246,14 @@ export class IntelligentErrorHandler {
 
   /**
    * Generate user-facing explanation with technical depth
+   * Supports multi-service diagnostics when multiple fallbacks were attempted
    */
-  static generateExplanation(diagnosis: ErrorDiagnosis): string {
+  static generateExplanation(diagnosis: ErrorDiagnosis, fallbacksAttempted?: string[]): string {
+    // Check if this is a multi-service failure scenario
+    if (fallbacksAttempted && fallbacksAttempted.length > 1) {
+      return this.generateMultiServiceExplanation(diagnosis, fallbacksAttempted);
+    }
+    
     const timestamp = new Date(diagnosis.details.timestamp).toLocaleTimeString();
     
     switch (diagnosis.type) {
@@ -360,6 +366,99 @@ ${diagnosis.message}
 
 I apologize for the inconvenience.`;
     }
+  }
+
+  /**
+   * Generate comprehensive multi-service failure explanation
+   */
+  private static generateMultiServiceExplanation(diagnosis: ErrorDiagnosis, fallbacksAttempted: string[]): string {
+    const timestamp = new Date().toLocaleTimeString();
+    const serviceEmojis: Record<string, string> = {
+      'vercel-ai-chat': '🤖',
+      'gemini-chat': '✨',
+      'openai-chat': '🧠',
+      'deepseek-chat': '🔍',
+      'lovable-gateway': '🌐',
+      'office-clerk-mlc': '🏢',
+      'office-clerk-legacy': '📝'
+    };
+
+    let explanation = `🚨 **All AI Services Exhausted** (${timestamp})\n\n`;
+    explanation += `**Attempted Services:**\n`;
+
+    // Show each attempted service
+    fallbacksAttempted.forEach(service => {
+      const emoji = serviceEmojis[service] || '•';
+      const title = this.getServiceTitle(service);
+      explanation += `${emoji} ${title} → `;
+      
+      // Add status based on diagnosis
+      if (diagnosis.type === 'payment_required') {
+        explanation += `💳 402 Payment Required\n`;
+        explanation += `   - ${diagnosis.message}\n`;
+      } else if (diagnosis.type === 'rate_limit') {
+        explanation += `⏱️ 429 Rate Limit Exceeded\n`;
+        explanation += `   - ${diagnosis.message}\n`;
+      } else {
+        explanation += `❌ ${diagnosis.message}\n`;
+      }
+    });
+
+    // Add Office Clerk status if it's being loaded
+    const officeClerkStatus = this.getOfficeClerkStatus();
+    if (officeClerkStatus) {
+      explanation += `\n⏳ **Office Clerk (Backup)** → Initializing\n`;
+      explanation += officeClerkStatus;
+    }
+
+    explanation += `\n**Your Options:**\n`;
+    explanation += `1. ⏳ Wait for Office Clerk (~2-5 min) - Fully offline, privacy-preserving\n`;
+    explanation += `2. 💳 Add credits (Settings → Workspace → Usage) - Instant access\n`;
+    explanation += `3. 🔑 Configure API keys (Credentials panel) - Use your own accounts\n`;
+
+    return explanation;
+  }
+
+  /**
+   * Get human-readable service title
+   */
+  private static getServiceTitle(service: string): string {
+    const titles: Record<string, string> = {
+      'vercel-ai-chat': 'Gemini (CTO)',
+      'gemini-chat': 'Gemini (CTO)',
+      'openai-chat': 'OpenAI (CFO)',
+      'deepseek-chat': 'DeepSeek (COO)',
+      'lovable-gateway': 'Lovable AI Gateway',
+      'office-clerk-mlc': 'Office Clerk (MLC)',
+      'office-clerk-legacy': 'Office Clerk (Legacy)'
+    };
+    return titles[service] || service;
+  }
+
+  /**
+   * Get Office Clerk loading status
+   */
+  private static getOfficeClerkStatus(): string | null {
+    try {
+      // Try to access MLC service progress
+      const progress = (window as any).__mlcProgress;
+      if (progress && progress.status !== 'idle') {
+        let status = `   - Progress: ${progress.progress}%\n`;
+        status += `   - Status: ${progress.message}\n`;
+        if (progress.currentModel) {
+          status += `   - Model: ${progress.currentModel}\n`;
+        }
+        if (progress.webGPUSupported === false) {
+          status += `   - WebGPU: ❌ Not supported\n`;
+        } else if (progress.webGPUSupported === true) {
+          status += `   - WebGPU: ✅ Available\n`;
+        }
+        return status;
+      }
+    } catch {
+      // Ignore
+    }
+    return null;
   }
 
   /**

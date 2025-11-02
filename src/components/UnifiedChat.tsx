@@ -96,6 +96,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [isConnected, setIsConnected] = useState(true); // Always connected for text/TTS mode
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   
+  // Office Clerk loading progress
+  const [officeClerkProgress, setOfficeClerkProgress] = useState<{
+    status: string;
+    progress: number;
+    message: string;
+    currentModel?: string;
+    webGPUSupported?: boolean;
+    error?: string;
+  } | null>(null);
 
   // Voice/TTS state
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -290,6 +299,32 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setRealtimeConnected(true);
     return () => unsubscribers.forEach(unsub => unsub());
   }, [userContext?.ip]);
+
+  // Subscribe to Office Clerk loading progress
+  useEffect(() => {
+    const subscribeToOfficeClerk = async () => {
+      try {
+        const { MLCLLMService } = await import('@/services/mlcLLMService');
+        
+        // Subscribe to progress updates
+        const unsubscribe = MLCLLMService.subscribeToProgress((progress) => {
+          setOfficeClerkProgress(progress);
+          
+          // Also expose to window for error handler
+          (window as any).__mlcProgress = progress;
+        });
+        
+        return unsubscribe;
+      } catch (error) {
+        console.log('Office Clerk not available:', error);
+        return () => {};
+      }
+    };
+    
+    subscribeToOfficeClerk().then(unsub => {
+      return () => unsub();
+    });
+  }, []);
 
   // Generate immediate greeting when user context is available
   useEffect(() => {
@@ -1112,6 +1147,41 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-4 space-y-4">
+            {/* Office Clerk Loading Progress */}
+            {officeClerkProgress && officeClerkProgress.status !== 'idle' && officeClerkProgress.status !== 'ready' && (
+              <div className="bg-muted/50 border border-primary/30 rounded-lg p-4 space-y-3 animate-fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                    <span className="text-sm font-medium">Office Clerk Initializing</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{officeClerkProgress.progress}%</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300 rounded-full"
+                      style={{ width: `${officeClerkProgress.progress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{officeClerkProgress.message}</p>
+                  {officeClerkProgress.currentModel && (
+                    <p className="text-xs text-muted-foreground">Model: {officeClerkProgress.currentModel}</p>
+                  )}
+                  {officeClerkProgress.webGPUSupported === false && (
+                    <p className="text-xs text-orange-500">⚠️ WebGPU not supported - using CPU (slower)</p>
+                  )}
+                </div>
+
+                {officeClerkProgress.status === 'failed' && officeClerkProgress.error && (
+                  <div className="mt-2 p-2 bg-destructive/10 border border-destructive/30 rounded text-xs text-destructive">
+                    {officeClerkProgress.error}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Load Previous Conversation Button */}
             {hasMoreMessages && totalMessageCount > 0 && (
               <div className="flex justify-center">

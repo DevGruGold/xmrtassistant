@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
 import { enhancedTTS } from './enhancedTTSService';
 import { LovableAIGateway } from './lovableAIGateway';
+import { IntelligentErrorHandler } from './intelligentErrorHandler';
 
 // Get session credentials if available (outside React component)
 let sessionCredentials: any = null;
@@ -591,8 +592,17 @@ export class UnifiedElizaService {
       }
     }
     
+    // Track all attempted executives for comprehensive error reporting
+    const attemptedExecutives = [...healthyExecs];
+    const executiveErrors: Record<string, any> = {};
+    
+    healthyExecs.forEach(exec => {
+      executiveErrors[exec] = 'Service unavailable or failed';
+    });
+    
     // All cloud executives failed - try Lovable AI Gateway before Office Clerk
     console.log('🌐 All cloud executives unavailable - attempting Lovable AI Gateway fallback...');
+    attemptedExecutives.push('lovable-gateway');
     
     try {
       const lovableResponse = await LovableAIGateway.chat(
@@ -614,11 +624,14 @@ export class UnifiedElizaService {
         hasToolCalls: false
       };
       
-    } catch (lovableError) {
+    } catch (lovableError: any) {
+      executiveErrors['lovable-gateway'] = lovableError;
       console.warn(`❌ Lovable AI Gateway failed: ${lovableError.message}`);
       console.log('🏢 Falling back to Office Clerk (browser-based AI)...');
       
       // LAST RESORT: Office Clerk (MLC-LLM or legacy fallback)
+      attemptedExecutives.push('office-clerk-mlc');
+      
       try {
         const { MLCLLMService } = await import('./mlcLLMService');
         
@@ -659,9 +672,23 @@ export class UnifiedElizaService {
           response: clerkResponse,
           hasToolCalls: false
         };
-      } catch (clerkError) {
+      } catch (clerkError: any) {
+        executiveErrors['office-clerk-mlc'] = clerkError;
         console.error('❌ Even the Office Clerk failed:', clerkError);
-        throw new Error('All AI services (including local fallback) are unavailable. Please check system status.');
+        
+        // Generate comprehensive multi-service error diagnosis
+        const finalError = new Error('All AI services exhausted');
+        (finalError as any).executiveErrors = executiveErrors;
+        (finalError as any).attemptedExecutives = attemptedExecutives;
+        
+        const diagnosis = await IntelligentErrorHandler.diagnoseError(finalError, {
+          userInput,
+          fallbacksAttempted: attemptedExecutives
+        });
+        
+        const explanation = IntelligentErrorHandler.generateExplanation(diagnosis, attemptedExecutives);
+        
+        throw new Error(explanation);
       }
     }
   }
