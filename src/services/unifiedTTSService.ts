@@ -8,10 +8,24 @@ export interface UnifiedTTSOptions {
 }
 
 /**
- * Unified TTS Service that tries multiple methods in order:
- * 1. OpenAI TTS (via Supabase edge function - works everywhere)
- * 2. Web Speech API (browser native, no API needed)
- * 3. Silent mode (display text only)
+ * Unified TTS Service with Browser-First Strategy
+ * 
+ * Priority Order:
+ * 1. Web Speech API (free, fast, works offline)
+ * 2. OpenAI TTS Edge Function (premium quality, costs money)
+ * 3. Silent mode (text-only fallback)
+ * 
+ * Why browser-first?
+ * - No API costs for 99% of users
+ * - No rate limits or quota errors
+ * - Works offline
+ * - Faster response (no network latency)
+ * - Better reliability
+ * 
+ * The OpenAI edge function is only used as a fallback for:
+ * - Browsers without Web Speech API support
+ * - Users who explicitly prefer premium quality
+ * - Cases where browser TTS fails
  */
 export class UnifiedTTSService {
   private openAIService: OpenAITTSService | null = null;
@@ -58,9 +72,19 @@ export class UnifiedTTSService {
       await this.initialize();
     }
 
-    // Method 1: Try OpenAI TTS (most reliable, works everywhere)
+    // ✅ Method 1: Try Web Speech API FIRST (free, always works in browsers)
     try {
-      console.log('🎵 Trying OpenAI TTS...');
+      console.log('🎵 Trying Web Speech API (browser native)...');
+      await this.speakWithWebSpeech(options);
+      console.log('✅ Web Speech API succeeded');
+      return { success: true, method: 'Web Speech API' };
+    } catch (error) {
+      console.warn('⚠️ Web Speech API failed, trying OpenAI TTS fallback:', error);
+    }
+
+    // ⚠️ Method 2: Fallback to OpenAI TTS (premium quality, costs money)
+    try {
+      console.log('🎵 Falling back to OpenAI TTS...');
       await this.openAIService!.speakText({
         text: options.text,
         voice: options.voice || 'alloy',
@@ -73,23 +97,13 @@ export class UnifiedTTSService {
       const errorMsg = error instanceof Error ? error.message : String(error);
       
       if (errorMsg.includes('QUOTA_EXCEEDED')) {
-        console.warn('⚠️ OpenAI TTS quota exceeded - using Web Speech API fallback');
+        console.warn('⚠️ OpenAI TTS quota exceeded');
       } else {
-        console.warn('⚠️ OpenAI TTS failed, falling back to Web Speech API:', error);
+        console.warn('⚠️ OpenAI TTS failed:', error);
       }
     }
 
-    // Method 2: Fallback to Web Speech API (always works in browsers)
-    try {
-      console.log('🎵 Using Web Speech API fallback...');
-      await this.speakWithWebSpeech(options);
-      console.log('✅ Web Speech API succeeded');
-      return { success: true, method: 'Web Speech API' };
-    } catch (error) {
-      console.error('❌ Web Speech API failed:', error);
-    }
-
-    // Method 3: Silent mode with notification (last resort)
+    // ❌ Method 3: Silent mode with notification (last resort)
     console.warn('⚠️ All TTS methods failed - running in silent mode (text only)');
     console.log('💡 TIP: Web Speech API should work in most browsers. Check browser permissions.');
     onSpeechEnd?.();

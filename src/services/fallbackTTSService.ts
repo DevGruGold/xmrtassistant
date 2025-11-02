@@ -122,11 +122,11 @@ export class FallbackTTSService {
     }
   }
 
-  // Unified TTS with fallback chain
+  // Unified TTS with fallback chain (browser-first, local model removed for performance)
   static async speak(options: TTSFallbackOptions): Promise<{ method: string }> {
     const methods = [
-      { name: 'Web Speech API', fn: () => this.speakWithWebSpeech(options) },
-      { name: 'Local TTS Model', fn: () => this.speakWithLocalModel(options) }
+      { name: 'Web Speech API', fn: () => this.speakWithWebSpeech(options) }
+      // Removed Local TTS Model (too slow and unreliable for production)
     ];
 
     for (const method of methods) {

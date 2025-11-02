@@ -32,7 +32,7 @@ export class EnhancedTTSService {
     };
 
     try {
-      // Try unified TTS service (OpenAI -> Web Speech)
+      // Try unified TTS service (Web Speech → OpenAI) - browser-first approach
       const result = await unifiedTTSService.speakText(fullOptions);
       this.lastMethod = result.method;
 
