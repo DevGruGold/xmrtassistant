@@ -45,9 +45,90 @@ export class IntelligentErrorHandler {
   }): Promise<ErrorDiagnosis> {
     console.log('🔍 Diagnosing error:', error);
     
+    // Try to extract structured error from Supabase edge function response
+    let structuredError = null;
+    
+    // Case 1: Error has .error property (from edge functions)
+    if (error?.error) {
+      structuredError = error.error;
+    }
+    
+    // Case 2: Error message contains JSON-stringified error
     const errorMessage = error?.message || String(error);
+    if (!structuredError && errorMessage.includes('{') && errorMessage.includes('"type"')) {
+      try {
+        const jsonMatch = errorMessage.match(/\{[^}]+\}/);
+        if (jsonMatch) {
+          structuredError = JSON.parse(jsonMatch[0]);
+        }
+      } catch {}
+    }
+    
+    // Case 3: Check if error itself is the structured object
+    if (!structuredError && error?.type && error?.code) {
+      structuredError = error;
+    }
+    
     const fallbacks = context.fallbacksAttempted || [];
     
+    // Use structured error if available
+    if (structuredError) {
+      console.log('✅ Found structured error:', structuredError);
+      
+      if (structuredError.type === 'payment_required' || structuredError.code === 402) {
+        return {
+          type: 'payment_required',
+          code: 402,
+          service: structuredError.service || 'lovable_ai_gateway',
+          message: structuredError.message || 'Service requires payment',
+          details: {
+            timestamp: new Date().toISOString(),
+            model: structuredError.details?.model || 'google/gemini-2.5-flash',
+            availableCredits: structuredError.details?.availableCredits || 0,
+            ...structuredError.details
+          },
+          canRetry: structuredError.canRetry ?? false,
+          suggestedAction: structuredError.suggestedAction || 'add_credits',
+          fallbacksAttempted: fallbacks
+        };
+      }
+      
+      if (structuredError.type === 'rate_limit' || structuredError.code === 429) {
+        return {
+          type: 'rate_limit',
+          code: 429,
+          service: structuredError.service || context.attemptedExecutive || 'unknown',
+          message: structuredError.message || 'Rate limit exceeded',
+          details: {
+            timestamp: new Date().toISOString(),
+            retryAfterSeconds: structuredError.details?.retryAfterSeconds,
+            rateLimitInfo: structuredError.details?.rateLimitInfo,
+            ...structuredError.details
+          },
+          canRetry: structuredError.canRetry ?? true,
+          suggestedAction: structuredError.suggestedAction || 'wait_and_retry',
+          fallbacksAttempted: fallbacks
+        };
+      }
+      
+      if (structuredError.type === 'service_unavailable' || structuredError.code >= 500) {
+        return {
+          type: 'service_unavailable',
+          code: structuredError.code || 503,
+          service: structuredError.service || context.attemptedExecutive || 'unknown',
+          message: structuredError.message || 'Service temporarily unavailable',
+          details: {
+            timestamp: new Date().toISOString(),
+            ...structuredError.details
+          },
+          canRetry: true,
+          suggestedAction: 'retry_with_fallback',
+          fallbacksAttempted: fallbacks
+        };
+      }
+    }
+    
+    // Fall back to string matching for unstructured errors
     // Payment required (402)
     if (errorMessage.includes('402') || errorMessage.includes('Payment Required') || errorMessage.includes('Not enough credits')) {
       return {
@@ -171,29 +252,34 @@ export class IntelligentErrorHandler {
     
     switch (diagnosis.type) {
       case 'payment_required':
-        return `🔍 **System Diagnostic Complete** (${timestamp})
+        const hasWebGPU = !!(navigator as any)?.gpu;
+        return `💳 **Payment Required** (${timestamp})
 
 **Issue Identified:**
-The Lovable AI Gateway returned a \`402 Payment Required\` error. The workspace has depleted its AI credits (0 credits remaining).
+${diagnosis.service === 'lovable_ai_gateway' 
+  ? 'The Lovable AI Gateway has run out of credits (0 credits remaining)'
+  : `${diagnosis.service} requires payment or has insufficient quota`
+}.
 
 **What I've Done:**
-✅ Activated **Office Clerk** (MLC-LLM with Phi-3-mini 3.8B parameters)
-✅ Verified WebGPU acceleration is available
+✅ Activated **Office Clerk** (Phi-3-mini, 3.8B parameters)
+✅ Verified WebGPU acceleration ${hasWebGPU ? '✅ Available' : '❌ Unavailable (using CPU)'}
+✅ Loaded XMRT knowledge base and conversation history
 ✅ Ready to respond using on-device AI
 
 **Your Options:**
-1. **Continue with Office Clerk** (recommended) - Fully functional, privacy-preserving, no external dependencies
-2. **Add credits** - Go to Settings → Workspace → Usage to restore cloud AI (higher quality for complex tasks)
-3. **Configure API keys** - Add your own Gemini/OpenAI/DeepSeek keys in the credentials panel
+1. **Continue with Office Clerk** (recommended) - Fully functional, privacy-preserving
+2. **Add credits** - Go to Settings → Workspace → Usage to restore cloud AI
+3. **Configure API keys** - Add your own Gemini/OpenAI/DeepSeek keys
 
 **Technical Details:**
 - Error Code: ${diagnosis.code}
 - Service: ${diagnosis.service}
-- Model Attempted: ${diagnosis.details.model || 'Unknown'}
-- Fallbacks Tried: ${diagnosis.fallbacksAttempted.join(' → ')} → office_clerk ✅
-- Current AI: Office Clerk (Phi-3-mini, 3.8B params, WebGPU)
+- Model: ${diagnosis.details?.model || 'N/A'}
+- Fallbacks Tried: ${diagnosis.fallbacksAttempted.length > 0 ? diagnosis.fallbacksAttempted.join(' → ') + ' → office_clerk ✅' : 'office_clerk ✅'}
+- Current AI: Office Clerk (on-device, WebGPU${hasWebGPU ? '' : ' unavailable'})
 
-**How can I help you today?** (I'm ready to respond using Office Clerk)`;
+**How can I help you?** I'm ready to respond using Office Clerk.`;
 
       case 'rate_limit':
         const retryTime = diagnosis.details.retryAfterSeconds || 60;
