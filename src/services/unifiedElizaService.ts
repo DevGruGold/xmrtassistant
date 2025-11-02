@@ -33,6 +33,7 @@ export interface ElizaContext {
     totalMessageCount: number;
     sessionStartedAt: Date | null;
   }; // Enhanced conversation context for better understanding
+  councilMode?: boolean; // Enable multi-executive council deliberation
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -92,8 +93,24 @@ export class UnifiedElizaService {
     return response;
   }
 
-  public static async generateResponse(userInput: string, context: ElizaContext = {}, language: string = 'en'): Promise<string> {
+  public static async generateResponse(
+    userInput: string, 
+    context: ElizaContext = {}, 
+    language: string = 'en'
+  ): Promise<string | { type: 'council_deliberation'; deliberation: any }> {
     console.log('🤖 Eliza: Starting optimized response generation for:', userInput);
+    
+    // Check if council mode is enabled
+    if (context.councilMode) {
+      console.log('🏛️ Council mode enabled - initiating multi-executive deliberation');
+      const { executiveCouncilService } = await import('./executiveCouncilService');
+      const deliberation = await executiveCouncilService.deliberate(userInput, context);
+      
+      return {
+        type: 'council_deliberation',
+        deliberation
+      };
+    }
     
     try {
       console.log('🤖 Eliza: Processing user input:', userInput);

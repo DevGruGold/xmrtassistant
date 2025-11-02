@@ -12,7 +12,8 @@ import { GitHubPATInput } from './GitHubContributorRegistration';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
-import { Send, Volume2, VolumeX, Trash2, Key, Wifi } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users } from 'lucide-react';
+import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { supabase } from '@/integrations/supabase/client';
 // Toast removed for lighter UI
@@ -62,6 +63,10 @@ interface UnifiedMessage {
     execution_time_ms?: number;
   }>;
   reasoning?: ReasoningStep[];
+  executive?: 'vercel-ai-chat' | 'deepseek-chat' | 'gemini-chat' | 'openai-chat';
+  executiveTitle?: string;
+  isCouncilDeliberation?: boolean;
+  councilDeliberation?: any;
 }
 
 // MiningStats imported from unifiedDataService
@@ -116,6 +121,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [miningStats, setMiningStats] = useState<MiningStats | null>(externalMiningStats || null);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [lastElizaMessage, setLastElizaMessage] = useState<string>("");
+  
+  // Council mode state
+  const [councilMode, setCouncilMode] = useState<boolean>(false);
 
   // Refs
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -335,13 +343,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputMode: 'text',
         shouldSpeak: false,
         enableBrowsing: false,
-        conversationContext: fullContext
+        conversationContext: fullContext,
+        councilMode: false
       }, language);
+      
+      const responseText = typeof response === 'string' ? response : response.deliberation.synthesis;
       
       // Display Eliza's synthesized answer
       const elizaMessage: UnifiedMessage = {
         id: `workflow-result-${workflow.id}`,
-        content: response,
+        content: responseText,
         sender: 'assistant',
         timestamp: new Date()
       };
@@ -355,7 +366,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       
       // Store the synthesized result
       try {
-        await conversationPersistence.storeMessage(response, 'assistant', {
+        await conversationPersistence.storeMessage(responseText, 'assistant', {
           confidence: 0.95,
           method: 'Workflow Synthesis',
           workflow_id: workflow.id
@@ -586,35 +597,38 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         inputMode: 'voice',
         shouldSpeak: true,
         enableBrowsing: true,
-        conversationContext: await conversationPersistence.getFullConversationContext()
+        conversationContext: await conversationPersistence.getFullConversationContext(),
+        councilMode: false
       });
+
+      const responseText = typeof response === 'string' ? response : response.deliberation.synthesis;
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: response,
+        content: responseText,
         sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95
       };
 
       setMessages(prev => [...prev, elizaMessage]);
-      setLastElizaMessage(response);
+      setLastElizaMessage(responseText);
       
       // Store Eliza's response with enhanced data
       try {
-        await conversationPersistence.storeMessage(response, 'assistant', {
+        await conversationPersistence.storeMessage(responseText, 'assistant', {
           confidence: 0.95,
           method: 'OpenAI via Edge Function',
           inputType: 'voice'
         });
 
         // Extract entities from response
-        await knowledgeEntityService.extractEntities(response);
+        await knowledgeEntityService.extractEntities(responseText);
 
         // Record learning pattern for successful response
         await learningPatternsService.recordPattern(
           'voice_response_success',
-          { inputLength: transcript.length, responseLength: response.length },
+          { inputLength: transcript.length, responseLength: responseText.length },
           0.9
         );
 
@@ -623,7 +637,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           await memoryContextService.storeContext(
             userContext.ip,
             userContext.ip,
-            response,
+            responseText,
             'assistant_voice_response',
             0.8,
             { method: 'OpenAI', confidence: 0.95 }
@@ -641,7 +655,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await enhancedTTS.speak(response, { language });
+          await enhancedTTS.speak(responseText, { language });
           setCurrentTTSMethod(enhancedTTS.getLastMethod());
           setIsSpeaking(false);
         } catch (error) {
@@ -775,23 +789,60 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
-      // Process response using Gemini AI Gateway
+      // Process response using Gemini AI Gateway or Council
       const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
         miningStats,
         userContext,
         inputMode: 'text',
         shouldSpeak: false,
         enableBrowsing: true,
-        conversationContext: fullContext
+        conversationContext: fullContext,
+        councilMode
       }, language);
       
-      console.log('✅ Response generated:', response.substring(0, 100) + '...');
+      // Handle council deliberation response
+      if (typeof response !== 'string' && response.type === 'council_deliberation') {
+        const deliberation = response.deliberation;
+        
+        const elizaMessage: UnifiedMessage = {
+          id: `eliza-${Date.now()}`,
+          content: deliberation.synthesis,
+          sender: 'assistant',
+          timestamp: new Date(),
+          confidence: 0.95,
+          isCouncilDeliberation: true,
+          councilDeliberation: deliberation
+        };
+        
+        setMessages(prev => [...prev, elizaMessage]);
+        setLastElizaMessage(deliberation.synthesis);
+        
+        // Store council response
+        try {
+          await conversationPersistence.storeMessage(deliberation.synthesis, 'assistant', {
+            confidence: 0.95,
+            method: 'Executive Council',
+            inputType: 'text',
+            councilMode: true,
+            executiveCount: deliberation.responses.length
+          });
+        } catch (error) {
+          console.log('Conversation persistence error:', error);
+        }
+        
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Handle standard string response
+      const responseText = response as string;
+      console.log('✅ Response generated:', responseText.substring(0, 100) + '...');
 
       // Check if this is a workflow initiation message
-      const isWorkflowInitiation = response.includes('🎬') && response.includes('background');
+      const isWorkflowInitiation = responseText.includes('🎬') && responseText.includes('background');
 
       // Remove tool_use tags from chat display
-      const cleanResponse = response.replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '').trim();
+      const cleanResponse = responseText.replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '').trim();
 
       // If it's a workflow initiation, show a brief acknowledgment instead
       const displayContent = isWorkflowInitiation 
@@ -802,7 +853,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       let reasoning: ReasoningStep[] = [];
       try {
         // Try to parse reasoning from response metadata
-        const reasoningMatch = response.match(/<reasoning>(.*?)<\/reasoning>/s);
+        const reasoningMatch = responseText.match(/<reasoning>(.*?)<\/reasoning>/s);
         if (reasoningMatch) {
           reasoning = JSON.parse(reasoningMatch[1]);
         }
@@ -979,6 +1030,18 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Council Mode Toggle */}
+            <Button
+              onClick={() => setCouncilMode(!councilMode)}
+              variant={councilMode ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7 px-2"
+              title={councilMode ? 'Full Council Mode (All Executives)' : 'Single Executive Mode'}
+            >
+              <Users className="h-3 w-3 mr-1" />
+              {councilMode ? 'Council' : 'Single'}
+            </Button>
+            
             {/* Realtime Connection Indicator */}
             {realtimeConnected && (
               <Badge variant="outline" className="text-xs flex items-center gap-1 bg-green-500/10 text-green-600 border-green-500/30">
@@ -1061,6 +1124,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} flex-col gap-2 animate-fade-in`}
               >
+                {/* Show Council Deliberation for council messages */}
+                {message.sender === 'assistant' && message.isCouncilDeliberation && message.councilDeliberation && (
+                  <div className="max-w-[95%]">
+                    <ExecutiveCouncilChat deliberation={message.councilDeliberation} />
+                  </div>
+                )}
+                
                 {/* Show Reasoning Steps for assistant messages */}
                 {message.sender === 'assistant' && message.reasoning && message.reasoning.length > 0 && (
                   <div className="max-w-[85%]">
@@ -1068,15 +1138,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                   </div>
                 )}
                 
-                <div className="max-w-[80%] sm:max-w-[75%]">
-                  <div
-                    className={`p-3 rounded-2xl ${
-                      message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-md'
-                      : 'bg-muted/50 text-foreground rounded-bl-md'
-                  }`}
-                  >
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
+                {/* Standard message bubble (skip if council deliberation) */}
+                {!(message.isCouncilDeliberation) && (
+                  <div className="max-w-[80%] sm:max-w-[75%]">
+                    <div
+                      className={`p-3 rounded-2xl ${
+                        message.sender === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-md'
+                        : 'bg-muted/50 text-foreground rounded-bl-md'
+                    }`}
+                    >
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
                     
                     {/* Tool Call Indicators */}
                     {message.tool_calls && message.tool_calls.length > 0 && (
@@ -1096,11 +1168,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                       </div>
                     )}
                     
-                    <div className="text-xs opacity-60 mt-2">
-                      {formatTime(message.timestamp)}
+                      <div className="text-xs opacity-60 mt-2">
+                        {formatTime(message.timestamp)}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             ))}
 
