@@ -31,70 +31,7 @@ class ConsolidatedTTSService {
   }
 
   private setupProviders() {
-    // Provider 1: ElevenLabs (highest quality)
-    this.providers.push({
-      name: 'ElevenLabs',
-      isAvailable: () => !!import.meta.env.VITE_ELEVENLABS_API_KEY,
-      speak: async (text: string, options?: TTSOptions) => {
-        const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-        const voiceId = options?.voiceId || 'EXAVITQu4vr4xnSDxMaL'; // Default voice
-        
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Accept': 'audio/mpeg',
-              'Content-Type': 'application/json',
-              'xi-api-key': apiKey
-            },
-            body: JSON.stringify({
-              text,
-              model_id: 'eleven_monolingual_v1',
-              voice_settings: {
-                stability: options?.stability || 0.5,
-                similarity_boost: options?.similarityBoost || 0.75
-              }
-            })
-          }
-        );
-
-        if (!response.ok) throw new Error('ElevenLabs API failed');
-
-        const audioBlob = await response.blob();
-        await this.playAudioBlob(audioBlob);
-      }
-    });
-
-    // Provider 2: OpenAI TTS
-    this.providers.push({
-      name: 'OpenAI',
-      isAvailable: () => !!import.meta.env.VITE_OPENAI_API_KEY,
-      speak: async (text: string, options?: TTSOptions) => {
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        
-        const response = await fetch('https://api.openai.com/v1/audio/speech', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'tts-1',
-            voice: 'alloy',
-            input: text,
-            speed: options?.speed || 1.0
-          })
-        });
-
-        if (!response.ok) throw new Error('OpenAI TTS failed');
-
-        const audioBlob = await response.blob();
-        await this.playAudioBlob(audioBlob);
-      }
-    });
-
-    // Provider 3: Browser Speech Synthesis (fallback)
+    // Provider 1: Browser Speech Synthesis (PREFERRED - always free, always works)
     this.providers.push({
       name: 'Browser',
       isAvailable: () => 'speechSynthesis' in window,
@@ -116,6 +53,12 @@ class ConsolidatedTTSService {
         });
       }
     });
+
+    // Provider 2: OpenAI TTS (DISABLED - user prefers browser TTS)
+    // Kept for reference but not added to providers array
+    
+    // Provider 3: ElevenLabs (DISABLED - user prefers browser TTS)
+    // Kept for reference but not added to providers array
   }
 
   async initialize(): Promise<void> {

@@ -564,19 +564,59 @@ serve(async (req) => {
       toolIterations++;
       console.log(`🔄 AI iteration ${toolIterations} using ${aiProvider}`);
       
-      // Determine the correct API endpoint based on provider
+      // Determine the correct API endpoint and request format based on provider
       let apiUrl = '';
-      let authHeader = '';
+      let requestBody: any;
+      let headers: any;
       
       if (aiProvider === 'gemini') {
-        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent`;
-        authHeader = `Bearer ${AI_API_KEY}`;
-      } else if (aiProvider === 'openrouter') {
-        apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
-        authHeader = `Bearer ${AI_API_KEY}`;
-      } else if (aiProvider === 'openai') {
-        apiUrl = 'https://api.openai.com/v1/chat/completions';
-        authHeader = `Bearer ${AI_API_KEY}`;
+        // Gemini uses a different API structure
+        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${AI_API_KEY}`;
+        
+        // Convert OpenAI-style messages to Gemini format
+        const geminiContents = currentMessages
+          .filter(m => m.role !== 'system')
+          .map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          }));
+        
+        // Convert tools to Gemini function declarations
+        const geminiTools = ELIZA_TOOLS.map(tool => ({
+          name: tool.function.name,
+          description: tool.function.description,
+          parameters: tool.function.parameters
+        }));
+        
+        requestBody = {
+          contents: geminiContents,
+          tools: [{ functionDeclarations: geminiTools }],
+          systemInstruction: {
+            parts: [{ text: currentMessages.find(m => m.role === 'system')?.content || '' }]
+          }
+        };
+        
+        headers = { 'Content-Type': 'application/json' };
+        
+      } else if (aiProvider === 'openrouter' || aiProvider === 'openai') {
+        // OpenRouter and OpenAI use the same API structure
+        apiUrl = aiProvider === 'openrouter' 
+          ? 'https://openrouter.ai/api/v1/chat/completions'
+          : 'https://api.openai.com/v1/chat/completions';
+        
+        requestBody = {
+          model: aiModel,
+          messages: currentMessages,
+          tools: ELIZA_TOOLS,
+          tool_choice: 'auto',
+          stream: false,
+        };
+        
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AI_API_KEY}`,
+        };
+        
       } else {
         console.error(`❌ Unknown AI provider: ${aiProvider}`);
         return new Response(JSON.stringify({ success: false, error: `Unknown AI provider: ${aiProvider}` }), {
@@ -585,21 +625,13 @@ serve(async (req) => {
         });
       }
       
-      console.log(`📡 Calling ${apiUrl}`);
+      console.log(`📡 Calling ${aiProvider} API:`, apiUrl);
+      console.log(`🔧 Tools available: ${ELIZA_TOOLS.length}`);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-        },
-        body: JSON.stringify({
-          model: aiModel,
-          messages: currentMessages,
-          tools: ELIZA_TOOLS,
-          tool_choice: 'auto',
-          stream: false,
-        }),
+        headers,
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -616,15 +648,48 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      const choice = data.choices?.[0];
-      const message = choice?.message;
+      let message: any;
       
-      if (!message) {
-        console.error("No message in AI response");
-        return new Response(JSON.stringify({ success: false, error: 'Invalid AI response' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Parse response based on provider
+      if (aiProvider === 'gemini') {
+        // Gemini response format
+        const candidate = data.candidates?.[0];
+        if (!candidate) {
+          console.error("No candidate in Gemini response");
+          return new Response(JSON.stringify({ success: false, error: 'Invalid Gemini response' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        const content = candidate.content?.parts?.[0]?.text || '';
+        const functionCalls = candidate.content?.parts?.filter(p => p.functionCall) || [];
+        
+        message = {
+          role: 'assistant',
+          content: content,
+          tool_calls: functionCalls.map(fc => ({
+            id: `call_${Math.random().toString(36).substr(2, 9)}`,
+            type: 'function',
+            function: {
+              name: fc.functionCall.name,
+              arguments: JSON.stringify(fc.functionCall.args)
+            }
+          }))
+        };
+        
+      } else {
+        // OpenAI/OpenRouter response format
+        const choice = data.choices?.[0];
+        message = choice?.message;
+        
+        if (!message) {
+          console.error("No message in AI response");
+          return new Response(JSON.stringify({ success: false, error: 'Invalid AI response' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
       
       // Add assistant message to conversation
