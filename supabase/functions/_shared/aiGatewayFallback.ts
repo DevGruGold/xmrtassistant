@@ -9,12 +9,13 @@ export interface AIGatewayOptions {
   temperature?: number;
   max_tokens?: number;
   systemPrompt?: string;
+  tools?: Array<any>; // Enable tool calling support
 }
 
 export async function callLovableAIGateway(
   messages: Array<{ role: string; content: string }>,
   options: AIGatewayOptions = {}
-): Promise<string> {
+): Promise<any> { // Return full message object instead of just string
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   
   if (!LOVABLE_API_KEY) {
@@ -22,20 +23,31 @@ export async function callLovableAIGateway(
   }
 
   console.log('🌐 Calling Lovable AI Gateway...');
+  
+  // Build request body
+  const requestBody: any = {
+    model: options.model || 'google/gemini-2.5-flash',
+    messages: options.systemPrompt 
+      ? [{ role: 'system', content: options.systemPrompt }, ...messages]
+      : messages,
+    temperature: options.temperature || 0.7,
+    max_tokens: options.max_tokens || 2000
+  };
+  
+  // Add tools if provided
+  if (options.tools && options.tools.length > 0) {
+    requestBody.tools = options.tools;
+    requestBody.tool_choice = 'auto';
+    console.log(`🔧 Gateway: Tool calling enabled with ${options.tools.length} tools`);
+  }
+  
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: options.model || 'google/gemini-2.5-flash',
-      messages: options.systemPrompt 
-        ? [{ role: 'system', content: options.systemPrompt }, ...messages]
-        : messages,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.max_tokens || 2000
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -59,7 +71,15 @@ export async function callLovableAIGateway(
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  const message = data.choices?.[0]?.message;
+  
+  if (!message) {
+    throw new Error('No message in Lovable AI Gateway response');
+  }
+  
+  // Return full message object (includes content and tool_calls)
+  console.log(`✅ Gateway returned: ${message.tool_calls?.length || 0} tool calls, content length: ${message.content?.length || 0}`);
+  return message;
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {

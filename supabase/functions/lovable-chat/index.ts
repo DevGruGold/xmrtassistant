@@ -553,7 +553,7 @@ serve(async (req) => {
       let message: any;
       
       if (aiProvider === 'lovable_gateway') {
-        // Use Lovable AI Gateway
+        // Use Lovable AI Gateway with REAL tool calling support
         try {
           console.log(`📡 Calling Lovable AI Gateway with ${ELIZA_TOOLS.length} tools available`);
           
@@ -561,20 +561,17 @@ serve(async (req) => {
           const messagesForGateway = currentMessages.filter(m => m.role !== 'system');
           const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
           
-          const aiResponse = await callLovableAIGateway(messagesForGateway, {
+          // ✅ CRITICAL FIX: Pass tools to enable REAL execution
+          message = await callLovableAIGateway(messagesForGateway, {
             model: 'google/gemini-2.5-flash',
             systemPrompt,
             temperature: 0.7,
-            max_tokens: 4000
+            max_tokens: 4000,
+            tools: ELIZA_TOOLS // Enable native tool calling
           });
           
-          // For now, Lovable AI Gateway doesn't support tool calling in the same way
-          // We'll need to parse the response for any tool requests
-          message = {
-            role: 'assistant',
-            content: aiResponse,
-            tool_calls: [] // Gateway doesn't support direct tool calling yet
-          };
+          // Gateway now returns full message object with tool_calls array
+          console.log(`🔧 Gateway returned ${message.tool_calls?.length || 0} tool calls`);
           
         } catch (error) {
           console.error('❌ Lovable AI Gateway error:', error);
