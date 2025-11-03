@@ -865,6 +865,32 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           console.log('Conversation persistence error:', error);
         }
         
+        // Speak all executive voices + synthesis
+        if (voiceEnabled && audioInitialized) {
+          setIsSpeaking(true);
+          
+          // Extract executive perspectives
+          const executiveVoices = deliberation.responses
+            .map(r => `${r.executiveTitle}: ${r.perspective}`)
+            .join('\n\n');
+          
+          // Combine with synthesis
+          const spokenText = `${executiveVoices}\n\nUnified Recommendation: ${deliberation.synthesis}`;
+          
+          console.log('🎵 Speaking council deliberation:', spokenText.substring(0, 100) + '...');
+          
+          enhancedTTS.speak(spokenText, { language })
+            .then(() => {
+              setCurrentTTSMethod(enhancedTTS.getLastMethod());
+              setIsSpeaking(false);
+            })
+            .catch((error) => {
+              console.error('❌ Council TTS failed:', error);
+              setCurrentTTSMethod('failed');
+              setIsSpeaking(false);
+            });
+        }
+        
         setIsProcessing(false);
         return;
       }
