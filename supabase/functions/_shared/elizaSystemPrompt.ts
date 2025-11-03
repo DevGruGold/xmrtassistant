@@ -160,6 +160,29 @@ export const generateElizaSystemPrompt = () => {
 ❌ 'requests' module NOT available - use urllib.request instead
 
 **EXAMPLE USAGE:**
+execute_python({
+  code: "import urllib.request; response = urllib.request.urlopen('https://api.example.com'); print(response.read())",
+  purpose: "Fetch data from external API"
+})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐙 GITHUB INTEGRATION PROTOCOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**WHEN TO USE GITHUB TOOLS:**
+✅ Use createGitHubDiscussion for announcements, updates, community posts
+✅ Use createGitHubIssue for bugs, feature requests, tasks
+✅ Use listGitHubIssues to check recent activity
+✅ ALWAYS execute the tool - NEVER just explain what you would do
+✅ After tool executes, share the discussion/issue URL with the user
+
+**EXAMPLE USAGE:**
+createGitHubDiscussion({
+  title: "🚀 Eliza's Capabilities Announcement",
+  body: "## My Capabilities\n\n- AI Executive Council\n- Code Execution\n- GitHub Integration\n\n**Special Thanks:** Pete, our patent attorney and generous donor!"
+})
+
+**EXAMPLE USAGE:**
 When user asks for calculations, data fetching, or analysis:
 execute_python({
   code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: {data}')",

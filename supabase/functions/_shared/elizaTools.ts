@@ -90,6 +90,58 @@ export const ELIZA_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'createGitHubDiscussion',
+      description: 'Create a GitHub discussion post in XMRT-Ecosystem repository. Returns discussion URL and ID. Use for announcements, updates, or community engagement.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Discussion title' },
+          body: { type: 'string', description: 'Discussion content (supports Markdown)' },
+          categoryId: { 
+            type: 'string', 
+            description: 'Category ID (default: DIC_kwDOPHeChc4CkXxI for General)', 
+            default: 'DIC_kwDOPHeChc4CkXxI' 
+          }
+        },
+        required: ['title', 'body']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'createGitHubIssue',
+      description: 'Create a GitHub issue in any XMRT repository. Returns issue number and URL.',
+      parameters: {
+        type: 'object',
+        properties: {
+          repo: { type: 'string', description: 'Repository name (default: XMRT-Ecosystem)', default: 'XMRT-Ecosystem' },
+          title: { type: 'string', description: 'Issue title' },
+          body: { type: 'string', description: 'Issue description (supports Markdown)' },
+          labels: { type: 'array', items: { type: 'string' }, description: 'Optional labels (e.g., ["bug", "urgent"])' }
+        },
+        required: ['title', 'body']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'listGitHubIssues',
+      description: 'List recent GitHub issues from XMRT repositories.',
+      parameters: {
+        type: 'object',
+        properties: {
+          repo: { type: 'string', description: 'Repository name (default: XMRT-Ecosystem)' },
+          state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Issue state filter', default: 'open' },
+          limit: { type: 'number', description: 'Number of issues to return (max 100)', default: 20 }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_agents',
       description: 'Get all existing agents and their IDs/status. ALWAYS call this BEFORE assigning tasks to know agent IDs.',
       parameters: {

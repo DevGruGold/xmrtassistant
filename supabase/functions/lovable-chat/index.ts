@@ -91,6 +91,77 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         
         return { success: true, result: pythonResult.data };
         
+      case 'createGitHubDiscussion':
+        console.log(`📝 [TOOL CALL] createGitHubDiscussion triggered!`);
+        console.log(`🎯 [TITLE] ${parsedArgs.title || 'No title'}`);
+        console.log(`📋 [BODY LENGTH] ${parsedArgs.body?.length || 0} characters`);
+        
+        const discussionResult = await supabase.functions.invoke('github-integration', {
+          body: {
+            action: 'create_discussion',
+            data: {
+              repositoryId: 'R_kgDONfvCEw', // XMRT-Ecosystem repo ID
+              title: parsedArgs.title,
+              body: parsedArgs.body,
+              categoryId: parsedArgs.categoryId || 'DIC_kwDOPHeChc4CkXxI' // General category
+            }
+          }
+        });
+        
+        if (discussionResult.error) {
+          console.error(`❌ GitHub discussion creation error:`, discussionResult.error);
+          return { success: false, error: discussionResult.error.message || 'Discussion creation failed' };
+        }
+        
+        console.log(`✅ Discussion created:`, discussionResult.data);
+        return { success: true, result: discussionResult.data };
+
+      case 'createGitHubIssue':
+        console.log(`🐛 [TOOL CALL] createGitHubIssue triggered!`);
+        console.log(`🎯 [REPO] ${parsedArgs.repo || 'XMRT-Ecosystem'}`);
+        console.log(`📋 [TITLE] ${parsedArgs.title || 'No title'}`);
+        
+        const issueResult = await supabase.functions.invoke('github-integration', {
+          body: {
+            action: 'create_issue',
+            data: {
+              repo: parsedArgs.repo || 'XMRT-Ecosystem',
+              title: parsedArgs.title,
+              body: parsedArgs.body,
+              labels: parsedArgs.labels || []
+            }
+          }
+        });
+        
+        if (issueResult.error) {
+          console.error(`❌ GitHub issue creation error:`, issueResult.error);
+          return { success: false, error: issueResult.error.message || 'Issue creation failed' };
+        }
+        
+        console.log(`✅ Issue created:`, issueResult.data);
+        return { success: true, result: issueResult.data };
+
+      case 'listGitHubIssues':
+        console.log(`📋 [TOOL CALL] listGitHubIssues triggered!`);
+        
+        const listResult = await supabase.functions.invoke('github-integration', {
+          body: {
+            action: 'list_issues',
+            data: {
+              repo: parsedArgs.repo || 'XMRT-Ecosystem',
+              state: parsedArgs.state || 'open',
+              per_page: parsedArgs.limit || 20
+            }
+          }
+        });
+        
+        if (listResult.error) {
+          console.error(`❌ GitHub issue list error:`, listResult.error);
+          return { success: false, error: listResult.error.message || 'Issue listing failed' };
+        }
+        
+        return { success: true, result: listResult.data };
+        
       case 'list_available_functions':
         const { category } = parsedArgs;
         const listResult = await supabase.functions.invoke('list-available-functions', {
