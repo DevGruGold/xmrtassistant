@@ -851,6 +851,96 @@ export type Database = {
         }
         Relationships: []
       }
+      community_ideas: {
+        Row: {
+          assigned_agent_id: string | null
+          cao_perspective: string | null
+          category: string | null
+          cio_perspective: string | null
+          community_benefit_score: number | null
+          council_consensus: boolean | null
+          council_recommendation: string | null
+          created_at: string | null
+          cso_perspective: string | null
+          cto_perspective: string | null
+          democracy_score: number | null
+          description: string
+          estimated_complexity: string | null
+          estimated_timeline: string | null
+          financial_sovereignty_score: number | null
+          id: string
+          implementation_completed_at: string | null
+          implementation_plan: Json | null
+          implementation_started_at: string | null
+          privacy_score: number | null
+          required_components: Json | null
+          status: string | null
+          submitted_by_session_key: string | null
+          submitted_by_user_id: string | null
+          technical_feasibility_score: number | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          cao_perspective?: string | null
+          category?: string | null
+          cio_perspective?: string | null
+          community_benefit_score?: number | null
+          council_consensus?: boolean | null
+          council_recommendation?: string | null
+          created_at?: string | null
+          cso_perspective?: string | null
+          cto_perspective?: string | null
+          democracy_score?: number | null
+          description: string
+          estimated_complexity?: string | null
+          estimated_timeline?: string | null
+          financial_sovereignty_score?: number | null
+          id?: string
+          implementation_completed_at?: string | null
+          implementation_plan?: Json | null
+          implementation_started_at?: string | null
+          privacy_score?: number | null
+          required_components?: Json | null
+          status?: string | null
+          submitted_by_session_key?: string | null
+          submitted_by_user_id?: string | null
+          technical_feasibility_score?: number | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          cao_perspective?: string | null
+          category?: string | null
+          cio_perspective?: string | null
+          community_benefit_score?: number | null
+          council_consensus?: boolean | null
+          council_recommendation?: string | null
+          created_at?: string | null
+          cso_perspective?: string | null
+          cto_perspective?: string | null
+          democracy_score?: number | null
+          description?: string
+          estimated_complexity?: string | null
+          estimated_timeline?: string | null
+          financial_sovereignty_score?: number | null
+          id?: string
+          implementation_completed_at?: string | null
+          implementation_plan?: Json | null
+          implementation_started_at?: string | null
+          privacy_score?: number | null
+          required_components?: Json | null
+          status?: string | null
+          submitted_by_session_key?: string | null
+          submitted_by_user_id?: string | null
+          technical_feasibility_score?: number | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       community_messages: {
         Row: {
           author_id: string | null
@@ -1768,6 +1858,63 @@ export type Database = {
         }
         Relationships: []
       }
+      eliza_performance_metrics: {
+        Row: {
+          average_response_time_ms: number | null
+          bugs_fixed_autonomously: number | null
+          capabilities_expanded: number | null
+          created_at: string | null
+          error_rate_percent: number | null
+          id: string
+          ideas_approved: number | null
+          ideas_evaluated: number | null
+          ideas_implemented: number | null
+          metric_date: string | null
+          new_patterns_learned: number | null
+          opportunities_actioned: number | null
+          opportunities_discovered: number | null
+          optimizations_performed: number | null
+          tasks_completed: number | null
+          uptime_percent: number | null
+        }
+        Insert: {
+          average_response_time_ms?: number | null
+          bugs_fixed_autonomously?: number | null
+          capabilities_expanded?: number | null
+          created_at?: string | null
+          error_rate_percent?: number | null
+          id?: string
+          ideas_approved?: number | null
+          ideas_evaluated?: number | null
+          ideas_implemented?: number | null
+          metric_date?: string | null
+          new_patterns_learned?: number | null
+          opportunities_actioned?: number | null
+          opportunities_discovered?: number | null
+          optimizations_performed?: number | null
+          tasks_completed?: number | null
+          uptime_percent?: number | null
+        }
+        Update: {
+          average_response_time_ms?: number | null
+          bugs_fixed_autonomously?: number | null
+          capabilities_expanded?: number | null
+          created_at?: string | null
+          error_rate_percent?: number | null
+          id?: string
+          ideas_approved?: number | null
+          ideas_evaluated?: number | null
+          ideas_implemented?: number | null
+          metric_date?: string | null
+          new_patterns_learned?: number | null
+          opportunities_actioned?: number | null
+          opportunities_discovered?: number | null
+          optimizations_performed?: number | null
+          tasks_completed?: number | null
+          uptime_percent?: number | null
+        }
+        Relationships: []
+      }
       eliza_python_executions: {
         Row: {
           code: string
@@ -1816,6 +1963,45 @@ export type Database = {
           status?: string
           updated_at?: string
           workflow_id?: string | null
+        }
+        Relationships: []
+      }
+      eliza_work_patterns: {
+        Row: {
+          action_taken: Json
+          confidence_score: number | null
+          context: Json
+          created_at: string | null
+          id: string
+          last_applied_at: string | null
+          lesson_learned: string
+          outcome: string | null
+          pattern_type: string | null
+          times_applied: number | null
+        }
+        Insert: {
+          action_taken: Json
+          confidence_score?: number | null
+          context: Json
+          created_at?: string | null
+          id?: string
+          last_applied_at?: string | null
+          lesson_learned: string
+          outcome?: string | null
+          pattern_type?: string | null
+          times_applied?: number | null
+        }
+        Update: {
+          action_taken?: Json
+          confidence_score?: number | null
+          context?: Json
+          created_at?: string | null
+          id?: string
+          last_applied_at?: string | null
+          lesson_learned?: string
+          outcome?: string | null
+          pattern_type?: string | null
+          times_applied?: number | null
         }
         Relationships: []
       }
@@ -2282,6 +2468,44 @@ export type Database = {
           wallet_address?: string
         }
         Relationships: []
+      }
+      idea_evaluation_history: {
+        Row: {
+          created_at: string | null
+          evaluation_stage: string | null
+          evaluator: string | null
+          id: string
+          idea_id: string | null
+          notes: string | null
+          scores: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          evaluation_stage?: string | null
+          evaluator?: string | null
+          id?: string
+          idea_id?: string | null
+          notes?: string | null
+          scores?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          evaluation_stage?: string | null
+          evaluator?: string | null
+          id?: string
+          idea_id?: string | null
+          notes?: string | null
+          scores?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_evaluation_history_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "community_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       improvement_metrics: {
         Row: {
@@ -2861,6 +3085,48 @@ export type Database = {
           published_to?: string[] | null
           source_data?: Json | null
           title?: string | null
+        }
+        Relationships: []
+      }
+      opportunity_log: {
+        Row: {
+          action_details: Json | null
+          action_taken: string | null
+          actionable: boolean | null
+          created_at: string | null
+          description: string
+          detected_by: string | null
+          id: string
+          opportunity_type: string | null
+          priority: number | null
+          resolved_at: string | null
+          title: string
+        }
+        Insert: {
+          action_details?: Json | null
+          action_taken?: string | null
+          actionable?: boolean | null
+          created_at?: string | null
+          description: string
+          detected_by?: string | null
+          id?: string
+          opportunity_type?: string | null
+          priority?: number | null
+          resolved_at?: string | null
+          title: string
+        }
+        Update: {
+          action_details?: Json | null
+          action_taken?: string | null
+          actionable?: boolean | null
+          created_at?: string | null
+          description?: string
+          detected_by?: string | null
+          id?: string
+          opportunity_type?: string | null
+          priority?: number | null
+          resolved_at?: string | null
+          title?: string
         }
         Relationships: []
       }
@@ -3535,6 +3801,48 @@ export type Database = {
           verified_at?: string | null
           verified_by?: string | null
           wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      system_architecture_knowledge: {
+        Row: {
+          component_name: string
+          component_type: string
+          created_at: string | null
+          eliza_notes: string | null
+          id: string
+          last_analyzed_at: string | null
+          performance_metrics: Json | null
+          purpose: string
+          relationships: Json | null
+          updated_at: string | null
+          usage_patterns: Json | null
+        }
+        Insert: {
+          component_name: string
+          component_type: string
+          created_at?: string | null
+          eliza_notes?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          performance_metrics?: Json | null
+          purpose: string
+          relationships?: Json | null
+          updated_at?: string | null
+          usage_patterns?: Json | null
+        }
+        Update: {
+          component_name?: string
+          component_type?: string
+          created_at?: string | null
+          eliza_notes?: string | null
+          id?: string
+          last_analyzed_at?: string | null
+          performance_metrics?: Json | null
+          purpose?: string
+          relationships?: Json | null
+          updated_at?: string | null
+          usage_patterns?: Json | null
         }
         Relationships: []
       }

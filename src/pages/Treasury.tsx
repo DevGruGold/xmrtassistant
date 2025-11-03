@@ -2,6 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Footer } from "@/components/Footer";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { IdeaSubmissionForm } from "@/components/IdeaSubmissionForm";
+import { IdeaDashboard } from "@/components/IdeaDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Treasury = () => {
   const { t } = useLanguage();
@@ -17,48 +20,66 @@ const Treasury = () => {
           <p className="text-gray-400">{t('treasury.description')}</p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">{t('treasury.purchase.title')}</CardTitle>
-              <CardDescription className="text-gray-400">
-                {t('treasury.description')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div style={{ width: "100%", height: "600px" }}>
-                <iframe
-                  src="https://buy.onramper.com?color=266677&apiKey=pk_prod_01HMVZ8HJ2E7XQFVT2VVJMVZ0Q"
-                  title="Onramper widget"
-                  height="600px"
-                  width="100%"
-                  allow="accelerometer; autoplay; camera; gyroscope; payment"
-                />
-              </div>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="treasury" className="w-full mb-8">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="treasury">Treasury</TabsTrigger>
+            <TabsTrigger value="submit">Submit Idea</TabsTrigger>
+            <TabsTrigger value="ideas">Community Ideas</TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">{t('treasury.stats.title')}</CardTitle>
-              <CardDescription className="text-gray-400">
-                {t('treasury.description')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>{t('treasury.stats.tvl')}</span>
-                  <span className="text-purple-400">$0.00</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>{t('treasury.stats.contributors')}</span>
-                  <span className="text-blue-400">0</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="treasury">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white">{t('treasury.purchase.title')}</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    {t('treasury.description')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: "100%", height: "600px" }}>
+                    <iframe
+                      src="https://buy.onramper.com?color=266677&apiKey=pk_prod_01HMVZ8HJ2E7XQFVT2VVJMVZ0Q"
+                      title="Onramper widget"
+                      height="600px"
+                      width="100%"
+                      allow="accelerometer; autoplay; camera; gyroscope; payment"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white">{t('treasury.stats.title')}</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    {t('treasury.description')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span>{t('treasury.stats.tvl')}</span>
+                      <span className="text-purple-400">$0.00</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>{t('treasury.stats.contributors')}</span>
+                      <span className="text-blue-400">0</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="submit">
+            <IdeaSubmissionForm />
+          </TabsContent>
+
+          <TabsContent value="ideas">
+            <IdeaDashboard />
+          </TabsContent>
+        </Tabs>
       </div>
       <Footer />
     </div>
