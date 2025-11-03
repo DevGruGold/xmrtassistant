@@ -49,6 +49,9 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
   
   console.log(`🔧 Executing tool: ${name}`, parsedArgs);
   
+  // Log ALL tool calls to activity table for visibility
+  await logToolExecution(supabase, name, parsedArgs, 'started');
+  
   try {
     // Route tool calls to appropriate edge functions
     switch(name) {
@@ -221,10 +224,12 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         
       default:
         console.warn(`⚠️ Unknown tool: ${name}`);
+        await logToolExecution(supabase, name, parsedArgs, 'failed', null, `Unknown tool: ${name}`);
         return { success: false, error: `Unknown tool: ${name}` };
     }
   } catch (error) {
     console.error(`❌ Tool execution error for ${name}:`, error);
+    await logToolExecution(supabase, name, parsedArgs, 'failed', null, error.message || 'Tool execution failed');
     return { success: false, error: error.message || 'Tool execution failed' };
   }
 }
@@ -630,7 +635,24 @@ serve(async (req) => {
         continue;
       }
       
-      // No more tool calls - return final response
+      // No more tool calls - check for rule violations before returning
+      const content = message.content || '';
+      
+      // Detect if response contains code blocks (violation of rules)
+      if (content.includes('```python') || content.includes('```js') || content.includes('```javascript')) {
+        console.warn('⚠️ [RULE VIOLATION] Eliza wrote code in chat instead of using execute_python tool!');
+        console.warn('📋 [VIOLATION CONTENT]:', content.substring(0, 200));
+        
+        // Log to activity table for debugging
+        await supabase.from('eliza_activity_log').insert({
+          activity_type: 'rule_violation',
+          title: 'Code in Chat Instead of Tool Usage',
+          description: 'Eliza wrote code blocks in chat instead of calling execute_python tool',
+          metadata: { content_preview: content.substring(0, 500) },
+          status: 'failed'
+        });
+      }
+      
       console.log(`✅ Final response ready after ${toolIterations} iterations`);
       return new Response(
         JSON.stringify({ 
