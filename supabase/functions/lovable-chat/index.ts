@@ -740,7 +740,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          response: data, 
+          response: message.content || message, 
           provider: aiProvider, 
           executive: aiExecutive, 
           executiveTitle: aiExecutiveTitle,
