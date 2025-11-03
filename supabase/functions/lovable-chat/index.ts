@@ -581,11 +581,11 @@ serve(async (req) => {
             parts: [{ text: m.content }]
           }));
         
-        // Convert tools to Gemini function declarations
+        // Convert tools to Gemini function declarations - FIXED: Direct access to tool properties
         const geminiTools = ELIZA_TOOLS.map(tool => ({
-          name: tool.function.name,
-          description: tool.function.description,
-          parameters: tool.function.parameters
+          name: tool.name || tool.function?.name,  // ✅ Support both formats
+          description: tool.description || tool.function?.description,
+          parameters: tool.parameters || tool.function?.parameters
         }));
         
         requestBody = {
@@ -713,6 +713,21 @@ serve(async (req) => {
             toolResult.result,
             toolResult.error
           );
+          
+          // Log successful tool executions to activity log for user visibility
+          if (toolResult.success) {
+            await supabase.from('eliza_activity_log').insert({
+              activity_type: 'tool_execution_success',
+              title: `✅ ${toolCall.function.name} completed`,
+              description: `Successfully executed ${toolCall.function.name}`,
+              metadata: { 
+                tool: toolCall.function.name,
+                args: JSON.parse(toolCall.function.arguments),
+                result_preview: JSON.stringify(toolResult.result || toolResult).substring(0, 500)
+              },
+              status: 'completed'
+            });
+          }
           
           // Add tool result to conversation
           currentMessages.push({

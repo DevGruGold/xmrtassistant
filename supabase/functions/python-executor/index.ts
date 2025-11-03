@@ -101,6 +101,25 @@ Deno.serve(async (req) => {
     
     console.log(`⏱️ [TIMING] Execution completed in ${executionTime}ms`);
     
+    // ⚠️ Detect network errors in Python code (Piston sandbox has no network access)
+    if (result.run?.stderr?.includes('urllib.request') || 
+        result.run?.stderr?.includes('URLError') ||
+        result.run?.stderr?.includes('socket.gaierror')) {
+      console.warn('⚠️ Python code attempted network call - not supported in Piston sandbox');
+      
+      return new Response(JSON.stringify({
+        success: false,
+        output: result.run?.stdout || '',
+        error: '❌ Network calls not supported in Python sandbox. Use invoke_edge_function tool or call_edge_function instead for HTTP requests.',
+        exitCode: 1,
+        language: language,
+        version: version
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+    
     // Log to activity table for Code Execution Log visibility
     await supabase.from('eliza_activity_log').insert({
       activity_type: 'python_execution',

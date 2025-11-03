@@ -1773,6 +1773,7 @@ export type Database = {
           code: string
           created_at: string
           error_message: string | null
+          execution_time_ms: number | null
           exit_code: number | null
           finished_at: string | null
           id: string
@@ -1788,6 +1789,7 @@ export type Database = {
           code: string
           created_at?: string
           error_message?: string | null
+          execution_time_ms?: number | null
           exit_code?: number | null
           finished_at?: string | null
           id?: string
@@ -1803,6 +1805,7 @@ export type Database = {
           code?: string
           created_at?: string
           error_message?: string | null
+          execution_time_ms?: number | null
           exit_code?: number | null
           finished_at?: string | null
           id?: string
