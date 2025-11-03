@@ -349,6 +349,84 @@ Format your response EXACTLY as:
       throw error;
     }
   }
+
+  /**
+   * COMMUNITY IDEA EVALUATION
+   * Evaluate a community idea with full council deliberation
+   */
+  async evaluateCommunityIdea(ideaId: string): Promise<{
+    approved: boolean;
+    avgScore: number;
+    councilPerspectives: any;
+  }> {
+    console.log(`🏛️ Executive Council: Evaluating community idea ${ideaId}...`);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('evaluate-community-idea', {
+        body: { ideaId, action: 'evaluate_single' }
+      });
+      
+      if (error) throw error;
+      
+      console.log(`✅ Idea evaluation complete: ${data.approved ? 'APPROVED' : 'REJECTED'} (${data.avgScore}/100)`);
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to evaluate community idea:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * IMPLEMENTATION APPROVAL
+   * Approve an idea for implementation and create tasks
+   */
+  async approveImplementation(ideaId: string, plan: any): Promise<{ taskId: string }> {
+    console.log(`✅ Executive Council: Approving implementation for idea ${ideaId}...`);
+    
+    try {
+      // Create implementation task  
+      const taskId = crypto.randomUUID();
+      const taskTitle = `Implement Community Idea: ${plan.title || ideaId}`;
+      const { data: task, error: taskError } = await supabase
+        .from('tasks')
+        .insert([{
+          id: taskId,
+          title: taskTitle,
+          description: `Community-approved idea implementation`,
+          status: 'PENDING',
+          priority: plan.avgScore >= 80 ? 9 : plan.avgScore >= 70 ? 7 : 5,
+          category: 'other',
+          stage: 'PLAN',
+          repo: 'XMRT-Ecosystem',
+          metadata: { 
+            idea_id: ideaId, 
+            implementation_plan: plan, 
+            is_community_idea: true
+          }
+        }])
+        .select()
+        .single();
+      
+      if (taskError) throw taskError;
+      
+      // Update idea status
+      await supabase
+        .from('community_ideas')
+        .update({ 
+          assigned_agent_id: task.id,
+          implementation_started_at: new Date().toISOString()
+        })
+        .eq('id', ideaId);
+      
+      console.log(`✅ Implementation task created: ${task.id}`);
+      
+      return { taskId: task.id };
+    } catch (error) {
+      console.error('❌ Failed to approve implementation:', error);
+      throw error;
+    }
+  }
 }
 
 export const executiveCouncilService = new ExecutiveCouncilService();

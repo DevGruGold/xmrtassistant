@@ -456,5 +456,83 @@ export const ELIZA_TOOLS = [
         }
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'evaluate_community_idea',
+      description: 'COMMUNITY IDEA EVALUATION - Evaluate a community-submitted idea through the lens of XMRT values. Scores idea on Financial Sovereignty (0-100), Democracy (0-100), Privacy (0-100), Technical Feasibility (0-100), and Community Benefit (0-100). Convenes executive council for strategic review. Auto-approves ideas scoring 65+ average. Creates implementation tasks for approved ideas.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ideaId: { 
+            type: 'string', 
+            description: 'UUID of the community idea to evaluate' 
+          },
+          action: {
+            type: 'string',
+            enum: ['evaluate_pending', 'evaluate_single'],
+            description: 'Action type: evaluate_pending processes all pending ideas, evaluate_single processes specific idea'
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scan_for_opportunities',
+      description: 'PROACTIVE OPPORTUNITY DETECTION - Scan XMRT DAO infrastructure for improvement opportunities. Detects: underutilized components, performance bottlenecks, data patterns, integration gaps, community pain points. Logs findings to opportunity_log table with priority scoring. Run this every 15 minutes for 24/7 vigilance.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['scan', 'generate_report'],
+            description: 'Action type: scan discovers opportunities, generate_report creates daily summary'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'make_autonomous_decision',
+      description: 'AUTONOMOUS DECISION MAKING - Make strategic decisions on detected opportunities. Executes decision tree: Can I auto-fix? → Do I need executive council? → Should I create agent task? → Is this a community idea? Auto-implements simple optimizations, convenes council for complex decisions, creates tasks for agents.',
+      parameters: {
+        type: 'object',
+        properties: {
+          opportunityId: { 
+            type: 'string', 
+            description: 'UUID of the opportunity from opportunity_log to act upon' 
+          }
+        },
+        required: ['opportunityId']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'perform_self_evaluation',
+      description: 'CONTINUOUS LEARNING & SELF-IMPROVEMENT - Analyze recent performance, extract patterns, expand capabilities, set goals. Reviews last 24 hours: task success rate, tool execution patterns, discovered errors. Stores learned patterns in eliza_work_patterns. Updates daily performance metrics. Sets improvement goals for next cycle.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_system_knowledge',
+      description: 'SYSTEM ARCHITECTURE DISCOVERY - Scan and catalog all infrastructure components. Discovers: 87+ database tables, 125+ edge functions, 20+ cron jobs, Vercel deployments. Maps relationships between components. Stores in system_architecture_knowledge table for intimate awareness of the entire system.',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    }
   }
 ];
