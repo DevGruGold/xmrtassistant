@@ -167,11 +167,11 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         
       case 'list_available_functions':
         const { category } = parsedArgs;
-        const listResult = await supabase.functions.invoke('list-available-functions', {
+        const functionsListResult = await supabase.functions.invoke('list-available-functions', {
           body: { category }
         });
         
-        return { success: true, result: listResult.data };
+        return { success: true, result: functionsListResult.data };
         
       // Agent management tools
       case 'list_agents':

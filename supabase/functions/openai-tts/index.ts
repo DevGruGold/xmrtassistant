@@ -49,6 +49,19 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ OpenAI TTS API error:', errorText);
+      
+      // Check for quota error and provide graceful fallback
+      if (errorText.includes('insufficient_quota')) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'OpenAI TTS quota exceeded. Voice features temporarily unavailable.',
+          fallback: 'text_only'
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error(`OpenAI TTS API error: ${errorText}`);
     }
 

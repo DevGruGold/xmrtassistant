@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       .insert({
         code,
         output: result.run?.stdout || null,
-        error: result.run?.stderr || null,
+        error_message: result.run?.stderr || null,
         exit_code: exitCode,
         execution_time_ms: executionTime,
         source: source,
