@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { generateElizaSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { ELIZA_TOOLS } from '../_shared/elizaTools.ts';
 import { getAICredential, createCredentialRequiredResponse } from "../_shared/credentialCascade.ts";
+import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -246,92 +247,77 @@ serve(async (req) => {
     
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    // Intelligent AI service cascade: Try Gemini -> OpenRouter (Kimi K2) -> DeepSeek -> OpenAI
-    const geminiKey = getAICredential('gemini', session_credentials);
+    // Intelligent AI service cascade: Try Lovable AI Gateway -> DeepSeek -> OpenAI
     const deepseekKey = getAICredential('deepseek', session_credentials);
-    const openrouterKey = getAICredential('openrouter', session_credentials);
     const openaiKey = getAICredential('openai', session_credentials);
 
     // Log which services are available
     console.log('🔍 Available AI services:', {
-      gemini: !!geminiKey,
+      lovable_gateway: !!LOVABLE_API_KEY,
       deepseek: !!deepseekKey,
-      openrouter: !!openrouterKey,
       openai: !!openaiKey
     });
 
     // Try services in order of preference
-    let AI_API_KEY: string | null = null;
-    let aiProvider = 'unknown';
-    let aiModel = '';
-    let aiExecutive = '';
-    let aiExecutiveTitle = '';
+    let aiProvider = 'lovable_gateway';
+    let aiModel = 'google/gemini-2.5-flash';
+    let aiExecutive = 'lovable-chat';
+    let aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
 
-    if (geminiKey) {
-      AI_API_KEY = geminiKey;
-      aiProvider = 'gemini';
-      aiModel = 'google/gemini-2.5-flash';
-      aiExecutive = 'lovable-chat';
-      aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
-      console.log('✅ Using Gemini AI Primary');
-    } else if (openrouterKey) {
-      AI_API_KEY = openrouterKey;
-      aiProvider = 'openrouter';
-      aiModel = 'kimi/kimi-k2-0905'; // Kimi K2 model on OpenRouter
-      aiExecutive = 'kimi-chat';
-      aiExecutiveTitle = 'Kimi K2 AI Gateway';
-      console.log('✅ Using Kimi K2 (OpenRouter) Fallback');
-    } else if (deepseekKey) {
-      // For DeepSeek, we'll call it via its edge function instead
-      console.log('⚠️ Previous AI not available, trying DeepSeek fallback');
-      try {
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-        
-        const deepseekResult = await fallbackSupabase.functions.invoke('deepseek-chat', {
-          body: { 
-            messages, 
-            conversationHistory, 
-            userContext, 
-            miningStats, 
-            systemVersion,
-            session_credentials 
+    if (!LOVABLE_API_KEY) {
+      // Fallback to DeepSeek
+      if (deepseekKey) {
+        console.log('⚠️ Lovable AI Gateway not available, trying DeepSeek fallback');
+        try {
+          const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+          const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+          
+          const deepseekResult = await fallbackSupabase.functions.invoke('deepseek-chat', {
+            body: { 
+              messages, 
+              conversationHistory, 
+              userContext, 
+              miningStats, 
+              systemVersion,
+              session_credentials 
+            }
+          });
+
+          if (!deepseekResult.error && deepseekResult.data) {
+            return new Response(
+              JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek', executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
-        });
-
-        if (!deepseekResult.error && deepseekResult.data) {
-          return new Response(
-            JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek', executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        } catch (error) {
+          console.warn('DeepSeek fallback failed:', error);
         }
-      } catch (error) {
-        console.warn('DeepSeek fallback failed:', error);
       }
-    } else if (openaiKey) {
-      AI_API_KEY = openaiKey;
-      aiProvider = 'openai';
-      aiModel = 'gpt-4o'; // Default OpenAI model
-      aiExecutive = 'lovable-chat';
-      aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
-      console.log('⚠️ Previous AI not available, trying OpenAI fallback');
-    }
-
-    if (!AI_API_KEY) {
-      console.error('❌ All AI services exhausted');
-      return new Response(
-        JSON.stringify(createCredentialRequiredResponse(
-          'gemini',
-          'api_key',
-          "AI service credentials needed. We tried Gemini AI, Kimi K2 (OpenRouter), DeepSeek, and OpenAI, but none are configured.",
-          'https://docs.lovable.dev/features/ai'
-        )),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
+      
+      // Fallback to OpenAI
+      if (openaiKey) {
+        aiProvider = 'openai';
+        aiModel = 'gpt-4o';
+        console.log('⚠️ Falling back to OpenAI');
+      } else {
+        console.error('❌ All AI services exhausted');
+        return new Response(
+          JSON.stringify(createCredentialRequiredResponse(
+            'lovable',
+            'api_key',
+            "AI service credentials needed. Lovable AI Gateway is not configured.",
+            'https://docs.lovable.dev/features/ai'
+          )),
+          { 
+            status: 401, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    } else {
+      console.log('✅ Using Lovable AI Gateway (Gemini 2.5 Flash)');
     }
 
     console.log(`🎯 ${aiExecutiveTitle} - Processing request`);
@@ -564,47 +550,74 @@ serve(async (req) => {
       toolIterations++;
       console.log(`🔄 AI iteration ${toolIterations} using ${aiProvider}`);
       
-      // Determine the correct API endpoint and request format based on provider
-      let apiUrl = '';
-      let requestBody: any;
-      let headers: any;
+      let message: any;
       
-      if (aiProvider === 'gemini') {
-        // Gemini uses a different API structure
-        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${AI_API_KEY}`;
-        
-        // Convert OpenAI-style messages to Gemini format
-        const geminiContents = currentMessages
-          .filter(m => m.role !== 'system')
-          .map(m => ({
-            role: m.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: m.content }]
-          }));
-        
-        // Convert tools to Gemini function declarations - FIXED: Direct access to tool properties
-        const geminiTools = ELIZA_TOOLS.map(tool => ({
-          name: tool.name || tool.function?.name,  // ✅ Support both formats
-          description: tool.description || tool.function?.description,
-          parameters: tool.parameters || tool.function?.parameters
-        }));
-        
-        requestBody = {
-          contents: geminiContents,
-          tools: [{ functionDeclarations: geminiTools }],
-          systemInstruction: {
-            parts: [{ text: currentMessages.find(m => m.role === 'system')?.content || '' }]
+      if (aiProvider === 'lovable_gateway') {
+        // Use Lovable AI Gateway
+        try {
+          console.log(`📡 Calling Lovable AI Gateway with ${ELIZA_TOOLS.length} tools available`);
+          
+          // Convert messages (excluding system prompt since it's passed separately)
+          const messagesForGateway = currentMessages.filter(m => m.role !== 'system');
+          const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+          
+          const aiResponse = await callLovableAIGateway(messagesForGateway, {
+            model: 'google/gemini-2.5-flash',
+            systemPrompt,
+            temperature: 0.7,
+            max_tokens: 4000
+          });
+          
+          // For now, Lovable AI Gateway doesn't support tool calling in the same way
+          // We'll need to parse the response for any tool requests
+          message = {
+            role: 'assistant',
+            content: aiResponse,
+            tool_calls: [] // Gateway doesn't support direct tool calling yet
+          };
+          
+        } catch (error) {
+          console.error('❌ Lovable AI Gateway error:', error);
+          
+          // Check for rate limit or payment errors
+          if (error.message?.includes('429')) {
+            return new Response(JSON.stringify({ 
+              success: false, 
+              error: 'Rate limit exceeded. Please wait and try again.',
+              provider: 'lovable_gateway'
+            }), {
+              status: 429,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
           }
-        };
+          
+          if (error.message?.includes('402')) {
+            return new Response(JSON.stringify({ 
+              success: false, 
+              error: 'Payment required. Please add credits to your Lovable AI workspace.',
+              provider: 'lovable_gateway'
+            }), {
+              status: 402,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `Lovable AI Gateway error: ${error.message}`,
+            provider: 'lovable_gateway'
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         
-        headers = { 'Content-Type': 'application/json' };
+      } else if (aiProvider === 'openai') {
+        // OpenAI fallback
+        const apiUrl = 'https://api.openai.com/v1/chat/completions';
+        const openaiKey = getAICredential('openai', session_credentials);
         
-      } else if (aiProvider === 'openrouter' || aiProvider === 'openai') {
-        // OpenRouter and OpenAI use the same API structure
-        apiUrl = aiProvider === 'openrouter' 
-          ? 'https://openrouter.ai/api/v1/chat/completions'
-          : 'https://api.openai.com/v1/chat/completions';
-        
-        requestBody = {
+        const requestBody = {
           model: aiModel,
           messages: currentMessages,
           tools: ELIZA_TOOLS,
@@ -612,10 +625,43 @@ serve(async (req) => {
           stream: false,
         };
         
-        headers = {
+        const headers = {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AI_API_KEY}`,
+          'Authorization': `Bearer ${openaiKey}`,
         };
+        
+        console.log(`📡 Calling OpenAI API with ${ELIZA_TOOLS.length} tools available`);
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(`❌ OpenAI API call failed:`, response.status, errorBody);
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `OpenAI API call failed: ${errorBody}`,
+            provider: 'openai'
+          }), {
+            status: response.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const data = await response.json();
+        const choice = data.choices?.[0];
+        message = choice?.message;
+        
+        if (!message) {
+          console.error("No message in OpenAI response");
+          return new Response(JSON.stringify({ success: false, error: 'Invalid OpenAI response' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         
       } else {
         console.error(`❌ Unknown AI provider: ${aiProvider}`);
@@ -623,73 +669,6 @@ serve(async (req) => {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
-      }
-      
-      console.log(`📡 Calling ${aiProvider} API:`, apiUrl);
-      console.log(`🔧 Tools available: ${ELIZA_TOOLS.length}`);
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`❌ ${aiProvider} API call failed:`, response.status, errorBody);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `${aiProvider} API call failed: ${errorBody}`,
-          provider: aiProvider 
-        }), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const data = await response.json();
-      let message: any;
-      
-      // Parse response based on provider
-      if (aiProvider === 'gemini') {
-        // Gemini response format
-        const candidate = data.candidates?.[0];
-        if (!candidate) {
-          console.error("No candidate in Gemini response");
-          return new Response(JSON.stringify({ success: false, error: 'Invalid Gemini response' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        const content = candidate.content?.parts?.[0]?.text || '';
-        const functionCalls = candidate.content?.parts?.filter(p => p.functionCall) || [];
-        
-        message = {
-          role: 'assistant',
-          content: content,
-          tool_calls: functionCalls.map(fc => ({
-            id: `call_${Math.random().toString(36).substr(2, 9)}`,
-            type: 'function',
-            function: {
-              name: fc.functionCall.name,
-              arguments: JSON.stringify(fc.functionCall.args)
-            }
-          }))
-        };
-        
-      } else {
-        // OpenAI/OpenRouter response format
-        const choice = data.choices?.[0];
-        message = choice?.message;
-        
-        if (!message) {
-          console.error("No message in AI response");
-          return new Response(JSON.stringify({ success: false, error: 'Invalid AI response' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
       }
       
       // Add assistant message to conversation
