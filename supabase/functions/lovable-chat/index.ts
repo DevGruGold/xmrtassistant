@@ -562,13 +562,36 @@ serve(async (req) => {
     
     while (toolIterations < MAX_TOOL_ITERATIONS) {
       toolIterations++;
-      console.log(`🔄 AI iteration ${toolIterations}`);
+      console.log(`🔄 AI iteration ${toolIterations} using ${aiProvider}`);
       
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      // Determine the correct API endpoint based on provider
+      let apiUrl = '';
+      let authHeader = '';
+      
+      if (aiProvider === 'gemini') {
+        apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent`;
+        authHeader = `Bearer ${AI_API_KEY}`;
+      } else if (aiProvider === 'openrouter') {
+        apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+        authHeader = `Bearer ${AI_API_KEY}`;
+      } else if (aiProvider === 'openai') {
+        apiUrl = 'https://api.openai.com/v1/chat/completions';
+        authHeader = `Bearer ${AI_API_KEY}`;
+      } else {
+        console.error(`❌ Unknown AI provider: ${aiProvider}`);
+        return new Response(JSON.stringify({ success: false, error: `Unknown AI provider: ${aiProvider}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log(`📡 Calling ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AI_API_KEY}`,
+          'Authorization': authHeader,
         },
         body: JSON.stringify({
           model: aiModel,
@@ -581,8 +604,12 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error("AI API call failed:", response.status, errorBody);
-        return new Response(JSON.stringify({ success: false, error: `AI API call failed: ${errorBody}` }), {
+        console.error(`❌ ${aiProvider} API call failed:`, response.status, errorBody);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `${aiProvider} API call failed: ${errorBody}`,
+          provider: aiProvider 
+        }), {
           status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
