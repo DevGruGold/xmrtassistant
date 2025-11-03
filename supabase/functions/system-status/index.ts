@@ -217,12 +217,6 @@ serve(async (req) => {
           error: error.message
         };
       }
-    } else {
-      statusReport.components.render_service = {
-        status: 'not_configured',
-        error: 'RENDER_API_KEY not set'
-      };
-    }
     
     // 6. Check Activity Log for Recent Errors
     console.log('📜 Checking recent activity logs...');
