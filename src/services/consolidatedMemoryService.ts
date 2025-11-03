@@ -115,8 +115,7 @@ class ConsolidatedMemoryService {
         const { data, error } = await supabase.rpc('match_memories', {
           query_embedding: embeddingString,
           match_threshold: 0.7,
-          match_count: limit,
-          user_id_filter: userId
+          match_count: limit
         });
 
         if (!error && data && Array.isArray(data)) {

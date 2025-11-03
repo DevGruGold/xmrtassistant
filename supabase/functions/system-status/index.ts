@@ -18,9 +18,11 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const RENDER_API_KEY = Deno.env.get("RENDER_API_KEY");
-    const RENDER_API_BASE = "https://api.render.com/v1";
-    const FLASK_SERVICE_URL = "https://xmrt-ecosystem-iofw.onrender.com";
+    const VERCEL_SERVICES = {
+      io: 'https://xmrt-io.vercel.app',
+      ecosystem: 'https://xmrt-ecosystem.vercel.app',
+      dao: 'https://xmrt-dao-ecosystem.vercel.app'
+    };
     
     const statusReport: any = {
       timestamp: new Date().toISOString(),
@@ -164,69 +166,53 @@ serve(async (req) => {
       };
     }
     
-    // 5. Check Render Service Status
-    console.log('🚀 Checking Render service status...');
-    if (RENDER_API_KEY) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const servicesResponse = await fetch(`${RENDER_API_BASE}/services`, {
-          headers: {
-            "Authorization": `Bearer ${RENDER_API_KEY}`,
-            "Content-Type": "application/json"
-          },
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!servicesResponse.ok) {
-          throw new Error(`Render API error: ${servicesResponse.status}`);
-        }
-        
-        const services = await servicesResponse.json();
-        const xmrtService = services.find((s: any) => 
-          s.service?.name?.toLowerCase().includes('xmrt') ||
-          s.service?.repo?.includes('XMRT-Ecosystem')
-        );
-        
-        if (xmrtService) {
-          const serviceId = xmrtService.service.id;
-          
-          // Get latest deployment
-          const deploysResponse = await fetch(`${RENDER_API_BASE}/services/${serviceId}/deploys?limit=1`, {
-            headers: {
-              "Authorization": `Bearer ${RENDER_API_KEY}`,
-              "Content-Type": "application/json"
-            }
-          });
-          
-          if (deploysResponse.ok) {
-            const deploys = await deploysResponse.json();
-            const latestDeploy = deploys[0]?.deploy;
+    // 5. Check Vercel Services Status
+    console.log('🚀 Checking Vercel services health...');
+    try {
+      const vercelHealthChecks = await Promise.all(
+        Object.entries(VERCEL_SERVICES).map(async ([name, url]) => {
+          const startTime = Date.now();
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
-            statusReport.components.render_service = {
-              status: latestDeploy?.status === 'live' ? 'healthy' : 'degraded',
-              service_name: xmrtService.service.name,
-              service_url: FLASK_SERVICE_URL,
-              latest_deploy: {
-                id: latestDeploy?.id,
-                status: latestDeploy?.status,
-                commit_hash: latestDeploy?.commit?.id?.substring(0, 7),
-                commit_message: latestDeploy?.commit?.message,
-                deployed_at: latestDeploy?.finishedAt || latestDeploy?.createdAt
-              }
+            const response = await fetch(`${url}/health`, {
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            const responseTime = Date.now() - startTime;
+            
+            return {
+              service: name,
+              status: response.ok ? 'healthy' : 'degraded',
+              url,
+              response_time_ms: responseTime,
+              status_code: response.status
+            };
+          } catch (error) {
+            return {
+              service: name,
+              status: 'offline',
+              url,
+              error: error.message
             };
           }
-        } else {
-          statusReport.components.render_service = {
-            status: 'unknown',
-            error: 'XMRT service not found in Render'
-          };
-        }
-      } catch (error) {
-        statusReport.components.render_service = {
+        })
+      );
+      
+      const allHealthy = vercelHealthChecks.every(s => s.status === 'healthy');
+      
+      statusReport.components.vercel_services = {
+        status: allHealthy ? 'healthy' : 'degraded',
+        services: vercelHealthChecks
+      };
+      
+      if (!allHealthy) {
+        statusReport.overall_status = 'degraded';
+      }
+    } catch (error) {
+        statusReport.components.vercel_services = {
           status: 'error',
           error: error.message
         };

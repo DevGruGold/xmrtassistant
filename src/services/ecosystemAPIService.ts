@@ -31,7 +31,12 @@ interface EcosystemResponse<T = any> {
 }
 
 class EcosystemAPIService {
-  private baseUrl = 'https://xmrt-ecosystem-1-20k6.onrender.com';
+  private services = {
+    io: 'https://xmrt-io.vercel.app',
+    ecosystem: 'https://xmrt-ecosystem.vercel.app',
+    dao: 'https://xmrt-dao-ecosystem.vercel.app'
+  };
+  private baseUrl = this.services.ecosystem;
 
   async getSystemHealth(): Promise<EcosystemResponse<EcosystemHealth>> {
     try {

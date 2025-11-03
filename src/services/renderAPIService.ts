@@ -44,15 +44,19 @@ export interface XMRTSystemVersion {
 }
 
 export class RenderAPIService {
-  private static FLASK_SERVICE_URL = 'https://xmrt-ecosystem-iofw.onrender.com';
+  private static VERCEL_SERVICES = {
+    io: 'https://xmrt-io.vercel.app',
+    ecosystem: 'https://xmrt-ecosystem.vercel.app',
+    dao: 'https://xmrt-dao-ecosystem.vercel.app'
+  };
   
   /**
-   * Get current system version from Flask deployment
+   * Get current system version from Vercel ecosystem deployment
    */
   public static async getSystemVersion(): Promise<XMRTSystemVersion | null> {
     try {
-      // Try to get version info from Flask /version endpoint
-      const versionResponse = await fetch(`${this.FLASK_SERVICE_URL}/version`, {
+      // Get version info from Vercel ecosystem service
+      const versionResponse = await fetch(`${this.VERCEL_SERVICES.ecosystem}/health`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -68,17 +72,17 @@ export class RenderAPIService {
           commitMessage: versionData.commit_message || 'No commit message',
           deployedAt: versionData.deployed_at || new Date().toISOString(),
           status: 'active',
-          serviceUrl: this.FLASK_SERVICE_URL
+          serviceUrl: this.VERCEL_SERVICES.ecosystem
         };
       }
       
-      // Fallback: get info from Render API via edge function
-      const { data, error } = await supabase.functions.invoke('render-api', {
+      // Fallback: get info from Vercel API via edge function
+      const { data, error } = await supabase.functions.invoke('vercel-ecosystem-api', {
         body: { action: 'get_deployment_info' }
       });
       
       if (error) {
-        console.error('Error fetching from Render API:', error);
+        console.error('Error fetching from Vercel API:', error);
         return null;
       }
       
@@ -90,30 +94,36 @@ export class RenderAPIService {
   }
   
   /**
-   * Check if Flask service is healthy
+   * Check health of all Vercel services
    */
-  public static async checkServiceHealth(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.FLASK_SERVICE_URL}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      return response.ok;
-    } catch (error) {
-      console.error('Service health check failed:', error);
-      return false;
+  public static async checkServiceHealth(): Promise<{ [key: string]: boolean }> {
+    const healthStatus: { [key: string]: boolean } = {};
+    
+    for (const [serviceName, serviceUrl] of Object.entries(this.VERCEL_SERVICES)) {
+      try {
+        const response = await fetch(`${serviceUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        healthStatus[serviceName] = response.ok;
+      } catch (error) {
+        console.error(`Service health check failed for ${serviceName}:`, error);
+        healthStatus[serviceName] = false;
+      }
     }
+    
+    return healthStatus;
   }
   
   /**
-   * Get service status from Render API via edge function
+   * Get multi-service status from Vercel via edge function
    */
   public static async getServiceStatus(): Promise<RenderServiceInfo | null> {
     try {
-      const { data, error } = await supabase.functions.invoke('render-api', {
+      const { data, error } = await supabase.functions.invoke('vercel-ecosystem-api', {
         body: { action: 'get_service_status' }
       });
       
@@ -130,11 +140,11 @@ export class RenderAPIService {
   }
   
   /**
-   * Get recent deployments
+   * Get recent deployments from Vercel
    */
   public static async getRecentDeployments(limit: number = 5): Promise<RenderDeployInfo[]> {
     try {
-      const { data, error } = await supabase.functions.invoke('render-api', {
+      const { data, error } = await supabase.functions.invoke('vercel-ecosystem-api', {
         body: { 
           action: 'get_deployments',
           limit 

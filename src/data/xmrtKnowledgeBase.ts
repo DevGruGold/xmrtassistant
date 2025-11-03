@@ -57,10 +57,10 @@ export const XMRT_KNOWLEDGE_BASE: XMRTKnowledgeEntry[] = [
   },
 
   {
-    topic: "Live XMRT-Ecosystem Deployment and Real-Time Integration",
-    content: "The XMRT-Ecosystem is live and operational at https://xmrt-ecosystem-xx5w.onrender.com running version 2.1.0-minimal on Render Free Tier with memory optimization. The deployment features two autonomous agents (core_agent and web_agent) providing real-time ecosystem management, health monitoring with uptime tracking, RESTful API endpoints for agent queries and command execution, and comprehensive analytics reporting. This live deployment demonstrates the practical implementation of Joseph Andrew Lee's infrastructure sovereignty vision with continuous autonomous operation, scalable architecture designed for growth from minimal core to full ecosystem, and integration capabilities allowing real-time interaction with the deployed system. Eliza can now interact directly with this live infrastructure, query agents, execute commands, and monitor system health in real-time.",
+    topic: "Live XMRT Ecosystem Deployments on Vercel",
+    content: "The XMRT ecosystem is deployed across three Vercel services: (1) xmrt-io.vercel.app - Main website and landing pages from the XMRT.io repository, (2) xmrt-ecosystem.vercel.app - Core autonomous agents, API endpoints, and health monitoring from the XMRT-Ecosystem repository, (3) xmrt-dao-ecosystem.vercel.app - DAO governance interface and voting mechanisms from the XMRT-DAO-Ecosystem repository. All services run serverless edge functions with global CDN distribution, automatic deployments from GitHub, and Redis caching via Upstash for performance optimization. Health endpoints: /health for each service. The deployment demonstrates Joseph Andrew Lee's infrastructure sovereignty vision with continuous autonomous operation, scalable serverless architecture, and multi-service coordination. Eliza can interact with these deployments in real-time via the ecosystem-monitor and vercel-ecosystem-api edge functions.",
     category: 'deployment',
-    keywords: ['live', 'deployment', 'Render', 'autonomous agents', 'core_agent', 'web_agent', 'API', 'health monitoring', 'real-time', 'infrastructure sovereignty', 'Eliza integration'],
+    keywords: ['Vercel', 'xmrt-io', 'xmrt-ecosystem', 'xmrt-dao-ecosystem', 'health monitoring', 'serverless', 'edge functions', 'Upstash Redis', 'autonomous agents', 'infrastructure sovereignty', 'Eliza integration'],
     confidence: 1.0
   },
 

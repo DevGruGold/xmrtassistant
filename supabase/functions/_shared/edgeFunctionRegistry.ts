@@ -200,10 +200,10 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
   },  {
     name: 'ecosystem-monitor',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/ecosystem-monitor',
-    description: 'Monitor entire XMRT ecosystem health and status',
-    capabilities: ["Health checks", "Performance metrics", "Status monitoring"],
+    description: 'Monitor entire XMRT Vercel ecosystem health (xmrt-io, xmrt-ecosystem, xmrt-dao-ecosystem)',
+    capabilities: ["Multi-service health checks", "Performance metrics", "Status monitoring", "Vercel deployment tracking"],
     category: 'monitoring',
-    example_use: 'Use ecosystem monitor for monitor entire xmrt ecosystem health and status'
+    example_use: 'Monitor all Vercel services health, check ecosystem performance, track deployment status'
   },  {
     name: 'eliza-python-runtime',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/eliza-python-runtime',
@@ -373,12 +373,19 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     category: 'code-execution',
     example_use: 'Use python network proxy for network proxy for python code execution'
   },  {
-    name: 'render-api',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/render-api',
-    description: 'Interact with Render deployment API',
-    capabilities: ["Deployment management", "API integration", "Service control"],
+    name: 'vercel-ecosystem-api',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/vercel-ecosystem-api',
+    description: 'Vercel multi-service management for xmrt-io, xmrt-ecosystem, and xmrt-dao-ecosystem deployments',
+    capabilities: ["Deployment tracking", "Multi-service health monitoring", "Service status aggregation", "Deployment history"],
     category: 'deployment',
-    example_use: 'Use render api for interact with render deployment api'
+    example_use: 'Check health of all Vercel services, get deployment info, monitor service status'
+  },  {
+    name: 'redis-cache',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/redis-cache',
+    description: 'Upstash Redis caching service for API responses, sessions, and rate limiting',
+    capabilities: ["Get/Set cache", "Delete cache", "Health check", "TTL management"],
+    category: 'database',
+    example_use: 'Cache ecosystem health for 5 minutes, store session data, implement rate limiting'
   },  {
     name: 'schedule-reminder',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/schedule-reminder',

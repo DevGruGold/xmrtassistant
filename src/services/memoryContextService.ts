@@ -85,8 +85,7 @@ export class MemoryContextService {
                 {
                   query_embedding: queryEmbedding,
                   match_threshold: 0.5,
-                  match_count: limit,
-                  user_id_filter: userId
+                  match_count: limit
                 }
               );
 

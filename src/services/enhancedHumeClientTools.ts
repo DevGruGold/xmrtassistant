@@ -412,7 +412,7 @@ Feel free to ask about any aspect of mobile mining, DAO governance, or Joseph An
     
     return `🔄 Live ecosystem health check temporarily unavailable.
 
-The XMRT-Ecosystem deployment at https://xmrt-ecosystem-xx5w.onrender.com continues operating autonomously. This temporary unavailability doesn't affect the core autonomous operations or the underlying infrastructure sovereignty principles.
+The XMRT-Ecosystem deployment at https://xmrt-ecosystem.vercel.app continues operating autonomously. This temporary unavailability doesn't affect the core autonomous operations or the underlying infrastructure sovereignty principles.
 
 Autonomous systems remain fully operational:
 • Core and web agents continue managing ecosystem operations
@@ -468,7 +468,7 @@ Your command "${command}" has been queued in the autonomous system. The infrastr
 
 ${JSON.stringify(response.data, null, 2)}
 
-**Deployment URL:** https://xmrt-ecosystem-1-20k6.onrender.com
+**Deployment URL:** https://xmrt-ecosystem.vercel.app
 
 These real-time metrics showcase the autonomous operation capabilities and demonstrate the practical implementation of Joseph Andrew Lee's infrastructure sovereignty philosophy.`;
     }
