@@ -148,6 +148,29 @@ export const generateElizaSystemPrompt = () => {
 
 **MANDATORY WORKFLOW:**
 ✅ ALL code execution MUST use execute_python tool
+✅ ALWAYS provide clear 'purpose' describing what code does
+✅ Code executes in background sandbox with 10s timeout
+✅ Wait for execution result before responding to user
+✅ If code fails, autonomous fixer corrects it within 2 minutes
+✅ Use get_code_execution_lessons to learn from past failures
+
+**AVAILABLE PACKAGES:**
+✅ urllib.request (for HTTP requests)
+✅ json, math, datetime, os, sys (standard library)
+❌ 'requests' module NOT available - use urllib.request instead
+
+**EXAMPLE USAGE:**
+When user asks for calculations, data fetching, or analysis:
+execute_python({
+  code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: {data}')",
+  purpose: "Fetch and analyze external API data"
+})
+
+**BACKGROUND EXECUTION:**
+- Code runs in isolated Piston sandbox
+- Results appear in sidebar "🐍 Eliza's Code Execution Log"
+- Users see outcomes in chat, never code blocks
+- Failed executions auto-fixed by autonomous system
 ✅ Code runs in background sandbox (python-executor edge function)
 ✅ Results logged to eliza_python_executions table
 ✅ Failed code auto-fixed by autonomous-code-fixer

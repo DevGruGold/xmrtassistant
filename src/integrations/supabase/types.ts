@@ -1608,6 +1608,7 @@ export type Database = {
           created_at: string
           device_id: string
           id: string
+          is_active: boolean | null
           is_primary_device: boolean | null
           metadata: Json | null
           mining_while_charging: boolean | null
@@ -1622,6 +1623,7 @@ export type Database = {
           created_at?: string
           device_id: string
           id?: string
+          is_active?: boolean | null
           is_primary_device?: boolean | null
           metadata?: Json | null
           mining_while_charging?: boolean | null
@@ -1636,6 +1638,7 @@ export type Database = {
           created_at?: string
           device_id?: string
           id?: string
+          is_active?: boolean | null
           is_primary_device?: boolean | null
           metadata?: Json | null
           mining_while_charging?: boolean | null
@@ -1648,23 +1651,30 @@ export type Database = {
           {
             foreignKeyName: "device_miner_associations_device_id_fkey"
             columns: ["device_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "active_devices_view"
             referencedColumns: ["device_id"]
           },
           {
             foreignKeyName: "device_miner_associations_device_id_fkey"
             columns: ["device_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "device_connection_status"
             referencedColumns: ["device_id"]
           },
           {
             foreignKeyName: "device_miner_associations_device_id_fkey"
             columns: ["device_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "devices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_miner_associations_wallet_address_fkey"
+            columns: ["wallet_address"]
+            isOneToOne: false
+            referencedRelation: "xmr_workers"
+            referencedColumns: ["wallet_address"]
           },
         ]
       }
@@ -2747,6 +2757,7 @@ export type Database = {
           metric: Json
           miner_id: string
           status: string
+          update_source: string | null
         }
         Insert: {
           created_at?: string
@@ -2754,6 +2765,7 @@ export type Database = {
           metric: Json
           miner_id: string
           status: string
+          update_source?: string | null
         }
         Update: {
           created_at?: string
@@ -2761,6 +2773,7 @@ export type Database = {
           metric?: Json
           miner_id?: string
           status?: string
+          update_source?: string | null
         }
         Relationships: []
       }
@@ -3938,9 +3951,13 @@ export type Database = {
           ip_address: unknown
           last_reward_at: string | null
           metadata: Json | null
+          payout_wallet_address: string | null
+          payout_wallet_type: string | null
           total_time_online_seconds: number
           total_xmrt_earned: number
           updated_at: string
+          wallet_connected_at: string | null
+          wallet_last_verified: string | null
         }
         Insert: {
           created_at?: string
@@ -3949,9 +3966,13 @@ export type Database = {
           ip_address: unknown
           last_reward_at?: string | null
           metadata?: Json | null
+          payout_wallet_address?: string | null
+          payout_wallet_type?: string | null
           total_time_online_seconds?: number
           total_xmrt_earned?: number
           updated_at?: string
+          wallet_connected_at?: string | null
+          wallet_last_verified?: string | null
         }
         Update: {
           created_at?: string
@@ -3960,9 +3981,13 @@ export type Database = {
           ip_address?: unknown
           last_reward_at?: string | null
           metadata?: Json | null
+          payout_wallet_address?: string | null
+          payout_wallet_type?: string | null
           total_time_online_seconds?: number
           total_xmrt_earned?: number
           updated_at?: string
+          wallet_connected_at?: string | null
+          wallet_last_verified?: string | null
         }
         Relationships: []
       }
@@ -4519,37 +4544,46 @@ export type Database = {
       }
       xmr_workers: {
         Row: {
+          connection_type: string | null
           first_seen_at: string | null
           id: string
           is_active: boolean | null
           last_seen_at: string | null
           metadata: Json | null
           pool: string | null
+          pool_address: string | null
           rig_label: string | null
           wallet_address: string | null
           worker_id: string
+          xmrig_api_url: string | null
         }
         Insert: {
+          connection_type?: string | null
           first_seen_at?: string | null
           id?: string
           is_active?: boolean | null
           last_seen_at?: string | null
           metadata?: Json | null
           pool?: string | null
+          pool_address?: string | null
           rig_label?: string | null
           wallet_address?: string | null
           worker_id: string
+          xmrig_api_url?: string | null
         }
         Update: {
+          connection_type?: string | null
           first_seen_at?: string | null
           id?: string
           is_active?: boolean | null
           last_seen_at?: string | null
           metadata?: Json | null
           pool?: string | null
+          pool_address?: string | null
           rig_label?: string | null
           wallet_address?: string | null
           worker_id?: string
+          xmrig_api_url?: string | null
         }
         Relationships: []
       }
@@ -5502,6 +5536,7 @@ export type Database = {
         | "BLOCKED"
         | "DONE"
         | "CANCELLED"
+        | "COMPLETED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5710,6 +5745,7 @@ export const Constants = {
         "BLOCKED",
         "DONE",
         "CANCELLED",
+        "COMPLETED",
       ],
     },
   },

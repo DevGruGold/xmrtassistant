@@ -70,10 +70,18 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         
       case 'execute_python':
         const { code, purpose } = parsedArgs;
-        console.log(`🐍 Executing Python code: ${purpose || 'No purpose specified'}`);
+        console.log(`🐍 [TOOL CALL] execute_python triggered!`);
+        console.log(`📝 [CODE LENGTH] ${code?.length || 0} characters`);
+        console.log(`🎯 [PURPOSE] ${purpose || 'No purpose specified'}`);
+        console.log(`📋 [CODE PREVIEW] ${code?.substring(0, 100) || 'No code'}...`);
         
         const pythonResult = await supabase.functions.invoke('python-executor', {
-          body: { code, purpose }
+          body: { 
+            code, 
+            purpose,
+            source: 'lovable-chat',
+            agent_id: 'eliza-main'
+          }
         });
         
         if (pythonResult.error) {

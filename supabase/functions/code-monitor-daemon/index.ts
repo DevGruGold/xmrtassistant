@@ -38,7 +38,8 @@ Deno.serve(async (req) => {
     const { data: failedExecutions, error } = await supabase
       .from("eliza_python_executions")
       .select("*")
-      .eq("status", "error")
+      .neq("exit_code", 0)
+      .not("exit_code", "is", null)
       .gte("created_at", tenMinutesAgo)
       .order("created_at", { ascending: false });
 

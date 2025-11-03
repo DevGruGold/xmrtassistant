@@ -879,7 +879,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           
           console.log('🎵 Speaking council deliberation:', spokenText.substring(0, 100) + '...');
           
-          enhancedTTS.speak(spokenText, { language })
+          enhancedTTS.speak(spokenText, { 
+            language: language as 'en' | 'es',
+            voice: 'nova',
+            speed: 1.0 
+          })
             .then(() => {
               setCurrentTTSMethod(enhancedTTS.getLastMethod());
               setIsSpeaking(false);

@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
         execution_time_ms: executionTime,
         source: source,
         purpose: purpose || null,
+        status: exitCode === 0 ? 'completed' : 'error',
         metadata: {
           agent_id: agent_id,
           task_id: task_id,
