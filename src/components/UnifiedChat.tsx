@@ -841,7 +841,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         
         const elizaMessage: UnifiedMessage = {
           id: `eliza-${Date.now()}`,
-          content: deliberation.synthesis,
+          content: typeof deliberation.synthesis === 'string' 
+            ? deliberation.synthesis 
+            : String(deliberation.synthesis || 'No response'),
           sender: 'assistant',
           timestamp: new Date(),
           confidence: 0.95,
@@ -937,7 +939,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
-        content: displayContent,
+        content: typeof displayContent === 'string' 
+          ? displayContent 
+          : String(displayContent || 'No response'),
         sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95,

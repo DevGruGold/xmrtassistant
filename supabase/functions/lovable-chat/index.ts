@@ -737,10 +737,17 @@ serve(async (req) => {
       }
       
       console.log(`✅ Final response ready after ${toolIterations} iterations`);
+      
+      // Ensure response is always a string, never an object
+      const responseContent = message.content 
+        || (message.tool_calls?.length ? '⚙️ Processing tools...' : '')
+        || (typeof message === 'string' ? message : '')
+        || 'No response generated';
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          response: message.content || message, 
+          response: responseContent, 
           provider: aiProvider, 
           executive: aiExecutive, 
           executiveTitle: aiExecutiveTitle,
@@ -752,10 +759,15 @@ serve(async (req) => {
     
     // Max iterations reached
     console.warn(`⚠️ Max tool iterations (${MAX_TOOL_ITERATIONS}) reached`);
+    const lastMessage = currentMessages[currentMessages.length - 1];
+    const lastContent = lastMessage?.content 
+      || (typeof lastMessage === 'string' ? lastMessage : '')
+      || 'Max iterations reached';
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
-        response: currentMessages[currentMessages.length - 1], 
+        response: lastContent, 
         provider: aiProvider,
         warning: 'Max tool iterations reached'
       }),

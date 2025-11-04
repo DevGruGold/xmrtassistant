@@ -237,10 +237,11 @@ export class UnifiedElizaService {
       
       console.log('✅ Eliza: Generated AI response');
       
-      // Ensure response is a string
-      const responseStr = typeof result.response === 'string' 
-        ? result.response 
-        : JSON.stringify(result.response || '');
+      // Edge function now always returns strings, validate and log warning if not
+      const responseStr = result.response || '';
+      if (typeof responseStr !== 'string') {
+        console.warn('⚠️ Response is not a string:', typeof responseStr, responseStr);
+      }
       
       console.log('📏 Response length:', responseStr?.length);
       if (responseStr && responseStr.length > 0) {
