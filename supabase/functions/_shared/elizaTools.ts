@@ -13,108 +13,132 @@
 
 export const ELIZA_TOOLS = [
     {
-      name: 'get_function_usage_analytics',
-      description: 'Query historical edge function usage patterns. See which functions you and other executives use most, success rates, common use cases, and execution patterns. Use this to learn from past behavior and make informed decisions about which functions to call.',
-      parameters: {
-        type: 'object',
-        properties: {
-          function_name: { type: 'string', description: 'Optional: specific function to analyze' },
-          executive_name: { type: 'string', description: 'Optional: filter by CSO, CTO, CIO, or CAO' },
-          time_period_hours: { type: 'number', description: 'Look back period in hours (default 168 = 1 week)' },
-          min_usage_count: { type: 'number', description: 'Only show functions used at least N times' }
+      type: 'function',
+      function: {
+        name: 'get_function_usage_analytics',
+        description: 'Query historical edge function usage patterns. See which functions you and other executives use most, success rates, common use cases, and execution patterns. Use this to learn from past behavior and make informed decisions about which functions to call.',
+        parameters: {
+          type: 'object',
+          properties: {
+            function_name: { type: 'string', description: 'Optional: specific function to analyze' },
+            executive_name: { type: 'string', description: 'Optional: filter by CSO, CTO, CIO, or CAO' },
+            time_period_hours: { type: 'number', description: 'Look back period in hours (default 168 = 1 week)' },
+            min_usage_count: { type: 'number', description: 'Only show functions used at least N times' }
+          }
         }
       }
     },
     {
-      name: 'propose_new_edge_function',
-      description: 'Propose a new edge function to the Executive Council. Requires consensus (3/4 votes) for approval and automatic deployment. Use this when you identify a capability gap that would benefit the ecosystem.',
-      parameters: {
-        type: 'object',
-        properties: {
-          function_name: { type: 'string', description: 'Name for the new function (kebab-case)' },
-          description: { type: 'string', description: 'What this function does' },
-          category: { type: 'string', description: 'Category (ai, mining, github, code, analytics, etc.)' },
-          rationale: { type: 'string', description: 'Why we need this function' },
-          use_cases: { type: 'array', items: { type: 'string' }, description: 'Specific use cases' },
-          implementation_outline: { type: 'string', description: 'High-level implementation approach' }
-        },
-        required: ['function_name', 'description', 'category', 'rationale', 'use_cases']
-      }
-    },
-    {
-      name: 'vote_on_function_proposal',
-      description: 'Cast your vote on a pending edge function proposal. Requires 3/4 executive approval for deployment. Your vote and reasoning become part of the permanent record.',
-      parameters: {
-        type: 'object',
-        properties: {
-          proposal_id: { type: 'string', description: 'UUID of the proposal' },
-          vote: { type: 'string', enum: ['approve', 'reject', 'abstain'], description: 'Your vote' },
-          reasoning: { type: 'string', description: 'Detailed reasoning for your vote' }
-        },
-        required: ['proposal_id', 'vote', 'reasoning']
-      }
-    },
-    {
-      name: 'list_function_proposals',
-      description: 'List all edge function proposals (pending, voting, approved, deployed). See what new capabilities are being proposed and vote on them.',
-      parameters: {
-        type: 'object',
-        properties: {
-          status: { type: 'string', enum: ['pending', 'voting', 'approved', 'rejected', 'deployed'], description: 'Filter by status' }
-        }
-      }
-    },
-    {
-      name: 'invoke_edge_function',
-      description: 'UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of the 80+ Supabase edge functions dynamically. This is your MCP integration tool. You can invoke: AI chat functions, Python execution, GitHub integration, agent management, task orchestration, monitoring daemons, database operations, network proxies, and more. Available functions: gemini-chat, python-executor, github-integration, agent-manager, task-orchestrator, autonomous-code-fixer, code-monitor-daemon, mining-proxy, ecosystem-monitor, system-diagnostics, and 50+ more. Use this when you need capabilities beyond your standard tools.',
-      parameters: {
-        type: 'object',
-        properties: {
-          function_name: { 
-            type: 'string', 
-            description: 'Name of the edge function to invoke (e.g., "python-executor", "github-integration", "system-diagnostics")' 
+      type: 'function',
+      function: {
+        name: 'propose_new_edge_function',
+        description: 'Propose a new edge function to the Executive Council. Requires consensus (3/4 votes) for approval and automatic deployment. Use this when you identify a capability gap that would benefit the ecosystem.',
+        parameters: {
+          type: 'object',
+          properties: {
+            function_name: { type: 'string', description: 'Name for the new function (kebab-case)' },
+            description: { type: 'string', description: 'What this function does' },
+            category: { type: 'string', description: 'Category (ai, mining, github, code, analytics, etc.)' },
+            rationale: { type: 'string', description: 'Why we need this function' },
+            use_cases: { type: 'array', items: { type: 'string' }, description: 'Specific use cases' },
+            implementation_outline: { type: 'string', description: 'High-level implementation approach' }
           },
-          payload: { 
-            type: 'object', 
-            description: 'JSON payload to send to the function. Structure depends on the target function.' 
-          }
-        },
-        required: ['function_name', 'payload']
-      }
-    },
-    {
-      name: 'list_available_functions',
-      description: 'List all available Supabase edge functions you can invoke. Returns categorized list of 80+ functions with descriptions. Use this to discover what capabilities you have access to.',
-      parameters: {
-        type: 'object',
-        properties: {
-          category: { 
-            type: 'string', 
-            description: 'Optional: Filter by category (AI & Chat, Python Execution & Code, GitHub Integration, Agent Management, Task Management, Mining & DAO, Monitoring & Daemon, Database & Data, Network & Proxy, Other)' 
-          }
-        }
-      }
-    },
-{
-      name: 'get_code_execution_lessons',
-      description: 'Retrieve lessons learned from recent code executions. Use this to learn what code patterns work vs fail, and improve your code generation. Returns: recent execution results, auto-fix patterns, success/failure analysis.',
-      parameters: {
-        type: 'object',
-        properties: {
-          limit: { type: 'number', description: 'Number of recent executions to analyze (default 10)' },
-          include_failures_only: { type: 'boolean', description: 'Only include failed executions to learn from mistakes' }
+          required: ['function_name', 'description', 'category', 'rationale', 'use_cases']
         }
       }
     },
     {
-      name: 'get_my_feedback',
-      description: 'Retrieve feedback about YOUR recent tool calls, code executions, and learning points. Use this to learn from mistakes and improve future performance. Returns feedback entries with learning points, original context, and fix results. You can acknowledge feedback to mark it as reviewed.',
-      parameters: {
-        type: 'object',
-        properties: {
-          limit: { type: 'number', description: 'Number of feedback items to retrieve (default 10)' },
-          unacknowledged_only: { type: 'boolean', description: 'Only show unread feedback (default true)' },
-          acknowledge_ids: { type: 'array', items: { type: 'string' }, description: 'Array of feedback IDs to mark as acknowledged' }
+      type: 'function',
+      function: {
+        name: 'vote_on_function_proposal',
+        description: 'Cast your vote on a pending edge function proposal. Requires 3/4 executive approval for deployment. Your vote and reasoning become part of the permanent record.',
+        parameters: {
+          type: 'object',
+          properties: {
+            proposal_id: { type: 'string', description: 'UUID of the proposal' },
+            vote: { type: 'string', enum: ['approve', 'reject', 'abstain'], description: 'Your vote' },
+            reasoning: { type: 'string', description: 'Detailed reasoning for your vote' }
+          },
+          required: ['proposal_id', 'vote', 'reasoning']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'list_function_proposals',
+        description: 'List all edge function proposals (pending, voting, approved, deployed). See what new capabilities are being proposed and vote on them.',
+        parameters: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['pending', 'voting', 'approved', 'rejected', 'deployed'], description: 'Filter by status' }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'invoke_edge_function',
+        description: 'UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of the 80+ Supabase edge functions dynamically. This is your MCP integration tool. You can invoke: AI chat functions, Python execution, GitHub integration, agent management, task orchestration, monitoring daemons, database operations, network proxies, and more. Available functions: gemini-chat, python-executor, github-integration, agent-manager, task-orchestrator, autonomous-code-fixer, code-monitor-daemon, mining-proxy, ecosystem-monitor, system-diagnostics, and 50+ more. Use this when you need capabilities beyond your standard tools.',
+        parameters: {
+          type: 'object',
+          properties: {
+            function_name: { 
+              type: 'string', 
+              description: 'Name of the edge function to invoke (e.g., "python-executor", "github-integration", "system-diagnostics")' 
+            },
+            payload: { 
+              type: 'object', 
+              description: 'JSON payload to send to the function. Structure depends on the target function.' 
+            }
+          },
+          required: ['function_name', 'payload']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'list_available_functions',
+        description: 'List all available Supabase edge functions you can invoke. Returns categorized list of 80+ functions with descriptions. Use this to discover what capabilities you have access to.',
+        parameters: {
+          type: 'object',
+          properties: {
+            category: { 
+              type: 'string', 
+              description: 'Optional: Filter by category (AI & Chat, Python Execution & Code, GitHub Integration, Agent Management, Task Management, Mining & DAO, Monitoring & Daemon, Database & Data, Network & Proxy, Other)' 
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_code_execution_lessons',
+        description: 'Retrieve lessons learned from recent code executions. Use this to learn what code patterns work vs fail, and improve your code generation. Returns: recent execution results, auto-fix patterns, success/failure analysis.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of recent executions to analyze (default 10)' },
+            include_failures_only: { type: 'boolean', description: 'Only include failed executions to learn from mistakes' }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_my_feedback',
+        description: 'Retrieve feedback about YOUR recent tool calls, code executions, and learning points. Use this to learn from mistakes and improve future performance. Returns feedback entries with learning points, original context, and fix results. You can acknowledge feedback to mark it as reviewed.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of feedback items to retrieve (default 10)' },
+            unacknowledged_only: { type: 'boolean', description: 'Only show unread feedback (default true)' },
+            acknowledge_ids: { type: 'array', items: { type: 'string' }, description: 'Array of feedback IDs to mark as acknowledged' }
+          }
         }
       }
     },

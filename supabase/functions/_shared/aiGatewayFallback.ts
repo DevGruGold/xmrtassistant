@@ -34,18 +34,11 @@ export async function callLovableAIGateway(
     max_tokens: options.max_tokens || 2000
   };
   
-  // Add tools if provided - convert to OpenAI function calling format
+  // Add tools if provided
   if (options.tools && options.tools.length > 0) {
-    requestBody.tools = options.tools.map((tool: any) => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
-      }
-    }));
+    requestBody.tools = options.tools;
     requestBody.tool_choice = 'auto';
-    console.log(`🔧 Gateway: Tool calling enabled with ${options.tools.length} tools (OpenAI format)`);
+    console.log(`🔧 Gateway: Tool calling enabled with ${options.tools.length} tools`);
   }
   
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
