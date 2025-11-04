@@ -607,17 +607,16 @@ export class UnifiedElizaService {
     try {
       const { data: aiChatData, error: aiChatError } = await supabase.functions.invoke('ai-chat', {
         body: {
-          messages: [{ role: 'user', content: userInput }],
-          context: contextData
+          text: userInput  // ai-chat expects 'text', not 'messages'
         }
       });
 
-      if (!aiChatError && aiChatData?.response) {
+      if (!aiChatError && aiChatData?.ai_response) {  // ai-chat returns 'ai_response'
         console.log('✅ ai-chat responded successfully');
         (window as any).__lastElizaExecutive = 'ai-chat';
         
         return {
-          response: `🤖 **[via AI Chat Service]**\n\n${aiChatData.response}`,
+          response: `🤖 **[via AI Chat Service]**\n\n${aiChatData.ai_response}`,
           hasToolCalls: false
         };
       }

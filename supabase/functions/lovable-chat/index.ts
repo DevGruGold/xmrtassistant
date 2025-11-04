@@ -711,9 +711,9 @@ serve(async (req) => {
     
     // Max iterations reached
     console.warn(`⚠️ Max tool iterations (${MAX_TOOL_ITERATIONS}) reached`);
-    const lastMessage = currentMessages[currentMessages.length - 1];
-    const lastContent = lastMessage?.content 
-      || (typeof lastMessage === 'string' ? lastMessage : '')
+    const finalMessage = currentMessages[currentMessages.length - 1];
+    const lastContent = finalMessage?.content 
+      || (typeof finalMessage === 'string' ? finalMessage : '')
       || 'Max iterations reached';
     
     return new Response(
