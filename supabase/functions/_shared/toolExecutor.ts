@@ -233,6 +233,37 @@ export async function executeToolCall(
         }
         break;
 
+      // Communication tools
+      case 'send_slack_message':
+      case 'send_discord_message':
+      case 'send_telegram_message':
+      case 'send_email':
+      case 'post_tweet':
+      case 'post_linkedin':
+        parsedArgs.executive_name = executiveName;
+        response = await supabase.functions.invoke(name.replace(/_/g, '-'), { body: parsedArgs });
+        result = response.data || response;
+        break;
+
+      case 'brave_search':
+      case 'sequential_thinking':
+        parsedArgs.executive_name = executiveName;
+        response = await supabase.functions.invoke('mcp-' + name.replace(/_/g, '-'), { body: parsedArgs });
+        result = response.data || response;
+        break;
+
+      case 'stormmcp_call':
+        parsedArgs.executive_name = executiveName;
+        response = await supabase.functions.invoke('stormmcp-proxy', { body: parsedArgs });
+        result = response.data || response;
+        break;
+
+      case 'omnichannel_send':
+        parsedArgs.executive_name = executiveName;
+        response = await supabase.functions.invoke('omnichannel-send', { body: parsedArgs });
+        result = response.data || response;
+        break;
+
       case 'listGitHubIssues':
         console.log(`📋 [${executiveName}] List GitHub Issues`);
         

@@ -596,5 +596,15 @@ export const ELIZA_TOOLS = [
         properties: {}
       }
     }
-  }
+  },
+  { type: 'function', function: { name: 'send_slack_message', description: 'Send to Slack', parameters: { type: 'object', properties: { channel: { type: 'string' }, text: { type: 'string' } }, required: ['channel', 'text'] } } },
+  { type: 'function', function: { name: 'send_discord_message', description: 'Send to Discord', parameters: { type: 'object', properties: { content: { type: 'string' }, channel_id: { type: 'string' } }, required: ['content'] } } },
+  { type: 'function', function: { name: 'send_telegram_message', description: 'Send Telegram message', parameters: { type: 'object', properties: { chat_id: { type: 'string' }, text: { type: 'string' } }, required: ['chat_id', 'text'] } } },
+  { type: 'function', function: { name: 'send_email', description: 'Send email via Resend', parameters: { type: 'object', properties: { to: { type: 'string' }, subject: { type: 'string' }, html: { type: 'string' } }, required: ['to', 'subject', 'html'] } } },
+  { type: 'function', function: { name: 'post_tweet', description: 'Post to Twitter/X', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } } },
+  { type: 'function', function: { name: 'post_linkedin', description: 'Post to LinkedIn', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } } },
+  { type: 'function', function: { name: 'brave_search', description: 'Web search via Brave', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } } },
+  { type: 'function', function: { name: 'sequential_thinking', description: 'Structured thinking for complex problems', parameters: { type: 'object', properties: { problem: { type: 'string' } }, required: ['problem'] } } },
+  { type: 'function', function: { name: 'stormmcp_call', description: 'Call StormMCP API', parameters: { type: 'object', properties: { operation: { type: 'string' }, params: { type: 'object' } }, required: ['operation'] } } },
+  { type: 'function', function: { name: 'omnichannel_send', description: 'Multi-channel messaging with fallback', parameters: { type: 'object', properties: { to: { type: 'string' }, message: { type: 'string' }, channels: { type: 'array' } }, required: ['to', 'message', 'channels'] } } }
 ];

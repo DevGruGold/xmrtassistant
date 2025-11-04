@@ -851,6 +851,75 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_logs: {
+        Row: {
+          channel: string
+          created_at: string | null
+          delivery_time_ms: number | null
+          error_message: string | null
+          executive_name: string
+          id: string
+          message_preview: string | null
+          recipient: string
+          success: boolean
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          delivery_time_ms?: number | null
+          error_message?: string | null
+          executive_name: string
+          id?: string
+          message_preview?: string | null
+          recipient: string
+          success: boolean
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          delivery_time_ms?: number | null
+          error_message?: string | null
+          executive_name?: string
+          id?: string
+          message_preview?: string | null
+          recipient?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      communication_rate_limits: {
+        Row: {
+          channel: string
+          created_at: string | null
+          executive_name: string
+          id: string
+          max_per_window: number
+          messages_sent: number | null
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          executive_name: string
+          id?: string
+          max_per_window: number
+          messages_sent?: number | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          executive_name?: string
+          id?: string
+          max_per_window?: number
+          messages_sent?: number | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       community_ideas: {
         Row: {
           assigned_agent_id: string | null
@@ -5300,6 +5369,20 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_analytics: {
+        Row: {
+          avg_delivery_ms: number | null
+          channel: string | null
+          date: string | null
+          executive_name: string | null
+          failed: number | null
+          max_delivery_ms: number | null
+          min_delivery_ms: number | null
+          successful: number | null
+          total_sent: number | null
+        }
+        Relationships: []
+      }
       device_connection_status: {
         Row: {
           app_version: string | null
@@ -5654,6 +5737,14 @@ export type Database = {
       }
       cancel_job: { Args: { p_job_id: number }; Returns: undefined }
       canonicalize_service_status: { Args: { j: Json }; Returns: Json }
+      check_rate_limit: {
+        Args: {
+          p_channel: string
+          p_executive_name: string
+          p_max_per_hour?: number
+        }
+        Returns: boolean
+      }
       check_session_ownership: {
         Args: { request_metadata: Json; session_uuid: string }
         Returns: boolean
@@ -5763,10 +5854,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      increment_rate_limit: {
-        Args: { p_endpoint: string; p_identifier: string }
-        Returns: undefined
-      }
+      increment_rate_limit:
+        | {
+            Args: { p_endpoint: string; p_identifier: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_channel: string
+              p_executive_name: string
+              p_max_per_hour?: number
+            }
+            Returns: undefined
+          }
       ingest_device_event:
         | {
             Args: {
