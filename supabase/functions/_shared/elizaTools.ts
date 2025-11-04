@@ -106,6 +106,18 @@ export const ELIZA_TOOLS = [
         }
       }
     },
+    {
+      name: 'get_my_feedback',
+      description: 'Retrieve feedback about YOUR recent tool calls, code executions, and learning points. Use this to learn from mistakes and improve future performance. Returns feedback entries with learning points, original context, and fix results. You can acknowledge feedback to mark it as reviewed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: 'Number of feedback items to retrieve (default 10)' },
+          unacknowledged_only: { type: 'boolean', description: 'Only show unread feedback (default true)' },
+          acknowledge_ids: { type: 'array', items: { type: 'string' }, description: 'Array of feedback IDs to mark as acknowledged' }
+        }
+      }
+    },
 {
     type: 'function',
     function: {

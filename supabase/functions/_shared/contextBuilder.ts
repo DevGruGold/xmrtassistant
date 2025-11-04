@@ -2,10 +2,13 @@
  * Context Builder - Shared utility for building contextual prompts
  * 
  * This module provides a consistent way to inject context (memory, conversation history,
- * user context, mining stats, system version) into AI prompts across all edge functions.
+ * user context, mining stats, system version, executive feedback) into AI prompts across all edge functions.
  */
 
+import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+
 interface ContextOptions {
+  executiveName?: string;
   conversationHistory?: {
     summaries?: Array<{ summaryText: string; messageCount: number }>;
     recentMessages?: Array<{ sender: string; content: string }>;
@@ -46,12 +49,14 @@ interface ContextOptions {
  * 
  * @param basePrompt - The base system prompt (usually from generateElizaSystemPrompt())
  * @param options - Context options to inject
+ * @param supabase - Optional Supabase client for fetching feedback
  * @returns Enhanced prompt with all relevant context
  */
-export function buildContextualPrompt(
+export async function buildContextualPrompt(
   basePrompt: string,
-  options: ContextOptions
-): string {
+  options: ContextOptions,
+  supabase?: SupabaseClient
+): Promise<string> {
   let prompt = basePrompt;
   
   // Add conversation history summaries
@@ -153,6 +158,36 @@ export function buildContextualPrompt(
     prompt += `Message: ${options.systemVersion.commitMessage}\n`;
     prompt += `Deployed: ${options.systemVersion.deployedAt}\n`;
     prompt += `Status: ${options.systemVersion.status}\n`;
+  }
+  
+  // Add recent feedback for this executive
+  if (options.executiveName && supabase) {
+    try {
+      const { data: feedback } = await supabase
+        .from('executive_feedback')
+        .select('*')
+        .eq('executive_name', options.executiveName)
+        .eq('acknowledged', false)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (feedback && feedback.length > 0) {
+        prompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 RECENT FEEDBACK FOR YOU (${options.executiveName}):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        
+        for (const item of feedback) {
+          const timestamp = new Date(item.created_at).toLocaleString();
+          prompt += `\n🔔 ${item.feedback_type}:\n`;
+          prompt += `   ${item.learning_point}\n`;
+          prompt += `   (${timestamp})\n`;
+        }
+        
+        prompt += `\nℹ️ Use get_my_feedback tool to view details and acknowledge these items.\n`;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch executive feedback:', error);
+    }
   }
   
   return prompt;

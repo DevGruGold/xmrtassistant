@@ -2246,6 +2246,45 @@ export type Database = {
           },
         ]
       }
+      executive_feedback: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          created_at: string | null
+          executive_name: string
+          feedback_type: string
+          fix_result: Json | null
+          id: string
+          issue_description: string
+          learning_point: string
+          original_context: Json | null
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          created_at?: string | null
+          executive_name: string
+          feedback_type: string
+          fix_result?: Json | null
+          id?: string
+          issue_description: string
+          learning_point: string
+          original_context?: Json | null
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          created_at?: string | null
+          executive_name?: string
+          feedback_type?: string
+          fix_result?: Json | null
+          id?: string
+          issue_description?: string
+          learning_point?: string
+          original_context?: Json | null
+        }
+        Relationships: []
+      }
       executive_votes: {
         Row: {
           created_at: string | null

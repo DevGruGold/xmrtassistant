@@ -67,7 +67,37 @@ function isExecutableCode(code: string): boolean {
   return hasImports || hasFunctionCalls || hasAssignments || hasStatements;
 }
 
-// Check if code was already executed
+// Check if code was properly executed via tool call
+async function wasCodeProperlyExecutedViaTool(
+  code: string,
+  messageTimestamp: string
+): Promise<{ executed: boolean; executiveName?: string }> {
+  const normalized = normalizeCode(code);
+  
+  // Check eliza_function_usage for execute_python tool calls
+  const { data: toolCalls } = await supabase
+    .from("eliza_function_usage")
+    .select("*")
+    .eq("function_name", "execute_python")
+    .gte("invoked_at", messageTimestamp)
+    .limit(100);
+  
+  if (!toolCalls || toolCalls.length === 0) {
+    return { executed: false };
+  }
+  
+  // Check if any tool call contains this code
+  for (const call of toolCalls) {
+    const callCode = call.parameters?.code || '';
+    if (normalizeCode(callCode) === normalized) {
+      return { executed: true, executiveName: call.executive_name };
+    }
+  }
+  
+  return { executed: false };
+}
+
+// Check if code was already executed (legacy check)
 async function wasCodeExecuted(code: string): Promise<boolean> {
   const normalized = normalizeCode(code);
   
@@ -94,6 +124,50 @@ async function wasCodeExecuted(code: string): Promise<boolean> {
   }
   
   return false;
+}
+
+// Provide feedback to executive
+async function provideFeedbackToAgent(
+  executiveName: string,
+  violation: any,
+  fixAttempt: any
+) {
+  const feedbackMessage = {
+    executive_name: executiveName,
+    feedback_type: 'code_execution_violation',
+    issue_description: 'Code displayed in chat without proper tool call',
+    learning_point: generateLearningPoint(violation, fixAttempt),
+    original_context: {
+      message_id: violation.message_id,
+      code_preview: violation.code_preview,
+      language: violation.language
+    },
+    fix_result: {
+      success: fixAttempt.success,
+      output: fixAttempt.output,
+      error: fixAttempt.error
+    },
+    acknowledged: false
+  };
+  
+  await supabase.from('executive_feedback').insert(feedbackMessage);
+}
+
+function generateLearningPoint(violation: any, fixAttempt: any): string {
+  if (fixAttempt.success) {
+    return `✅ Code executed successfully via daemon. Next time, use execute_python tool directly instead of showing code in chat. Your tool call should include: { code: "...", purpose: "..." }`;
+  } else {
+    const error = fixAttempt.error || '';
+    if (error.includes('network') || error.includes('urllib') || error.includes('requests')) {
+      return `❌ Network error: Python sandbox has no network access. For API calls, use invoke_edge_function with the appropriate edge function instead of execute_python.`;
+    } else if (error.includes('ModuleNotFoundError') || error.includes('ImportError')) {
+      return `❌ Import error: Module not available in sandbox. Use built-in Python libraries only (math, json, datetime, etc.).`;
+    } else if (error.includes('SyntaxError')) {
+      return `❌ Syntax error: Check code for typos or invalid Python syntax. Validate code before calling execute_python.`;
+    } else {
+      return `❌ Execution failed: ${error}. Review error details and adjust code accordingly.`;
+    }
+  }
 }
 
 Deno.serve(async (req) => {
@@ -168,7 +242,15 @@ Deno.serve(async (req) => {
           continue;
         }
         
-        // Check if already executed
+        // Check if code was properly executed via tool call
+        const toolCheck = await wasCodeProperlyExecutedViaTool(code, message.timestamp);
+        
+        if (toolCheck.executed) {
+          console.log(`✅ Code was properly executed via tool by ${toolCheck.executiveName}`);
+          continue; // No violation - proper tool use
+        }
+        
+        // Legacy check for retroactive executions
         const wasExecuted = await wasCodeExecuted(code);
         
         if (!wasExecuted) {
@@ -238,6 +320,14 @@ Deno.serve(async (req) => {
               },
               executionSuccess ? "completed" : "failed"
             );
+            
+            // Provide feedback to the executive
+            const executiveName = message.metadata?.executive_name || 'Eliza';
+            await provideFeedbackToAgent(executiveName, violation, {
+              success: executionSuccess,
+              output: execData?.output,
+              error: execData?.error || execError?.message
+            });
             
             console.log(executionSuccess ? `✅ Execution succeeded` : `❌ Execution failed: ${execData?.error || execError?.message}`);
             
