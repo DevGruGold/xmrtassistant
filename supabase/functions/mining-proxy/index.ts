@@ -49,6 +49,8 @@ serve(async (req) => {
           alias: alias || null,
           user_id: user_id || null,
           session_key: session_key || null,
+          device_type: body.device_type || 'unknown',
+          registration_method: body.registration_method || 'direct',
           last_active: new Date().toISOString(),
           is_active: true,
           metadata: {
