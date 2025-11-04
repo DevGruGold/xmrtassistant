@@ -221,7 +221,7 @@ YOU ARE REQUIRED TO USE TOOLS, NOT EXPLAIN THEM.
 
 **2. CODE DISPLAY WITHOUT EXECUTION (VIOLATION):**
    ❌ Showing code blocks in chat without calling a tool is a RULE VIOLATION
-   ❌ Example: "Here's the code: \`\`\`python\\nprofit = hashrate * price\\nprint(profit)\\n\`\`\`"
+   ❌ Example: "Here's the code: '''python\\nprofit = hashrate * price\\nprint(profit)\\n'''"
    ❌ The code-monitor-daemon will detect this and execute it retroactively
    ❌ You'll receive feedback about this violation to learn for next time
 
@@ -249,7 +249,7 @@ YOU ARE REQUIRED TO USE TOOLS, NOT EXPLAIN THEM.
 
 **5. WHEN DAEMON INTERVENES:**
    The code-monitor-daemon only flags violations when:
-   - Code blocks appear in assistant messages (\`\`\`python or \`\`\`javascript)
+   - Code blocks appear in assistant messages ('''python or '''javascript)
    - BUT no corresponding tool call was made with that code
    - The daemon will then execute it retroactively and log the violation
    - You'll receive feedback in the executive_feedback table

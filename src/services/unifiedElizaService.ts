@@ -601,7 +601,33 @@ export class UnifiedElizaService {
       }
     }
     
-    // lovable-chat failed - try direct executives as fallback
+    // lovable-chat failed - try ai-chat fallback with its own cascade
+    console.log('⚠️ lovable-chat unavailable - trying ai-chat fallback...');
+    
+    try {
+      const { data: aiChatData, error: aiChatError } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          messages: [{ role: 'user', content: userInput }],
+          context: contextData
+        }
+      });
+
+      if (!aiChatError && aiChatData?.response) {
+        console.log('✅ ai-chat responded successfully');
+        (window as any).__lastElizaExecutive = 'ai-chat';
+        
+        return {
+          response: `🤖 **[via AI Chat Service]**\n\n${aiChatData.response}`,
+          hasToolCalls: false
+        };
+      }
+      
+      console.warn(`⚠️ ai-chat failed: ${aiChatError?.message || aiChatData?.error}`);
+    } catch (aiChatErr) {
+      console.warn(`⚠️ ai-chat exception: ${aiChatErr?.message}`);
+    }
+    
+    // ai-chat failed - try direct executives as fallback
     console.log('⚠️ lovable-chat unavailable - trying direct executives without tools...');
     
     // Get healthy executives for fallback chain (original behavior)
