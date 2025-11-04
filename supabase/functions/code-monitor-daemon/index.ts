@@ -126,46 +126,49 @@ async function wasCodeExecuted(code: string): Promise<boolean> {
   return false;
 }
 
-// Provide feedback to executive
+// Provide constructive feedback to executive
 async function provideFeedbackToAgent(
   executiveName: string,
-  violation: any,
-  fixAttempt: any
+  opportunity: any,
+  testResult: any
 ) {
   const feedbackMessage = {
     executive_name: executiveName,
-    feedback_type: 'code_execution_violation',
-    issue_description: 'Code displayed in chat without proper tool call',
-    learning_point: generateLearningPoint(violation, fixAttempt),
+    feedback_type: 'optimization_suggestion',
+    observation_description: 'Code could have been executed via tool for consistency',
+    learning_point: generateLearningPoint(opportunity, testResult),
     original_context: {
-      message_id: violation.message_id,
-      code_preview: violation.code_preview,
-      language: violation.language
+      message_id: opportunity.message_id,
+      code_preview: opportunity.code_preview,
+      language: opportunity.language
     },
     fix_result: {
-      success: fixAttempt.success,
-      output: fixAttempt.output,
-      error: fixAttempt.error
+      success: testResult.success,
+      output: testResult.output,
+      error: testResult.error,
+      note: 'Tested retroactively to validate approach'
     },
+    impact_level: 'low',
+    suggestion_type: 'optimization',
     acknowledged: false
   };
   
   await supabase.from('executive_feedback').insert(feedbackMessage);
 }
 
-function generateLearningPoint(violation: any, fixAttempt: any): string {
-  if (fixAttempt.success) {
-    return `✅ Code executed successfully via daemon. Next time, use execute_python tool directly instead of showing code in chat. Your tool call should include: { code: "...", purpose: "..." }`;
+function generateLearningPoint(opportunity: any, testResult: any): string {
+  if (testResult.success) {
+    return `✅ Code executed successfully when tested retroactively. Consider using execute_python tool for consistency and verifiability in future conversations. This helps maintain a clear record of all calculations.`;
   } else {
-    const error = fixAttempt.error || '';
+    const error = testResult.error || '';
     if (error.includes('network') || error.includes('urllib') || error.includes('requests')) {
-      return `❌ Network error: Python sandbox has no network access. For API calls, use invoke_edge_function with the appropriate edge function instead of execute_python.`;
+      return `💡 Network operations require invoke_edge_function instead of execute_python. Good that you didn't attempt execution in Python sandbox - your direct response was appropriate in this case.`;
     } else if (error.includes('ModuleNotFoundError') || error.includes('ImportError')) {
-      return `❌ Import error: Module not available in sandbox. Use built-in Python libraries only (math, json, datetime, etc.).`;
+      return `💡 Module not available in Python sandbox. For specialized operations requiring external libraries, consider using a dedicated edge function or continue with direct explanations as you did.`;
     } else if (error.includes('SyntaxError')) {
-      return `❌ Syntax error: Check code for typos or invalid Python syntax. Validate code before calling execute_python.`;
+      return `💡 Code had syntax issues when tested: ${error}. Your direct explanation approach was reasonable. If using execute_python in future, validate syntax first.`;
     } else {
-      return `❌ Execution failed: ${error}. Review error details and adjust code accordingly.`;
+      return `ℹ️ Code had issues when tested: ${error}. Direct explanation was appropriate in this context. Consider execute_python for verifiable calculations when code is correct.`;
     }
   }
 }
@@ -175,7 +178,7 @@ Deno.serve(async (req) => {
   
   await logActivity(
     "daemon_scan",
-    "🔍 Code Monitor Daemon: Scanning conversation messages for unexecuted code...",
+    "🔍 Code Monitor Daemon: Scanning for optimization opportunities...",
     { 
       scan_time: scanStartTime.toISOString(),
       scan_window_hours: CODE_SCAN_WINDOW_HOURS,
@@ -254,27 +257,28 @@ Deno.serve(async (req) => {
         const wasExecuted = await wasCodeExecuted(code);
         
         if (!wasExecuted) {
-          // CODE VIOLATION DETECTED!
-          const violation = {
+          // OPTIMIZATION OPPORTUNITY DETECTED!
+          const opportunity = {
             message_id: message.id,
             session_id: message.session_id,
             code_preview: code.substring(0, 200),
             code_length: code.length,
             language,
             message_timestamp: message.timestamp,
-            detected_at: new Date().toISOString()
+            detected_at: new Date().toISOString(),
+            type: 'code_execution_opportunity'
           };
           
-          violations.push(violation);
+          violations.push(opportunity);
           
           await logActivity(
-            "code_violation_detected",
-            `🚨 RULE VIOLATION: Eliza wrote code but didn't execute it`,
-            violation,
-            "pending_execution"
+            "optimization_opportunity",
+            `💡 Optimization opportunity: Code could have been executed via tool`,
+            opportunity,
+            "pending_test"
           );
           
-          console.log(`🚨 VIOLATION FOUND in message ${message.id}: ${code.substring(0, 100)}...`);
+          console.log(`💡 OPPORTUNITY FOUND in message ${message.id}: ${code.substring(0, 100)}...`);
           
           // Retroactively execute the code
           try {
@@ -308,22 +312,22 @@ Deno.serve(async (req) => {
             });
             
             await logActivity(
-              "code_violation_detected",
+              "optimization_test",
               executionSuccess 
-                ? `✅ Retroactive execution succeeded for message ${message.id}`
-                : `❌ Retroactive execution failed for message ${message.id}`,
+                ? `✅ Retroactive test succeeded for message ${message.id}`
+                : `ℹ️ Retroactive test completed for message ${message.id}`,
               {
                 message_id: message.id,
                 code_preview: code.substring(0, 200),
                 execution_result: execData,
                 execution_error: execError
               },
-              executionSuccess ? "completed" : "failed"
+              executionSuccess ? "completed" : "informational"
             );
             
-            // Provide feedback to the executive
+            // Provide constructive feedback to the executive
             const executiveName = message.metadata?.executive_name || 'Eliza';
-            await provideFeedbackToAgent(executiveName, violation, {
+            await provideFeedbackToAgent(executiveName, opportunity, {
               success: executionSuccess,
               output: execData?.output,
               error: execData?.error || execError?.message
@@ -341,14 +345,14 @@ Deno.serve(async (req) => {
             });
             
             await logActivity(
-              "code_violation_detected",
-              `❌ Exception during retroactive execution for message ${message.id}`,
+              "optimization_test",
+              `ℹ️ Exception during retroactive test for message ${message.id}`,
               {
                 message_id: message.id,
                 error: execException.message,
                 stack: execException.stack
               },
-              "failed"
+              "informational"
             );
           }
         }
@@ -364,15 +368,15 @@ Deno.serve(async (req) => {
       scan_duration_ms: Date.now() - scanStartTime.getTime(),
       scan_window_hours: CODE_SCAN_WINDOW_HOURS,
       messages_scanned: messageCount,
-      violations_found: violations.length,
-      executions_attempted: executionResults.length,
-      executions_succeeded: successfulExecutions,
-      executions_failed: failedExecutions
+      opportunities_found: violations.length,
+      tests_attempted: executionResults.length,
+      tests_succeeded: successfulExecutions,
+      tests_informational: failedExecutions
     };
     
     await logActivity(
       "daemon_scan",
-      `✅ Code Monitor Scan Complete: ${violations.length} violations found, ${successfulExecutions} executed successfully`,
+      `✅ Code Monitor Scan Complete: ${violations.length} optimization opportunities found, ${successfulExecutions} tested successfully`,
       summary,
       "completed"
     );

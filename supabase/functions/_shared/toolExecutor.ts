@@ -2,37 +2,37 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { logFunctionUsage } from './functionUsageLogger.ts';
 
 /**
- * Analyze error to provide learning points for executives
+ * Analyze error to provide helpful learning guidance for executives
  */
 function analyzeLearningFromError(toolName: string, error: string, params: any): string {
   // Network errors
   if (error.includes('network') || error.includes('urllib') || error.includes('requests') || error.includes('http')) {
-    return `❌ Python sandbox has no network access. For API calls, use invoke_edge_function instead of execute_python. Example: invoke_edge_function({ function_name: "github-integration", payload: {...} })`;
+    return `💡 Network Access: Python sandbox is isolated for security. For API calls, use invoke_edge_function which can make HTTP requests. Example: invoke_edge_function({ function_name: 'github-integration', payload: {...} })`;
   }
   
   // Import errors
   if (error.includes('ModuleNotFoundError') || error.includes('ImportError')) {
     const match = error.match(/No module named '([^']+)'/);
-    const moduleName = match ? match[1] : 'unknown';
-    return `❌ Module '${moduleName}' not available in sandbox. Available: math, json, datetime, random, re, collections, itertools. For external APIs, use invoke_edge_function.`;
+    const moduleName = match ? match[1] : 'that module';
+    return `💡 Module Availability: ${moduleName} isn't in the Python sandbox. Standard library (json, math, datetime, random, re, collections, itertools) is available. For specialized operations, consider using a dedicated edge function or invoke_edge_function.`;
   }
   
   // Syntax errors
   if (error.includes('SyntaxError')) {
-    return `❌ Python syntax error detected. Check code for typos, indentation, or invalid syntax. Validate code structure before calling execute_python.`;
+    return `💡 Syntax: Python syntax issue detected. Common causes: indentation, unclosed quotes, typos. The error details above show exactly where the issue occurred. Validate code structure before calling execute_python.`;
   }
   
   // Parameter errors
   if (error.includes('missing') || error.includes('required')) {
-    return `❌ Missing required parameter for ${toolName}. Check tool definition in ELIZA_TOOLS for required fields. Example: execute_python requires both 'code' and 'purpose'.`;
+    return `💡 Parameters: ${toolName} requires specific parameters. Check the tool definition in elizaTools.ts or use get_function_usage_analytics to see successful examples. Common fix: ensure all required fields are included.`;
   }
   
   // JSON parse errors
   if (error.includes('JSON') || error.includes('parse')) {
-    return `❌ Invalid JSON in tool arguments. Ensure proper escaping of quotes and valid JSON structure.`;
+    return `💡 JSON Format: Invalid JSON in tool arguments. Ensure proper escaping of quotes and valid JSON structure. Tip: Check for unescaped quotes, missing commas, or trailing commas.`;
   }
   
-  return `❌ Execution failed: ${error}. Review error details and adjust approach.`;
+  return `💡 Execution failed with: ${error}. Review error details and try a different approach. Use get_my_feedback to see if this pattern has occurred before.`;
 }
 
 /**
@@ -62,7 +62,7 @@ export async function executeToolCall(
     return { 
       success: false, 
       error: 'Invalid tool call: missing function name',
-      learning_point: 'Tool calls must include a function name. Check tool call structure.'
+      learning_point: '💡 Tool Structure: Tool calls must include a function name. Ensure tool call format is correct: { function: { name: "tool_name", arguments: {...} } }'
     };
   }
   
@@ -82,7 +82,7 @@ export async function executeToolCall(
     return { 
       success: false, 
       error: 'Invalid tool arguments: JSON parse failed',
-      learning_point: 'Tool arguments must be valid JSON. Check syntax, ensure quotes are properly escaped, and validate JSON structure.'
+      learning_point: '💡 JSON Parsing: Tool arguments must be valid JSON. Check syntax, ensure quotes are properly escaped (use \\" for quotes inside strings), and validate JSON structure. Common fix: check for unclosed brackets or missing commas.'
     };
   }
   
@@ -92,7 +92,7 @@ export async function executeToolCall(
       return {
         success: false,
         error: 'execute_python requires "code" parameter',
-        learning_point: 'execute_python tool call must include: { code: "your_python_code", purpose: "description" }'
+        learning_point: '💡 execute_python Usage: This tool requires two parameters: { code: "your_python_code", purpose: "description_of_what_code_does" }. The purpose helps with logging and debugging.'
       };
     }
     if (!parsedArgs.purpose) {

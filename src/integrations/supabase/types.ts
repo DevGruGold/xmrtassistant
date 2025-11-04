@@ -2324,9 +2324,11 @@ export type Database = {
           feedback_type: string
           fix_result: Json | null
           id: string
-          issue_description: string
+          impact_level: string | null
           learning_point: string
+          observation_description: string
           original_context: Json | null
+          suggestion_type: string | null
         }
         Insert: {
           acknowledged?: boolean | null
@@ -2336,9 +2338,11 @@ export type Database = {
           feedback_type: string
           fix_result?: Json | null
           id?: string
-          issue_description: string
+          impact_level?: string | null
           learning_point: string
+          observation_description: string
           original_context?: Json | null
+          suggestion_type?: string | null
         }
         Update: {
           acknowledged?: boolean | null
@@ -2348,9 +2352,11 @@ export type Database = {
           feedback_type?: string
           fix_result?: Json | null
           id?: string
-          issue_description?: string
+          impact_level?: string | null
           learning_point?: string
+          observation_description?: string
           original_context?: Json | null
+          suggestion_type?: string | null
         }
         Relationships: []
       }

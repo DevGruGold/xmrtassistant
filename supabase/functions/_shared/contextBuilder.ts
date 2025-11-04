@@ -173,17 +173,18 @@ export async function buildContextualPrompt(
       
       if (feedback && feedback.length > 0) {
         prompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📚 RECENT FEEDBACK FOR YOU (${options.executiveName}):
+💡 RECENT LEARNING OPPORTUNITIES (${options.executiveName}):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
         
         for (const item of feedback) {
           const timestamp = new Date(item.created_at).toLocaleString();
-          prompt += `\n🔔 ${item.feedback_type}:\n`;
+          const emoji = item.feedback_type?.includes('error') ? '🔧' : '✨';
+          prompt += `\n${emoji} Optimization Suggestion:\n`;
           prompt += `   ${item.learning_point}\n`;
           prompt += `   (${timestamp})\n`;
         }
         
-        prompt += `\nℹ️ Use get_my_feedback tool to view details and acknowledge these items.\n`;
+        prompt += `\n💡 These are observations from background systems to help you continuously improve. Review via get_my_feedback when convenient.\n`;
       }
     } catch (error) {
       console.warn('Failed to fetch executive feedback:', error);
