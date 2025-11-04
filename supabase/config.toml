@@ -171,13 +171,30 @@ verify_jwt = false
 [functions.conversation-access]
 verify_jwt = true
 
-[functions.deepseek-chat]
-verify_jwt = true
+# AI Chat Functions - Public access for chat interface
+[functions.ai-chat]
+verify_jwt = false
 
-[functions.extract-knowledge]
-verify_jwt = true
+[functions.deepseek-chat]
+verify_jwt = false
 
 [functions.gemini-chat]
+verify_jwt = false
+
+[functions.lovable-chat]
+verify_jwt = false
+
+[functions.openai-chat]
+verify_jwt = false
+
+[functions.vercel-ai-chat]
+verify_jwt = false
+
+[functions.vercel-ai-chat-stream]
+verify_jwt = false
+
+# Knowledge & TTS Functions - Require Authentication
+[functions.extract-knowledge]
 verify_jwt = true
 
 [functions.get-lovable-key]
@@ -187,18 +204,6 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.knowledge-manager]
-verify_jwt = true
-
-[functions.lovable-chat]
-verify_jwt = true
-
-[functions.vercel-ai-chat]
-verify_jwt = true
-
-[functions.vercel-ai-chat-stream]
-verify_jwt = true
-
-[functions.openai-chat]
 verify_jwt = true
 
 [functions.openai-tts]
