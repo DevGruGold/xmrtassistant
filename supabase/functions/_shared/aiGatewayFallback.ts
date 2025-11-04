@@ -77,10 +77,16 @@ export async function callLovableAIGateway(
     throw new Error('No message in Lovable AI Gateway response');
   }
   
-  // Return content string for backwards compatibility with all edge functions
-  const content = message.content || '';
-  console.log(`✅ Gateway returned content length: ${content.length}`);
-  return content;
+  // Return full message object to support tool calling
+  console.log(`✅ Gateway returned message with content length: ${message.content?.length || 0}, tool_calls: ${message.tool_calls?.length || 0}`);
+  
+  // If no tools were used, return just content string for backwards compatibility
+  if (!message.tool_calls || message.tool_calls.length === 0) {
+    return message.content || '';
+  }
+  
+  // Return full message object for tool calling support
+  return message;
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {

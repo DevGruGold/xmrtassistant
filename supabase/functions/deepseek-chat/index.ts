@@ -87,8 +87,10 @@ serve(async (req) => {
       tool_choice: 'auto'
     });
     
+    let finalResponse: string;
+    
     // If AI wants to use tools, execute them
-    if (response.tool_calls && response.tool_calls.length > 0) {
+    if (typeof response === 'object' && response.tool_calls && response.tool_calls.length > 0) {
       console.log(`🔧 CTO executing ${response.tool_calls.length} tool(s)`);
       
       const toolResults = [];
@@ -102,7 +104,7 @@ serve(async (req) => {
       }
       
       // Call AI again with tool results
-      response = await callLovableAIGateway([
+      const followUpResponse = await callLovableAIGateway([
         ...aiMessages,
         { role: 'assistant', content: response.content || '', tool_calls: response.tool_calls },
         ...toolResults
@@ -111,6 +113,10 @@ serve(async (req) => {
         temperature: 0.7,
         max_tokens: 4000
       });
+      
+      finalResponse = typeof followUpResponse === 'string' ? followUpResponse : followUpResponse.content;
+    } else {
+      finalResponse = typeof response === 'string' ? response : response.content;
     }
     
     const apiDuration = Date.now() - apiStartTime;
@@ -118,13 +124,13 @@ serve(async (req) => {
     console.log(`✅ CTO Executive responded in ${apiDuration}ms`);
     await logger.apiCall('lovable_gateway', 200, apiDuration, { 
       executive: 'CTO',
-      responseLength: response.length 
+      responseLength: finalResponse.length 
     });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        response: response,
+        response: finalResponse,
         executive: 'deepseek-chat',
         executiveTitle: 'Chief Technology Officer (CTO)',
         provider: 'lovable_gateway',
