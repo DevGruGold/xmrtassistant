@@ -249,76 +249,28 @@ serve(async (req) => {
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    // Intelligent AI service cascade: Try Lovable AI Gateway -> DeepSeek -> OpenAI
-    const deepseekKey = getAICredential('deepseek', session_credentials);
-    const openaiKey = getAICredential('openai', session_credentials);
-
-    // Log which services are available
-    console.log('🔍 Available AI services:', {
-      lovable_gateway: !!LOVABLE_API_KEY,
-      deepseek: !!deepseekKey,
-      openai: !!openaiKey
-    });
-
-    // Try services in order of preference
-    let aiProvider = 'lovable_gateway';
-    let aiModel = 'google/gemini-2.5-flash';
-    let aiExecutive = 'lovable-chat';
-    let aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
-
+    // Check if Lovable AI Gateway is configured
     if (!LOVABLE_API_KEY) {
-      // Fallback to DeepSeek
-      if (deepseekKey) {
-        console.log('⚠️ Lovable AI Gateway not available, trying DeepSeek fallback');
-        try {
-          const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-          const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-          
-          const deepseekResult = await fallbackSupabase.functions.invoke('deepseek-chat', {
-            body: { 
-              messages, 
-              conversationHistory, 
-              userContext, 
-              miningStats, 
-              systemVersion,
-              session_credentials 
-            }
-          });
-
-          if (!deepseekResult.error && deepseekResult.data) {
-            return new Response(
-              JSON.stringify({ success: true, response: deepseekResult.data.response, provider: 'deepseek', executive: 'lovable-chat', executiveTitle: 'Chief Strategy Officer (CSO)' }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        } catch (error) {
-          console.warn('DeepSeek fallback failed:', error);
+      console.error('❌ LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: '💳 Lovable AI Gateway is not configured. Please check your workspace settings.',
+          needsCredentials: true
+        }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
-      }
-      
-      // Fallback to OpenAI
-      if (openaiKey) {
-        aiProvider = 'openai';
-        aiModel = 'gpt-4o';
-        console.log('⚠️ Falling back to OpenAI');
-      } else {
-        console.error('❌ All AI services exhausted');
-        return new Response(
-          JSON.stringify(createCredentialRequiredResponse(
-            'lovable',
-            'api_key',
-            "AI service credentials needed. Lovable AI Gateway is not configured.",
-            'https://docs.lovable.dev/features/ai'
-          )),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-    } else {
-      console.log('✅ Using Lovable AI Gateway (Gemini 2.5 Flash)');
+      );
     }
+
+    console.log('✅ Using Lovable AI Gateway (google/gemini-2.5-flash)');
+    
+    const aiProvider = 'lovable_gateway';
+    const aiModel = 'google/gemini-2.5-flash';
+    const aiExecutive = 'lovable-chat';
+    const aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
 
     console.log(`🎯 ${aiExecutiveTitle} - Processing request`);
     

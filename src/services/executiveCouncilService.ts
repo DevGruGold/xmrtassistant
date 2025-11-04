@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { LovableAIGateway } from './lovableAIGateway';
 import type { ElizaContext } from './unifiedElizaService';
 import { retryWithBackoff } from '@/utils/retryHelper';
 
@@ -214,13 +213,20 @@ Format your response EXACTLY as:
 `;
 
     try {
-      const synthesis = await LovableAIGateway.chat(
-        [{ role: 'user', content: synthesisPrompt }],
-        { 
+      // Use lovable-chat edge function for synthesis
+      const { data, error } = await supabase.functions.invoke('lovable-chat', {
+        body: {
+          messages: [{ role: 'user', content: synthesisPrompt }],
           miningStats: context.miningStats,
-          userContext: context.userContext 
+          userContext: context.userContext
         }
-      );
+      });
+
+      if (error || !data?.success) {
+        throw new Error(error?.message || 'Failed to synthesize council responses');
+      }
+
+      const synthesis = data.response || 'Unable to synthesize executive perspectives at this time.';
       
       return {
         responses,
@@ -331,16 +337,23 @@ Format your response EXACTLY as:
     context: ElizaContext,
     startTime: number
   ): Promise<CouncilDeliberation> {
-    console.log('🌐 Falling back to Lovable AI Gateway for council response...');
+    console.log('🌐 Falling back to lovable-chat edge function for council response...');
     
     try {
-      const response = await LovableAIGateway.chat(
-        [{ role: 'user', content: userInput }],
-        { 
+      // Use lovable-chat edge function for fallback
+      const { data, error } = await supabase.functions.invoke('lovable-chat', {
+        body: {
+          messages: [{ role: 'user', content: userInput }],
           miningStats: context.miningStats,
-          userContext: context.userContext 
+          userContext: context.userContext
         }
-      );
+      });
+
+      if (error || !data?.success) {
+        throw new Error(error?.message || 'Lovable AI Gateway unavailable');
+      }
+
+      const response = data.response || 'Unable to generate response at this time.';
       
       return {
         responses: [{

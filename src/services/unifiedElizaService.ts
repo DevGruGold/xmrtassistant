@@ -5,7 +5,6 @@ import { renderAPIService } from './renderAPIService';
 import { supabase } from '@/integrations/supabase/client';
 import { openAIApiKeyManager } from './openAIApiKeyManager';
 import { enhancedTTS } from './enhancedTTSService';
-import { LovableAIGateway } from './lovableAIGateway';
 import { IntelligentErrorHandler } from './intelligentErrorHandler';
 
 // Get session credentials if available (outside React component)
@@ -572,24 +571,33 @@ export class UnifiedElizaService {
         }
       }
       
-      // lovable-chat failed - log detailed error
+      // lovable-chat failed - check for payment/rate limit errors
       const errorMsg = error?.message || data?.error || 'Unknown error';
       console.error(`❌ lovable-chat failed: ${errorMsg}`);
       
-      // Check for payment/quota errors and surface to user
+      // Surface payment/rate limit errors immediately - don't cascade
       if (errorMsg.includes('402') || errorMsg.includes('payment_required') || errorMsg.includes('Not enough credits')) {
-        console.error(`💳 lovable-chat out of credits - needs payment`);
+        throw new Error('💳 Lovable AI Gateway credits exhausted. Please add credits at Settings → Workspace → Usage to continue using AI features.');
+      }
+      if (errorMsg.includes('429') || errorMsg.includes('rate_limit') || errorMsg.includes('Too Many Requests')) {
+        throw new Error('⏱️ Lovable AI Gateway rate limit reached. Please wait a moment and try again.');
       }
       if (errorMsg.includes('quota') || errorMsg.includes('insufficient_quota')) {
-        console.error(`💳 lovable-chat quota exceeded - needs billing update`);
+        throw new Error('💳 Lovable AI Gateway quota exceeded. Please check your billing settings.');
       }
     } catch (err) {
       const errorMsg = err?.message || 'Unknown exception';
       console.error(`❌ lovable-chat exception: ${errorMsg}`);
       
-      // Check for payment/quota errors
-      if (errorMsg.includes('402') || errorMsg.includes('payment') || errorMsg.includes('quota')) {
-        console.error(`💳 lovable-chat payment/quota issue: ${errorMsg}`);
+      // Surface payment/rate limit errors immediately - don't cascade
+      if (errorMsg.includes('402') || errorMsg.includes('payment_required') || errorMsg.includes('credits')) {
+        throw new Error('💳 Lovable AI Gateway credits exhausted. Please add credits at Settings → Workspace → Usage to continue using AI features.');
+      }
+      if (errorMsg.includes('429') || errorMsg.includes('rate_limit')) {
+        throw new Error('⏱️ Lovable AI Gateway rate limit reached. Please wait a moment and try again.');
+      }
+      if (errorMsg.includes('quota')) {
+        throw new Error('💳 Lovable AI Gateway quota exceeded. Please check your billing settings.');
       }
     }
     
@@ -671,96 +679,69 @@ export class UnifiedElizaService {
       executiveErrors[exec] = 'Service unavailable or failed';
     });
     
-    // All cloud executives failed - try Lovable AI Gateway before Office Clerk
-    console.log('🌐 All cloud executives unavailable - attempting Lovable AI Gateway fallback...');
-    attemptedExecutives.push('lovable-gateway');
+    // All services failed - use Office Clerk as absolute last resort
+    console.log('🏢 All cloud services unavailable - using Office Clerk (browser-based AI)...');
+    
+    // LAST RESORT: Office Clerk (MLC-LLM or legacy fallback)
+    attemptedExecutives.push('office-clerk-mlc');
     
     try {
-      const lovableResponse = await LovableAIGateway.chat(
-        [{ role: 'user', content: userInput }],
-        { 
-          miningStats: contextData.miningStats, 
-          userContext: contextData.userContext,
-          xmrtContext: contextData.xmrtContext 
-        }
-      );
+      const { MLCLLMService } = await import('./mlcLLMService');
       
-      console.log('✅ Lovable AI Gateway succeeded');
-      
-      // Store the fallback executive
-      (window as any).__lastElizaExecutive = 'lovable-gateway';
-      
-      return {
-        response: `🌐 **[via Lovable AI Gateway]**\n\n${lovableResponse}`,
-        hasToolCalls: false
-      };
-      
-    } catch (lovableError: any) {
-      executiveErrors['lovable-gateway'] = lovableError;
-      console.warn(`❌ Lovable AI Gateway failed: ${lovableError.message}`);
-      console.log('🏢 Falling back to Office Clerk (browser-based AI)...');
-      
-      // LAST RESORT: Office Clerk (MLC-LLM or legacy fallback)
-      attemptedExecutives.push('office-clerk-mlc');
-      
-      try {
-        const { MLCLLMService } = await import('./mlcLLMService');
-        
-        // Check if WebGPU is supported
-        if (!MLCLLMService.isWebGPUSupported()) {
-          console.warn('⚠️ WebGPU not supported - using legacy Office Clerk');
-          const { FallbackAIService } = await import('./fallbackAIService');
-          const localResponse = await FallbackAIService.generateResponse(userInput, {
-            miningStats: contextData.miningStats,
-            userContext: contextData
-          });
-          
-          console.log(`✅ Legacy Office Clerk responded: ${localResponse.method}`);
-          (window as any).__lastElizaExecutive = 'office-clerk-legacy';
-          
-          const clerkResponse = `🤖 **[via Office Clerk - Legacy Browser AI]**\n\n${localResponse.text}\n\n` +
-            `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
-          
-          return {
-            response: clerkResponse,
-            hasToolCalls: false
-          };
-        }
-        
-        // Use MLC-LLM
-        const localResponse = await MLCLLMService.generateConversationResponse(userInput, {
+      // Check if WebGPU is supported
+      if (!MLCLLMService.isWebGPUSupported()) {
+        console.warn('⚠️ WebGPU not supported - using legacy Office Clerk');
+        const { FallbackAIService } = await import('./fallbackAIService');
+        const localResponse = await FallbackAIService.generateResponse(userInput, {
           miningStats: contextData.miningStats,
-          userContext: { sessionKey: sessionKey }
+          userContext: contextData
         });
         
-        console.log(`✅ Office Clerk (MLC-LLM) responded: ${localResponse.method}`);
-        (window as any).__lastElizaExecutive = 'office-clerk-mlc';
+        console.log(`✅ Legacy Office Clerk responded: ${localResponse.method}`);
+        (window as any).__lastElizaExecutive = 'office-clerk-legacy';
         
-        const clerkResponse = `🏢 **[via Office Clerk - MLC-LLM WebLLM]**\n\n${localResponse.text}\n\n` +
-          `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+        const clerkResponse = `🤖 **[via Office Clerk - Browser AI]**\n\n${localResponse.text}\n\n` +
+          `*Note: Lovable AI Gateway is currently unavailable. This response was generated locally in your browser using ${localResponse.method}. For full AI capabilities, please check your Lovable workspace credits.*`;
         
         return {
           response: clerkResponse,
           hasToolCalls: false
         };
-      } catch (clerkError: any) {
-        executiveErrors['office-clerk-mlc'] = clerkError;
-        console.error('❌ Even the Office Clerk failed:', clerkError);
-        
-        // Generate comprehensive multi-service error diagnosis
-        const finalError = new Error('All AI services exhausted');
-        (finalError as any).executiveErrors = executiveErrors;
-        (finalError as any).attemptedExecutives = attemptedExecutives;
-        
-        const diagnosis = await IntelligentErrorHandler.diagnoseError(finalError, {
-          userInput,
-          fallbacksAttempted: attemptedExecutives
-        });
-        
-        const explanation = IntelligentErrorHandler.generateExplanation(diagnosis, attemptedExecutives);
-        
-        throw new Error(explanation);
       }
+      
+      // Use MLC-LLM
+      const localResponse = await MLCLLMService.generateConversationResponse(userInput, {
+        miningStats: contextData.miningStats,
+        userContext: { sessionKey: sessionKey }
+      });
+      
+      console.log(`✅ Office Clerk (MLC-LLM) responded: ${localResponse.method}`);
+      (window as any).__lastElizaExecutive = 'office-clerk-mlc';
+      
+      const clerkResponse = `🏢 **[via Office Clerk - MLC-LLM]**\n\n${localResponse.text}\n\n` +
+        `*Note: Lovable AI Gateway is currently unavailable. This response was generated locally in your browser using ${localResponse.method}. For full AI capabilities, please check your Lovable workspace credits.*`;
+      
+      return {
+        response: clerkResponse,
+        hasToolCalls: false
+      };
+    } catch (clerkError: any) {
+      executiveErrors['office-clerk-mlc'] = clerkError;
+      console.error('❌ Even the Office Clerk failed:', clerkError);
+      
+      // Generate comprehensive multi-service error diagnosis
+      const finalError = new Error('All AI services exhausted');
+      (finalError as any).executiveErrors = executiveErrors;
+      (finalError as any).attemptedExecutives = attemptedExecutives;
+      
+      const diagnosis = await IntelligentErrorHandler.diagnoseError(finalError, {
+        userInput,
+        fallbacksAttempted: attemptedExecutives
+      });
+      
+      const explanation = IntelligentErrorHandler.generateExplanation(diagnosis, attemptedExecutives);
+      
+      throw new Error(explanation);
     }
   }
 
