@@ -122,7 +122,7 @@ export const ELIZA_TOOLS = [
     type: 'function',
     function: {
       name: 'execute_python',
-      description: 'BACKGROUND EXECUTION: Write and execute Python code in background sandbox ONLY. Code NEVER appears in chat. You write code → background system executes it → auto-fixer corrects errors → results feed back to you. Communicate ONLY outcomes and insights to user, NEVER show raw code. CRITICAL: The "requests" module is NOT available. For HTTP calls, use urllib.request from the standard library instead. Example: import urllib.request; urllib.request.urlopen(url). Or better yet, use the call_edge_function tool directly.',
+      description: 'Execute Python code automatically. USAGE: Write a tool call with your Python code in the "code" parameter → System executes it in background → Returns results to you → You share outcomes with user. The code itself is logged in the execution monitor, not displayed in chat. Use this for: calculations, data processing, algorithms, analysis, transformations. Example: execute_python({ code: "result = sum([1,2,3,4,5])\\nprint(result)", purpose: "calculate sum" }). Standard library available (json, math, datetime, random, re). For network calls, use invoke_edge_function or call_edge_function instead.',
       parameters: {
         type: 'object',
         properties: {
