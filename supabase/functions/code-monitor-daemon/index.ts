@@ -45,18 +45,6 @@ function isExecutableCode(code: string): boolean {
   // Skip empty code
   if (!trimmed) return false;
   
-  // Skip tool call syntax (e.g., "createGitHubIssue({ ... })" or "execute_python({ ... })")
-  if (/^\w+\s*\(\s*\{[\s\S]*\}\s*\)$/m.test(trimmed)) {
-    console.log('⏭️ Skipping tool call syntax (not executable Python)');
-    return false;
-  }
-  
-  // Skip standalone function calls without imports/definitions
-  if (/^\w+\([^)]*\)/.test(trimmed) && !trimmed.includes('import') && !trimmed.includes('def') && !trimmed.includes('print')) {
-    console.log('⏭️ Skipping standalone function call without context');
-    return false;
-  }
-  
   // Skip if only comments
   const withoutComments = trimmed
     .replace(/#.*$/gm, '')

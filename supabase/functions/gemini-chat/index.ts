@@ -86,10 +86,8 @@ serve(async (req) => {
       tool_choice: 'auto'
     });
     
-    let finalResponse: string;
-    
     // If AI wants to use tools, execute them
-    if (typeof response === 'object' && response.tool_calls && response.tool_calls.length > 0) {
+    if (response.tool_calls && response.tool_calls.length > 0) {
       console.log(`🔧 CIO executing ${response.tool_calls.length} tool(s)`);
       
       const toolResults = [];
@@ -103,7 +101,7 @@ serve(async (req) => {
       }
       
       // Call AI again with tool results
-      const followUpResponse = await callLovableAIGateway([
+      response = await callLovableAIGateway([
         ...aiMessages,
         { role: 'assistant', content: response.content || '', tool_calls: response.tool_calls },
         ...toolResults
@@ -112,10 +110,6 @@ serve(async (req) => {
         temperature: 0.7,
         max_tokens: 4000
       });
-      
-      finalResponse = typeof followUpResponse === 'string' ? followUpResponse : followUpResponse.content;
-    } else {
-      finalResponse = typeof response === 'string' ? response : response.content;
     }
     
     const apiDuration = Date.now() - apiStartTime;
@@ -123,13 +117,13 @@ serve(async (req) => {
     console.log(`✅ CIO Executive responded in ${apiDuration}ms`);
     await logger.apiCall('lovable_gateway', 200, apiDuration, { 
       executive: 'CIO',
-      responseLength: finalResponse.length 
+      responseLength: response.length 
     });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        response: finalResponse,
+        response: response,
         executive: 'gemini-chat',
         executiveTitle: 'Chief Information Officer (CIO)',
         provider: 'lovable_gateway',
@@ -145,25 +139,20 @@ serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     let statusCode = 500;
-    let errorType = 'service_unavailable';
     
-    // Parse structured error if available
-    if (errorMessage.includes('"code":402') || errorMessage.includes('Payment Required')) {
+    // Detect error types for structured response
+    if (errorMessage.includes('402') || errorMessage.includes('Payment Required')) {
       statusCode = 402;
-      errorType = 'payment_required';
-    } else if (errorMessage.includes('"code":429') || errorMessage.includes('Rate limit')) {
+    } else if (errorMessage.includes('429') || errorMessage.includes('Rate limit')) {
       statusCode = 429;
-      errorType = 'rate_limit';
-    } else if (errorMessage.includes('"code":400') || errorMessage.includes('Invalid input')) {
-      statusCode = 400;
-      errorType = 'invalid_request';
     }
     
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: {
-          type: errorType,
+          type: statusCode === 402 ? 'payment_required' : 
+                statusCode === 429 ? 'rate_limit' : 'service_unavailable',
           code: statusCode,
           message: errorMessage,
           service: 'gemini-chat',
@@ -172,9 +161,8 @@ serve(async (req) => {
             executive: 'CIO',
             model: 'google/gemini-2.5-pro'
           },
-          canRetry: statusCode !== 402 && statusCode !== 400,
-          suggestedAction: statusCode === 402 ? 'add_credits' : 
-                          statusCode === 400 ? 'check_request_format' : 'try_alternative'
+          canRetry: statusCode !== 402,
+          suggestedAction: statusCode === 402 ? 'add_credits' : 'try_alternative'
         }
       }),
       { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

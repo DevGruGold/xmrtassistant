@@ -34,16 +34,9 @@ export async function callLovableAIGateway(
     max_tokens: options.max_tokens || 2000
   };
   
-  // Add tools if provided (convert to OpenAI format)
+  // Add tools if provided
   if (options.tools && options.tools.length > 0) {
-    requestBody.tools = options.tools.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
-      }
-    }));
+    requestBody.tools = options.tools;
     requestBody.tool_choice = 'auto';
     console.log(`🔧 Gateway: Tool calling enabled with ${options.tools.length} tools`);
   }
@@ -64,22 +57,15 @@ export async function callLovableAIGateway(
     // Return structured error for intelligent handling
     const structuredError = {
       type: response.status === 402 ? 'payment_required' : 
-            response.status === 429 ? 'rate_limit' : 
-            response.status === 400 ? 'invalid_request' : 'service_unavailable',
+            response.status === 429 ? 'rate_limit' : 'service_unavailable',
       code: response.status,
       service: 'lovable_ai_gateway',
       message: errorText,
       details: {
         timestamp: new Date().toISOString(),
-        model: options.model || 'google/gemini-2.5-flash',
-        requestBodySize: JSON.stringify(requestBody).length
+        model: options.model || 'google/gemini-2.5-flash'
       }
     };
-    
-    // Log request body for 400 errors to help debug
-    if (response.status === 400) {
-      console.error('❌ Request body that caused 400:', JSON.stringify(requestBody, null, 2));
-    }
     
     throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}\n${JSON.stringify(structuredError)}`);
   }
@@ -91,16 +77,10 @@ export async function callLovableAIGateway(
     throw new Error('No message in Lovable AI Gateway response');
   }
   
-  // Return full message object to support tool calling
-  console.log(`✅ Gateway returned message with content length: ${message.content?.length || 0}, tool_calls: ${message.tool_calls?.length || 0}`);
-  
-  // If no tools were used, return just content string for backwards compatibility
-  if (!message.tool_calls || message.tool_calls.length === 0) {
-    return message.content || '';
-  }
-  
-  // Return full message object for tool calling support
-  return message;
+  // Return content string for backwards compatibility with all edge functions
+  const content = message.content || '';
+  console.log(`✅ Gateway returned content length: ${content.length}`);
+  return content;
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {

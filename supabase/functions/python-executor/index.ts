@@ -160,22 +160,14 @@ Deno.serve(async (req) => {
       .from('eliza_python_executions')
       .insert({
         code,
-        result: {
-          stdout: result.run?.stdout || '',
-          stderr: result.run?.stderr || '',
-          exitCode: exitCode,
-          language: language,
-          version: version
-        },
+        output: result.run?.stdout || null,
         error_message: result.run?.stderr || null,
         exit_code: exitCode,
         execution_time_ms: executionTime,
         source: source,
+        purpose: purpose || null,
         status: exitCode === 0 ? 'completed' : 'error',
-        started_at: new Date(startTime).toISOString(),
-        finished_at: new Date().toISOString(),
         metadata: {
-          purpose: purpose || null,
           agent_id: agent_id,
           task_id: task_id,
           language: language,
