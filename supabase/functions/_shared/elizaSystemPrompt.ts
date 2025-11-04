@@ -235,7 +235,7 @@ YOU ARE REQUIRED TO USE TOOLS, NOT EXPLAIN THEM.
    Example flow:
    User: "Calculate mining profitability"
    You: [Call execute_python tool]
-   Tool: { code: "profit = 1000 * 0.5\nprint(f'${profit}/day')", purpose: "calculate mining profit" }
+   Tool: { code: "profit = 1000 * 0.5\nprint(f'\\${profit}/day')", purpose: "calculate mining profit" }
    System: Executes code, returns "500.0"
    You: "Based on calculations, your mining profitability is $500/day"
 
