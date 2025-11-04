@@ -865,17 +865,26 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           console.log('Conversation persistence error:', error);
         }
         
-        // Speak all executive voices + synthesis
+        // Speak council synthesis with TTS (even if partial responses)
         if (voiceEnabled && audioInitialized) {
           setIsSpeaking(true);
           
-          // Extract executive perspectives
-          const executiveVoices = deliberation.responses
-            .map(r => `${r.executiveTitle}: ${r.perspective}`)
-            .join('\n\n');
+          // Build spoken text based on what's available
+          let spokenText = '';
           
-          // Combine with synthesis
-          const spokenText = `${executiveVoices}\n\nUnified Recommendation: ${deliberation.synthesis}`;
+          if (deliberation.responses.length >= 2) {
+            // Multiple executives responded - speak their perspectives
+            const executiveVoices = deliberation.responses
+              .map(r => `${r.executiveTitle}: ${r.perspective}`)
+              .join('\n\n');
+            spokenText = `${executiveVoices}\n\nUnified Recommendation: ${deliberation.synthesis}`;
+          } else if (deliberation.responses.length === 1) {
+            // Single executive - speak their response
+            spokenText = `${deliberation.responses[0].executiveTitle} says: ${deliberation.synthesis}`;
+          } else {
+            // Fallback synthesis only (shouldn't happen but handle gracefully)
+            spokenText = deliberation.synthesis;
+          }
           
           console.log('🎵 Speaking council deliberation:', spokenText.substring(0, 100) + '...');
           

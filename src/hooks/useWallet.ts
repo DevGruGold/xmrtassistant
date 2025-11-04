@@ -48,10 +48,10 @@ export const useWallet = () => {
       icons: ['https://avatars.githubusercontent.com/u/37784886']
     };
 
-    const chains = [mainnet, sepolia];
+    const chains = [mainnet, sepolia] as const;
 
     const wagmiConfig = defaultWagmiConfig({
-      chains,
+      chains: chains as any,
       projectId,
       metadata
     });
@@ -59,7 +59,6 @@ export const useWallet = () => {
     createWeb3Modal({
       wagmiConfig,
       projectId,
-      chains,
       themeMode: "dark",
       themeVariables: {
         '--w3m-accent': '#646cff'

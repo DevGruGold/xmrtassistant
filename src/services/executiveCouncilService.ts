@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { LovableAIGateway } from './lovableAIGateway';
 import type { ElizaContext } from './unifiedElizaService';
+import { retryWithBackoff } from '@/utils/retryHelper';
 
 export interface ExecutiveResponse {
   executive: 'vercel-ai-chat' | 'deepseek-chat' | 'gemini-chat' | 'openai-chat';
@@ -116,7 +117,7 @@ class ExecutiveCouncilService {
   }
 
   /**
-   * Get perspective from a specific executive
+   * Get perspective from a specific executive with retry logic
    */
   private async getExecutivePerspective(
     executive: 'vercel-ai-chat' | 'deepseek-chat' | 'gemini-chat' | 'openai-chat',
@@ -129,15 +130,26 @@ class ExecutiveCouncilService {
     console.log(`📡 Calling ${config.title} (${executive})...`);
     
     try {
-      const { data, error } = await supabase.functions.invoke(executive, {
-        body: {
-          messages: [{ role: 'user', content: userInput }],
-          context,
-          councilMode: true // Signal that this is a council deliberation
+      // Use retry logic with exponential backoff
+      const result = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke(executive, {
+            body: {
+              messages: [{ role: 'user', content: userInput }],
+              context,
+              councilMode: true // Signal that this is a council deliberation
+            }
+          });
+          
+          if (error) throw new Error(`${executive} error: ${error.message || JSON.stringify(error)}`);
+          return data;
+        },
+        { 
+          maxAttempts: 2, // Reduced to 2 for faster council response
+          initialDelayMs: 500,
+          timeoutMs: 15000 // 15 second timeout per attempt
         }
-      });
-      
-      if (error) throw error;
+      );
       
       const executionTime = Date.now() - startTime;
       console.log(`✅ ${config.title} responded in ${executionTime}ms`);
@@ -147,14 +159,15 @@ class ExecutiveCouncilService {
         executiveTitle: config.title,
         executiveIcon: config.icon,
         executiveColor: config.color,
-        perspective: data.response || data.content || 'No response',
-        confidence: data.confidence || 85,
-        reasoning: data.reasoning || [],
+        perspective: result.response || result.content || 'No response',
+        confidence: result.confidence || 85,
+        reasoning: result.reasoning || [],
         executionTimeMs: executionTime
       };
     } catch (error) {
-      console.error(`❌ ${config.title} failed:`, error);
-      throw error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ ${config.title} failed after retries:`, errorMsg);
+      throw new Error(`${config.title} unavailable: ${errorMsg}`);
     }
   }
 

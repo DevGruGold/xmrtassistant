@@ -452,6 +452,8 @@ serve(async (req) => {
       statusCode = 402;
     } else if (errorMessage.includes('429') || errorMessage.includes('Rate limit')) {
       statusCode = 429;
+    } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch failed') || errorMessage.includes('network')) {
+      statusCode = 503;
     }
     
     return new Response(
@@ -459,7 +461,8 @@ serve(async (req) => {
         success: false, 
         error: {
           type: statusCode === 402 ? 'payment_required' : 
-                statusCode === 429 ? 'rate_limit' : 'service_unavailable',
+                statusCode === 429 ? 'rate_limit' : 
+                statusCode === 503 ? 'network_error' : 'service_unavailable',
           code: statusCode,
           message: errorMessage,
           service: 'vercel-ai-chat',

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { retryWithBackoff } from '@/utils/retryHelper';
 
 /**
  * Lovable AI Gateway Service
@@ -59,54 +60,66 @@ export class LovableAIGateway {
     console.log('🌐 Calling Lovable AI Gateway (google/gemini-2.5-flash)...');
     
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'system',
-              content: `You are Eliza, the autonomous AI co-founder of XMRT DAO. 
+      // Use retry logic with timeout
+      const responseText = await retryWithBackoff(
+        async () => {
+          const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are Eliza, the autonomous AI co-founder of XMRT DAO. 
 
 Context: ${JSON.stringify(context)}
 
 Respond naturally and helpfully based on the user's needs and the provided context.`
-            },
-            ...messages
-          ],
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
+                },
+                ...messages
+              ],
+              temperature: 0.7,
+              max_tokens: 2000
+            })
+          });
 
-      // Handle rate limiting
-      if (response.status === 429) {
-        console.error('❌ Lovable AI Gateway: Rate limit exceeded (429)');
-        throw new Error('RATE_LIMIT: Lovable AI Gateway rate limit exceeded. Please try again in a moment.');
-      }
-      
-      // Handle payment required
-      if (response.status === 402) {
-        console.error('❌ Lovable AI Gateway: Payment required (402)');
-        throw new Error('PAYMENT_REQUIRED: Lovable AI credits exhausted. Please add credits to your workspace.');
-      }
+          // Handle rate limiting (don't retry)
+          if (response.status === 429) {
+            console.error('❌ Lovable AI Gateway: Rate limit exceeded (429)');
+            throw new Error('RATE_LIMIT: Lovable AI Gateway rate limit exceeded. Please try again in a moment.');
+          }
+          
+          // Handle payment required (don't retry)
+          if (response.status === 402) {
+            console.error('❌ Lovable AI Gateway: Payment required (402)');
+            throw new Error('PAYMENT_REQUIRED: Lovable AI credits exhausted. Please add credits to your workspace.');
+          }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Lovable AI Gateway error: ${response.status}`, errorText);
-        throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}`);
-      }
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Lovable AI Gateway error: ${response.status}`, errorText);
+            throw new Error(`Lovable AI Gateway error: ${response.status} - ${errorText}`);
+          }
 
-      const data = await response.json();
-      const responseText = data.choices?.[0]?.message?.content;
-      
-      if (!responseText) {
-        throw new Error('No response content from Lovable AI Gateway');
-      }
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content;
+          
+          if (!text) {
+            throw new Error('No response content from Lovable AI Gateway');
+          }
+
+          return text;
+        },
+        {
+          maxAttempts: 2,
+          initialDelayMs: 1000,
+          timeoutMs: 10000 // 10 second timeout per attempt
+        }
+      );
 
       console.log('✅ Lovable AI Gateway responded successfully');
       console.log('📏 Response length:', responseText.length);
