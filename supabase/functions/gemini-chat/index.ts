@@ -145,20 +145,25 @@ serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     let statusCode = 500;
+    let errorType = 'service_unavailable';
     
-    // Detect error types for structured response
-    if (errorMessage.includes('402') || errorMessage.includes('Payment Required')) {
+    // Parse structured error if available
+    if (errorMessage.includes('"code":402') || errorMessage.includes('Payment Required')) {
       statusCode = 402;
-    } else if (errorMessage.includes('429') || errorMessage.includes('Rate limit')) {
+      errorType = 'payment_required';
+    } else if (errorMessage.includes('"code":429') || errorMessage.includes('Rate limit')) {
       statusCode = 429;
+      errorType = 'rate_limit';
+    } else if (errorMessage.includes('"code":400') || errorMessage.includes('Invalid input')) {
+      statusCode = 400;
+      errorType = 'invalid_request';
     }
     
     return new Response(
       JSON.stringify({ 
         success: false, 
         error: {
-          type: statusCode === 402 ? 'payment_required' : 
-                statusCode === 429 ? 'rate_limit' : 'service_unavailable',
+          type: errorType,
           code: statusCode,
           message: errorMessage,
           service: 'gemini-chat',
@@ -167,8 +172,9 @@ serve(async (req) => {
             executive: 'CIO',
             model: 'google/gemini-2.5-pro'
           },
-          canRetry: statusCode !== 402,
-          suggestedAction: statusCode === 402 ? 'add_credits' : 'try_alternative'
+          canRetry: statusCode !== 402 && statusCode !== 400,
+          suggestedAction: statusCode === 402 ? 'add_credits' : 
+                          statusCode === 400 ? 'check_request_format' : 'try_alternative'
         }
       }),
       { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
