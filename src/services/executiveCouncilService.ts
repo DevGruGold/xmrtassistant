@@ -214,13 +214,16 @@ Format your response EXACTLY as:
 `;
 
     try {
-      const synthesis = await LovableAIGateway.chat(
+      const response = await LovableAIGateway.chat(
         [{ role: 'user', content: synthesisPrompt }],
         { 
           miningStats: context.miningStats,
           userContext: context.userContext 
         }
       );
+      
+      // Handle both string and object responses
+      const synthesis = typeof response === 'string' ? response : response.content;
       
       return {
         responses,
@@ -342,17 +345,20 @@ Format your response EXACTLY as:
         }
       );
       
+      // Handle both string and object responses
+      const responseText = typeof response === 'string' ? response : response.content;
+      
       return {
         responses: [{
           executive: 'vercel-ai-chat',
           executiveTitle: 'Lovable AI Gateway (Gemini 2.5 Flash)',
           executiveIcon: '🌐',
           executiveColor: 'cyan',
-          perspective: response,
+          perspective: responseText,
           confidence: 80,
           executionTimeMs: Date.now() - startTime
         }],
-        synthesis: response,
+        synthesis: responseText,
         consensus: true,
         leadExecutive: 'Lovable AI Gateway',
         totalExecutionTimeMs: Date.now() - startTime

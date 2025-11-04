@@ -43,14 +43,14 @@ export class LovableAIGateway {
   /**
    * Call Lovable AI Gateway with google/gemini-2.5-flash model
    * @param messages - Array of conversation messages
-   * @param context - User and system context
-   * @returns AI-generated response text
+   * @param context - User and system context (can include tools for tool calling)
+   * @returns AI-generated response text or object with tool_calls
    * @throws Error on API failures, rate limits, or payment required
    */
   static async chat(
     messages: Array<{ role: string; content: string }>, 
     context: any
-  ): Promise<string> {
+  ): Promise<string | { content: string; tool_calls?: any[] }> {
     const apiKey = await this.fetchAPIKey();
     
     if (!apiKey) {
@@ -83,7 +83,10 @@ Respond naturally and helpfully based on the user's needs and the provided conte
                 ...messages
               ],
               temperature: 0.7,
-              max_tokens: 2000
+              max_tokens: 2000,
+              // Add tool support if provided in context
+              ...(context.tools && { tools: context.tools }),
+              ...(context.tool_choice && { tool_choice: context.tool_choice })
             })
           });
 
@@ -106,13 +109,22 @@ Respond naturally and helpfully based on the user's needs and the provided conte
           }
 
           const data = await response.json();
-          const text = data.choices?.[0]?.message?.content;
+          const message = data.choices?.[0]?.message;
           
-          if (!text) {
-            throw new Error('No response content from Lovable AI Gateway');
+          if (!message) {
+            throw new Error('No response message from Lovable AI Gateway');
           }
 
-          return text;
+          // If tool calls are present, return the full message object
+          if (message.tool_calls && message.tool_calls.length > 0) {
+            return {
+              content: message.content || '',
+              tool_calls: message.tool_calls
+            };
+          }
+
+          // Otherwise return just the content string
+          return message.content || '';
         },
         {
           maxAttempts: 2,
