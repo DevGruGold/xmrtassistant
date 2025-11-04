@@ -1822,6 +1822,48 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_proposals: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string
+          function_name: string
+          id: string
+          implementation_code: string | null
+          proposed_by: string
+          rationale: string
+          status: string | null
+          updated_at: string | null
+          use_cases: Json
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description: string
+          function_name: string
+          id?: string
+          implementation_code?: string | null
+          proposed_by: string
+          rationale: string
+          status?: string | null
+          updated_at?: string | null
+          use_cases?: Json
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string
+          function_name?: string
+          id?: string
+          implementation_code?: string | null
+          proposed_by?: string
+          rationale?: string
+          status?: string | null
+          updated_at?: string | null
+          use_cases?: Json
+        }
+        Relationships: []
+      }
       eliza_activity_log: {
         Row: {
           activity_type: string
@@ -1855,6 +1897,51 @@ export type Database = {
           status?: string
           title?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      eliza_function_usage: {
+        Row: {
+          error_message: string | null
+          execution_time_ms: number | null
+          executive_name: string | null
+          function_name: string
+          id: string
+          invoked_at: string | null
+          invoked_by: string | null
+          metadata: Json | null
+          parameters: Json | null
+          result_summary: string | null
+          success: boolean
+          user_context: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          execution_time_ms?: number | null
+          executive_name?: string | null
+          function_name: string
+          id?: string
+          invoked_at?: string | null
+          invoked_by?: string | null
+          metadata?: Json | null
+          parameters?: Json | null
+          result_summary?: string | null
+          success: boolean
+          user_context?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          execution_time_ms?: number | null
+          executive_name?: string | null
+          function_name?: string
+          id?: string
+          invoked_at?: string | null
+          invoked_by?: string | null
+          metadata?: Json | null
+          parameters?: Json | null
+          result_summary?: string | null
+          success?: boolean
+          user_context?: string | null
         }
         Relationships: []
       }
@@ -2155,6 +2242,41 @@ export type Database = {
             columns: ["target_entity_id"]
             isOneToOne: false
             referencedRelation: "knowledge_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      executive_votes: {
+        Row: {
+          created_at: string | null
+          executive_name: string
+          id: string
+          proposal_id: string | null
+          reasoning: string
+          vote: string
+        }
+        Insert: {
+          created_at?: string | null
+          executive_name: string
+          id?: string
+          proposal_id?: string | null
+          reasoning: string
+          vote: string
+        }
+        Update: {
+          created_at?: string | null
+          executive_name?: string
+          id?: string
+          proposal_id?: string | null
+          reasoning?: string
+          vote?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "executive_votes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "edge_function_proposals"
             referencedColumns: ["id"]
           },
         ]
@@ -5215,6 +5337,29 @@ export type Database = {
           result?: Json | null
           source?: never
           status?: string | null
+        }
+        Relationships: []
+      }
+      function_recommendations: {
+        Row: {
+          avg_execution_ms: number | null
+          common_use_cases: string | null
+          function_name: string | null
+          last_used: string | null
+          success_rate_pct: number | null
+          total_uses: number | null
+        }
+        Relationships: []
+      }
+      function_usage_by_executive: {
+        Row: {
+          avg_time_ms: number | null
+          executive_name: string | null
+          failure_count: number | null
+          function_name: string | null
+          success_count: number | null
+          success_rate_pct: number | null
+          usage_count: number | null
         }
         Relationships: []
       }

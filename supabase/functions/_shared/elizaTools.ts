@@ -12,8 +12,58 @@
 
 
 export const ELIZA_TOOLS = [
-  
-    
+    {
+      name: 'get_function_usage_analytics',
+      description: 'Query historical edge function usage patterns. See which functions you and other executives use most, success rates, common use cases, and execution patterns. Use this to learn from past behavior and make informed decisions about which functions to call.',
+      parameters: {
+        type: 'object',
+        properties: {
+          function_name: { type: 'string', description: 'Optional: specific function to analyze' },
+          executive_name: { type: 'string', description: 'Optional: filter by CSO, CTO, CIO, or CAO' },
+          time_period_hours: { type: 'number', description: 'Look back period in hours (default 168 = 1 week)' },
+          min_usage_count: { type: 'number', description: 'Only show functions used at least N times' }
+        }
+      }
+    },
+    {
+      name: 'propose_new_edge_function',
+      description: 'Propose a new edge function to the Executive Council. Requires consensus (3/4 votes) for approval and automatic deployment. Use this when you identify a capability gap that would benefit the ecosystem.',
+      parameters: {
+        type: 'object',
+        properties: {
+          function_name: { type: 'string', description: 'Name for the new function (kebab-case)' },
+          description: { type: 'string', description: 'What this function does' },
+          category: { type: 'string', description: 'Category (ai, mining, github, code, analytics, etc.)' },
+          rationale: { type: 'string', description: 'Why we need this function' },
+          use_cases: { type: 'array', items: { type: 'string' }, description: 'Specific use cases' },
+          implementation_outline: { type: 'string', description: 'High-level implementation approach' }
+        },
+        required: ['function_name', 'description', 'category', 'rationale', 'use_cases']
+      }
+    },
+    {
+      name: 'vote_on_function_proposal',
+      description: 'Cast your vote on a pending edge function proposal. Requires 3/4 executive approval for deployment. Your vote and reasoning become part of the permanent record.',
+      parameters: {
+        type: 'object',
+        properties: {
+          proposal_id: { type: 'string', description: 'UUID of the proposal' },
+          vote: { type: 'string', enum: ['approve', 'reject', 'abstain'], description: 'Your vote' },
+          reasoning: { type: 'string', description: 'Detailed reasoning for your vote' }
+        },
+        required: ['proposal_id', 'vote', 'reasoning']
+      }
+    },
+    {
+      name: 'list_function_proposals',
+      description: 'List all edge function proposals (pending, voting, approved, deployed). See what new capabilities are being proposed and vote on them.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', enum: ['pending', 'voting', 'approved', 'rejected', 'deployed'], description: 'Filter by status' }
+        }
+      }
+    },
     {
       name: 'invoke_edge_function',
       description: 'UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of the 80+ Supabase edge functions dynamically. This is your MCP integration tool. You can invoke: AI chat functions, Python execution, GitHub integration, agent management, task orchestration, monitoring daemons, database operations, network proxies, and more. Available functions: gemini-chat, python-executor, github-integration, agent-manager, task-orchestrator, autonomous-code-fixer, code-monitor-daemon, mining-proxy, ecosystem-monitor, system-diagnostics, and 50+ more. Use this when you need capabilities beyond your standard tools.',

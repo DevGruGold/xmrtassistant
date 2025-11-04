@@ -268,6 +268,62 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ['External API calls', 'Web scraping', 'Data fetching from internet'],
     category: 'code-execution',
     example_use: 'Enable Python scripts to access external web resources'
+  },
+  {
+    name: 'function-usage-analytics',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/function-usage-analytics',
+    description: 'Query historical edge function usage patterns and analytics. See which functions are used most, success rates, execution times, and common use cases across all executives.',
+    capabilities: ['analytics', 'historical data', 'learning', 'function insights', 'executive performance'],
+    category: 'monitoring',
+    example_use: '{ "function_name": "github-integration", "time_period_hours": 168 }'
+  },
+  {
+    name: 'propose-edge-function',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-edge-function',
+    description: 'Propose a new edge function to the Executive Council. Requires 3/4 approval for deployment.',
+    capabilities: ['governance', 'consensus', 'autonomous expansion', 'capability proposal'],
+    category: 'autonomous',
+    example_use: '{ "function_name": "weather-api", "description": "Fetch weather data", "proposed_by": "CSO", "category": "external-api", "rationale": "Users need weather info", "use_cases": ["Travel planning", "Event scheduling"] }'
+  },
+  {
+    name: 'vote-on-proposal',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/vote-on-proposal',
+    description: 'Cast a vote on a pending edge function proposal. Executives vote approve/reject/abstain with reasoning.',
+    capabilities: ['voting', 'consensus', 'governance', 'executive decision'],
+    category: 'autonomous',
+    example_use: '{ "proposal_id": "uuid", "executive_name": "CTO", "vote": "approve", "reasoning": "Technically sound and addresses real need" }'
+  },
+  {
+    name: 'list-function-proposals',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/list-function-proposals',
+    description: 'List all edge function proposals with their status and vote counts.',
+    capabilities: ['governance', 'transparency', 'proposal tracking'],
+    category: 'autonomous',
+    example_use: '{ "status": "voting" }'
+  },
+  {
+    name: 'mobile-miner-register',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-register',
+    description: 'Register a new mobile miner and generate unique worker ID and configuration.',
+    capabilities: ['mining', 'registration', 'mobile', 'configuration'],
+    category: 'mining',
+    example_use: '{ "username": "alice_miner", "device_info": "Termux/Android" }'
+  },
+  {
+    name: 'mobile-miner-config',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-config',
+    description: 'Generate XMRig configuration for a registered mobile miner.',
+    capabilities: ['mining', 'configuration', 'mobile'],
+    category: 'mining',
+    example_use: '{ "user_number": "A1B2C3D4" }'
+  },
+  {
+    name: 'mobile-miner-script',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-script',
+    description: 'Serve the mobile mining setup script that automates installation and configuration.',
+    capabilities: ['mining', 'automation', 'mobile', 'setup'],
+    category: 'mining',
+    example_use: '{}'
   }
 ];
 
