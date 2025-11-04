@@ -4,6 +4,9 @@ import { callLovableAIGateway } from '../_shared/aiGatewayFallback.ts';
 import { generateExecutiveSystemPrompt } from '../_shared/elizaSystemPrompt.ts';
 import { buildContextualPrompt } from '../_shared/contextBuilder.ts';
 import { EdgeFunctionLogger } from "../_shared/logging.ts";
+import { ELIZA_TOOLS } from '../_shared/elizaTools.ts';
+import { executeToolCall } from '../_shared/toolExecutor.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const logger = EdgeFunctionLogger('cao-executive');
 
@@ -69,14 +72,46 @@ serve(async (req) => {
       ...messages
     ];
 
-    console.log('📤 Calling Lovable AI Gateway (CAO mode)...');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    
+    console.log('📤 Calling Lovable AI Gateway (CAO mode) with tools...');
     
     const apiStartTime = Date.now();
-    const response = await callLovableAIGateway(aiMessages, {
-      model: 'google/gemini-2.5-flash', // Fast for most analytical tasks
+    let response = await callLovableAIGateway(aiMessages, {
+      model: 'google/gemini-2.5-flash',
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 4000,
+      tools: ELIZA_TOOLS,
+      tool_choice: 'auto'
     });
+    
+    // If AI wants to use tools, execute them
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      console.log(`🔧 CAO executing ${response.tool_calls.length} tool(s)`);
+      
+      const toolResults = [];
+      for (const toolCall of response.tool_calls) {
+        const result = await executeToolCall(supabase, toolCall, 'CAO', SUPABASE_URL, SERVICE_ROLE_KEY);
+        toolResults.push({
+          tool_call_id: toolCall.id,
+          role: 'tool',
+          content: JSON.stringify(result)
+        });
+      }
+      
+      // Call AI again with tool results
+      response = await callLovableAIGateway([
+        ...aiMessages,
+        { role: 'assistant', content: response.content || '', tool_calls: response.tool_calls },
+        ...toolResults
+      ], {
+        model: 'google/gemini-2.5-flash',
+        temperature: 0.7,
+        max_tokens: 4000
+      });
+    }
     
     const apiDuration = Date.now() - apiStartTime;
     
