@@ -434,7 +434,7 @@ export class UnifiedElizaService {
     return titles[executive] || 'Executive';
   }
 
-  // Generate response using Lovable AI Gateway (direct, no executive cascade)
+  // Generate response using AI Executive C-Suite
   private static async generateOpenAIResponse(userInput: string, contextData: any): Promise<{ response: string; hasToolCalls: boolean; reasoning?: any[] }> {
     const {
       userContext,
@@ -443,95 +443,274 @@ export class UnifiedElizaService {
       webIntelligence,
       multiStepResults,
       systemVersion,
+      context,
       language
     } = contextData;
 
-    console.log('🌐 Calling Lovable AI Gateway directly (no executive cascade)...');
+    console.log('🧠 AI Executive C-Suite: Analyzing request...');
     console.log('🌎 Language setting:', language);
 
     // Get session key for database access
     const sessionKey = `ip-${userContext?.ip || 'unknown'}`;
     
-    // Build system prompt inline
-    const contextParts = [];
+    // Import memory and conversation services
+    const { memoryContextService } = await import('./memoryContextService');
+    const { conversationPersistence } = await import('./conversationPersistenceService');
     
-    if (miningStats) {
-      contextParts.push(`Mining Status: ${miningStats.isOnline ? 'Online' : 'Offline'}, Hash Rate: ${miningStats.hashRate}, Total Hashes: ${miningStats.totalHashes}`);
-    }
+      // Fetch memory data with reduced limits for performance
+    const [memoryContexts, fullConversationContext] = await Promise.all([
+      memoryContextService.getRelevantContexts(sessionKey, 20), // Reduced from 100 to 20
+      conversationPersistence.getFullConversationContext()
+    ]);
     
-    if (xmrtContext && xmrtContext.length > 0) {
-      contextParts.push(`XMRT Knowledge: ${xmrtContext.map(k => k.content).join('; ')}`);
-    }
+    console.log('🧠 Retrieved memory contexts:', memoryContexts.length);
+    console.log('💬 Retrieved conversation context:', {
+      summaries: fullConversationContext.summaries?.length || 0,
+      messages: fullConversationContext.recentMessages?.length || 0,
+      patterns: fullConversationContext.interactionPatterns?.length || 0
+    });
     
-    if (webIntelligence) {
-      contextParts.push(`Web Intelligence: ${webIntelligence}`);
-    }
-    
-    if (systemVersion) {
-      contextParts.push(`System Version: ${systemVersion.version} (${systemVersion.status})`);
-    }
-    
-    const systemPrompt = `You are Eliza, the autonomous AI co-founder of XMRT DAO. 
+    // Prepare comprehensive conversation history with ALL available context
+    const conversationHistory = {
+      summaries: fullConversationContext.summaries || [],
+      recentMessages: fullConversationContext.recentMessages || [],
+      totalMessageCount: fullConversationContext.totalMessageCount || 0,
+      userPreferences: fullConversationContext.userPreferences || {},
+      interactionPatterns: fullConversationContext.interactionPatterns || [],
+      memoryContexts: memoryContexts.map(m => ({
+        content: m.content,
+        contextType: m.contextType,
+        importanceScore: m.importanceScore,
+        timestamp: m.timestamp
+      }))
+    };
 
-User Context: ${userContext?.isFounder ? 'Founder' : 'User'} (IP: ${userContext?.ip || 'unknown'})
-Language: ${language || 'en'}
-
-${contextParts.length > 0 ? 'Context:\n' + contextParts.join('\n') : ''}
-
-Respond naturally and helpfully based on the user's needs and the provided context.`;
-    
     // Check for new autonomous activity that Eliza should mention
     const autonomousActivitySummary = await UnifiedElizaService.checkAndReportAutonomousActivity();
-    const finalUserInput = userInput + autonomousActivitySummary;
+
+    // Get latest session credentials
+    try {
+      const credContext = (window as any).__credentialSessionContext;
+      if (credContext) {
+        sessionCredentials = credContext.getAll();
+        console.log('🔑 Session credentials available:', Object.keys(sessionCredentials || {}));
+      }
+    } catch (e) {
+      console.log('⚠️ Could not retrieve session credentials');
+    }
+
+    // Common request body for all executives
+    const requestBody = {
+      messages: [{ role: 'user', content: userInput + autonomousActivitySummary }],
+      conversationHistory,
+      userContext: {
+        isFounder: userContext?.isFounder || false,
+        ip: userContext?.ip || 'unknown',
+        sessionKey
+      },
+      miningStats: miningStats ? {
+        hashRate: miningStats.hashRate,
+        validShares: miningStats.validShares,
+        amountDue: miningStats.amountDue,
+        amountPaid: miningStats.amountPaid,
+        isOnline: miningStats.isOnline,
+        totalHashes: miningStats.totalHashes
+      } : null,
+      systemVersion: systemVersion ? {
+        version: systemVersion.version,
+        deploymentId: systemVersion.deploymentId,
+        commitHash: systemVersion.commitHash,
+        commitMessage: systemVersion.commitMessage,
+        deployedAt: systemVersion.deployedAt,
+        status: systemVersion.status,
+        serviceUrl: systemVersion.serviceUrl
+      } : null,
+      session_credentials: sessionCredentials
+    };
+
+    // ELIZA USES EDGE FUNCTIONS EXCLUSIVELY FOR INTELLIGENCE
+    // Edge functions contain all memory, learning, and tool calling capabilities
+    // CRITICAL: Route ALL chat through lovable-chat which has tool calling capabilities
+    // lovable-chat internally handles executive selection and fallback chain
+    const primaryExecutive = 'lovable-chat'; // Always use lovable-chat for tool calling
+    console.log(`🏛️ AI Executive C-Suite: Dispatching to ${primaryExecutive} with tool calling enabled`);
     
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: finalUserInput }
-    ];
+    // Try lovable-chat (it has its own internal fallback chain)
+    try {
+      console.log(`🎯 Calling ${primaryExecutive} with full tool calling support...`);
+      
+      const { data, error } = await supabase.functions.invoke(primaryExecutive, {
+        body: requestBody
+      });
+
+      if (!error && data?.success) {
+        console.log(`✅ ${primaryExecutive} responded successfully`);
+        
+        // Store which executive responded for transparency
+        (window as any).__lastElizaExecutive = primaryExecutive;
+        console.log(`✅ Response generated by: lovable-chat (with tools)`);
+        
+        // Handle tool results vs direct responses
+        if (data.toolResult && data.toolName) {
+          const formattedResponse = this.formatToolResult(data.toolName, data.toolResult);
+          return {
+            response: formattedResponse,
+            hasToolCalls: true,
+            reasoning: data.reasoning || []
+          };
+        } else if (data.response) {
+          // Embed reasoning in response if available (for frontend to extract)
+          let responseWithReasoning = data.response;
+          if (data.reasoning && data.reasoning.length > 0) {
+            responseWithReasoning = `<reasoning>${JSON.stringify(data.reasoning)}</reasoning>${data.response}`;
+          }
+          return {
+            response: responseWithReasoning,
+            hasToolCalls: data.hasToolCalls || false,
+            reasoning: data.reasoning || []
+          };
+        }
+      }
+      
+      // lovable-chat failed - log detailed error
+      const errorMsg = error?.message || data?.error || 'Unknown error';
+      console.error(`❌ lovable-chat failed: ${errorMsg}`);
+      
+      // Check for payment/quota errors and surface to user
+      if (errorMsg.includes('402') || errorMsg.includes('payment_required') || errorMsg.includes('Not enough credits')) {
+        console.error(`💳 lovable-chat out of credits - needs payment`);
+      }
+      if (errorMsg.includes('quota') || errorMsg.includes('insufficient_quota')) {
+        console.error(`💳 lovable-chat quota exceeded - needs billing update`);
+      }
+    } catch (err) {
+      const errorMsg = err?.message || 'Unknown exception';
+      console.error(`❌ lovable-chat exception: ${errorMsg}`);
+      
+      // Check for payment/quota errors
+      if (errorMsg.includes('402') || errorMsg.includes('payment') || errorMsg.includes('quota')) {
+        console.error(`💳 lovable-chat payment/quota issue: ${errorMsg}`);
+      }
+    }
+    
+    // lovable-chat failed - try direct executives as fallback
+    console.log('⚠️ lovable-chat unavailable - trying direct executives without tools...');
+    
+    // Get healthy executives for fallback chain (original behavior)
+    const healthyExecs = await this.getHealthyExecutives();
+    
+    console.log('🔄 Executive fallback chain (without tools):', healthyExecs.map(e => 
+      `${e} (${this.getExecutiveTitle(e)})`
+    ));
+    
+    // Try executives in priority order
+    for (const executive of healthyExecs) {
+      try {
+        console.log(`🎯 Calling ${executive} (${this.getExecutiveTitle(executive)})...`);
+        
+        const { data, error } = await supabase.functions.invoke(executive, {
+          body: requestBody
+        });
+
+        if (!error && data?.success) {
+          console.log(`✅ ${executive} (${this.getExecutiveTitle(executive)}) responded successfully`);
+          
+          // Store which executive responded for transparency
+          (window as any).__lastElizaExecutive = executive;
+          console.log(`✅ Response generated by: ${this.getExecutiveTitle(executive)}`);
+          
+          // Handle tool results vs direct responses
+          if (data.toolResult && data.toolName) {
+            const formattedResponse = this.formatToolResult(data.toolName, data.toolResult);
+            return {
+              response: formattedResponse,
+              hasToolCalls: true,
+              reasoning: data.reasoning || []
+            };
+          } else if (data.response) {
+            // Embed reasoning in response if available (for frontend to extract)
+            let responseWithReasoning = data.response;
+            if (data.reasoning && data.reasoning.length > 0) {
+              responseWithReasoning = `<reasoning>${JSON.stringify(data.reasoning)}</reasoning>${data.response}`;
+            }
+            return {
+              response: responseWithReasoning,
+              hasToolCalls: data.hasToolCalls || false,
+              reasoning: data.reasoning || []
+            };
+          }
+        }
+        
+        // Log detailed error for debugging
+        const errorMsg = error?.message || data?.error || 'Unknown error';
+        console.warn(`⚠️ ${executive} failed: ${errorMsg} - trying next executive`);
+        
+        // Check for payment/quota errors and surface to user
+        if (errorMsg.includes('402') || errorMsg.includes('payment_required') || errorMsg.includes('Not enough credits')) {
+          console.error(`💳 ${executive} out of credits - needs payment`);
+        }
+        if (errorMsg.includes('quota') || errorMsg.includes('insufficient_quota')) {
+          console.error(`💳 ${executive} quota exceeded - needs billing update`);
+        }
+      } catch (err) {
+        const errorMsg = err?.message || 'Unknown exception';
+        console.warn(`⚠️ ${executive} exception: ${errorMsg} - trying next executive`);
+        
+        // Check for payment/quota errors
+        if (errorMsg.includes('402') || errorMsg.includes('payment') || errorMsg.includes('quota')) {
+          console.error(`💳 ${executive} payment/quota issue: ${errorMsg}`);
+        }
+      }
+    }
+    
+    // Track all attempted executives for comprehensive error reporting
+    const attemptedExecutives = [...healthyExecs];
+    const executiveErrors: Record<string, any> = {};
+    
+    healthyExecs.forEach(exec => {
+      executiveErrors[exec] = 'Service unavailable or failed';
+    });
+    
+    // All cloud executives failed - try Lovable AI Gateway before Office Clerk
+    console.log('🌐 All cloud executives unavailable - attempting Lovable AI Gateway fallback...');
+    attemptedExecutives.push('lovable-gateway');
     
     try {
-      // Call Lovable AI Gateway directly (no executive cascade)
-      const response = await LovableAIGateway.chat(messages, {
-        userContext,
-        miningStats,
-        webIntelligence,
-        systemVersion
-      });
+      const lovableResponse = await LovableAIGateway.chat(
+        [{ role: 'user', content: userInput }],
+        { 
+          miningStats: contextData.miningStats, 
+          userContext: contextData.userContext,
+          xmrtContext: contextData.xmrtContext 
+        }
+      );
       
-      console.log('✅ Lovable AI Gateway responded successfully');
+      console.log('✅ Lovable AI Gateway succeeded');
+      
+      // Store the fallback executive
       (window as any).__lastElizaExecutive = 'lovable-gateway';
       
-      // LovableAIGateway.chat() returns a string
       return {
-        response: response,
-        hasToolCalls: false,
-        reasoning: []
+        response: `🌐 **[via Lovable AI Gateway]**\n\n${lovableResponse}`,
+        hasToolCalls: false
       };
       
-    } catch (error) {
-      console.error('❌ Lovable AI Gateway failed:', error);
+    } catch (lovableError: any) {
+      executiveErrors['lovable-gateway'] = lovableError;
+      console.warn(`❌ Lovable AI Gateway failed: ${lovableError.message}`);
+      console.log('🏢 Falling back to Office Clerk (browser-based AI)...');
       
-      // Check if error is rate limit or payment required
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      if (errorMsg.includes('RATE_LIMIT')) {
-        throw new Error('⏱️ Rate limit exceeded. Please wait a moment and try again.');
-      }
-      
-      if (errorMsg.includes('PAYMENT_REQUIRED')) {
-        throw new Error('💳 AI credits exhausted. Please add credits to your workspace in Settings → Usage.');
-      }
-      
-      // For other errors, try Office Clerk as final fallback
-      console.log('🔄 Falling back to Office Clerk (browser AI)...');
-      const { MLCLLMService } = await import('@/services/mlcLLMService');
+      // LAST RESORT: Office Clerk (MLC-LLM or legacy fallback)
+      attemptedExecutives.push('office-clerk-mlc');
       
       try {
+        const { MLCLLMService } = await import('./mlcLLMService');
+        
         // Check if WebGPU is supported
         if (!MLCLLMService.isWebGPUSupported()) {
           console.warn('⚠️ WebGPU not supported - using legacy Office Clerk');
           const { FallbackAIService } = await import('./fallbackAIService');
-          const localResponse = await FallbackAIService.generateResponse(finalUserInput, {
+          const localResponse = await FallbackAIService.generateResponse(userInput, {
             miningStats: contextData.miningStats,
             userContext: contextData
           });
@@ -539,27 +718,48 @@ Respond naturally and helpfully based on the user's needs and the provided conte
           console.log(`✅ Legacy Office Clerk responded: ${localResponse.method}`);
           (window as any).__lastElizaExecutive = 'office-clerk-legacy';
           
+          const clerkResponse = `🤖 **[via Office Clerk - Legacy Browser AI]**\n\n${localResponse.text}\n\n` +
+            `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
+          
           return {
-            response: `🤖 **[via Office Clerk - Legacy Browser AI]**\n\n${localResponse.text}\n\n*Note: Cloud AI unavailable. Response generated locally in your browser.*`,
+            response: clerkResponse,
             hasToolCalls: false
           };
         }
         
-        const officeClerkResponse = await MLCLLMService.generateConversationResponse(finalUserInput, {
+        // Use MLC-LLM
+        const localResponse = await MLCLLMService.generateConversationResponse(userInput, {
           miningStats: contextData.miningStats,
-          userContext: { sessionKey }
+          userContext: { sessionKey: sessionKey }
         });
         
-        console.log(`✅ Office Clerk responded: ${officeClerkResponse.method}`);
-        (window as any).__lastElizaExecutive = 'office-clerk';
+        console.log(`✅ Office Clerk (MLC-LLM) responded: ${localResponse.method}`);
+        (window as any).__lastElizaExecutive = 'office-clerk-mlc';
+        
+        const clerkResponse = `🏢 **[via Office Clerk - MLC-LLM WebLLM]**\n\n${localResponse.text}\n\n` +
+          `*Note: All cloud AI services are currently unavailable. This response was generated locally in your browser using ${localResponse.method}.*`;
         
         return {
-          response: `🏢 **[via Office Clerk - Browser AI]**\n\n${officeClerkResponse.text}\n\n*Note: Cloud AI unavailable. Response generated locally in your browser using ${officeClerkResponse.method}.*`,
+          response: clerkResponse,
           hasToolCalls: false
         };
-      } catch (officeClerkError) {
-        console.error('❌ Office Clerk also failed:', officeClerkError);
-        throw new Error('⚠️ All AI services unavailable. Please check your connection and try again later.');
+      } catch (clerkError: any) {
+        executiveErrors['office-clerk-mlc'] = clerkError;
+        console.error('❌ Even the Office Clerk failed:', clerkError);
+        
+        // Generate comprehensive multi-service error diagnosis
+        const finalError = new Error('All AI services exhausted');
+        (finalError as any).executiveErrors = executiveErrors;
+        (finalError as any).attemptedExecutives = attemptedExecutives;
+        
+        const diagnosis = await IntelligentErrorHandler.diagnoseError(finalError, {
+          userInput,
+          fallbacksAttempted: attemptedExecutives
+        });
+        
+        const explanation = IntelligentErrorHandler.generateExplanation(diagnosis, attemptedExecutives);
+        
+        throw new Error(explanation);
       }
     }
   }
