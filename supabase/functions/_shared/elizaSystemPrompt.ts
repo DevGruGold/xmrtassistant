@@ -442,7 +442,7 @@ createGitHubDiscussion({
 **EXAMPLE USAGE:**
 When user asks for calculations, data fetching, or analysis:
 execute_python({
-  code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: {data}')",
+  code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: \\${data}')",
   purpose: "Fetch and analyze external API data"
 })
 
