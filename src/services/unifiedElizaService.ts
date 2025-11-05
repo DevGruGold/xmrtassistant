@@ -501,9 +501,30 @@ export class UnifiedElizaService {
     }
 
     // Common request body for all executives
+    // Convert last 10 messages from conversation history to structured format for proper AI context
+    const structuredMessages: Array<{ role: 'user' | 'assistant', content: string }> = [];
+    
+    if (conversationHistory.recentMessages && conversationHistory.recentMessages.length > 0) {
+      // Take last 10 messages for context (prevents token bloat while maintaining context)
+      const recentMessages = conversationHistory.recentMessages.slice(-10);
+      
+      for (const msg of recentMessages) {
+        structuredMessages.push({
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        });
+      }
+    }
+    
+    // Add current user message at the end
+    structuredMessages.push({ 
+      role: 'user', 
+      content: userInput + autonomousActivitySummary 
+    });
+
     const requestBody = {
-      messages: [{ role: 'user', content: userInput + autonomousActivitySummary }],
-      conversationHistory,
+      messages: structuredMessages, // Now includes conversation context for yes/no understanding
+      conversationHistory, // Keep for backward compatibility with edge functions
       userContext: {
         isFounder: userContext?.isFounder || false,
         ip: userContext?.ip || 'unknown',
