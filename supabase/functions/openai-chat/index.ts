@@ -57,34 +57,58 @@ serve(async (req) => {
 
     console.log('📊 CAO Executive - Processing request via Lovable AI Gateway');
 
-    // Build CAO-specific system prompt
-    const executivePrompt = generateExecutiveSystemPrompt('CAO');
-    const contextualPrompt = buildContextualPrompt(executivePrompt, {
-      conversationHistory,
-      userContext,
-      miningStats,
-      systemVersion
-    });
+    // In council mode, use simplified prompt (no tools, just perspective)
+    let contextualPrompt: string;
+    
+    if (councilMode) {
+      console.log('🏛️ Council mode - using simplified prompt (no tools)');
+      contextualPrompt = `You are the Chief Analytics Officer (CAO) of XMRT DAO - an AI executive specializing in complex reasoning and strategic analysis.
+
+Your role in this council deliberation:
+- Provide your expert perspective on the user's question
+- Focus on analytical, strategic, and data-driven insights
+- Be concise and actionable (2-3 paragraphs maximum)
+- State your confidence level (0-100%)
+
+User Context:
+${userContext ? `IP: ${userContext.ip}, Founder: ${userContext.isFounder}` : 'Anonymous'}
+
+Mining Stats:
+${miningStats ? `Hash Rate: ${miningStats.hashRate || miningStats.hashrate || 0} H/s, Shares: ${miningStats.validShares || 0}` : 'Not available'}
+
+User Question: ${messages[messages.length - 1]?.content || ''}
+
+Provide a focused, expert perspective from the CAO viewpoint.`;
+    } else {
+      // Full mode with tools
+      const executivePrompt = generateExecutiveSystemPrompt('CAO');
+      contextualPrompt = await buildContextualPrompt(executivePrompt, {
+        conversationHistory,
+        userContext,
+        miningStats,
+        systemVersion
+      });
+    }
 
     // Prepare messages for Lovable AI Gateway
-    const aiMessages = [
-      { role: 'system', content: contextualPrompt },
-      ...messages
-    ];
+    const aiMessages = councilMode 
+      ? messages  // In council mode, use simplified messages
+      : [{ role: 'system', content: contextualPrompt }, ...messages];
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     
-    console.log('📤 Calling Lovable AI Gateway (CAO mode) with tools...');
+    console.log('📤 Calling Lovable AI Gateway (CAO mode)...');
     
     const apiStartTime = Date.now();
     let response = await callLovableAIGateway(aiMessages, {
       model: 'google/gemini-2.5-flash',
       temperature: 0.7,
-      max_tokens: 4000,
-      tools: ELIZA_TOOLS,
-      tool_choice: 'auto'
+      max_tokens: councilMode ? 1000 : 4000,
+      systemPrompt: councilMode ? contextualPrompt : undefined,
+      tools: councilMode ? undefined : ELIZA_TOOLS,
+      tool_choice: councilMode ? undefined : 'auto'
     });
     
     // If AI wants to use tools, execute them

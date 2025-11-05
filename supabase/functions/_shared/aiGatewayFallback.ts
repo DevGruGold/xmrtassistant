@@ -13,7 +13,7 @@ export interface AIGatewayOptions {
 }
 
 export async function callLovableAIGateway(
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{ role: string; content: string; tool_calls?: any }>,
   options: AIGatewayOptions = {}
 ): Promise<any> { // Return full message object instead of just string
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -23,6 +23,13 @@ export async function callLovableAIGateway(
   }
 
   console.log('🌐 Calling Lovable AI Gateway...');
+  console.log('📦 Request details:', {
+    model: options.model || 'google/gemini-2.5-flash',
+    messageCount: messages.length,
+    hasSystemPrompt: !!options.systemPrompt,
+    systemPromptLength: options.systemPrompt?.length || 0,
+    toolsCount: options.tools?.length || 0
+  });
   
   // Build request body
   const requestBody: any = {
@@ -34,11 +41,13 @@ export async function callLovableAIGateway(
     max_tokens: options.max_tokens || 2000
   };
   
-  // Add tools if provided
+  // Add tools if provided (but limit to reasonable number for council mode)
   if (options.tools && options.tools.length > 0) {
-    requestBody.tools = options.tools;
+    // In council mode, limit tools to prevent payload size issues
+    const toolLimit = options.model?.includes('pro') ? 20 : 39;
+    requestBody.tools = options.tools.slice(0, toolLimit);
     requestBody.tool_choice = 'auto';
-    console.log(`🔧 Gateway: Tool calling enabled with ${options.tools.length} tools`);
+    console.log(`🔧 Gateway: Tool calling enabled with ${requestBody.tools.length} tools (limited from ${options.tools.length})`);
   }
   
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -53,6 +62,7 @@ export async function callLovableAIGateway(
   if (!response.ok) {
     const errorText = await response.text();
     console.error('❌ Lovable AI Gateway error:', response.status, errorText);
+    console.error('❌ Request body size:', JSON.stringify(requestBody).length, 'characters');
     
     // Return structured error for intelligent handling
     const structuredError = {
@@ -63,7 +73,8 @@ export async function callLovableAIGateway(
       message: errorText,
       details: {
         timestamp: new Date().toISOString(),
-        model: options.model || 'google/gemini-2.5-flash'
+        model: options.model || 'google/gemini-2.5-flash',
+        requestSize: JSON.stringify(requestBody).length
       }
     };
     
@@ -77,9 +88,16 @@ export async function callLovableAIGateway(
     throw new Error('No message in Lovable AI Gateway response');
   }
   
+  // Return full message object with tool calls if present
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    console.log(`🔧 Gateway returned ${message.tool_calls.length} tool calls`);
+    return message; // Return full message object
+  }
+  
   // Return content string for backwards compatibility with all edge functions
   const content = message.content || '';
   console.log(`✅ Gateway returned content length: ${content.length}`);
+  console.log(`🔧 Gateway returned ${message.tool_calls?.length || 0} tool calls`);
   return content;
 }
 

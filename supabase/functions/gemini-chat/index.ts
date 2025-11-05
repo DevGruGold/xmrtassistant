@@ -56,20 +56,43 @@ serve(async (req) => {
 
     console.log('👁️ CIO Executive - Processing request via Lovable AI Gateway');
 
-    // Build CIO-specific system prompt
-    const executivePrompt = generateExecutiveSystemPrompt('CIO');
-    const contextualPrompt = buildContextualPrompt(executivePrompt, {
-      conversationHistory,
-      userContext,
-      miningStats,
-      systemVersion
-    });
+    // In council mode, use simplified prompt (no tools, just perspective)
+    let contextualPrompt: string;
+    
+    if (councilMode) {
+      console.log('🏛️ Council mode - using simplified prompt (no tools)');
+      contextualPrompt = `You are the Chief Information Officer (CIO) of XMRT DAO - a multimodal AI executive specializing in vision and information processing.
+
+Your role in this council deliberation:
+- Provide your expert perspective on the user's question
+- Focus on visual, multimodal, and information architecture aspects
+- Be concise and actionable (2-3 paragraphs maximum)
+- State your confidence level (0-100%)
+
+User Context:
+${userContext ? `IP: ${userContext.ip}, Founder: ${userContext.isFounder}` : 'Anonymous'}
+
+Mining Stats:
+${miningStats ? `Hash Rate: ${miningStats.hashRate || miningStats.hashrate || 0} H/s, Shares: ${miningStats.validShares || 0}` : 'Not available'}
+
+User Question: ${messages[messages.length - 1]?.content || ''}
+
+Provide a focused, expert perspective from the CIO viewpoint.`;
+    } else {
+      // Full mode with tools
+      const executivePrompt = generateExecutiveSystemPrompt('CIO');
+      contextualPrompt = await buildContextualPrompt(executivePrompt, {
+        conversationHistory,
+        userContext,
+        miningStats,
+        systemVersion
+      });
+    }
 
     // Prepare messages for Lovable AI Gateway
-    const aiMessages = [
-      { role: 'system', content: contextualPrompt },
-      ...messages
-    ];
+    const aiMessages = councilMode 
+      ? messages  // In council mode, use simplified messages
+      : [{ role: 'system', content: contextualPrompt }, ...messages];
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

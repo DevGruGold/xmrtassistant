@@ -126,27 +126,47 @@ class ExecutiveCouncilService {
     const startTime = Date.now();
     const config = this.executiveConfig[executive];
     
-    console.log(`📡 Calling ${config.title} (${executive})...`);
+    console.log(`📡 Executive Council: Calling ${config.title} (${executive})...`);
+    console.log(`📦 Sending context:`, {
+      hasMessages: true,
+      hasMiningStats: !!context.miningStats,
+      hasUserContext: !!context.userContext,
+      hasConversationContext: !!context.conversationContext,
+      councilMode: true
+    });
     
     try {
       // Use retry logic with exponential backoff
       const result = await retryWithBackoff(
         async () => {
+          console.log(`🔄 Invoking ${executive} edge function...`);
           const { data, error } = await supabase.functions.invoke(executive, {
             body: {
               messages: [{ role: 'user', content: userInput }],
-              context,
+              conversationHistory: context.conversationContext,
+              userContext: context.userContext,
+              miningStats: context.miningStats,
               councilMode: true // Signal that this is a council deliberation
             }
           });
           
-          if (error) throw new Error(`${executive} error: ${error.message || JSON.stringify(error)}`);
+          if (error) {
+            console.error(`❌ ${executive} returned error:`, error);
+            throw new Error(`${executive} error: ${error.message || JSON.stringify(error)}`);
+          }
+          
+          console.log(`📥 ${executive} returned data:`, {
+            hasResponse: !!data?.response,
+            hasContent: !!data?.content,
+            dataKeys: Object.keys(data || {})
+          });
+          
           return data;
         },
         { 
           maxAttempts: 2, // Reduced to 2 for faster council response
           initialDelayMs: 500,
-          timeoutMs: 15000 // 15 second timeout per attempt
+          timeoutMs: 20000 // Increased to 20 second timeout per attempt
         }
       );
       
@@ -158,14 +178,15 @@ class ExecutiveCouncilService {
         executiveTitle: config.title,
         executiveIcon: config.icon,
         executiveColor: config.color,
-        perspective: result.response || result.content || 'No response',
+        perspective: result.response || result.content || result.answer || 'No response provided',
         confidence: result.confidence || 85,
         reasoning: result.reasoning || [],
         executionTimeMs: executionTime
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ ${config.title} failed after retries:`, errorMsg);
+      console.error(`❌ ${config.title} (${executive}) failed after retries:`, errorMsg);
+      console.error(`❌ Full error:`, error);
       throw new Error(`${config.title} unavailable: ${errorMsg}`);
     }
   }
