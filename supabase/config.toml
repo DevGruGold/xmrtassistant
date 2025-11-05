@@ -233,8 +233,9 @@ verify_jwt = true
 [functions.get-embedding]
 verify_jwt = true
 
+# MCP Server - Public access for external AI agents (Claude Desktop, Cursor, etc.)
 [functions.xmrt-mcp-server]
-verify_jwt = true
+verify_jwt = false
 
 [functions.schema-manager]
 verify_jwt = true
