@@ -6,7 +6,7 @@ export interface EdgeFunctionCapability {
   url: string;
   description: string;
   capabilities: string[];
-  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network';
+  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network' | 'superduper' | 'daemon' | 'governance';
   example_use: string;
 }
 
@@ -327,7 +327,7 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     name: 'openai-tts',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/openai-tts',
     description: 'Text-to-speech via OpenAI',
-    capabilities: ["AI chat", "Context awareness", "Natural language processing"],
+    capabilities: ["Text-to-speech", "Voice synthesis", "Audio generation"],
     category: 'ai',
     example_use: 'Use openai tts for text-to-speech via openai'
   },  {
@@ -491,5 +491,180 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ["Multi-service integration", "Health monitoring", "Status reporting"],
     category: 'ecosystem',
     example_use: 'Use xmrt mcp server for xmrt model context protocol server'
+  },  {
+    name: 'superduper-business-growth',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-business-growth',
+    description: 'SuperDuper Agent: Business growth strategy and market expansion',
+    capabilities: ["Business strategy", "Market analysis", "Growth planning", "Revenue optimization"],
+    category: 'superduper',
+    example_use: 'Analyze market opportunities, develop growth strategies, revenue optimization'
+  },  {
+    name: 'superduper-code-architect',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-code-architect',
+    description: 'SuperDuper Agent: Software architecture and system design',
+    capabilities: ["Architecture design", "Code review", "System optimization", "Technical debt analysis"],
+    category: 'superduper',
+    example_use: 'Design system architecture, review code quality, optimize performance'
+  },  {
+    name: 'superduper-communication-outreach',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-communication-outreach',
+    description: 'SuperDuper Agent: Community communication and outreach',
+    capabilities: ["Community engagement", "Outreach campaigns", "Stakeholder communication"],
+    category: 'superduper',
+    example_use: 'Manage community outreach, stakeholder communications, engagement campaigns'
+  },  {
+    name: 'superduper-content-media',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-content-media',
+    description: 'SuperDuper Agent: Content creation and media strategy',
+    capabilities: ["Content creation", "Media strategy", "Marketing materials", "Social content"],
+    category: 'superduper',
+    example_use: 'Create marketing content, develop media strategy, social media management'
+  },  {
+    name: 'superduper-design-brand',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-design-brand',
+    description: 'SuperDuper Agent: Brand identity and visual design',
+    capabilities: ["Brand strategy", "Visual design", "UI/UX", "Design systems"],
+    category: 'superduper',
+    example_use: 'Develop brand identity, create design systems, UI/UX improvements'
+  },  {
+    name: 'superduper-development-coach',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-development-coach',
+    description: 'SuperDuper Agent: Developer mentoring and coaching',
+    capabilities: ["Developer mentoring", "Code education", "Best practices", "Career guidance"],
+    category: 'superduper',
+    example_use: 'Mentor developers, teach best practices, provide career guidance'
+  },  {
+    name: 'superduper-domain-experts',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-domain-experts',
+    description: 'SuperDuper Agent: Domain-specific expertise and consulting',
+    capabilities: ["Domain expertise", "Technical consulting", "Industry knowledge", "Specialized advice"],
+    category: 'superduper',
+    example_use: 'Provide domain expertise, technical consulting, specialized guidance'
+  },  {
+    name: 'superduper-finance-investment',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-finance-investment',
+    description: 'SuperDuper Agent: Financial planning and investment strategy',
+    capabilities: ["Financial analysis", "Investment strategy", "Budget planning", "ROI optimization"],
+    category: 'superduper',
+    example_use: 'Analyze financial health, develop investment strategy, budget planning'
+  },  {
+    name: 'superduper-integration',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-integration',
+    description: 'SuperDuper Agent: System integration and orchestration',
+    capabilities: ["System integration", "API orchestration", "Service coordination", "Integration testing"],
+    category: 'superduper',
+    example_use: 'Integrate systems, orchestrate APIs, coordinate services'
+  },  {
+    name: 'superduper-research-intelligence',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-research-intelligence',
+    description: 'SuperDuper Agent: Research and competitive intelligence',
+    capabilities: ["Market research", "Competitive analysis", "Trend monitoring", "Intelligence gathering"],
+    category: 'superduper',
+    example_use: 'Conduct market research, analyze competitors, monitor trends'
+  },  {
+    name: 'superduper-social-viral',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-social-viral',
+    description: 'SuperDuper Agent: Social media and viral marketing',
+    capabilities: ["Viral campaigns", "Social media strategy", "Influencer outreach", "Engagement optimization"],
+    category: 'superduper',
+    example_use: 'Create viral campaigns, optimize social engagement, influencer partnerships'
+  },  {
+    name: 'eliza-intelligence-coordinator',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/eliza-intelligence-coordinator',
+    description: 'Coordinates intelligence gathering and knowledge synthesis across all agents',
+    capabilities: ["Intelligence coordination", "Knowledge synthesis", "Multi-agent orchestration"],
+    category: 'autonomous',
+    example_use: 'Coordinate intelligence across agents, synthesize knowledge, orchestrate workflows'
+  },  {
+    name: 'eliza-self-evaluation',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/eliza-self-evaluation',
+    description: 'Self-evaluation and performance analysis for continuous improvement',
+    capabilities: ["Performance analysis", "Self-evaluation", "Improvement recommendations"],
+    category: 'autonomous',
+    example_use: 'Analyze system performance, evaluate effectiveness, recommend improvements'
+  },  {
+    name: 'evaluate-community-idea',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/evaluate-community-idea',
+    description: 'Evaluate community-submitted ideas for feasibility and impact',
+    capabilities: ["Idea evaluation", "Feasibility analysis", "Impact assessment"],
+    category: 'governance',
+    example_use: 'Evaluate community proposals, assess feasibility, determine impact'
+  },  {
+    name: 'function-usage-analytics',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/function-usage-analytics',
+    description: 'Analytics for edge function usage patterns and performance',
+    capabilities: ["Usage analytics", "Performance tracking", "Pattern analysis"],
+    category: 'monitoring',
+    example_use: 'Analyze function usage, track performance, identify patterns'
+  },  {
+    name: 'list-function-proposals',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/list-function-proposals',
+    description: 'List all edge function proposals and their status',
+    capabilities: ["Proposal listing", "Status tracking", "Governance monitoring"],
+    category: 'governance',
+    example_use: 'List pending proposals, check proposal status, view voting history'
+  },  {
+    name: 'mobile-miner-config',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-config',
+    description: 'Configuration management for mobile mining devices',
+    capabilities: ["Device configuration", "Mining settings", "Mobile optimization"],
+    category: 'mining',
+    example_use: 'Configure mobile miners, optimize settings, manage device profiles'
+  },  {
+    name: 'mobile-miner-register',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-register',
+    description: 'Registration system for mobile mining devices',
+    capabilities: ["Device registration", "Miner onboarding", "Identity management"],
+    category: 'mining',
+    example_use: 'Register mobile miners, onboard new devices, manage identities'
+  },  {
+    name: 'mobile-miner-script',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/mobile-miner-script',
+    description: 'Script distribution for mobile mining clients',
+    capabilities: ["Script distribution", "Client updates", "Version management"],
+    category: 'mining',
+    example_use: 'Distribute mining scripts, push updates, manage versions'
+  },  {
+    name: 'opportunity-scanner',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/opportunity-scanner',
+    description: 'Autonomous opportunity scanning and identification',
+    capabilities: ["Opportunity detection", "Market scanning", "Trend analysis"],
+    category: 'autonomous',
+    example_use: 'Scan for opportunities, detect market trends, identify potential'
+  },  {
+    name: 'propose-edge-function',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-edge-function',
+    description: 'Submit new edge function proposals for council voting',
+    capabilities: ["Proposal submission", "Governance workflow", "Council voting"],
+    category: 'governance',
+    example_use: 'Propose new functions, submit to council, initiate voting'
+  },  {
+    name: 'render-api',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/render-api',
+    description: 'Render.com deployment management and monitoring',
+    capabilities: ["Render deployment", "Service management", "Health monitoring"],
+    category: 'deployment',
+    example_use: 'Manage Render deployments, monitor services, check health'
+  },  {
+    name: 'system-knowledge-builder',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/system-knowledge-builder',
+    description: 'Autonomous knowledge base construction and maintenance',
+    capabilities: ["Knowledge construction", "Entity extraction", "Relationship building"],
+    category: 'knowledge',
+    example_use: 'Build knowledge base, extract entities, create relationships'
+  },  {
+    name: 'vote-on-proposal',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/vote-on-proposal',
+    description: 'Cast votes on edge function and governance proposals',
+    capabilities: ["Voting system", "Proposal evaluation", "Decision making"],
+    category: 'governance',
+    example_use: 'Vote on proposals, evaluate decisions, participate in governance'
+  },  {
+    name: 'superduper-router',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/superduper-router',
+    description: 'Central router for all SuperDuper specialist agents',
+    capabilities: ["Agent routing", "Request orchestration", "Load balancing"],
+    category: 'superduper',
+    example_use: 'Route to SuperDuper agents, orchestrate specialist requests'
   }
 ];

@@ -80,7 +80,7 @@ export const ELIZA_TOOLS = [
       type: 'function',
       function: {
         name: 'invoke_edge_function',
-        description: 'UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of the 80+ Supabase edge functions dynamically. This is your MCP integration tool. You can invoke: AI chat functions, Python execution, GitHub integration, agent management, task orchestration, monitoring daemons, database operations, network proxies, and more. Available functions: gemini-chat, python-executor, github-integration, agent-manager, task-orchestrator, autonomous-code-fixer, code-monitor-daemon, mining-proxy, ecosystem-monitor, system-diagnostics, and 50+ more. Use this when you need capabilities beyond your standard tools.',
+        description: '🌐 UNIVERSAL EDGE FUNCTION INVOKER - Call ANY of 125+ Supabase edge functions dynamically. This is your primary tool for accessing specialized capabilities. Categories: AI (10+), SuperDuper agents (12), code execution (6), GitHub (5+), task management (8), knowledge (7), monitoring (10+), mining (8), autonomous systems (12+), governance (7), ecosystem (8), posting daemons (7), database (3), analytics (3). Examples: superduper-code-architect for code review, python-executor for data analysis, ecosystem-monitor for health checks, autonomous-code-fixer for self-healing. Use list_available_functions first to discover what\'s available.',
         parameters: {
           type: 'object',
           properties: {
@@ -101,13 +101,13 @@ export const ELIZA_TOOLS = [
       type: 'function',
       function: {
         name: 'list_available_functions',
-        description: 'List all available Supabase edge functions you can invoke. Returns categorized list of 80+ functions with descriptions. Use this to discover what capabilities you have access to.',
+        description: '📋 LIST ALL 125+ EDGE FUNCTIONS - Returns complete registry of all available edge functions with descriptions, capabilities, categories, and examples. Categories include: ai (10+), superduper (12), code-execution (6), github (5+), task-management (8), knowledge (7), monitoring (10+), mining (8), autonomous (12+), governance (7), ecosystem (8), database (3), deployment (5). Use this FIRST when you need to discover available capabilities or find the right function for a task. Each function includes example use cases.',
         parameters: {
           type: 'object',
           properties: {
             category: { 
               type: 'string', 
-              description: 'Optional: Filter by category (AI & Chat, Python Execution & Code, GitHub Integration, Agent Management, Task Management, Mining & DAO, Monitoring & Daemon, Database & Data, Network & Proxy, Other)' 
+              description: 'Optional: Filter by category (ai, superduper, code-execution, github, task-management, knowledge, monitoring, mining, autonomous, governance, ecosystem, database, deployment)' 
             }
           }
         }
