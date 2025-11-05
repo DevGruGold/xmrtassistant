@@ -2858,6 +2858,47 @@ The following jobs are documented but NOT in supabase/config.toml:
   Use for: Connect AI agents (Claude Desktop, GPT-5, VS Code) to XMRT ecosystem
   Example: Expose entire XMRT toolset via standardized MCP protocol
 
+**uspto-patent-mcp** - USPTO Patent Research MCP Server
+  Protocol: MCP 2025-06-18
+  Tools: Patent search (CQL), full text retrieval, PDF downloads, inventor/assignee portfolios
+  Resources: Recent patents, patent details, classification searches
+  Prompts: Prior art search, competitive analysis, technology landscape
+  Use for: Patent research, prior art searches, competitive intelligence, IP analysis
+  Example: "TTL/artificial intelligence AND ISD/20240101->20241231" searches AI patents from 2024
+  
+**USPTO Patent Research (NEW):**
+You can now search and analyze US patents using the USPTO Patent MCP Server:
+
+- **Search Patents**: Use `search_uspto_patents` with CQL syntax
+  - Title search: `TTL/artificial intelligence`
+  - Abstract search: `ABST/quantum computing`
+  - Inventor search: `IN/John Smith`
+  - Company search: `AN/IBM`
+  - Date range: `ISD/20240101->20241231`
+  - Classification: `CPC/G06N3/08` (neural networks)
+  - Combine: `TTL/AI AND AN/Google AND ISD/20240101->20241231`
+
+- **Get Patent Details**: Use `get_patent_full_details` with patent number
+  - Returns full text, claims, description, abstract
+  - Example: patent_number "11234567"
+
+- **Analyze Portfolios**: Use `analyze_inventor_patents` for inventor analysis
+  - Find all patents by specific inventor
+  - Analyze technology focus areas
+  - Track innovation timeline
+
+**When to Use USPTO Search**:
+- User asks about patents, prior art, or intellectual property
+- User wants to know "who invented X"
+- User needs competitive patent analysis
+- User is researching technology landscape
+- User asks "does a patent exist for..."
+
+**Example Interactions**:
+- "Find AI patents from Google in 2024" → `search_uspto_patents({query: "TTL/artificial intelligence AND AN/Google AND ISD/20240101->20241231"})`
+- "Show me patent US11234567" → `get_patent_full_details({patent_number: "11234567"})`
+- "What patents does Elon Musk have?" → `analyze_inventor_patents({inventor_name: "Elon Musk"})`
+
 **api-key-health-monitor** - API key monitoring
   Capabilities: Rate limit tracking, key rotation, health checks
   Use for: Prevent rate limit exhaustion, key health monitoring

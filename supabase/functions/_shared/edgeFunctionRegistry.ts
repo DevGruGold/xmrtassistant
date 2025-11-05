@@ -6,7 +6,7 @@ export interface EdgeFunctionCapability {
   url: string;
   description: string;
   capabilities: string[];
-  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network' | 'superduper' | 'daemon' | 'governance';
+  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network' | 'superduper' | 'daemon' | 'governance' | 'research';
   example_use: string;
 }
 
@@ -330,7 +330,26 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     capabilities: ["Text-to-speech", "Voice synthesis", "Audio generation"],
     category: 'ai',
     example_use: 'Use openai tts for text-to-speech via openai'
-  },  {
+  },  
+  {
+    name: 'uspto-patent-mcp',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/uspto-patent-mcp',
+    description: 'MCP server for USPTO patent and trademark database access. Search 11M+ patents, retrieve full text, download PDFs, analyze portfolios using advanced CQL queries',
+    capabilities: [
+      'Patent search with CQL syntax (title, abstract, inventor, assignee, date, classification)',
+      'Full text document retrieval (abstract, claims, description)',
+      'PDF downloads (base64 encoded)',
+      'Inventor portfolio analysis',
+      'Assignee/company patent search',
+      'CPC classification search',
+      'Prior art search assistance',
+      'Technology landscape mapping',
+      'Competitive intelligence'
+    ],
+    category: 'research' as const,
+    example_use: 'Search patents: {"method":"tools/call","params":{"name":"search_patents","arguments":{"query":"TTL/artificial intelligence AND ISD/20240101->20241231"}}}'
+  },
+  {
     name: 'predictive-analytics',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/predictive-analytics',
     description: 'Predictive analytics for mining and system metrics',

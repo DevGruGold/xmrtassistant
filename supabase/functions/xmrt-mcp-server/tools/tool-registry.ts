@@ -360,6 +360,64 @@ export const TOOL_REGISTRY: Tool[] = [
     }
   },
 
+  // USPTO Patent Research Tools
+  {
+    name: "search_uspto_patents",
+    description: "Search US Patent and Trademark Office database using advanced CQL queries. Supports title, abstract, claims, inventor, assignee, date, and classification searches.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { 
+          type: "string", 
+          description: "CQL search query (e.g., 'TTL/AI AND ISD/20240101->20241231')" 
+        },
+        rows: { 
+          type: "number", 
+          default: 25,
+          description: "Number of results to return (max 1000)" 
+        }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "get_patent_details",
+    description: "Get complete details of a specific patent including full text, claims, and description",
+    inputSchema: {
+      type: "object",
+      properties: {
+        patent_number: { 
+          type: "string", 
+          description: "Patent number (e.g., '11234567' or 'US11234567')" 
+        }
+      },
+      required: ["patent_number"]
+    }
+  },
+  {
+    name: "download_patent_pdf",
+    description: "Download patent document as PDF (base64 encoded)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        patent_number: { type: "string", description: "Patent number" }
+      },
+      required: ["patent_number"]
+    }
+  },
+  {
+    name: "analyze_inventor_patents",
+    description: "Find and analyze all patents by a specific inventor",
+    inputSchema: {
+      type: "object",
+      properties: {
+        inventor_name: { type: "string", description: "Inventor full or partial name" },
+        date_from: { type: "string", description: "Start date (YYYYMMDD format, optional)" }
+      },
+      required: ["inventor_name"]
+    }
+  },
+
   // XMRTCharger Device Management Tools
   {
     name: "xmrt_charger_connect_device",

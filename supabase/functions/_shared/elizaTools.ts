@@ -602,6 +602,65 @@ export const ELIZA_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_uspto_patents',
+      description: 'Search the United States Patent and Trademark Office database for patents. Use CQL syntax: TTL/keyword for title, ABST/keyword for abstract, IN/name for inventor, AN/company for assignee, ISD/YYYYMMDD for issue date, CPC/code for classification. Example: "TTL/quantum computing AND ISD/20240101->20241231". Searches 11M+ patents. Returns patent numbers, titles, inventors, assignees, abstracts.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'CQL search query using USPTO syntax'
+          },
+          rows: {
+            type: 'number',
+            description: 'Number of results to return (1-1000, default 25)'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_patent_full_details',
+      description: 'Retrieve complete text, claims, and description of a specific US patent by patent number. Returns full patent document including abstract, all claims, and detailed description. Use this after searching to get complete patent information.',
+      parameters: {
+        type: 'object',
+        properties: {
+          patent_number: {
+            type: 'string',
+            description: 'Patent number (e.g., "11234567" or "US11234567")'
+          }
+        },
+        required: ['patent_number']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'analyze_inventor_patents',
+      description: 'Find all patents by a specific inventor and analyze their patent portfolio. Returns comprehensive list of patents with dates, titles, and assignees. Use for competitive analysis or prior art research.',
+      parameters: {
+        type: 'object',
+        properties: {
+          inventor_name: {
+            type: 'string',
+            description: 'Inventor full or partial name'
+          },
+          date_from: {
+            type: 'string',
+            description: 'Start date (YYYYMMDD format, optional)'
+          }
+        },
+        required: ['inventor_name']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'perform_self_evaluation',
       description: 'CONTINUOUS LEARNING & SELF-IMPROVEMENT - Analyze recent performance, extract patterns, expand capabilities, set goals. Reviews last 24 hours: task success rate, tool execution patterns, discovered errors. Stores learned patterns in eliza_work_patterns. Updates daily performance metrics. Sets improvement goals for next cycle.',
       parameters: {

@@ -172,6 +172,12 @@ async function handleToolCall(params: any, supabase: any): Promise<MCPResponse> 
     'xmrt_autonomous_debugging': 'self-optimizing-agent-architecture',
     'xmrt_run_full_optimization': 'self-optimizing-agent-architecture',
     
+    // USPTO Patent Research
+    'search_uspto_patents': 'uspto-patent-mcp',
+    'get_patent_details': 'uspto-patent-mcp',
+    'download_patent_pdf': 'uspto-patent-mcp',
+    'analyze_inventor_patents': 'uspto-patent-mcp',
+    
     // XMRTCharger
     'xmrt_charger_connect_device': 'monitor-device-connections',
     'xmrt_charger_issue_command': 'issue-engagement-command',
@@ -308,6 +314,54 @@ function transformArgsForFunction(toolName: string, args: any): any {
         timeframe: args.timeframe || 'daily',
         start_date: args.start_date,
         end_date: args.end_date
+      };
+    
+    // USPTO Patent tools
+    case 'search_uspto_patents':
+      return {
+        method: 'tools/call',
+        params: {
+          name: 'search_patents',
+          arguments: {
+            query: args.query,
+            rows: args.rows || 25
+          }
+        }
+      };
+    
+    case 'get_patent_details':
+      return {
+        method: 'tools/call',
+        params: {
+          name: 'get_patent_fulltext',
+          arguments: {
+            patent_number: args.patent_number
+          }
+        }
+      };
+    
+    case 'download_patent_pdf':
+      return {
+        method: 'tools/call',
+        params: {
+          name: 'download_patent_pdf',
+          arguments: {
+            patent_number: args.patent_number
+          }
+        }
+      };
+    
+    case 'analyze_inventor_patents':
+      return {
+        method: 'tools/call',
+        params: {
+          name: 'search_by_inventor',
+          arguments: {
+            inventor_name: args.inventor_name,
+            date_from: args.date_from,
+            rows: 100
+          }
+        }
       };
     
     default:
