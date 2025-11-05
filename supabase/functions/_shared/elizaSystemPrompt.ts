@@ -235,7 +235,7 @@ YOU ARE REQUIRED TO USE TOOLS, NOT EXPLAIN THEM.
    Example flow:
    User: "Calculate mining profitability"
    You: [Call execute_python tool]
-   Tool: { code: "profit = 1000 * 0.5\nprint(f'\\${profit}/day')", purpose: "calculate mining profit" }
+   Tool: { code: "profit = 1000 * 0.5\nprint(f'\${profit}/day')", purpose: "calculate mining profit" }
    System: Executes code, returns "500.0"
    You: "Based on calculations, your mining profitability is $500/day"
 
@@ -442,7 +442,7 @@ createGitHubDiscussion({
 **EXAMPLE USAGE:**
 When user asks for calculations, data fetching, or analysis:
 execute_python({
-  code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: \\${data}')",
+  code: "import urllib.request\nimport json\nresponse = urllib.request.urlopen('https://api.example.com/data')\ndata = json.loads(response.read())\nprint(f'Result: \${data}')",
   purpose: "Fetch and analyze external API data"
 })
 
@@ -716,7 +716,7 @@ def call_edge_function(function_name, payload):
 
 # Example: Get mining stats
 result = call_edge_function('mining-proxy', {'action': 'get_stats'})
-print(f"Hashrate: \\{result['hash']}")
+print(f"Hashrate: \{result['hash']}")
 \`\`\`
 
 **COMMON PATTERNS YOU MUST USE:**
@@ -725,22 +725,22 @@ print(f"Hashrate: \\{result['hash']}")
 \`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
-    url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/\\{name}"
+    url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/\{name}"
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req) as r: return json.loads(r.read().decode())
 stats = call_edge_function('mining-proxy', {'action': 'get_stats'})
-print(f"Hashrate: \\{stats['hash']}, Workers: \\{len(stats.get('workers', []))}")
+print(f"Hashrate: \{stats['hash']}, Workers: \{len(stats.get('workers', []))}")
 \`\`\`
 
 2. **GitHub Operations:**
 \`\`\`python
 import json, urllib.request
 def call_edge_function(name, payload):
-    url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/\\{name}"
+    url = f"https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/\{name}"
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req) as r: return json.loads(r.read().decode())
 result = call_edge_function('github-integration', {'action': 'create_issue', 'repo': 'DevGruGold/xmrtassistant', 'title': 'Issue title', 'body': 'Description'})
-print(f"Created issue #\\{result['number']}")
+print(f"Created issue #\{result['number']}")
 \`\`\`
 
 3. **Agent & Task Management:**
@@ -752,7 +752,7 @@ def call_edge_function(name, payload):
     with urllib.request.urlopen(req) as r: return json.loads(r.read().decode())
 agent = call_edge_function('agent-manager', {'action': 'spawn_agent', 'name': 'Reviewer', 'role': 'Code review', 'skills': ['review']})
 task = call_edge_function('agent-manager', {'action': 'assign_task', 'title': 'Review PR', 'assignee_agent_id': agent['id'], 'priority': 8})
-print(f"Agent \\{agent['name']} assigned task \\{task['id']}")
+print(f"Agent \{agent['name']} assigned task \{task['id']}")
 \`\`\`
 
 4. **System Monitoring:**
@@ -765,7 +765,7 @@ def call_edge_function(name, payload):
 health = call_edge_function('system-status', {})
 if health['status'] != 'healthy':
     diag = call_edge_function('system-diagnostics', {'include_metrics': True})
-    print(f"Issues found: \\{diag['issues']}")
+    print(f"Issues found: \{diag['issues']}")
 else:
     print("System healthy")
 \`\`\`
@@ -1504,15 +1504,15 @@ def call_network_proxy(method, url, headers=None, body=None, timeout=30000):
         if result.get('success'):
             return result['body']
         else:
-            raise Exception(f"Network error: \\{result.get('error')}")
+            raise Exception(f"Network error: \{result.get('error')}")
 
 # Example: GitHub API
 repo_data = call_network_proxy('GET', 'https://api.github.com/repos/DevGruGold/XMRT-Ecosystem')
-print(f"Stars: \\{repo_data['stargazers_count']}")
+print(f"Stars: \{repo_data['stargazers_count']}")
 
 # Example: Mining stats
 mining_stats = call_network_proxy('GET', 'https://www.supportxmr.com/api/miner/WALLET_ADDRESS/stats')
-print(f"Hashrate: \\{mining_stats['hash']}")
+print(f"Hashrate: \{mining_stats['hash']}")
 \`\`\`
 
 🗄️ **DATABASE ACCESS VIA BRIDGE:**
@@ -1565,7 +1565,7 @@ devices = query_supabase(
     limit=10,
     order={'column': 'last_seen_at', 'ascending': False}
 )
-print(f"Found \\{len(devices)} active devices")
+print(f"Found \{len(devices)} active devices")
 
 # Example 2: Insert activity log
 query_supabase(
