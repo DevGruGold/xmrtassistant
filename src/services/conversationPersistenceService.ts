@@ -230,7 +230,7 @@ export class ConversationPersistenceService {
   }
 
   // Get recent conversation history (lazy loading - only recent messages)
-  public async getRecentConversationHistory(limit: number = 100): Promise<ConversationMessage[]> {
+  public async getRecentConversationHistory(limit: number = 200): Promise<ConversationMessage[]> {
     if (!this.currentSessionId) {
       return [];
     }
@@ -325,7 +325,7 @@ export class ConversationPersistenceService {
   }
 
   // Get conversation context (summaries + recent messages) for optimized loading
-  public async getConversationContext(recentMessageLimit: number = 100): Promise<{
+  public async getConversationContext(recentMessageLimit: number = 200): Promise<{
     summaries: Array<{ summaryText: string; messageCount: number; createdAt: Date }>;
     recentMessages: ConversationMessage[];
     totalMessageCount: number;

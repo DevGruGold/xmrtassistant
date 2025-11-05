@@ -497,6 +497,14 @@ serve(async (req) => {
     let currentMessages = [ { role: 'system', content: systemPrompt }, ...messages ];
     let toolIterations = 0;
     const MAX_TOOL_ITERATIONS = 5;
+    const executedToolCalls: Array<{
+      id: string;
+      function_name: string;
+      status: 'success' | 'failed' | 'pending';
+      arguments: any;
+      result_preview?: string;
+      execution_time_ms?: number;
+    }> = [];
     
     while (toolIterations < MAX_TOOL_ITERATIONS) {
       toolIterations++;
@@ -629,9 +637,23 @@ serve(async (req) => {
         
         // Execute all tool calls
         for (const toolCall of message.tool_calls) {
+          const startTime = Date.now();
           await logToolExecution(supabase, toolCall.function.name, toolCall.function.arguments, 'started');
           
           const toolResult = await executeToolCall(supabase, toolCall, SUPABASE_URL, SERVICE_ROLE_KEY);
+          const executionTime = Date.now() - startTime;
+          
+          // Track executed tool call for response
+          executedToolCalls.push({
+            id: toolCall.id,
+            function_name: toolCall.function.name,
+            status: toolResult.success ? 'success' : 'failed',
+            arguments: typeof toolCall.function.arguments === 'string' 
+              ? JSON.parse(toolCall.function.arguments) 
+              : toolCall.function.arguments,
+            result_preview: JSON.stringify(toolResult.result || toolResult).substring(0, 200),
+            execution_time_ms: executionTime
+          });
           
           await logToolExecution(
             supabase, 
@@ -703,7 +725,9 @@ serve(async (req) => {
           provider: aiProvider, 
           executive: aiExecutive, 
           executiveTitle: aiExecutiveTitle,
-          toolIterations
+          toolIterations,
+          tool_calls: executedToolCalls,
+          hasToolCalls: executedToolCalls.length > 0
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -721,7 +745,9 @@ serve(async (req) => {
         success: true, 
         response: lastContent, 
         provider: aiProvider,
-        warning: 'Max tool iterations reached'
+        warning: 'Max tool iterations reached',
+        tool_calls: executedToolCalls,
+        hasToolCalls: executedToolCalls.length > 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

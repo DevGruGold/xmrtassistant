@@ -43,16 +43,30 @@ export class ConversationSummarizationService {
         `${msg.sender === 'user' ? 'User' : 'Eliza'}: ${msg.content}`
       ).join('\n');
 
-      const prompt = `Please provide a concise summary of this conversation between a user and Eliza (XMRT-DAO AI assistant). Focus on:
-- Key topics discussed
-- Important information shared about XMRT mining, DAO governance, or technical aspects
-- User preferences or interests identified
-- Any ongoing context that should be remembered
+      const prompt = `Analyze this conversation between a user and Eliza (XMRT-DAO AI assistant) and provide a STRUCTURED, DETAILED summary.
+
+Format your response as:
+
+**Key Topics:**
+- [List main discussion topics]
+
+**Important Decisions & Actions:**
+- [List any decisions made, action items, or commitments]
+
+**User Preferences & Context:**
+- [User's communication style, technical level, stated preferences]
+- [Specific interests in XMRT mining, DAO governance, or technical features]
+
+**Technical Details Discussed:**
+- [Specific commands, configurations, or technical information shared]
+
+**Ongoing Context to Remember:**
+- [Unresolved issues, pending questions, or continued threads]
 
 Conversation:
 ${conversationText}
 
-Summary:`;
+Provide a comprehensive, structured summary:`;
 
       const result = await model.generateContent(prompt);
       const response = result.response;

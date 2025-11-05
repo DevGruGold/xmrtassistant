@@ -937,6 +937,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('No reasoning data in response');
       }
 
+      // Extract tool calls from window if available
+      const toolCalls = (window as any).__lastElizaToolCalls || [];
+      
       const elizaMessage: UnifiedMessage = {
         id: `eliza-${Date.now()}`,
         content: typeof displayContent === 'string' 
@@ -945,7 +948,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         sender: 'assistant',
         timestamp: new Date(),
         confidence: 0.95,
-        reasoning: reasoning.length > 0 ? reasoning : undefined
+        reasoning: reasoning.length > 0 ? reasoning : undefined,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined
       };
 
       setMessages(prev => [...prev, elizaMessage]);
