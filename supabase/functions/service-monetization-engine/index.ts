@@ -75,12 +75,7 @@ serve(async (req) => {
 
         if (keyError) throw keyError;
 
-        // Update revenue metrics
-        const today = new Date().toISOString().split('T')[0];
-        await supabase.rpc('increment_new_customers', { metric_date: today }).catch(() => {
-          // Ignore if function doesn't exist yet, metrics will be calculated in batch
-        });
-
+        // Revenue metrics can be calculated in batch later
         console.log(`[Service Monetization] Generated API key for ${keyData.owner_email}`);
 
         return new Response(
@@ -170,11 +165,19 @@ serve(async (req) => {
 
         if (logError) throw logError;
 
-        // Increment quota usage
+        // Get current usage and increment
+        const { data: currentKey } = await supabase
+          .from('service_api_keys')
+          .select('quota_used_current_month')
+          .eq('api_key', usageData.api_key)
+          .single();
+
+        const newUsage = (currentKey?.quota_used_current_month || 0) + 1;
+
         const { error: updateError } = await supabase
           .from('service_api_keys')
           .update({ 
-            quota_used_current_month: supabase.raw('quota_used_current_month + 1'),
+            quota_used_current_month: newUsage,
             last_used_at: new Date().toISOString(),
           })
           .eq('api_key', usageData.api_key);
@@ -265,11 +268,23 @@ serve(async (req) => {
       case 'suspend_api_key': {
         const { api_key, reason } = data;
 
+        // Get current metadata
+        const { data: currentKey } = await supabase
+          .from('service_api_keys')
+          .select('metadata')
+          .eq('api_key', api_key)
+          .single();
+
+        const updatedMetadata = {
+          ...(currentKey?.metadata || {}),
+          suspend_reason: reason,
+        };
+
         const { error: suspendError } = await supabase
           .from('service_api_keys')
           .update({
             status: 'suspended',
-            metadata: supabase.raw(`metadata || '{"suspend_reason": "${reason}"}'::jsonb`),
+            metadata: updatedMetadata,
           })
           .eq('api_key', api_key);
 

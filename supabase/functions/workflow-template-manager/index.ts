@@ -159,13 +159,12 @@ serve(async (req) => {
             .eq('id', execution.id);
 
           // Update template statistics
+          const newSuccessRate = ((template.success_rate * template.times_executed + 100) / (template.times_executed + 1));
           await supabase
             .from('workflow_templates')
             .update({
               times_executed: template.times_executed + 1,
-              success_rate: supabase.raw(
-                `((success_rate * times_executed + 100) / (times_executed + 1))`
-              ),
+              success_rate: newSuccessRate,
             })
             .eq('id', template.id);
 
@@ -202,13 +201,12 @@ serve(async (req) => {
             .eq('id', execution.id);
 
           // Update template statistics
+          const newSuccessRate = ((template.success_rate * template.times_executed) / (template.times_executed + 1));
           await supabase
             .from('workflow_templates')
             .update({
               times_executed: template.times_executed + 1,
-              success_rate: supabase.raw(
-                `((success_rate * times_executed) / (times_executed + 1))`
-              ),
+              success_rate: newSuccessRate,
             })
             .eq('id', template.id);
 
