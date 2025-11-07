@@ -5218,6 +5218,119 @@ export type Database = {
           },
         ]
       }
+      workflow_template_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          execution_id: string | null
+          execution_params: Json | null
+          execution_results: Json | null
+          id: string
+          metadata: Json | null
+          started_at: string | null
+          status: string | null
+          steps_completed: number | null
+          success: boolean | null
+          template_id: string | null
+          template_name: string
+          total_steps: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_id?: string | null
+          execution_params?: Json | null
+          execution_results?: Json | null
+          id?: string
+          metadata?: Json | null
+          started_at?: string | null
+          status?: string | null
+          steps_completed?: number | null
+          success?: boolean | null
+          template_id?: string | null
+          template_name: string
+          total_steps?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          execution_id?: string | null
+          execution_params?: Json | null
+          execution_results?: Json | null
+          id?: string
+          metadata?: Json | null
+          started_at?: string | null
+          status?: string | null
+          steps_completed?: number | null
+          success?: boolean | null
+          template_id?: string | null
+          template_name?: string
+          total_steps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_template_executions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_templates: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string
+          estimated_duration_seconds: number | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          steps: Json
+          success_rate: number | null
+          tags: string[] | null
+          template_name: string
+          times_executed: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description: string
+          estimated_duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          steps: Json
+          success_rate?: number | null
+          tags?: string[] | null
+          template_name: string
+          times_executed?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string
+          estimated_duration_seconds?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          steps?: Json
+          success_rate?: number | null
+          tags?: string[] | null
+          template_name?: string
+          times_executed?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       workload_forecasts: {
         Row: {
           confidence_score: number

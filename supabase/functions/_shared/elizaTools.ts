@@ -148,6 +148,117 @@ export const ELIZA_TOOLS = [
         }
       }
     },
+    // Workflow Template Manager Tools
+    {
+      type: 'function',
+      function: {
+        name: 'execute_workflow_template',
+        description: '🔄 Execute a pre-built workflow template by name with custom parameters. Available templates: acquire_new_customer, upsell_existing_customer, monthly_billing_cycle, churn_prevention, content_campaign, influencer_outreach, treasury_health_check, execute_buyback, learn_from_failures.',
+        parameters: {
+          type: 'object',
+          properties: {
+            template_name: { 
+              type: 'string', 
+              enum: [
+                'acquire_new_customer', 
+                'upsell_existing_customer', 
+                'monthly_billing_cycle', 
+                'churn_prevention', 
+                'content_campaign', 
+                'influencer_outreach', 
+                'treasury_health_check', 
+                'execute_buyback', 
+                'learn_from_failures'
+              ],
+              description: 'Name of the workflow template to execute'
+            },
+            params: { 
+              type: 'object',
+              description: 'Template-specific parameters (e.g., {"email":"customer@example.com","tier":"pro","service_name":"uspto-patent-mcp"})'
+            }
+          },
+          required: ['template_name']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'list_workflow_templates',
+        description: '📋 Get all available workflow templates with success rates, execution counts, and descriptions. Filter by category (revenue, marketing, financial, optimization).',
+        parameters: {
+          type: 'object',
+          properties: {
+            category: { 
+              type: 'string', 
+              enum: ['revenue', 'marketing', 'financial', 'optimization'],
+              description: 'Optional: filter templates by category'
+            },
+            active_only: {
+              type: 'boolean',
+              description: 'Only show active templates (default: true)'
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_workflow_template',
+        description: '🔍 Get detailed information about a specific workflow template including all steps and configuration.',
+        parameters: {
+          type: 'object',
+          properties: {
+            template_name: { type: 'string', description: 'Name of the template to retrieve' }
+          },
+          required: ['template_name']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_workflow_analytics',
+        description: '📊 Get execution analytics for workflow templates including success rate, average duration, and recent execution history.',
+        parameters: {
+          type: 'object',
+          properties: {
+            template_name: { type: 'string', description: 'Optional: specific template to analyze' },
+            limit: { type: 'number', description: 'Number of recent executions to include (default 10)' }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_workflow_template',
+        description: '🆕 Create a new custom workflow template with defined steps and configuration.',
+        parameters: {
+          type: 'object',
+          properties: {
+            template_name: { type: 'string', description: 'Unique name for the template' },
+            category: { 
+              type: 'string', 
+              enum: ['revenue', 'marketing', 'financial', 'optimization'],
+              description: 'Template category'
+            },
+            description: { type: 'string', description: 'Description of what the workflow does' },
+            steps: { 
+              type: 'array',
+              description: 'Array of workflow steps with type, name, and configuration'
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Tags for searchability and organization'
+            }
+          },
+          required: ['template_name', 'category', 'description', 'steps']
+        }
+      }
+    },
     {
       type: 'function',
       function: {

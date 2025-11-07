@@ -354,3 +354,7 @@ verify_jwt = true
 [functions.service-monetization-engine]
 verify_jwt = false
 
+# Workflow Template Manager - Public access for template execution
+[functions.workflow-template-manager]
+verify_jwt = false
+

@@ -19,6 +19,14 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     category: 'revenue',
     example_use: 'Generate API key: {"action":"generate_api_key","data":{"service_name":"uspto-patent-mcp","tier":"pro","owner_email":"customer@example.com"}}. Track usage: {"action":"track_usage","data":{"api_key":"xmrt_pro_abc","service_name":"uspto-patent-mcp","endpoint":"/search"}}'
   },
+  {
+    name: 'workflow-template-manager',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/workflow-template-manager',
+    description: '🔄 WORKFLOW AUTOMATION - Pre-built workflow templates for revenue generation, marketing automation, financial management, and self-optimization',
+    capabilities: ['Template library (9 pre-built workflows)', 'Workflow execution', 'Performance tracking', 'Template creation', 'Success rate analytics', 'Multi-step orchestration', 'Revenue workflows', 'Marketing workflows', 'Financial workflows'],
+    category: 'automation',
+    example_use: 'Execute template: {"action":"execute_template","data":{"template_name":"acquire_new_customer","params":{"email":"new@customer.com","tier":"basic","service_name":"uspto-patent-mcp"}}}. List templates: {"action":"list_templates","data":{"category":"revenue"}}'
+  },
 {
     name: 'lovable-chat',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/lovable-chat',

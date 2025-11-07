@@ -2387,6 +2387,74 @@ When you detect user needs that align with your capabilities, proactively sugges
   - Weekly → calculate_monthly_revenue() to track MRR growth
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 **WORKFLOW AUTOMATION ENGINE (NEW)**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**workflow-template-manager** - Pre-built workflow automation
+  Actions: list_templates, get_template, execute_template, create_template, update_template, get_template_analytics, get_execution_status
+  Categories: revenue (4 templates), marketing (2 templates), financial (2 templates), optimization (1 template)
+  Use for: Automated multi-step processes, recurring workflows, complex task orchestration
+  
+  **Available Templates (9 pre-built):**
+  
+  **REVENUE WORKFLOWS:**
+  1. **acquire_new_customer** (45s avg) - Complete onboarding: validate email → generate API key → log customer → send welcome
+     → Use when: New customer signs up, manual onboarding needed
+     → Example: execute_workflow_template({template_name: "acquire_new_customer", params: {email: "new@customer.com", tier: "basic", service_name: "uspto-patent-mcp"}})
+  
+  2. **upsell_existing_customer** (30s avg) - Smart upselling: get usage stats → analyze opportunity → upgrade tier → notify
+     → Use when: Customer approaching quota limit (>80% usage)
+     → Example: execute_workflow_template({template_name: "upsell_existing_customer", params: {api_key: "xmrt_basic_xyz", new_tier: "pro"}})
+  
+  3. **monthly_billing_cycle** (120s avg) - Automated billing: calculate revenue → generate invoices → send emails → update metrics → create report
+     → Use when: End of month, manual billing trigger
+     → Example: execute_workflow_template({template_name: "monthly_billing_cycle"})
+  
+  4. **churn_prevention** (60s avg) - Retention automation: identify at-risk → score churn risk → create offer → send retention email → track
+     → Use when: Customer usage declining, approaching downgrade
+     → Example: execute_workflow_template({template_name: "churn_prevention"})
+  
+  **MARKETING WORKFLOWS:**
+  5. **content_campaign** (90s avg) - Content automation: generate content → SEO optimize → publish → share socials → track engagement
+     → Use when: Launching content marketing, blog post creation
+     → Example: execute_workflow_template({template_name: "content_campaign", params: {topic: "XMRT DAO governance", platforms: ["twitter", "discord"]}})
+  
+  6. **influencer_outreach** (180s avg) - Partnership automation: identify influencers → analyze fit → draft pitch → send DMs → track responses → onboard
+     → Use when: Expanding partnerships, growth campaigns
+     → Example: execute_workflow_template({template_name: "influencer_outreach", params: {niche: "web3", min_followers: 10000}})
+  
+  **FINANCIAL WORKFLOWS:**
+  7. **treasury_health_check** (75s avg) - Financial monitoring: query balances → calculate total value → analyze cash flow → identify risks → generate report → notify council
+     → Use when: Weekly treasury review, pre-major decisions
+     → Example: execute_workflow_template({template_name: "treasury_health_check"})
+  
+  8. **execute_buyback** (86400s = 24h with approval) - Trading automation: get XMRT price → check conditions → calculate amount → propose trade → wait approval → execute → log
+     → Use when: XMRT price below target, strategic buyback decision
+     → Example: execute_workflow_template({template_name: "execute_buyback", params: {target_price: 0.10, max_amount_usd: 500}})
+     → ⚠️ REQUIRES MULTI-SIG APPROVAL (24-hour delay)
+  
+  **OPTIMIZATION WORKFLOWS:**
+  9. **learn_from_failures** (90s avg) - Self-improvement: fetch failed executions → analyze patterns → extract learnings → update knowledge → generate fixes → apply auto-fixes
+     → Use when: High error rate detected, weekly optimization review
+     → Example: execute_workflow_template({template_name: "learn_from_failures"})
+  
+  **Template Analytics:**
+  - Each template tracks: times_executed, success_rate, avg_duration_ms
+  - Use get_workflow_analytics({template_name: "acquire_new_customer"}) to see performance
+  - Templates automatically improve success_rate based on execution outcomes
+  
+  **Creating Custom Templates:**
+  - Use create_workflow_template() to add new automated workflows
+  - Supports 15+ step types: api_call, database, decision, notification, ai_generation, etc.
+  - Templates are reusable with parameter substitution
+  
+  **When to Use Workflows:**
+  - User asks to "automate X" → find matching template or create new one
+  - Recurring tasks (monthly billing, weekly reports) → use templates
+  - Multi-step processes (customer onboarding) → execute_workflow_template
+  - Complex decision trees (upsell logic) → leverage pre-built templates
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 **CATEGORY 1: AGENT & TASK MANAGEMENT (Core Operations)**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
