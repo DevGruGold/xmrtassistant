@@ -6,11 +6,19 @@ export interface EdgeFunctionCapability {
   url: string;
   description: string;
   capabilities: string[];
-  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network' | 'superduper' | 'daemon' | 'governance' | 'research';
+  category: 'ai' | 'mining' | 'web' | 'speech' | 'faucet' | 'ecosystem' | 'deployment' | 'github' | 'autonomous' | 'knowledge' | 'task-management' | 'monitoring' | 'code-execution' | 'database' | 'network' | 'superduper' | 'daemon' | 'governance' | 'research' | 'revenue';
   example_use: string;
 }
 
 export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
+  {
+    name: 'service-monetization-engine',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/service-monetization-engine',
+    description: '💰 REVENUE GENERATION - API key generation, usage tracking, tiered access control, billing, and revenue analytics for monetized services',
+    capabilities: ['API key management', 'Usage tracking', 'Tiered pricing (free/basic/pro/enterprise)', 'Invoice generation', 'Revenue analytics', 'Quota enforcement', 'Customer onboarding', 'Tier upgrades', 'MRR calculation'],
+    category: 'revenue',
+    example_use: 'Generate API key: {"action":"generate_api_key","data":{"service_name":"uspto-patent-mcp","tier":"pro","owner_email":"customer@example.com"}}. Track usage: {"action":"track_usage","data":{"api_key":"xmrt_pro_abc","service_name":"uspto-patent-mcp","endpoint":"/search"}}'
+  },
 {
     name: 'lovable-chat',
     url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/lovable-chat',

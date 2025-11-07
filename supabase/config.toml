@@ -350,3 +350,7 @@ verify_jwt = false
 [functions.eliza-intelligence-coordinator]
 verify_jwt = true
 
+# Service Monetization Engine - Public access for API key validation
+[functions.service-monetization-engine]
+verify_jwt = false
+

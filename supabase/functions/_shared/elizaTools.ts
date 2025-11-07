@@ -12,6 +12,142 @@
 
 
 export const ELIZA_TOOLS = [
+    // Revenue Generation Tools
+    {
+      type: 'function',
+      function: {
+        name: 'generate_service_api_key',
+        description: '💰 Generate a new API key for a monetized service with tiered access control. Tiers: free (100/mo), basic ($10, 1K/mo), pro ($50, 10K/mo), enterprise ($500, unlimited).',
+        parameters: {
+          type: 'object',
+          properties: {
+            service_name: { type: 'string', description: 'Service to monetize (e.g., "uspto-patent-mcp", "lovable-chat", "python-executor")' },
+            tier: { type: 'string', enum: ['free', 'basic', 'pro', 'enterprise'], description: 'Access tier' },
+            owner_email: { type: 'string', format: 'email', description: 'Customer email address' },
+            owner_name: { type: 'string', description: 'Optional customer name' }
+          },
+          required: ['service_name', 'tier', 'owner_email']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'validate_service_api_key',
+        description: 'Check if an API key is valid, active, and has remaining quota. Returns tier, quota remaining, and validation status.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to validate' }
+          },
+          required: ['api_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'track_service_usage',
+        description: 'Log API usage and update quota for a customer. Automatically increments usage counter and logs metadata.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'Customer API key' },
+            service_name: { type: 'string', description: 'Service being used' },
+            endpoint: { type: 'string', description: 'API endpoint called' },
+            tokens_used: { type: 'number', description: 'Optional: number of tokens/credits consumed' },
+            response_time_ms: { type: 'number', description: 'Optional: response time in milliseconds' },
+            status_code: { type: 'number', description: 'Optional: HTTP status code' }
+          },
+          required: ['api_key', 'service_name', 'endpoint']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_service_usage_stats',
+        description: 'Get detailed usage statistics for a customer API key including quota remaining, recent usage, and tier info.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to check' }
+          },
+          required: ['api_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'upgrade_service_tier',
+        description: 'Upgrade a customer to a higher tier (free → basic → pro → enterprise). Automatically updates quota.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to upgrade' },
+            new_tier: { type: 'string', enum: ['basic', 'pro', 'enterprise'], description: 'New tier level' }
+          },
+          required: ['api_key', 'new_tier']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'suspend_service_api_key',
+        description: 'Suspend an API key for non-payment, abuse, or other reasons. Key becomes inactive immediately.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to suspend' },
+            reason: { type: 'string', description: 'Reason for suspension' }
+          },
+          required: ['api_key', 'reason']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calculate_monthly_revenue',
+        description: 'Generate comprehensive revenue report including MRR, customer count, tier breakdown, top service, and usage stats.',
+        parameters: {
+          type: 'object',
+          properties: {
+            start_date: { type: 'string', format: 'date-time', description: 'Optional: start of reporting period' },
+            end_date: { type: 'string', format: 'date-time', description: 'Optional: end of reporting period' }
+          }
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_service_invoice',
+        description: 'Generate a monthly invoice for a customer based on their tier and usage.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to invoice' }
+          },
+          required: ['api_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_top_service_customers',
+        description: 'Get list of highest-value customers sorted by tier and usage. Useful for identifying upsell opportunities.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of top customers to return (default 10)' }
+          }
+        }
+      }
+    },
     {
       type: 'function',
       function: {

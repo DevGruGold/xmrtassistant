@@ -851,6 +851,75 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_logs: {
+        Row: {
+          channel: string
+          created_at: string | null
+          delivery_time_ms: number | null
+          error_message: string | null
+          executive_name: string
+          id: string
+          message_preview: string | null
+          recipient: string
+          success: boolean
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          delivery_time_ms?: number | null
+          error_message?: string | null
+          executive_name: string
+          id?: string
+          message_preview?: string | null
+          recipient: string
+          success: boolean
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          delivery_time_ms?: number | null
+          error_message?: string | null
+          executive_name?: string
+          id?: string
+          message_preview?: string | null
+          recipient?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      communication_rate_limits: {
+        Row: {
+          channel: string
+          created_at: string | null
+          executive_name: string
+          id: string
+          max_per_window: number
+          messages_sent: number | null
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          executive_name: string
+          id?: string
+          max_per_window: number
+          messages_sent?: number | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          executive_name?: string
+          id?: string
+          max_per_window?: number
+          messages_sent?: number | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       community_ideas: {
         Row: {
           assigned_agent_id: string | null
@@ -2255,9 +2324,11 @@ export type Database = {
           feedback_type: string
           fix_result: Json | null
           id: string
-          issue_description: string
+          impact_level: string | null
           learning_point: string
+          observation_description: string
           original_context: Json | null
+          suggestion_type: string | null
         }
         Insert: {
           acknowledged?: boolean | null
@@ -2267,9 +2338,11 @@ export type Database = {
           feedback_type: string
           fix_result?: Json | null
           id?: string
-          issue_description: string
+          impact_level?: string | null
           learning_point: string
+          observation_description: string
           original_context?: Json | null
+          suggestion_type?: string | null
         }
         Update: {
           acknowledged?: boolean | null
@@ -2279,9 +2352,11 @@ export type Database = {
           feedback_type?: string
           fix_result?: Json | null
           id?: string
-          issue_description?: string
+          impact_level?: string | null
           learning_point?: string
+          observation_description?: string
           original_context?: Json | null
+          suggestion_type?: string | null
         }
         Relationships: []
       }
@@ -3650,6 +3725,42 @@ export type Database = {
         }
         Relationships: []
       }
+      revenue_metrics: {
+        Row: {
+          churned_customers: number | null
+          created_at: string | null
+          id: string
+          metric_date: string
+          mrr_usd: number | null
+          new_customers: number | null
+          top_service: string | null
+          total_customers: number | null
+          total_requests: number | null
+        }
+        Insert: {
+          churned_customers?: number | null
+          created_at?: string | null
+          id?: string
+          metric_date: string
+          mrr_usd?: number | null
+          new_customers?: number | null
+          top_service?: string | null
+          total_customers?: number | null
+          total_requests?: number | null
+        }
+        Update: {
+          churned_customers?: number | null
+          created_at?: string | null
+          id?: string
+          metric_date?: string
+          mrr_usd?: number | null
+          new_customers?: number | null
+          top_service?: string | null
+          total_customers?: number | null
+          total_requests?: number | null
+        }
+        Relationships: []
+      }
       scenario_simulations: {
         Row: {
           confidence_level: number | null
@@ -3734,6 +3845,96 @@ export type Database = {
           next_execution?: string | null
           schedule_expression?: string
           session_key?: string
+        }
+        Relationships: []
+      }
+      service_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          last_used_at: string | null
+          metadata: Json | null
+          owner_email: string
+          owner_name: string | null
+          quota_requests_per_month: number
+          quota_used_current_month: number | null
+          service_name: string
+          status: string | null
+          tier: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          metadata?: Json | null
+          owner_email: string
+          owner_name?: string | null
+          quota_requests_per_month: number
+          quota_used_current_month?: number | null
+          service_name: string
+          status?: string | null
+          tier: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          metadata?: Json | null
+          owner_email?: string
+          owner_name?: string | null
+          quota_requests_per_month?: number
+          quota_used_current_month?: number | null
+          service_name?: string
+          status?: string | null
+          tier?: string
+        }
+        Relationships: []
+      }
+      service_invoices: {
+        Row: {
+          api_key: string
+          billing_period_end: string
+          billing_period_start: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          payment_method: string | null
+          status: string | null
+          total_cost_usd: number
+          total_requests: number
+        }
+        Insert: {
+          api_key: string
+          billing_period_end: string
+          billing_period_start: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string | null
+          total_cost_usd: number
+          total_requests: number
+        }
+        Update: {
+          api_key?: string
+          billing_period_end?: string
+          billing_period_start?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string | null
+          total_cost_usd?: number
+          total_requests?: number
         }
         Relationships: []
       }
@@ -3842,6 +4043,45 @@ export type Database = {
           id?: number
           service_name?: string
           snapshot?: Json
+        }
+        Relationships: []
+      }
+      service_usage_logs: {
+        Row: {
+          api_key: string
+          cost_usd: number | null
+          endpoint: string
+          id: number
+          metadata: Json | null
+          response_time_ms: number | null
+          service_name: string
+          status_code: number | null
+          timestamp: string | null
+          tokens_used: number | null
+        }
+        Insert: {
+          api_key: string
+          cost_usd?: number | null
+          endpoint: string
+          id?: number
+          metadata?: Json | null
+          response_time_ms?: number | null
+          service_name: string
+          status_code?: number | null
+          timestamp?: string | null
+          tokens_used?: number | null
+        }
+        Update: {
+          api_key?: string
+          cost_usd?: number | null
+          endpoint?: string
+          id?: number
+          metadata?: Json | null
+          response_time_ms?: number | null
+          service_name?: string
+          status_code?: number | null
+          timestamp?: string | null
+          tokens_used?: number | null
         }
         Relationships: []
       }
@@ -5300,6 +5540,20 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_analytics: {
+        Row: {
+          avg_delivery_ms: number | null
+          channel: string | null
+          date: string | null
+          executive_name: string | null
+          failed: number | null
+          max_delivery_ms: number | null
+          min_delivery_ms: number | null
+          successful: number | null
+          total_sent: number | null
+        }
+        Relationships: []
+      }
       device_connection_status: {
         Row: {
           app_version: string | null
@@ -5654,6 +5908,14 @@ export type Database = {
       }
       cancel_job: { Args: { p_job_id: number }; Returns: undefined }
       canonicalize_service_status: { Args: { j: Json }; Returns: Json }
+      check_rate_limit: {
+        Args: {
+          p_channel: string
+          p_executive_name: string
+          p_max_per_hour?: number
+        }
+        Returns: boolean
+      }
       check_session_ownership: {
         Args: { request_metadata: Json; session_uuid: string }
         Returns: boolean
@@ -5763,10 +6025,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      increment_rate_limit: {
-        Args: { p_endpoint: string; p_identifier: string }
-        Returns: undefined
-      }
+      increment_rate_limit:
+        | {
+            Args: { p_endpoint: string; p_identifier: string }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_channel: string
+              p_executive_name: string
+              p_max_per_hour?: number
+            }
+            Returns: undefined
+          }
       ingest_device_event:
         | {
             Args: {
