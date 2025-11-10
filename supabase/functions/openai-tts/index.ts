@@ -19,22 +19,22 @@ serve(async (req) => {
       throw new Error('Text is required');
     }
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY not configured');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('🎵 OpenAI TTS - Processing request:', {
+    console.log('🎵 Lovable AI TTS - Processing request:', {
       textLength: text.length,
       voice,
       speed
     });
 
-    // Call OpenAI Text-to-Speech API
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    // Call Lovable AI Gateway for Text-to-Speech
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/audio/speech', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -48,13 +48,24 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ OpenAI TTS API error:', errorText);
+      console.error('❌ Lovable AI TTS error:', errorText);
       
-      // Check for quota error and provide graceful fallback
-      if (errorText.includes('insufficient_quota')) {
+      // Check for quota/rate limit errors
+      if (response.status === 429) {
         return new Response(JSON.stringify({
           success: false,
-          error: 'OpenAI TTS quota exceeded. Voice features temporarily unavailable.',
+          error: 'Rate limit exceeded. Please try again later.',
+          fallback: 'text_only'
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (response.status === 402) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Payment required. Please add credits to your Lovable AI workspace.',
           fallback: 'text_only'
         }), {
           status: 402,
@@ -62,7 +73,7 @@ serve(async (req) => {
         });
       }
       
-      throw new Error(`OpenAI TTS API error: ${errorText}`);
+      throw new Error(`Lovable AI TTS error: ${errorText}`);
     }
 
     // Convert audio buffer to base64
@@ -71,7 +82,7 @@ serve(async (req) => {
       String.fromCharCode(...new Uint8Array(arrayBuffer))
     );
 
-    console.log('✅ OpenAI TTS - Audio generated successfully:', {
+    console.log('✅ Lovable AI TTS - Audio generated successfully:', {
       audioSize: arrayBuffer.byteLength,
       base64Length: base64Audio.length
     });
@@ -86,7 +97,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('❌ OpenAI TTS function error:', error);
+    console.error('❌ TTS function error:', error);
     return new Response(JSON.stringify({
       success: false,
       error: error.message || 'Unknown error occurred'
