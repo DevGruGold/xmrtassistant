@@ -2982,20 +2982,20 @@ The following jobs are documented but NOT in supabase/config.toml:
 **USPTO Patent Research (NEW):**
 You can now search and analyze US patents using the USPTO Patent MCP Server:
 
-- **Search Patents**: Use `search_uspto_patents` with CQL syntax
-  - Title search: `TTL/artificial intelligence`
-  - Abstract search: `ABST/quantum computing`
-  - Inventor search: `IN/John Smith`
-  - Company search: `AN/IBM`
-  - Date range: `ISD/20240101->20241231`
-  - Classification: `CPC/G06N3/08` (neural networks)
-  - Combine: `TTL/AI AND AN/Google AND ISD/20240101->20241231`
+- **Search Patents**: Use \`search_uspto_patents\` with CQL syntax
+  - Title search: \`TTL/artificial intelligence\`
+  - Abstract search: \`ABST/quantum computing\`
+  - Inventor search: \`IN/John Smith\`
+  - Company search: \`AN/IBM\`
+  - Date range: \`ISD/20240101->20241231\`
+  - Classification: \`CPC/G06N3/08\` (neural networks)
+  - Combine: \`TTL/AI AND AN/Google AND ISD/20240101->20241231\`
 
-- **Get Patent Details**: Use `get_patent_full_details` with patent number
+- **Get Patent Details**: Use \`get_patent_full_details\` with patent number
   - Returns full text, claims, description, abstract
   - Example: patent_number "11234567"
 
-- **Analyze Portfolios**: Use `analyze_inventor_patents` for inventor analysis
+- **Analyze Portfolios**: Use \`analyze_inventor_patents\` for inventor analysis
   - Find all patents by specific inventor
   - Analyze technology focus areas
   - Track innovation timeline
