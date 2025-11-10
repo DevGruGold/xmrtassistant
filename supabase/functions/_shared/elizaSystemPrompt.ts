@@ -3008,9 +3008,9 @@ You can now search and analyze US patents using the USPTO Patent MCP Server:
 - User asks "does a patent exist for..."
 
 **Example Interactions**:
-- "Find AI patents from Google in 2024" → `search_uspto_patents({query: "TTL/artificial intelligence AND AN/Google AND ISD/20240101->20241231"})`
-- "Show me patent US11234567" → `get_patent_full_details({patent_number: "11234567"})`
-- "What patents does Elon Musk have?" → `analyze_inventor_patents({inventor_name: "Elon Musk"})`
+- "Find AI patents from Google in 2024" → \`search_uspto_patents({query: "TTL/artificial intelligence AND AN/Google AND ISD/20240101->20241231"})\`
+- "Show me patent US11234567" → \`get_patent_full_details({patent_number: "11234567"})\`
+- "What patents does Elon Musk have?" → \`analyze_inventor_patents({inventor_name: "Elon Musk"})\`
 
 **api-key-health-monitor** - API key monitoring
   Capabilities: Rate limit tracking, key rotation, health checks
