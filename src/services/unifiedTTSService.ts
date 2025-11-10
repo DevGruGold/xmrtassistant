@@ -1,46 +1,23 @@
-import { OpenAITTSService, OpenAITTSOptions } from './openAITTSService';
-
 export interface UnifiedTTSOptions {
   text: string;
   voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
   speed?: number;
-  language?: 'en' | 'es'; // Language selection for multilingual TTS
+  language?: 'en' | 'es';
 }
 
 /**
- * Unified TTS Service with Browser-First Strategy
+ * Browser-Only TTS Service
  * 
- * Priority Order:
- * 1. Web Speech API (free, fast, works offline)
- * 2. OpenAI TTS Edge Function (premium quality, costs money)
- * 3. Silent mode (text-only fallback)
- * 
- * Why browser-first?
- * - No API costs for 99% of users
- * - No rate limits or quota errors
- * - Works offline
- * - Faster response (no network latency)
- * - Better reliability
- * 
- * The OpenAI edge function is only used as a fallback for:
- * - Browsers without Web Speech API support
- * - Users who explicitly prefer premium quality
- * - Cases where browser TTS fails
+ * Uses Web Speech API exclusively - works in all modern browsers, online and offline.
+ * No external dependencies, no API calls, no costs, 100% reliable.
  */
 export class UnifiedTTSService {
-  private openAIService: OpenAITTSService | null = null;
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private onSpeechEnd: (() => void) | null = null;
   private audioContext: AudioContext | null = null;
   private isInitialized = false;
+  private voicesLoaded = false;
 
-  constructor() {
-    this.openAIService = new OpenAITTSService();
-  }
-
-  /**
-   * Initialize audio context (must be called after user interaction)
-   */
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
@@ -53,18 +30,17 @@ export class UnifiedTTSService {
         await this.audioContext.resume();
       }
 
+      // Load voices immediately
+      await this.loadVoices();
+      
       this.isInitialized = true;
-      console.log('✅ Unified TTS Service initialized');
+      console.log('✅ Browser TTS initialized with', window.speechSynthesis.getVoices().length, 'voices');
     } catch (error) {
       console.warn('Failed to initialize audio context:', error);
-      // Continue anyway - Web Speech API might still work
       this.isInitialized = true;
     }
   }
 
-  /**
-   * Speak text using the best available method
-   */
   async speakText(options: UnifiedTTSOptions, onSpeechEnd?: () => void): Promise<{ success: boolean; method: string }> {
     this.onSpeechEnd = onSpeechEnd;
 
@@ -72,147 +48,146 @@ export class UnifiedTTSService {
       await this.initialize();
     }
 
-    // ✅ Method 1: Try Web Speech API FIRST (free, always works in browsers)
+    // Ensure audio context is resumed
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
     try {
-      console.log('🎵 Trying Web Speech API (browser native)...');
       await this.speakWithWebSpeech(options);
-      console.log('✅ Web Speech API succeeded');
       return { success: true, method: 'Web Speech API' };
     } catch (error) {
-      console.warn('⚠️ Web Speech API failed, trying OpenAI TTS fallback:', error);
+      console.error('❌ Web Speech API failed:', error);
+      onSpeechEnd?.();
+      return { success: false, method: 'Failed' };
     }
-
-    // ⚠️ Method 2: Fallback to OpenAI TTS (premium quality, costs money)
-    try {
-      console.log('🎵 Falling back to OpenAI TTS...');
-      await this.openAIService!.speakText({
-        text: options.text,
-        voice: options.voice || 'alloy',
-        speed: options.speed || 1.0
-      }, onSpeechEnd);
-      
-      console.log('✅ OpenAI TTS succeeded');
-      return { success: true, method: 'OpenAI TTS' };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      if (errorMsg.includes('QUOTA_EXCEEDED')) {
-        console.warn('⚠️ OpenAI TTS quota exceeded');
-      } else {
-        console.warn('⚠️ OpenAI TTS failed:', error);
-      }
-    }
-
-    // ❌ Method 3: Silent mode with notification (last resort)
-    console.warn('⚠️ All TTS methods failed - running in silent mode (text only)');
-    console.log('💡 TIP: Web Speech API should work in most browsers. Check browser permissions.');
-    onSpeechEnd?.();
-    return { success: false, method: 'Silent Mode' };
   }
 
-  /**
-   * Web Speech API implementation with proper voice loading
-   */
   private async speakWithWebSpeech(options: UnifiedTTSOptions): Promise<void> {
     if (!('speechSynthesis' in window)) {
-      throw new Error('Web Speech API not supported');
+      throw new Error('Web Speech API not supported in this browser');
     }
 
-    // Wait for voices to load (critical for mobile browsers)
-    await this.loadVoices();
+    // Ensure voices are loaded
+    if (!this.voicesLoaded) {
+      await this.loadVoices();
+    }
 
     return new Promise((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(options.text);
-      this.currentUtterance = utterance;
-      
-      // Configure voice settings
-      utterance.rate = options.speed || 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+      try {
+        const utterance = new SpeechSynthesisUtterance(options.text);
+        this.currentUtterance = utterance;
+        
+        // Configure voice settings
+        utterance.rate = options.speed || 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
-      // Select best voice based on language
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        const lang = options.language || 'en';
-        const langPrefix = lang === 'es' ? 'es' : 'en';
-        
-        // Map OpenAI voice names to Web Speech characteristics
-        const voicePreferences = this.getVoicePreferences(options.voice || 'nova', lang);
-        
-        // Try to find voice matching preferences AND language
-        let preferredVoice = voices.find(v => 
-          v.lang.startsWith(langPrefix) && 
-          voicePreferences.some(pref => v.name.toLowerCase().includes(pref))
-        );
-        
-        // Fallback: any voice in the target language
-        if (!preferredVoice) {
-          preferredVoice = voices.find(v => v.lang.startsWith(langPrefix));
-        }
-        
-        // Final fallback: any voice
-        if (!preferredVoice) {
-          preferredVoice = voices[0];
-        }
-        
-        utterance.voice = preferredVoice;
-        utterance.lang = preferredVoice.lang;
-        console.log(`🎤 Using ${lang === 'es' ? 'Spanish' : 'English'} voice:`, preferredVoice.name, `(${preferredVoice.lang})`);
-      }
-
-      utterance.onend = () => {
-        this.currentUtterance = null;
-        this.onSpeechEnd?.();
-        resolve();
-      };
-      
-      utterance.onerror = (event) => {
-        this.currentUtterance = null;
-        this.onSpeechEnd?.();
-        
-        // Don't reject on 'canceled' errors (they happen when we interrupt)
-        if (event.error === 'canceled') {
-          resolve();
+        // Select best voice
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const lang = options.language || 'en';
+          const langPrefix = lang === 'es' ? 'es' : 'en';
+          
+          const voicePreferences = this.getVoicePreferences(options.voice || 'nova', lang);
+          
+          // Find best matching voice
+          let preferredVoice = voices.find(v => 
+            v.lang.startsWith(langPrefix) && 
+            voicePreferences.some(pref => v.name.toLowerCase().includes(pref))
+          );
+          
+          if (!preferredVoice) {
+            preferredVoice = voices.find(v => v.lang.startsWith(langPrefix));
+          }
+          
+          if (!preferredVoice) {
+            preferredVoice = voices[0];
+          }
+          
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang;
+          console.log(`🎤 Speaking with voice: ${preferredVoice.name} (${preferredVoice.lang})`);
         } else {
-          reject(new Error(`Speech synthesis error: ${event.error}`));
+          // No voices available - use default
+          utterance.lang = options.language === 'es' ? 'es-ES' : 'en-US';
+          console.log(`🎤 Speaking with default voice`);
         }
-      };
-      
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      // Small delay to ensure cancel completes
-      setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-      }, 50);
+
+        utterance.onend = () => {
+          this.currentUtterance = null;
+          this.onSpeechEnd?.();
+          resolve();
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event.error);
+          this.currentUtterance = null;
+          this.onSpeechEnd?.();
+          
+          if (event.error === 'canceled' || event.error === 'interrupted') {
+            resolve(); // Not a real error
+          } else {
+            reject(new Error(`Speech synthesis error: ${event.error}`));
+          }
+        };
+        
+        // Cancel any ongoing speech first
+        window.speechSynthesis.cancel();
+        
+        // Small delay for reliability across browsers
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.speak(utterance);
+          } catch (speakError) {
+            console.error('Error calling speak():', speakError);
+            reject(speakError);
+          }
+        }, 100);
+        
+      } catch (error) {
+        console.error('Error in speakWithWebSpeech:', error);
+        reject(error);
+      }
     });
   }
 
-  /**
-   * Load voices (handles browser voice loading quirks)
-   */
   private loadVoices(): Promise<void> {
     return new Promise((resolve) => {
-      const voices = window.speechSynthesis.getVoices();
-      
-      if (voices.length > 0) {
+      if (this.voicesLoaded) {
         resolve();
         return;
       }
 
-      // Wait for voiceschanged event (needed in some browsers)
-      const handleVoicesChanged = () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+      const voices = window.speechSynthesis.getVoices();
+      
+      if (voices.length > 0) {
+        this.voicesLoaded = true;
+        console.log(`✅ Loaded ${voices.length} voices`);
         resolve();
+        return;
+      }
+
+      // Wait for voiceschanged event
+      const handleVoicesChanged = () => {
+        const newVoices = window.speechSynthesis.getVoices();
+        if (newVoices.length > 0) {
+          this.voicesLoaded = true;
+          console.log(`✅ Loaded ${newVoices.length} voices via event`);
+          window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+          resolve();
+        }
       };
 
       window.speechSynthesis.addEventListener('voiceschanged', handleVoicesChanged);
 
-      // Timeout after 1 second
+      // Timeout after 2 seconds
       setTimeout(() => {
         window.speechSynthesis.removeEventListener('voiceschanged', handleVoicesChanged);
+        this.voicesLoaded = true;
+        console.log('⏱️ Voice loading timeout - proceeding with default');
         resolve();
-      }, 1000);
+      }, 2000);
     });
   }
 
@@ -247,42 +222,24 @@ export class UnifiedTTSService {
     return englishMapping[voice] || ['female'];
   }
 
-  /**
-   * Stop all speech playback
-   */
   stopSpeaking(): void {
-    // Stop OpenAI TTS
-    if (this.openAIService) {
-      this.openAIService.stopSpeaking();
-    }
-
-    // Stop Web Speech API
-    if (this.currentUtterance) {
+    if (this.currentUtterance || window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       this.currentUtterance = null;
       this.onSpeechEnd?.();
     }
   }
 
-  /**
-   * Check if currently speaking
-   */
   isSpeaking(): boolean {
-    const openAISpeaking = this.openAIService?.isSpeaking() || false;
-    const webSpeechSpeaking = this.currentUtterance !== null && window.speechSynthesis.speaking;
-    
-    return openAISpeaking || webSpeechSpeaking;
+    return this.currentUtterance !== null || window.speechSynthesis.speaking;
   }
 
-  /**
-   * Get current TTS capabilities
-   */
   getCapabilities(): {
     openAIAvailable: boolean;
     webSpeechAvailable: boolean;
   } {
     return {
-      openAIAvailable: true, // Always available via edge function
+      openAIAvailable: false, // No longer using OpenAI TTS
       webSpeechAvailable: 'speechSynthesis' in window
     };
   }
