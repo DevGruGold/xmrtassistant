@@ -152,12 +152,25 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   };
 
-  // Check if audio was previously enabled
+  // Auto-initialize TTS on mount for immediate use
   useEffect(() => {
-    const wasEnabled = localStorage.getItem('audioEnabled') === 'true';
-    if (wasEnabled) {
-      handleEnableAudio();
-    }
+    const initializeTTS = async () => {
+      const wasEnabled = localStorage.getItem('audioEnabled') === 'true';
+      if (wasEnabled) {
+        await handleEnableAudio();
+      } else {
+        // Initialize TTS silently so it's ready when user sends first message
+        try {
+          await enhancedTTS.initialize();
+          setAudioInitialized(true);
+          console.log('✅ TTS pre-initialized and ready');
+        } catch (error) {
+          console.log('TTS pre-initialization failed, will retry on first message:', error);
+        }
+      }
+    };
+    
+    initializeTTS();
   }, []);
 
   // Auto-scroll within chat container only (no page-level scrolling)
@@ -556,9 +569,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     setMessages(prev => [...prev, elizaMessage]);
     setLastElizaMessage(responseText);
 
-    // Use TTS if requested and voice is enabled
-    if (shouldSpeak && voiceEnabled && audioInitialized) {
+    // Use TTS if requested and voice is enabled - auto-initialize if needed
+    if (shouldSpeak && voiceEnabled) {
       try {
+        // Ensure TTS is initialized
+        if (!audioInitialized) {
+          await enhancedTTS.initialize();
+          setAudioInitialized(true);
+        }
+        
         setIsSpeaking(true);
         await enhancedTTS.speak(responseText, { language });
         setCurrentTTSMethod(enhancedTTS.getLastMethod());
@@ -683,9 +702,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response using Enhanced TTS with fallbacks
-      if (voiceEnabled && audioInitialized) {
+      // Speak response using Enhanced TTS with fallbacks - auto-initialize if needed
+      if (voiceEnabled) {
         try {
+          // Ensure TTS is initialized
+          if (!audioInitialized) {
+            await enhancedTTS.initialize();
+            setAudioInitialized(true);
+          }
+          
           setIsSpeaking(true);
           
           // Add small delay in voice mode to let speech recognition settle
@@ -883,8 +908,18 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           console.log('Conversation persistence error:', error);
         }
         
-        // Speak council synthesis with TTS (even if partial responses)
-        if (voiceEnabled && audioInitialized) {
+        // Speak council synthesis with TTS (even if partial responses) - auto-initialize if needed
+        if (voiceEnabled) {
+          // Ensure TTS is initialized
+          if (!audioInitialized) {
+            try {
+              await enhancedTTS.initialize();
+              setAudioInitialized(true);
+            } catch (error) {
+              console.error('Failed to initialize TTS for council speech:', error);
+            }
+          }
+          
           setIsSpeaking(true);
           
           // Build spoken text based on what's available
@@ -1008,19 +1043,28 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         console.log('Conversation persistence error:', error);
       }
 
-      // Speak response if voice is enabled (don't await - let it run in background)
-      if (voiceEnabled && audioInitialized && cleanResponse) {
-        setIsSpeaking(true);
-        enhancedTTS.speak(cleanResponse, { language })
-          .then(() => {
+      // Speak response if voice is enabled (don't await - let it run in background) - auto-initialize if needed
+      if (voiceEnabled && cleanResponse) {
+        // Ensure TTS is initialized
+        const initAndSpeak = async () => {
+          try {
+            if (!audioInitialized) {
+              await enhancedTTS.initialize();
+              setAudioInitialized(true);
+            }
+            
+            setIsSpeaking(true);
+            await enhancedTTS.speak(cleanResponse, { language });
             setCurrentTTSMethod(enhancedTTS.getLastMethod());
             setIsSpeaking(false);
-          })
-          .catch((error) => {
+          } catch (error) {
             console.error('❌ TTS failed:', error, 'Check browser audio permissions');
             setCurrentTTSMethod('failed');
             setIsSpeaking(false);
-          });
+          }
+        };
+        
+        initAndSpeak();
       }
       
     } catch (error) {
