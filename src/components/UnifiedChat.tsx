@@ -15,6 +15,7 @@ import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users } from 'lucide-react';
 import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
 import { enhancedTTS } from '@/services/enhancedTTSService';
+import { speechLearningService } from '@/services/speechLearningService';
 import { supabase } from '@/integrations/supabase/client';
 // Toast removed for lighter UI
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -819,13 +820,28 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       console.log('💬 Starting message processing:', textInput.trim());
       console.log('🔧 Context:', { miningStats: !!miningStats, userContext: !!userContext });
       
+      // Check if user is teaching pronunciation
+      const userInput = textInput.trim();
+      const learnedSpeech = speechLearningService.parseInstruction(userInput);
+      if (learnedSpeech) {
+        const confirmMessage: UnifiedMessage = {
+          id: `eliza-${Date.now()}`,
+          content: `✅ Got it! I've learned that preference and will apply it when I speak.`,
+          sender: 'assistant',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, confirmMessage]);
+        setIsProcessing(false);
+        return;
+      }
+      
       console.log('💾 User message stored, generating response...');
       
       // Get full conversation context for better AI understanding
       const fullContext = await conversationPersistence.getFullConversationContext();
       
       // Process response using Gemini AI Gateway or Council
-      const response = await UnifiedElizaService.generateResponse(textInput.trim(), {
+      const response = await UnifiedElizaService.generateResponse(userInput, {
         miningStats,
         userContext,
         inputMode: 'text',

@@ -1,3 +1,5 @@
+import { speechLearningService } from './speechLearningService';
+
 export interface UnifiedTTSOptions {
   text: string;
   voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
@@ -17,6 +19,8 @@ export class UnifiedTTSService {
   private audioContext: AudioContext | null = null;
   private isInitialized = false;
   private voicesLoaded = false;
+  private speechQueue: Array<{ text: string; options: UnifiedTTSOptions; onEnd?: () => void }> = [];
+  private isProcessingQueue = false;
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
@@ -42,8 +46,6 @@ export class UnifiedTTSService {
   }
 
   async speakText(options: UnifiedTTSOptions, onSpeechEnd?: () => void): Promise<{ success: boolean; method: string }> {
-    this.onSpeechEnd = onSpeechEnd;
-
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -53,17 +55,50 @@ export class UnifiedTTSService {
       await this.audioContext.resume();
     }
 
-    try {
-      await this.speakWithWebSpeech(options);
-      return { success: true, method: 'Web Speech API' };
-    } catch (error) {
-      console.error('❌ Web Speech API failed:', error);
-      onSpeechEnd?.();
-      return { success: false, method: 'Failed' };
-    }
+    // Add to queue instead of interrupting
+    return new Promise((resolve) => {
+      this.speechQueue.push({
+        text: options.text,
+        options,
+        onEnd: () => {
+          onSpeechEnd?.();
+          resolve({ success: true, method: 'Web Speech API' });
+        }
+      });
+      
+      // Start processing queue if not already processing
+      if (!this.isProcessingQueue) {
+        this.processQueue();
+      }
+    });
   }
 
-  private async speakWithWebSpeech(options: UnifiedTTSOptions): Promise<void> {
+  private async processQueue(): Promise<void> {
+    if (this.speechQueue.length === 0) {
+      this.isProcessingQueue = false;
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const item = this.speechQueue.shift();
+    
+    if (!item) {
+      this.isProcessingQueue = false;
+      return;
+    }
+
+    try {
+      await this.speakWithWebSpeech(item.options, item.onEnd);
+    } catch (error) {
+      console.error('❌ Web Speech API failed:', error);
+      item.onEnd?.();
+    }
+
+    // Process next item in queue
+    this.processQueue();
+  }
+
+  private async speakWithWebSpeech(options: UnifiedTTSOptions, onComplete?: () => void): Promise<void> {
     if (!('speechSynthesis' in window)) {
       throw new Error('Web Speech API not supported in this browser');
     }
@@ -73,13 +108,16 @@ export class UnifiedTTSService {
       await this.loadVoices();
     }
 
+    // Apply learned preferences
+    const { text: modifiedText, rate: learnedRate } = speechLearningService.applyPreferences(options.text);
+
     return new Promise((resolve, reject) => {
       try {
-        const utterance = new SpeechSynthesisUtterance(options.text);
+        const utterance = new SpeechSynthesisUtterance(modifiedText);
         this.currentUtterance = utterance;
         
-        // Configure voice settings
-        utterance.rate = options.speed || 0.95;
+        // Configure voice settings with learned preferences
+        utterance.rate = options.speed || learnedRate;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
 
@@ -116,17 +154,17 @@ export class UnifiedTTSService {
 
         utterance.onend = () => {
           this.currentUtterance = null;
-          this.onSpeechEnd?.();
+          onComplete?.();
           resolve();
         };
         
         utterance.onerror = (event) => {
           console.error('Speech synthesis error:', event.error);
           this.currentUtterance = null;
-          this.onSpeechEnd?.();
+          onComplete?.();
           
           if (event.error === 'canceled' || event.error === 'interrupted') {
-            resolve(); // Not a real error
+            resolve(); // Not a real error - user stopped or new speech started
           } else {
             reject(new Error(`Speech synthesis error: ${event.error}`));
           }
@@ -223,10 +261,11 @@ export class UnifiedTTSService {
   }
 
   stopSpeaking(): void {
+    // Clear queue and stop current speech
+    this.speechQueue = [];
     if (this.currentUtterance || window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       this.currentUtterance = null;
-      this.onSpeechEnd?.();
     }
   }
 
