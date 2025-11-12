@@ -9,10 +9,19 @@ const GITHUB_REPO = Deno.env.get('GITHUB_REPO') || 'XMRT-Ecosystem';
 
 // Validate required environment variables
 function validateGitHubConfig(): void {
-  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-    throw new Error('GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be configured');
+  const hasOAuth = GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET;
+  const hasPAT = Deno.env.get('GITHUB_TOKEN') || Deno.env.get('GITHUB_TOKEN_PROOF_OF_LIFE');
+  
+  if (!hasOAuth && !hasPAT) {
+    throw new Error('GitHub authentication not configured. Need either (GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET) or GITHUB_TOKEN');
   }
-  console.log(`✅ GitHub OAuth configured - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
+  
+  if (hasOAuth) {
+    console.log(`✅ GitHub OAuth configured (5,000 req/hr) - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
+  } else {
+    console.warn(`⚠️ Using PAT fallback (60 req/hr) - Owner: ${GITHUB_OWNER}, Repo: ${GITHUB_REPO}`);
+    console.warn(`⚠️ For production, configure GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET for higher rate limits`);
+  }
 }
 
 // Exchange OAuth code for access token
@@ -59,6 +68,20 @@ serve(async (req) => {
 
     // Handle OAuth callback
     if (action === 'oauth_callback') {
+      // Check if OAuth is configured
+      if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'OAuth not configured. Please set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.' 
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
       if (!code) {
         return new Response(
           JSON.stringify({ 
