@@ -358,3 +358,120 @@ verify_jwt = false
 [functions.workflow-template-manager]
 verify_jwt = false
 
+# ====================================================================
+# AUTONOMOUS & SELF-MANAGEMENT FUNCTIONS
+# ====================================================================
+
+[functions.autonomous-decision-maker]
+verify_jwt = false
+
+[functions.eliza-python-runtime]
+verify_jwt = false
+
+[functions.eliza-self-evaluation]
+verify_jwt = false
+
+[functions.function-usage-analytics]
+verify_jwt = true
+
+[functions.get-code-execution-lessons]
+verify_jwt = false
+
+[functions.list-available-functions]
+verify_jwt = false
+
+# ====================================================================
+# MOBILE MINING INFRASTRUCTURE
+# ====================================================================
+
+[functions.mobile-miner-config]
+verify_jwt = false
+
+[functions.mobile-miner-register]
+verify_jwt = false
+
+[functions.mobile-miner-script]
+verify_jwt = false
+
+# ====================================================================
+# FUNCTION MANAGEMENT & GOVERNANCE
+# ====================================================================
+
+[functions.evaluate-community-idea]
+verify_jwt = false
+
+[functions.list-function-proposals]
+verify_jwt = false
+
+[functions.propose-edge-function]
+verify_jwt = false
+
+[functions.vote-on-proposal]
+verify_jwt = false
+
+# ====================================================================
+# SUPERDUPER AGENT FLEET (12 SPECIALIZED AI AGENTS)
+# ====================================================================
+
+[functions.superduper-router]
+verify_jwt = false
+
+[functions.superduper-integration]
+verify_jwt = false
+
+[functions.superduper-business-growth]
+verify_jwt = false
+
+[functions.superduper-code-architect]
+verify_jwt = false
+
+[functions.superduper-communication-outreach]
+verify_jwt = false
+
+[functions.superduper-content-media]
+verify_jwt = false
+
+[functions.superduper-design-brand]
+verify_jwt = false
+
+[functions.superduper-development-coach]
+verify_jwt = false
+
+[functions.superduper-domain-experts]
+verify_jwt = false
+
+[functions.superduper-finance-investment]
+verify_jwt = false
+
+[functions.superduper-research-intelligence]
+verify_jwt = false
+
+[functions.superduper-social-viral]
+verify_jwt = false
+
+# ====================================================================
+# AI MODEL INTEGRATIONS
+# ====================================================================
+
+[functions.kimi-chat]
+verify_jwt = false
+
+# ====================================================================
+# INFRASTRUCTURE & UTILITIES
+# ====================================================================
+
+[functions.opportunity-scanner]
+verify_jwt = false
+
+[functions.render-api]
+verify_jwt = false
+
+[functions.system-knowledge-builder]
+verify_jwt = false
+
+[functions.universal-edge-invoker]
+verify_jwt = false
+
+[functions.update-api-key]
+verify_jwt = true
+
