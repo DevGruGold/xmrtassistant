@@ -26,7 +26,7 @@ FUNCTION CATEGORIES (125+ total):
 - 🔍 Monitoring & Health (10+): system-status, system-health, system-diagnostics, ecosystem-monitor, api-key-health-monitor, check-frontend-health, monitor-device-connections, function-usage-analytics
 - ⛏️ Mining & Devices (8): mining-proxy, aggregate-device-metrics, mobile-miner-config, mobile-miner-register, mobile-miner-script, monitor-device-connections, prometheus-metrics
 - 🤖 Autonomous Systems (12+): autonomous-code-fixer, multi-step-orchestrator, code-monitor-daemon, eliza-intelligence-coordinator, eliza-self-evaluation, opportunity-scanner
-- 📝 Governance & Community (7): evaluate-community-idea, propose-edge-function, vote-on-proposal, list-function-proposals, process-contributor-reward
+- 📝 Governance & Community (7): evaluate-community-idea, propose-new-edge-function, vote-on-proposal, list-function-proposals, process-contributor-reward
 - 🌐 Ecosystem & Deployment (8): ecosystem-monitor, vercel-ecosystem-api, vercel-manager, render-api, xmrt-integration, redis-cache
 - 📢 Autonomous Posting (7): daily-discussion-post, morning-discussion-post, evening-summary-post, progress-update-post, community-spotlight-post, weekly-retrospective-post
 - 🗄️ Database & Storage (3): schema-manager, python-db-bridge, redis-cache

@@ -269,7 +269,7 @@ export async function executeToolCall(
         break;
         
       case 'propose_new_edge_function':
-        const proposalResult = await supabase.functions.invoke('propose-edge-function', {
+        const proposalResult = await supabase.functions.invoke('propose-new-edge-function', {
           body: { ...parsedArgs, proposed_by: executiveName }
         });
         result = { success: true, result: proposalResult.data };

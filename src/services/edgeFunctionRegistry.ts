@@ -278,8 +278,8 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     example_use: '{ "function_name": "github-integration", "time_period_hours": 168 }'
   },
   {
-    name: 'propose-edge-function',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-edge-function',
+    name: 'propose-new-edge-function',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-new-edge-function',
     description: 'Propose a new edge function to the Executive Council. Requires 3/4 approval for deployment.',
     capabilities: ['governance', 'consensus', 'autonomous expansion', 'capability proposal'],
     category: 'autonomous',

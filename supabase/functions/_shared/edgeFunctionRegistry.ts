@@ -667,8 +667,8 @@ export const EDGE_FUNCTIONS_REGISTRY: EdgeFunctionCapability[] = [
     category: 'autonomous',
     example_use: 'Scan for opportunities, detect market trends, identify potential'
   },  {
-    name: 'propose-edge-function',
-    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-edge-function',
+    name: 'propose-new-edge-function',
+    url: 'https://vawouugtzwmejxqkeqqj.supabase.co/functions/v1/propose-new-edge-function',
     description: 'Submit new edge function proposals for council voting',
     capabilities: ["Proposal submission", "Governance workflow", "Council voting"],
     category: 'governance',

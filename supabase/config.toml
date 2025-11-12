@@ -403,7 +403,7 @@ verify_jwt = false
 [functions.list-function-proposals]
 verify_jwt = false
 
-[functions.propose-edge-function]
+[functions.propose-new-edge-function]
 verify_jwt = false
 
 [functions.vote-on-proposal]
