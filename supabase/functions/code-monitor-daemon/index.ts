@@ -5,13 +5,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 // Configuration
-const CODE_SCAN_WINDOW_HOURS = parseInt(Deno.env.get("CODE_SCAN_WINDOW_HOURS") || "24");
-const CODE_SCAN_BATCH_SIZE = parseInt(Deno.env.get("CODE_SCAN_BATCH_SIZE") || "100");
+const CODE_SCAN_WINDOW_HOURS = parseInt(Deno.env.get("CODE_SCAN_WINDOW_HOURS") || "1");
+const CODE_SCAN_BATCH_SIZE = parseInt(Deno.env.get("CODE_SCAN_BATCH_SIZE") || "50");
+const MAX_AUTO_FIX_ATTEMPTS = 3; // Max fixes per scan to avoid overwhelming the system
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-
-// Code block extraction regex
-const CODE_BLOCK_REGEX = /```(?:python|js|javascript)\n([\s\S]*?)```/g;
 
 async function logActivity(
   activity_type: string,
@@ -28,124 +26,65 @@ async function logActivity(
   });
 }
 
-// Normalize code for comparison (remove extra whitespace, comments)
-function normalizeCode(code: string): string {
-  return code
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/#.*$/gm, '') // Remove Python comments
-    .replace(/\/\/.*$/gm, '') // Remove JS comments
-    .toLowerCase();
-}
-
-// Check if code is executable (has actual statements, not just comments/config)
-function isExecutableCode(code: string): boolean {
-  const trimmed = code.trim();
+// Categorize error types for intelligent auto-fixing
+function categorizeError(errorMessage: string): string {
+  if (!errorMessage) return 'unknown';
   
-  // Skip empty code
-  if (!trimmed) return false;
+  const error = errorMessage.toLowerCase();
   
-  // Skip if only comments
-  const withoutComments = trimmed
-    .replace(/#.*$/gm, '')
-    .replace(/\/\/.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .trim();
-  if (!withoutComments) return false;
-  
-  // Skip pure JSON/YAML/config
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return false;
-  if (trimmed.startsWith('[') && trimmed.endsWith(']')) return false;
-  if (trimmed.match(/^[\w_]+:\s*.+$/m)) return false; // YAML-like
-  
-  // Check for executable indicators
-  const hasImports = /^(import |from .+ import)/m.test(trimmed);
-  const hasFunctionCalls = /\w+\([^)]*\)/m.test(trimmed);
-  const hasAssignments = /\w+\s*=\s*.+/m.test(trimmed);
-  const hasStatements = /^(print|return|if|for|while|def|class)/m.test(trimmed);
-  
-  return hasImports || hasFunctionCalls || hasAssignments || hasStatements;
-}
-
-// Check if code was properly executed via tool call
-async function wasCodeProperlyExecutedViaTool(
-  code: string,
-  messageTimestamp: string
-): Promise<{ executed: boolean; executiveName?: string }> {
-  const normalized = normalizeCode(code);
-  
-  // Check eliza_function_usage for execute_python tool calls
-  const { data: toolCalls } = await supabase
-    .from("eliza_function_usage")
-    .select("*")
-    .eq("function_name", "execute_python")
-    .gte("invoked_at", messageTimestamp)
-    .limit(100);
-  
-  if (!toolCalls || toolCalls.length === 0) {
-    return { executed: false };
+  if (error.includes('modulenotfounderror') || error.includes('importerror')) {
+    return 'missing_module';
+  }
+  if (error.includes('syntaxerror')) {
+    return 'syntax_error';
+  }
+  if (error.includes('nameerror')) {
+    return 'undefined_variable';
+  }
+  if (error.includes('typeerror')) {
+    return 'type_error';
+  }
+  if (error.includes('attributeerror')) {
+    return 'attribute_error';
+  }
+  if (error.includes('indexerror') || error.includes('keyerror')) {
+    return 'index_key_error';
+  }
+  if (error.includes('zerodivisionerror')) {
+    return 'division_error';
+  }
+  if (error.includes('urllib') || error.includes('requests') || error.includes('network')) {
+    return 'network_access';
+  }
+  if (error.includes('timeout')) {
+    return 'timeout';
   }
   
-  // Check if any tool call contains this code
-  for (const call of toolCalls) {
-    const callCode = call.parameters?.code || '';
-    if (normalizeCode(callCode) === normalized) {
-      return { executed: true, executiveName: call.executive_name };
-    }
-  }
-  
-  return { executed: false };
+  return 'runtime_error';
 }
 
-// Check if code was already executed (legacy check)
-async function wasCodeExecuted(code: string): Promise<boolean> {
-  const normalized = normalizeCode(code);
-  
-  // Query recent executions (last 48 hours to catch all retroactive runs)
-  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-  
-  const { data: executions } = await supabase
-    .from("eliza_python_executions")
-    .select("code")
-    .gte("created_at", twoDaysAgo)
-    .limit(1000);
-  
-  if (!executions || executions.length === 0) return false;
-  
-  // Fuzzy match - check if normalized code exists
-  for (const exec of executions) {
-    const execNormalized = normalizeCode(exec.code || '');
-    if (execNormalized === normalized) return true;
-    
-    // Also check substring match (code might be part of larger execution)
-    if (execNormalized.includes(normalized) || normalized.includes(execNormalized)) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-// Provide feedback to executive
+// Provide feedback to executive about auto-fix results
 async function provideFeedbackToAgent(
-  executiveName: string,
-  violation: any,
-  fixAttempt: any
+  execution: any,
+  fixResult: any
 ) {
+  const executiveName = execution.metadata?.agent_id || execution.source || 'eliza-main';
+  
   const feedbackMessage = {
     executive_name: executiveName,
-    feedback_type: 'code_execution_violation',
-    issue_description: 'Code displayed in chat without proper tool call',
-    learning_point: generateLearningPoint(violation, fixAttempt),
+    feedback_type: 'auto_fix_result',
+    issue_description: `Python execution ${execution.id} failed: ${categorizeError(execution.error_message)}`,
+    learning_point: generateLearningPoint(execution, fixResult),
     original_context: {
-      message_id: violation.message_id,
-      code_preview: violation.code_preview,
-      language: violation.language
+      execution_id: execution.id,
+      code_preview: execution.code.substring(0, 200),
+      error_type: categorizeError(execution.error_message),
+      error_message: execution.error_message?.substring(0, 300)
     },
     fix_result: {
-      success: fixAttempt.success,
-      output: fixAttempt.output,
-      error: fixAttempt.error
+      success: fixResult.success,
+      fixed_code_preview: fixResult.fixed_code?.substring(0, 200),
+      learning_metadata: fixResult.learning
     },
     acknowledged: false
   };
@@ -153,19 +92,32 @@ async function provideFeedbackToAgent(
   await supabase.from('executive_feedback').insert(feedbackMessage);
 }
 
-function generateLearningPoint(violation: any, fixAttempt: any): string {
-  if (fixAttempt.success) {
-    return `✅ Code executed successfully via daemon. Next time, use execute_python tool directly instead of showing code in chat. Your tool call should include: { code: "...", purpose: "..." }`;
+function generateLearningPoint(execution: any, fixResult: any): string {
+  const errorType = categorizeError(execution.error_message);
+  
+  if (fixResult.success) {
+    switch (errorType) {
+      case 'missing_module':
+        return `✅ Auto-fixed module import error. Replaced external module with built-in alternatives. Use standard library modules only.`;
+      case 'syntax_error':
+        return `✅ Auto-fixed syntax error. Code structure corrected. Review Python syntax before executing.`;
+      case 'undefined_variable':
+        return `✅ Auto-fixed undefined variable. Added proper initialization. Always define variables before use.`;
+      case 'network_access':
+        return `✅ Auto-fixed network access attempt. Use invoke_edge_function for API calls instead of direct HTTP requests.`;
+      default:
+        return `✅ Code auto-fixed successfully. Error: ${errorType}. Learning captured for future prevention.`;
+    }
   } else {
-    const error = fixAttempt.error || '';
-    if (error.includes('network') || error.includes('urllib') || error.includes('requests')) {
-      return `❌ Network error: Python sandbox has no network access. For API calls, use invoke_edge_function with the appropriate edge function instead of execute_python.`;
-    } else if (error.includes('ModuleNotFoundError') || error.includes('ImportError')) {
-      return `❌ Import error: Module not available in sandbox. Use built-in Python libraries only (math, json, datetime, etc.).`;
-    } else if (error.includes('SyntaxError')) {
-      return `❌ Syntax error: Check code for typos or invalid Python syntax. Validate code before calling execute_python.`;
-    } else {
-      return `❌ Execution failed: ${error}. Review error details and adjust code accordingly.`;
+    switch (errorType) {
+      case 'network_access':
+        return `❌ Cannot auto-fix network access. Python sandbox has no internet. Use invoke_edge_function with appropriate edge function.`;
+      case 'missing_module':
+        return `❌ Cannot auto-fix module dependency. Only built-in modules available (math, json, datetime, re, etc.). Rewrite using standard library.`;
+      case 'timeout':
+        return `❌ Execution timeout. Code too slow or infinite loop. Optimize algorithm or break into smaller chunks.`;
+      default:
+        return `❌ Auto-fix failed for ${errorType}. Error: ${execution.error_message?.substring(0, 150)}. Manual review needed.`;
     }
   }
 }
@@ -175,37 +127,37 @@ Deno.serve(async (req) => {
   
   await logActivity(
     "daemon_scan",
-    "🔍 Code Monitor Daemon: Scanning conversation messages for unexecuted code...",
+    "🔍 Code Monitor Daemon: Scanning Python executions for failures and triggering auto-fixes...",
     { 
       scan_time: scanStartTime.toISOString(),
       scan_window_hours: CODE_SCAN_WINDOW_HOURS,
-      batch_size: CODE_SCAN_BATCH_SIZE
+      batch_size: CODE_SCAN_BATCH_SIZE,
+      max_auto_fixes: MAX_AUTO_FIX_ATTEMPTS
     },
     "in_progress"
   );
 
   try {
-    // Query conversation_messages for assistant messages with code blocks
+    // Query eliza_python_executions for failed executions
     const scanWindowStart = new Date(Date.now() - CODE_SCAN_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
     
-    const { data: messages, error: fetchError } = await supabase
-      .from("conversation_messages")
-      .select("id, content, timestamp, session_id, metadata")
-      .eq("message_type", "assistant")
-      .or(`content.like.%\`\`\`python%,content.like.%\`\`\`js%,content.like.%\`\`\`javascript%`)
-      .gte("timestamp", scanWindowStart)
-      .order("timestamp", { ascending: false })
+    const { data: failedExecutions, error: fetchError } = await supabase
+      .from("eliza_python_executions")
+      .select("*")
+      .or("exit_code.neq.0,status.eq.error")
+      .gte("created_at", scanWindowStart)
+      .order("created_at", { ascending: false })
       .limit(CODE_SCAN_BATCH_SIZE);
 
     if (fetchError) throw fetchError;
 
-    const messageCount = messages?.length || 0;
-    console.log(`📊 Found ${messageCount} assistant messages with code blocks in last ${CODE_SCAN_WINDOW_HOURS}h`);
+    const executionCount = failedExecutions?.length || 0;
+    console.log(`📊 Found ${executionCount} failed Python executions in last ${CODE_SCAN_WINDOW_HOURS}h`);
     
-    if (messageCount === 0) {
+    if (executionCount === 0) {
       await logActivity(
         "daemon_scan",
-        `✅ Scan complete: No messages with code blocks found`,
+        `✅ Scan complete: No failed executions found - system healthy!`,
         {
           scan_window_hours: CODE_SCAN_WINDOW_HOURS,
           scan_duration_ms: Date.now() - scanStartTime.getTime(),
@@ -216,163 +168,133 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: "No code blocks found in conversation messages",
+          message: "No failed executions found",
           scanned_at: scanStartTime.toISOString(),
-          messages_scanned: 0,
-          violations_found: 0
+          executions_scanned: 0,
+          auto_fixes_attempted: 0
         }),
         { headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Extract and process code blocks
-    const violations: any[] = [];
-    const executionResults: any[] = [];
+    // Filter out already auto-fixed executions
+    const unfixedExecutions = failedExecutions.filter(exec => {
+      const metadata = exec.metadata || {};
+      return !metadata.auto_fix_attempted && !metadata.was_auto_fixed;
+    });
+
+    console.log(`🔧 ${unfixedExecutions.length} executions need auto-fixing (${executionCount - unfixedExecutions.length} already attempted)`);
+
+    // Limit auto-fixes per scan to avoid overwhelming the system
+    const executionsToFix = unfixedExecutions.slice(0, MAX_AUTO_FIX_ATTEMPTS);
     
-    for (const message of messages!) {
-      const codeBlocks = [...message.content.matchAll(CODE_BLOCK_REGEX)];
+    const autoFixResults: any[] = [];
+    const errorStats: Record<string, number> = {};
+    
+    for (const execution of executionsToFix) {
+      const errorType = categorizeError(execution.error_message);
+      errorStats[errorType] = (errorStats[errorType] || 0) + 1;
       
-      for (const match of codeBlocks) {
-        const code = match[1].trim();
-        const language = match[0].match(/```(\w+)/)?.[1] || 'python';
+      console.log(`🔧 Triggering auto-fixer for execution ${execution.id} (${errorType})`);
+      
+      await logActivity(
+        "auto_fix_triggered",
+        `🔧 Triggering auto-fixer for failed execution ${execution.id}`,
+        { 
+          execution_id: execution.id, 
+          error_type: errorType,
+          error_preview: execution.error_message?.substring(0, 200)
+        },
+        "in_progress"
+      );
+      
+      try {
+        // Invoke autonomous-code-fixer
+        const { data: fixResult, error: fixError } = await supabase.functions.invoke(
+          "autonomous-code-fixer",
+          { body: { execution_id: execution.id } }
+        );
         
-        // Skip non-executable code
-        if (!isExecutableCode(code)) {
-          console.log(`⏭️ Skipping non-executable code block (${code.substring(0, 50)}...)`);
-          continue;
-        }
+        const fixSuccess = !fixError && fixResult?.success;
         
-        // Check if code was properly executed via tool call
-        const toolCheck = await wasCodeProperlyExecutedViaTool(code, message.timestamp);
+        autoFixResults.push({
+          execution_id: execution.id,
+          error_type: errorType,
+          fix_attempted: true,
+          fix_success: fixSuccess,
+          learning_captured: fixResult?.learning ? true : false
+        });
         
-        if (toolCheck.executed) {
-          console.log(`✅ Code was properly executed via tool by ${toolCheck.executiveName}`);
-          continue; // No violation - proper tool use
-        }
+        await logActivity(
+          fixSuccess ? "auto_fix_success" : "auto_fix_failed",
+          fixSuccess 
+            ? `✅ Auto-fix succeeded for execution ${execution.id}` 
+            : `❌ Auto-fix failed for execution ${execution.id}`,
+          {
+            execution_id: execution.id,
+            error_type: errorType,
+            fix_result: fixResult,
+            fix_error: fixError
+          },
+          fixSuccess ? "completed" : "failed"
+        );
         
-        // Legacy check for retroactive executions
-        const wasExecuted = await wasCodeExecuted(code);
+        // Provide feedback to Eliza
+        await provideFeedbackToAgent(execution, {
+          success: fixSuccess,
+          fixed_code: fixResult?.fixed_code,
+          learning: fixResult?.learning,
+          error: fixError?.message
+        });
         
-        if (!wasExecuted) {
-          // CODE VIOLATION DETECTED!
-          const violation = {
-            message_id: message.id,
-            session_id: message.session_id,
-            code_preview: code.substring(0, 200),
-            code_length: code.length,
-            language,
-            message_timestamp: message.timestamp,
-            detected_at: new Date().toISOString()
-          };
-          
-          violations.push(violation);
-          
-          await logActivity(
-            "code_violation_detected",
-            `🚨 RULE VIOLATION: Eliza wrote code but didn't execute it`,
-            violation,
-            "pending_execution"
-          );
-          
-          console.log(`🚨 VIOLATION FOUND in message ${message.id}: ${code.substring(0, 100)}...`);
-          
-          // Retroactively execute the code
-          try {
-            console.log(`⚡ Executing code retroactively...`);
-            
-            const { data: execData, error: execError } = await supabase.functions.invoke(
-              "python-executor",
-              {
-                body: {
-                  code,
-                  language,
-                  purpose: "retroactive_execution_from_chat",
-                  source: "code-monitor-daemon",
-                  agent_id: "eliza",
-                  metadata: {
-                    original_message_id: message.id,
-                    violation_detected_at: new Date().toISOString()
-                  }
-                }
-              }
-            );
-            
-            const executionSuccess = !execError && execData?.success;
-            
-            executionResults.push({
-              message_id: message.id,
-              code_preview: code.substring(0, 100),
-              success: executionSuccess,
-              output: execData?.output || null,
-              error: execData?.error || execError?.message || null
-            });
-            
-            await logActivity(
-              "code_violation_detected",
-              executionSuccess 
-                ? `✅ Retroactive execution succeeded for message ${message.id}`
-                : `❌ Retroactive execution failed for message ${message.id}`,
-              {
-                message_id: message.id,
-                code_preview: code.substring(0, 200),
-                execution_result: execData,
-                execution_error: execError
-              },
-              executionSuccess ? "completed" : "failed"
-            );
-            
-            // Provide feedback to the executive
-            const executiveName = message.metadata?.executive_name || 'Eliza';
-            await provideFeedbackToAgent(executiveName, violation, {
-              success: executionSuccess,
-              output: execData?.output,
-              error: execData?.error || execError?.message
-            });
-            
-            console.log(executionSuccess ? `✅ Execution succeeded` : `❌ Execution failed: ${execData?.error || execError?.message}`);
-            
-          } catch (execException) {
-            console.error(`❌ Exception during execution:`, execException);
-            executionResults.push({
-              message_id: message.id,
-              code_preview: code.substring(0, 100),
-              success: false,
-              error: execException.message
-            });
-            
-            await logActivity(
-              "code_violation_detected",
-              `❌ Exception during retroactive execution for message ${message.id}`,
-              {
-                message_id: message.id,
-                error: execException.message,
-                stack: execException.stack
-              },
-              "failed"
-            );
-          }
-        }
+        console.log(fixSuccess 
+          ? `✅ Auto-fix succeeded for ${execution.id}` 
+          : `❌ Auto-fix failed for ${execution.id}: ${fixError?.message}`);
+        
+      } catch (fixException) {
+        console.error(`❌ Exception during auto-fix for ${execution.id}:`, fixException);
+        
+        autoFixResults.push({
+          execution_id: execution.id,
+          error_type: errorType,
+          fix_attempted: true,
+          fix_success: false,
+          exception: fixException.message
+        });
+        
+        await logActivity(
+          "auto_fix_exception",
+          `❌ Exception during auto-fix for execution ${execution.id}`,
+          {
+            execution_id: execution.id,
+            error: fixException.message,
+            stack: fixException.stack
+          },
+          "failed"
+        );
       }
     }
     
     // Generate summary report
-    const successfulExecutions = executionResults.filter(r => r.success).length;
-    const failedExecutions = executionResults.filter(r => !r.success).length;
+    const successfulFixes = autoFixResults.filter(r => r.fix_success).length;
+    const failedFixes = autoFixResults.filter(r => !r.fix_success).length;
     
     const summary = {
       scan_completed_at: new Date().toISOString(),
       scan_duration_ms: Date.now() - scanStartTime.getTime(),
       scan_window_hours: CODE_SCAN_WINDOW_HOURS,
-      messages_scanned: messageCount,
-      violations_found: violations.length,
-      executions_attempted: executionResults.length,
-      executions_succeeded: successfulExecutions,
-      executions_failed: failedExecutions
+      executions_scanned: executionCount,
+      executions_needing_fix: unfixedExecutions.length,
+      auto_fixes_attempted: executionsToFix.length,
+      auto_fixes_succeeded: successfulFixes,
+      auto_fixes_failed: failedFixes,
+      error_categories: errorStats,
+      learning_captured: autoFixResults.filter(r => r.learning_captured).length
     };
     
     await logActivity(
       "daemon_scan",
-      `✅ Code Monitor Scan Complete: ${violations.length} violations found, ${successfulExecutions} executed successfully`,
+      `✅ Code Monitor Scan Complete: ${executionsToFix.length} auto-fixes attempted, ${successfulFixes} succeeded`,
       summary,
       "completed"
     );
@@ -383,8 +305,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         ...summary,
-        violations: violations.slice(0, 10), // Return first 10 for inspection
-        execution_results: executionResults.slice(0, 10)
+        auto_fix_results: autoFixResults.slice(0, 10) // Return first 10 for inspection
       }),
       { headers: { "Content-Type": "application/json" } }
     );
