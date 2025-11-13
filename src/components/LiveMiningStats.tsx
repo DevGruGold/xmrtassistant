@@ -271,7 +271,7 @@ const LiveMiningStats = () => {
               {t('stats.amount.due')}
             </div>
             <div className="text-lg font-bold text-foreground">
-              {stats ? `${(stats.amtDue / 1000000000000).toFixed(6)} XMR` : "0 XMR"}
+              {stats ? `${stats.amtDue.toFixed(6)} XMR` : "0 XMR"}
             </div>
           </div>
           

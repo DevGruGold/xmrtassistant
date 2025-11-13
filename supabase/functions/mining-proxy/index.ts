@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Monero atomic units conversion: 1 XMR = 10^12 atomic units
+const MONERO_ATOMIC_UNITS = 1000000000000;
+
+function atomicUnitsToXMR(atomicUnits: number): number {
+  return atomicUnits / MONERO_ATOMIC_UNITS;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -180,9 +187,14 @@ serve(async (req) => {
       }
     }
 
-    // Return both workers array AND original data for frontend compatibility
+    // Return both workers array AND original data with XMR conversion
     const responseData = {
       ...data,
+      // Convert atomic units to XMR for all amount fields
+      amtDue: atomicUnitsToXMR(data.amtDue || 0),
+      amtPaid: atomicUnitsToXMR(data.amtPaid || 0),
+      amountDue: atomicUnitsToXMR(data.amtDue || 0), // Alias for compatibility
+      amountPaid: atomicUnitsToXMR(data.amtPaid || 0), // Alias for compatibility
       workers: workers.length > 0 ? workers : undefined
     };
 
