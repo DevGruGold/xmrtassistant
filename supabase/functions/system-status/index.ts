@@ -216,9 +216,176 @@ serve(async (req) => {
           status: 'error',
           error: error.message
         };
-      }
+    }
     
-    // 6. Check Activity Log for Recent Errors
+    // 6. Check Edge Functions Health
+    console.log('⚡ Checking edge functions health...');
+    try {
+      const { data: functionUsage, error: usageError } = await supabase
+        .from('eliza_function_usage')
+        .select('*')
+        .gte('invoked_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('invoked_at', { ascending: false });
+      
+      if (usageError) throw usageError;
+      
+      // Get function stats
+      const functionStats: Record<string, any> = {};
+      functionUsage?.forEach((usage: any) => {
+        const funcName = usage.function_name;
+        if (!functionStats[funcName]) {
+          functionStats[funcName] = {
+            total_calls: 0,
+            successful: 0,
+            failed: 0,
+            avg_duration_ms: 0,
+            last_called: null,
+            error_rate: 0
+          };
+        }
+        
+        functionStats[funcName].total_calls++;
+        if (usage.status === 'success') {
+          functionStats[funcName].successful++;
+        } else if (usage.status === 'error' || usage.status === 'failed') {
+          functionStats[funcName].failed++;
+        }
+        
+        if (usage.duration_ms) {
+          functionStats[funcName].avg_duration_ms = 
+            (functionStats[funcName].avg_duration_ms * (functionStats[funcName].total_calls - 1) + usage.duration_ms) 
+            / functionStats[funcName].total_calls;
+        }
+        
+        if (!functionStats[funcName].last_called || new Date(usage.invoked_at) > new Date(functionStats[funcName].last_called)) {
+          functionStats[funcName].last_called = usage.invoked_at;
+        }
+      });
+      
+      // Calculate error rates
+      Object.keys(functionStats).forEach(funcName => {
+        const stats = functionStats[funcName];
+        stats.error_rate = stats.total_calls > 0 ? (stats.failed / stats.total_calls) * 100 : 0;
+        stats.avg_duration_ms = Math.round(stats.avg_duration_ms);
+      });
+      
+      // Get top failing functions
+      const topFailingFunctions = Object.entries(functionStats)
+        .filter(([_, stats]: [string, any]) => stats.error_rate > 10)
+        .sort((a: any, b: any) => b[1].error_rate - a[1].error_rate)
+        .slice(0, 5)
+        .map(([name, stats]) => ({ name, ...stats }));
+      
+      const totalFunctions = Object.keys(functionStats).length;
+      const healthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate < 5).length;
+      const degradedFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 5 && s.error_rate < 20).length;
+      const unhealthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 20).length;
+      
+      statusReport.components.edge_functions = {
+        status: unhealthyFunctions > 3 ? 'degraded' : (degradedFunctions > 5 ? 'degraded' : 'healthy'),
+        total_functions: totalFunctions,
+        healthy: healthyFunctions,
+        degraded: degradedFunctions,
+        unhealthy: unhealthyFunctions,
+        top_failing: topFailingFunctions,
+        total_calls_24h: functionUsage?.length || 0,
+        overall_error_rate: functionUsage?.length > 0 
+          ? Math.round((functionUsage.filter((u: any) => u.status === 'error' || u.status === 'failed').length / functionUsage.length) * 100) 
+          : 0
+      };
+      
+      if (unhealthyFunctions > 3 || statusReport.components.edge_functions.overall_error_rate > 15) {
+        statusReport.overall_status = 'degraded';
+      }
+    } catch (error) {
+      statusReport.components.edge_functions = {
+        status: 'error',
+        error: error.message
+      };
+    }
+    
+    // 7. Check Cron Jobs Health
+    console.log('⏰ Checking cron jobs health...');
+    try {
+      // Query pg_cron jobs
+      const { data: cronJobs, error: cronError } = await supabase.rpc('get_cron_jobs_status');
+      
+      if (cronError) {
+        // Fallback: check activity log for scheduled tasks
+        const { data: scheduledActivity, error: schedError } = await supabase
+          .from('eliza_activity_log')
+          .select('*')
+          .in('activity_type', ['cron_execution', 'scheduled_task', 'daemon_scan'])
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(100);
+        
+        if (schedError) throw schedError;
+        
+        const cronStats: Record<string, any> = {};
+        scheduledActivity?.forEach((activity: any) => {
+          const jobName = activity.title || activity.activity_type;
+          if (!cronStats[jobName]) {
+            cronStats[jobName] = {
+              executions: 0,
+              successful: 0,
+              failed: 0,
+              last_run: null,
+              success_rate: 0
+            };
+          }
+          
+          cronStats[jobName].executions++;
+          if (activity.status === 'completed') {
+            cronStats[jobName].successful++;
+          } else if (activity.status === 'failed') {
+            cronStats[jobName].failed++;
+          }
+          
+          if (!cronStats[jobName].last_run || new Date(activity.created_at) > new Date(cronStats[jobName].last_run)) {
+            cronStats[jobName].last_run = activity.created_at;
+          }
+        });
+        
+        // Calculate success rates
+        Object.keys(cronStats).forEach(jobName => {
+          const stats = cronStats[jobName];
+          stats.success_rate = stats.executions > 0 ? Math.round((stats.successful / stats.executions) * 100) : 0;
+        });
+        
+        const totalJobs = Object.keys(cronStats).length;
+        const healthyJobs = Object.values(cronStats).filter((s: any) => s.success_rate > 80).length;
+        const failingJobs = Object.values(cronStats).filter((s: any) => s.success_rate < 50).length;
+        
+        statusReport.components.cron_jobs = {
+          status: failingJobs > 2 ? 'degraded' : (healthyJobs < totalJobs / 2 ? 'degraded' : 'healthy'),
+          total_jobs: totalJobs,
+          healthy_jobs: healthyJobs,
+          failing_jobs: failingJobs,
+          jobs_summary: Object.entries(cronStats).map(([name, stats]) => ({
+            name,
+            ...stats
+          })).sort((a: any, b: any) => a.success_rate - b.success_rate),
+          executions_24h: scheduledActivity?.length || 0
+        };
+        
+        if (failingJobs > 2) {
+          statusReport.overall_status = 'degraded';
+        }
+      } else {
+        statusReport.components.cron_jobs = {
+          status: 'healthy',
+          jobs: cronJobs
+        };
+      }
+    } catch (error) {
+      statusReport.components.cron_jobs = {
+        status: 'error',
+        error: error.message
+      };
+    }
+    
+    // 8. Check Activity Log for Recent Errors
     console.log('📜 Checking recent activity logs...');
     try {
       const { data: recentActivity, error: activityError } = await supabase
@@ -256,7 +423,7 @@ serve(async (req) => {
       };
     }
     
-    // 7. Generate Health Summary
+    // 9. Generate Health Summary
     const healthyComponents = Object.values(statusReport.components).filter(
       (c: any) => c.status === 'healthy'
     ).length;
