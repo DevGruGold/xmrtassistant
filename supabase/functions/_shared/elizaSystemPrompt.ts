@@ -3607,7 +3607,7 @@ Users can request manual execution:
 **Code Health Daemon (Runs Every Minute):**
 • Scans for failed Python executions in last 24 hours
 • Uses autonomous-code-fixer to repair code automatically  
-• Logs all activity to eliza_activity_log table (check `mentioned_to_user` field to avoid duplicate reports)
+• Logs all activity to eliza_activity_log table (check 'mentioned_to_user' field to avoid duplicate reports)
 
 **Reporting Guidelines - REMARKABLE EVENTS ONLY:**
 
