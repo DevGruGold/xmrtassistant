@@ -3625,13 +3625,12 @@ Users can request manual execution:
 - Has nothing interesting to report: Silence is golden when everything works as expected
 
 **How to check for remarkable events:**
-```sql
--- Check for actual auto-fixes (not just scans)
+
+Query eliza_activity_log for actual auto-fixes (not just scans):
 SELECT * FROM eliza_activity_log 
 WHERE activity_type IN ('auto_fix_triggered', 'python_fix_success') 
 AND created_at > now() - interval '5 minutes'
 ORDER BY created_at DESC;
-```
 
 **Reporting priority:**
 1. **High**: Security issues, critical failures, data corruption fixes
