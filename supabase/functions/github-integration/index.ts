@@ -296,9 +296,9 @@ serve(async (req) => {
         // Step 2: Find matching category (case-insensitive match)
         const categoryName = (data.category || 'General').toLowerCase();
         const matchedCategory = categories.find(
-          (cat: any) => cat.name.toLowerCase() === categoryName
+          (cat: { name: string }) => cat.name.toLowerCase() === categoryName
         ) || categories.find(
-          (cat: any) => cat.name.toLowerCase().includes('general')
+          (cat: { name: string }) => cat.name.toLowerCase().includes('general')
         ) || categories[0]; // Fallback to first category
         
         if (!matchedCategory) {
@@ -306,7 +306,7 @@ serve(async (req) => {
             JSON.stringify({ 
               success: false, 
               error: 'No discussion categories available. Please enable discussions on the repository.',
-              availableCategories: categories.map((c: any) => c.name)
+              availableCategories: categories.map((c: { name: string }) => c.name)
             }),
             { 
               status: 400,
@@ -360,7 +360,7 @@ serve(async (req) => {
         result = {
           ok: result.ok && !rawGraphQLResponse.errors,
           json: async () => rawGraphQLResponse
-        } as any;
+        } as Response;
         break;
 
       case 'get_repo_info':
@@ -486,7 +486,7 @@ serve(async (req) => {
           }
         }
         
-        const commitBody: any = {
+        const commitBody: { message: string, content: string, branch: string, sha?: string } = {
           message: data.message,
           content: btoa(data.content), // Base64 encode
           branch: data.branch || 'main',
