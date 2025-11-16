@@ -12,14 +12,29 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error('Missing Supabase configuration');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('🌙 Eliza generating evening summary...');
     
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+    if (!GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY not configured');
+      throw new Error('GEMINI_API_KEY not configured');
+    }
+    
+    const GITHUB_TOKEN = Deno.env.get('GITHUB_TOKEN') || Deno.env.get('GITHUB_TOKEN_PROOF_OF_LIFE');
+    if (!GITHUB_TOKEN) {
+      console.error('❌ GitHub token not configured');
+      throw new Error('GITHUB_TOKEN not configured');
+    }
 
     // Get today's completed activities
     const { data: todayActivity } = await supabase
