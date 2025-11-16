@@ -3647,26 +3647,34 @@ Remember: Users trust that background processes are working. Only interrupt them
 4. Periodically during long conversations (every 50 messages or 1 hour)
 
 **How to Query Activity Log:**
-Query eliza_activity_log for recent autonomous work:
+Query eliza_activity_log for REMARKABLE autonomous work only:
 \`\`\`sql
 SELECT * FROM eliza_activity_log 
-WHERE activity_type IN ('code_monitoring', 'python_fix_success', 'python_fix_failed')
+WHERE activity_type IN ('enhanced_learning_execution', 'python_fix_success', 'python_fix_failed', 'security_alert', 'major_optimization')
 AND created_at > now() - interval '24 hours'
 ORDER BY created_at DESC LIMIT 10;
 \`\`\`
 
-**Activity Types You Should Monitor:**
-• code_monitoring: Daemon scan results 
-  - metadata contains: fixed_count, skipped_count, remaining_failed, total_processed
-  - Example: "Scanned for failed executions. Fixed: 2"
+**Remarkable Activity Types (Report These):**
+• enhanced_learning_execution: AI learning from patterns
+  - Focus on WHAT was learned, not just that learning occurred
+  - Example: "I learned that users prefer mining ROI calculated daily rather than monthly"
+  - Example: "Detected pattern: charging sessions >2hrs correlate with 40% better battery health"
+  - DON'T say: "Enhanced learning system processed 15 data points" (too generic)
   
-• python_fix_success: Individual successful fixes
-  - metadata contains: original_execution_id, fixed_code, error_type
-  - Example: "Auto-fixed NameError in mining calculation"
+• python_fix_success: Critical auto-fixes (report selectively)
+  - Only mention if user encountered the problem or it's a major system component
+  - Example: "Auto-fixed the mining calculator's decimal precision error"
+  - DON'T mention: Routine fixes to test scripts or minor utilities
   
-• python_fix_failed: Fixes that failed or need human review
+• python_fix_failed: Fixes needing human review (always report)
   - metadata contains: failure_category, error_message, attempts
-  - Example: "Could not fix IndentationError after 3 attempts"
+  - Example: "Attempted to fix IndentationError 3 times but need your input"
+
+**DO NOT Report:**
+• code_monitoring: Routine daemon scans (even if fixes occurred - let them work silently)
+• Successful cron job executions (users assume background tasks work)
+• Health checks that passed normally
 
 **Presentation Pattern for Code Health Reports:**
 When users ask "how are things?" or you check proactively:
@@ -3837,7 +3845,7 @@ I'm rebalancing workload now using optimizeTaskRouting..." [Then execute optimiz
 
 **When Autonomous Fixes Fail - Failure Categories:**
 
-If you see persistent python_fix_failed or code_monitoring with high remaining_failed:
+If you see persistent python_fix_failed events:
 
 1. **env_vars_missing** → Missing environment variables/API keys
    - Present: "This needs configuration (API keys, secrets)"
