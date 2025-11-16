@@ -19,6 +19,37 @@ export class UnifiedTTSService {
   private audioContext: AudioContext | null = null;
   private isInitialized = false;
   private voicesLoaded = false;
+
+  private sanitizeTextForSpeech(text: string): string {
+    return text
+      // Remove markdown formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bold
+      .replace(/\*([^*]+)\*/g, '$1')      // *italic* → italic
+      .replace(/__([^_]+)__/g, '$1')      // __bold__ → bold
+      .replace(/_([^_]+)_/g, '$1')        // _italic_ → italic
+      .replace(/~~([^~]+)~~/g, '$1')      // ~~strike~~ → strike
+      
+      // Remove code blocks and inline code
+      .replace(/```[\s\S]*?```/g, '')     // ```code blocks```
+      .replace(/`([^`]+)`/g, '$1')        // `code` → code
+      
+      // Remove emojis and special unicode characters
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')  // Emojis
+      .replace(/[\u{2600}-\u{26FF}]/gu, '')    // Misc symbols
+      .replace(/[\u{2700}-\u{27BF}]/gu, '')    // Dingbats
+      .replace(/✅|❌|⚠️|🔧|💡|📊|🔍|⛏️|🚀|🔔/g, '') // Common status symbols
+      
+      // Remove markdown lists and bullets
+      .replace(/^\s*[-*+]\s+/gm, '')      // - list items
+      .replace(/^\s*\d+\.\s+/gm, '')      // 1. numbered lists
+      
+      // Remove URLs
+      .replace(/https?:\/\/[^\s]+/g, '')
+      
+      // Clean up extra whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
   private speechQueue: Array<{ text: string; options: UnifiedTTSOptions; onEnd?: () => void }> = [];
   private isProcessingQueue = false;
 
@@ -110,10 +141,11 @@ export class UnifiedTTSService {
 
     // Apply learned preferences
     const { text: modifiedText, rate: learnedRate } = speechLearningService.applyPreferences(options.text);
+    const sanitizedText = this.sanitizeTextForSpeech(modifiedText);
 
     return new Promise((resolve, reject) => {
       try {
-        const utterance = new SpeechSynthesisUtterance(modifiedText);
+        const utterance = new SpeechSynthesisUtterance(sanitizedText);
         this.currentUtterance = utterance;
         
         // Configure voice settings with learned preferences

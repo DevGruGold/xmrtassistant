@@ -2081,6 +2081,8 @@ export type Database = {
           finished_at: string | null
           id: string
           metadata: Json
+          output: Json | null
+          purpose: string | null
           result: Json | null
           source: string | null
           started_at: string
@@ -2097,6 +2099,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           metadata?: Json
+          output?: Json | null
+          purpose?: string | null
           result?: Json | null
           source?: string | null
           started_at?: string
@@ -2113,6 +2117,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           metadata?: Json
+          output?: Json | null
+          purpose?: string | null
           result?: Json | null
           source?: string | null
           started_at?: string
@@ -6330,6 +6336,7 @@ export type Database = {
         Args: { p_worker_id: string }
         Returns: string
       }
+      run_opportunity_scanner: { Args: never; Returns: undefined }
       service_status_change_type: {
         Args: { new_j: Json; old_j: Json }
         Returns: string
