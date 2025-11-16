@@ -30,6 +30,37 @@ class ConsolidatedTTSService {
     this.setupProviders();
   }
 
+  private sanitizeTextForSpeech(text: string): string {
+    return text
+      // Remove markdown formatting
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bold
+      .replace(/\*([^*]+)\*/g, '$1')      // *italic* → italic
+      .replace(/__([^_]+)__/g, '$1')      // __bold__ → bold
+      .replace(/_([^_]+)_/g, '$1')        // _italic_ → italic
+      .replace(/~~([^~]+)~~/g, '$1')      // ~~strike~~ → strike
+      
+      // Remove code blocks and inline code
+      .replace(/```[\s\S]*?```/g, '')     // ```code blocks```
+      .replace(/`([^`]+)`/g, '$1')        // `code` → code
+      
+      // Remove emojis and special unicode characters
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')  // Emojis
+      .replace(/[\u{2600}-\u{26FF}]/gu, '')    // Misc symbols
+      .replace(/[\u{2700}-\u{27BF}]/gu, '')    // Dingbats
+      .replace(/✅|❌|⚠️|🔧|💡|📊|🔍|⛏️|🚀|🔔/g, '') // Common status symbols
+      
+      // Remove markdown lists and bullets
+      .replace(/^\s*[-*+]\s+/gm, '')      // - list items
+      .replace(/^\s*\d+\.\s+/gm, '')      // 1. numbered lists
+      
+      // Remove URLs
+      .replace(/https?:\/\/[^\s]+/g, '')
+      
+      // Clean up extra whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   private setupProviders() {
     // Provider 1: Browser Speech Synthesis (PREFERRED - always free, always works)
     this.providers.push({
@@ -42,7 +73,8 @@ class ConsolidatedTTSService {
             return;
           }
 
-          const utterance = new SpeechSynthesisUtterance(text);
+          const sanitizedText = this.sanitizeTextForSpeech(text);
+          const utterance = new SpeechSynthesisUtterance(sanitizedText);
           utterance.rate = options?.speed || 1.0;
           utterance.pitch = options?.pitch || 1.0;
           
