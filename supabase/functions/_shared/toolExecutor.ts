@@ -44,7 +44,8 @@ export async function executeToolCall(
   toolCall: any,
   executiveName: 'Eliza' | 'CSO' | 'CTO' | 'CIO' | 'CAO',
   SUPABASE_URL: string,
-  SERVICE_ROLE_KEY: string
+  SERVICE_ROLE_KEY: string,
+  session_credentials?: any
 ): Promise<any> {
   const startTime = Date.now();
   const { name, arguments: args } = toolCall.function || toolCall;
@@ -200,7 +201,8 @@ export async function executeToolCall(
               title: parsedArgs.title,
               body: parsedArgs.body,
               categoryId: parsedArgs.categoryId || 'DIC_kwDOPHeChc4CkXxI'
-            }
+            },
+            session_credentials
           }
         });
         
@@ -222,7 +224,8 @@ export async function executeToolCall(
               title: parsedArgs.title,
               body: parsedArgs.body,
               labels: parsedArgs.labels || []
-            }
+            },
+            session_credentials
           }
         });
         
@@ -243,7 +246,8 @@ export async function executeToolCall(
               repo: parsedArgs.repo || 'XMRT-Ecosystem',
               state: parsedArgs.state || 'open',
               per_page: parsedArgs.limit || 20
-            }
+            },
+            session_credentials
           }
         });
         
