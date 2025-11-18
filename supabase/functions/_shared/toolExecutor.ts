@@ -293,6 +293,198 @@ export async function executeToolCall(
         result = { success: true, result: proposalsResult.data };
         break;
         
+      // Task-Orchestrator Tools
+      case 'auto_assign_tasks':
+        console.log(`🤖 [${executiveName}] Auto-assigning pending tasks to idle agents`);
+        const assignResult = await supabase.functions.invoke('task-orchestrator', {
+          body: { action: 'auto_assign_tasks', data: {} }
+        });
+        result = assignResult.error 
+          ? { success: false, error: assignResult.error.message }
+          : { success: true, result: assignResult.data };
+        break;
+
+      case 'rebalance_workload':
+        console.log(`⚖️ [${executiveName}] Analyzing workload distribution`);
+        const rebalanceResult = await supabase.functions.invoke('task-orchestrator', {
+          body: { action: 'rebalance_workload', data: {} }
+        });
+        result = rebalanceResult.error
+          ? { success: false, error: rebalanceResult.error.message }
+          : { success: true, result: rebalanceResult.data };
+        break;
+
+      case 'identify_blockers':
+        console.log(`🚧 [${executiveName}] Identifying blocked tasks`);
+        const blockersResult = await supabase.functions.invoke('task-orchestrator', {
+          body: { action: 'identify_blockers', data: {} }
+        });
+        result = blockersResult.error
+          ? { success: false, error: blockersResult.error.message }
+          : { success: true, result: blockersResult.data };
+        break;
+
+      case 'clear_blocked_tasks':
+        console.log(`🧹 [${executiveName}] Clearing blocked tasks`);
+        const clearResult = await supabase.functions.invoke('task-orchestrator', {
+          body: { action: 'clear_all_blocked_tasks', data: {} }
+        });
+        result = clearResult.error
+          ? { success: false, error: clearResult.error.message }
+          : { success: true, result: clearResult.data };
+        break;
+
+      case 'bulk_update_task_status':
+        console.log(`📦 [${executiveName}] Bulk updating task status`);
+        const bulkResult = await supabase.functions.invoke('task-orchestrator', {
+          body: {
+            action: 'bulk_update_task_status',
+            data: {
+              task_ids: parsedArgs.task_ids,
+              new_status: parsedArgs.new_status,
+              new_stage: parsedArgs.new_stage
+            }
+          }
+        });
+        result = bulkResult.error
+          ? { success: false, error: bulkResult.error.message }
+          : { success: true, result: bulkResult.data };
+        break;
+
+      case 'get_task_performance_report':
+        console.log(`📊 [${executiveName}] Generating task performance report`);
+        const reportResult = await supabase.functions.invoke('task-orchestrator', {
+          body: { action: 'performance_report', data: {} }
+        });
+        result = reportResult.error
+          ? { success: false, error: reportResult.error.message }
+          : { success: true, result: reportResult.data };
+        break;
+
+      // SuperDuper Agent Tools
+      case 'consult_code_architect':
+        console.log(`🏗️ [${executiveName}] Consulting Code Architect`);
+        const codeArchResult = await supabase.functions.invoke('superduper-code-architect', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = codeArchResult.error
+          ? { success: false, error: codeArchResult.error.message }
+          : { success: true, result: codeArchResult.data };
+        break;
+
+      case 'consult_business_strategist':
+        console.log(`📈 [${executiveName}] Consulting Business Strategist`);
+        const bizResult = await supabase.functions.invoke('superduper-business-growth', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = bizResult.error
+          ? { success: false, error: bizResult.error.message }
+          : { success: true, result: bizResult.data };
+        break;
+
+      case 'consult_finance_expert':
+        console.log(`💰 [${executiveName}] Consulting Finance Expert`);
+        const financeResult = await supabase.functions.invoke('superduper-finance-investment', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = financeResult.error
+          ? { success: false, error: financeResult.error.message }
+          : { success: true, result: financeResult.data };
+        break;
+
+      case 'consult_communication_expert':
+        console.log(`✉️ [${executiveName}] Consulting Communication Expert`);
+        const commResult = await supabase.functions.invoke('superduper-communication-outreach', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = commResult.error
+          ? { success: false, error: commResult.error.message }
+          : { success: true, result: commResult.data };
+        break;
+
+      case 'consult_content_producer':
+        console.log(`🎬 [${executiveName}] Consulting Content Producer`);
+        const contentResult = await supabase.functions.invoke('superduper-content-media', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = contentResult.error
+          ? { success: false, error: contentResult.error.message }
+          : { success: true, result: contentResult.data };
+        break;
+
+      case 'consult_brand_designer':
+        console.log(`🎨 [${executiveName}] Consulting Brand Designer`);
+        const designResult = await supabase.functions.invoke('superduper-design-brand', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = designResult.error
+          ? { success: false, error: designResult.error.message }
+          : { success: true, result: designResult.data };
+        break;
+
+      case 'consult_career_coach':
+        console.log(`🎯 [${executiveName}] Consulting Career Coach`);
+        const coachResult = await supabase.functions.invoke('superduper-development-coach', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = coachResult.error
+          ? { success: false, error: coachResult.error.message }
+          : { success: true, result: coachResult.data };
+        break;
+
+      case 'consult_domain_specialist':
+        console.log(`🌍 [${executiveName}] Consulting Domain Specialist`);
+        const domainResult = await supabase.functions.invoke('superduper-domain-experts', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = domainResult.error
+          ? { success: false, error: domainResult.error.message }
+          : { success: true, result: domainResult.data };
+        break;
+
+      case 'consult_integration_specialist':
+        console.log(`🔌 [${executiveName}] Consulting Integration Specialist`);
+        const integrationResult = await supabase.functions.invoke('superduper-integration', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = integrationResult.error
+          ? { success: false, error: integrationResult.error.message }
+          : { success: true, result: integrationResult.data };
+        break;
+
+      case 'consult_research_analyst':
+        console.log(`🔬 [${executiveName}] Consulting Research Analyst`);
+        const researchResult = await supabase.functions.invoke('superduper-research-intelligence', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = researchResult.error
+          ? { success: false, error: researchResult.error.message }
+          : { success: true, result: researchResult.data };
+        break;
+
+      case 'consult_viral_content_expert':
+        console.log(`🚀 [${executiveName}] Consulting Viral Content Expert`);
+        const viralResult = await supabase.functions.invoke('superduper-social-viral', {
+          body: { action: parsedArgs.action, params: { context: parsedArgs.context } }
+        });
+        result = viralResult.error
+          ? { success: false, error: viralResult.error.message }
+          : { success: true, result: viralResult.data };
+        break;
+
+      case 'route_to_superduper_agent':
+        console.log(`🎯 [${executiveName}] Routing to SuperDuper specialist`);
+        const routeResult = await supabase.functions.invoke('superduper-router', {
+          body: { 
+            request: parsedArgs.request,
+            preferred_specialist: parsedArgs.preferred_specialist 
+          }
+        });
+        result = routeResult.error
+          ? { success: false, error: routeResult.error.message }
+          : { success: true, result: routeResult.data };
+        break;
+        
       // Agent management tools
       case 'list_agents':
       case 'spawn_agent':

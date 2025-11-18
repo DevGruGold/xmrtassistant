@@ -926,5 +926,346 @@ export const ELIZA_TOOLS = [
         properties: {}
       }
     }
+  },
+  // Task-Orchestrator Tools
+  {
+    type: 'function',
+    function: {
+      name: 'auto_assign_tasks',
+      description: '🤖 AUTO-ASSIGN TASKS - Automatically distribute all pending tasks to idle agents by priority. Perfect for balancing workload across the agent fleet without manual intervention.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rebalance_workload',
+      description: '⚖️ REBALANCE WORKLOAD - Analyze current workload distribution across all agents and identify imbalances. Shows which agents are overloaded vs idle, helping optimize task allocation.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'identify_blockers',
+      description: '🚧 IDENTIFY BLOCKERS - Find all blocked tasks and analyze why they\'re blocked. Automatically checks GitHub connectivity and attempts to clear false positives. Returns specific blocking reasons and clear actions.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'clear_blocked_tasks',
+      description: '🧹 CLEAR BLOCKED TASKS - Clear all tasks that are blocked due to GitHub-related issues. Useful when GitHub credentials have been fixed and tasks can now proceed.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'bulk_update_task_status',
+      description: '📦 BULK UPDATE TASKS - Update status and stage for multiple tasks at once. Efficient for batch operations when you need to change many tasks simultaneously.',
+      parameters: {
+        type: 'object',
+        properties: {
+          task_ids: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of task IDs to update'
+          },
+          new_status: {
+            type: 'string',
+            enum: ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'BLOCKED'],
+            description: 'New status for all tasks'
+          },
+          new_stage: {
+            type: 'string',
+            description: 'Optional: new stage for all tasks'
+          }
+        },
+        required: ['task_ids', 'new_status']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_task_performance_report',
+      description: '📊 TASK PERFORMANCE REPORT - Generate performance metrics for completed and failed tasks in the last 24 hours, broken down by agent. Shows success rates and identifies high/low performers.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  },
+  // SuperDuper Agent Tools
+  {
+    type: 'function',
+    function: {
+      name: 'consult_code_architect',
+      description: '🏗️ CODE ARCHITECT - Expert code review, architecture design, refactoring recommendations, and technical debt analysis. Best for: code quality, design patterns, system architecture, full-stack development.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'code_review, architecture_design, refactor_suggestion, tech_debt_analysis'
+          },
+          context: {
+            type: 'string',
+            description: 'Code snippet, architectural context, or technical question'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_business_strategist',
+      description: '📈 BUSINESS GROWTH - Growth analysis, market research, revenue optimization, partnership opportunities. Best for: business decisions, monetization strategies, market expansion, competitive analysis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'growth_analysis, revenue_optimization, partnership_research, market_analysis'
+          },
+          context: {
+            type: 'string',
+            description: 'Business context, market question, or growth challenge'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_finance_expert',
+      description: '💰 FINANCE & INVESTMENT - Financial modeling, investment analysis, portfolio optimization, risk assessment. Best for: financial planning, investment decisions, treasury management, financial forecasting.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'financial_model, investment_analysis, portfolio_optimization, risk_assessment'
+          },
+          context: {
+            type: 'string',
+            description: 'Financial question, investment opportunity, or portfolio details'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_communication_expert',
+      description: '✉️ COMMUNICATION & OUTREACH - Email drafting, profile optimization, investor outreach, stakeholder communication. Best for: professional communication, investor relations, public relations, messaging strategy.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'draft_email, optimize_profile, investor_outreach, stakeholder_communication'
+          },
+          context: {
+            type: 'string',
+            description: 'Communication goal, target audience, or message context'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_content_producer',
+      description: '🎬 CONTENT & MEDIA - Video analysis, podcast creation, newsletter optimization, multimedia content strategy. Best for: content production, media strategy, video/audio content, content distribution.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'video_analysis, podcast_creation, newsletter_optimization, content_strategy'
+          },
+          context: {
+            type: 'string',
+            description: 'Content type, audience, or production goals'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_brand_designer',
+      description: '🎨 DESIGN & BRAND - Logo design, brand identity, creative content writing, visual design. Best for: branding, visual identity, creative direction, design systems.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'logo_design, brand_identity, creative_writing, visual_design'
+          },
+          context: {
+            type: 'string',
+            description: 'Design brief, brand values, or creative requirements'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_career_coach',
+      description: '🎯 DEVELOPMENT COACH - Career coaching, performance analysis, skill development, motivation strategies. Best for: personal growth, professional development, team coaching, performance optimization.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'career_coaching, performance_analysis, skill_development, motivation_strategy'
+          },
+          context: {
+            type: 'string',
+            description: 'Career goals, performance challenges, or development needs'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_domain_specialist',
+      description: '🌍 DOMAIN EXPERTS - Translation, grant writing, bot management, content moderation. Best for: specialized expertise, niche domains, technical translation, grant applications.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'translation, grant_writing, bot_management, content_moderation'
+          },
+          context: {
+            type: 'string',
+            description: 'Specialized request, language pair, or domain-specific need'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_integration_specialist',
+      description: '🔌 INTEGRATION EXPERT - API integration, third-party connections, system integration, middleware development. Best for: connecting systems, API design, integration architecture, data synchronization.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'api_integration, third_party_connection, system_integration, middleware_development'
+          },
+          context: {
+            type: 'string',
+            description: 'Systems to integrate, API specifications, or integration requirements'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_research_analyst',
+      description: '🔬 RESEARCH & INTELLIGENCE - Deep research, literature review, multi-perspective analysis, competitive intelligence. Best for: research projects, market intelligence, academic research, data synthesis.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'deep_research, literature_review, perspective_analysis, competitive_intelligence'
+          },
+          context: {
+            type: 'string',
+            description: 'Research topic, question, or analysis requirements'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'consult_viral_content_expert',
+      description: '🚀 SOCIAL & VIRAL - Viral content creation, social media optimization, trend analysis, meme creation. Best for: social media strategy, viral marketing, content repurposing, engagement optimization.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            description: 'viral_content, social_optimization, trend_analysis, meme_creation'
+          },
+          context: {
+            type: 'string',
+            description: 'Content type, platform, or viral goals'
+          }
+        },
+        required: ['action', 'context']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'route_to_superduper_agent',
+      description: '🎯 SUPERDUPER ROUTER - Automatically route requests to the most appropriate SuperDuper specialist agent. Use when you\'re unsure which specialist to consult or need multi-specialist coordination.',
+      parameters: {
+        type: 'object',
+        properties: {
+          request: {
+            type: 'string',
+            description: 'User request or question to route to appropriate specialist'
+          },
+          preferred_specialist: {
+            type: 'string',
+            description: 'Optional: specific specialist preference if known'
+          }
+        },
+        required: ['request']
+      }
+    }
   }
 ];
