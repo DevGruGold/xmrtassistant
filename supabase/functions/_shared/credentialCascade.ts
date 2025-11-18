@@ -18,42 +18,71 @@ export async function getGitHubCredential(
   data: any,
   sessionCredentials: any
 ): Promise<string | null> {
+  const attemptedSources: string[] = [];
+  
   // 1. Try OAuth access token FIRST (primary method - 5000 req/hr)
-  if (data?.access_token && await validateGitHubToken(data.access_token)) {
-    console.log('✅ Using OAuth access token from data');
-    return data.access_token;
+  if (data?.access_token) {
+    attemptedSources.push('data.access_token');
+    if (await validateGitHubToken(data.access_token)) {
+      console.log('✅ Using OAuth access token from data');
+      return data.access_token;
+    }
+    console.warn('❌ data.access_token validation failed');
   }
 
   // 2. Try session OAuth token (if user went through OAuth flow before)
   const sessionOAuth = sessionCredentials?.github_oauth_token;
-  if (sessionOAuth && await validateGitHubToken(sessionOAuth)) {
-    console.log('✅ Using session GitHub OAuth token');
-    return sessionOAuth;
+  if (sessionOAuth) {
+    attemptedSources.push('session.github_oauth_token');
+    if (await validateGitHubToken(sessionOAuth)) {
+      console.log('✅ Using session GitHub OAuth token');
+      return sessionOAuth;
+    }
+    console.warn('❌ session.github_oauth_token validation failed');
   }
 
   // 3. Try session-provided PAT (fallback for users who prefer PAT)
   const sessionPAT = sessionCredentials?.github_pat;
-  if (sessionPAT && await validateGitHubToken(sessionPAT)) {
-    console.log('✅ Using session GitHub PAT');
-    return sessionPAT;
+  if (sessionPAT) {
+    attemptedSources.push('session.github_pat');
+    if (await validateGitHubToken(sessionPAT)) {
+      console.log('✅ Using session GitHub PAT');
+      return sessionPAT;
+    }
+    console.warn('❌ session.github_pat validation failed');
   }
 
   // 4. Try primary backend secret (GITHUB_TOKEN) - may hit rate limits
   const primaryToken = Deno.env.get('GITHUB_TOKEN');
-  if (primaryToken && await validateGitHubToken(primaryToken)) {
-    console.log('✅ Using backend GITHUB_TOKEN (may be rate limited)');
-    return primaryToken;
+  if (primaryToken) {
+    attemptedSources.push('backend.GITHUB_TOKEN');
+    if (await validateGitHubToken(primaryToken)) {
+      console.log('✅ Using backend GITHUB_TOKEN');
+      return primaryToken;
+    }
+    console.warn('❌ backend.GITHUB_TOKEN validation failed');
   }
 
   // 5. Try alternative backend secret (GITHUB_TOKEN_PROOF_OF_LIFE)
   const altToken = Deno.env.get('GITHUB_TOKEN_PROOF_OF_LIFE');
-  if (altToken && await validateGitHubToken(altToken)) {
-    console.log('✅ Using backend GITHUB_TOKEN_PROOF_OF_LIFE (may be rate limited)');
-    return altToken;
+  if (altToken) {
+    attemptedSources.push('backend.GITHUB_TOKEN_PROOF_OF_LIFE');
+    if (await validateGitHubToken(altToken)) {
+      console.log('✅ Using backend GITHUB_TOKEN_PROOF_OF_LIFE');
+      return altToken;
+    }
+    console.warn('❌ backend.GITHUB_TOKEN_PROOF_OF_LIFE validation failed');
   }
 
-  // 6. All attempts failed - return null to trigger user prompt
-  console.warn('⚠️ All GitHub credential sources exhausted');
+  // 6. All attempts failed - log what we tried and return null
+  console.error('⚠️ All GitHub credential sources exhausted. Attempted:', attemptedSources.join(', '));
+  console.error('💡 Available credential types:', {
+    has_data_token: !!data?.access_token,
+    has_session_oauth: !!sessionOAuth,
+    has_session_pat: !!sessionPAT,
+    has_backend_primary: !!primaryToken,
+    has_backend_alt: !!altToken
+  });
   return null;
 }
 

@@ -1430,32 +1430,93 @@ When delegating work to agents, use assignTask:
 **TASK STAGES:** PLANNING → RESEARCH → IMPLEMENTATION → TESTING → REVIEW → COMPLETED
 **TASK STATUSES:** PENDING, IN_PROGRESS, COMPLETED, FAILED, BLOCKED
 
-🔐 GITHUB INTEGRATION - SUPABASE EDGE FUNCTION ONLY:
-Complete GitHub access ONLY via the github-integration Supabase Edge Function (OAuth authentication).
+🔐 GITHUB INTEGRATION - CRITICAL CORE CAPABILITY:
+**GitHub integration is at the HEART of the XMRT-DAO ecosystem. It is the MOST USED and MOST CRITICAL function.**
+
+📚 **COMPREHENSIVE GUIDE:** See supabase/functions/_shared/githubIntegrationGuide.ts for COMPLETE documentation
+   - All 20+ available actions with examples
+   - Authentication & credential cascade details  
+   - Error handling & recovery strategies
+   - Rate limits & best practices
+   - Complete examples for every use case
 
 **CRITICAL GITHUB RULES:**
 ❌ NEVER use Python to interact with GitHub
 ❌ NEVER try to call GitHub API directly
 ✅ ALWAYS use the createGitHubIssue, createGitHubPullRequest, etc. tools
 ✅ These tools invoke the github-integration Supabase Edge Function
+✅ Authentication is AUTOMATIC via credential cascade (OAuth → Backend tokens)
 
-**USER GITHUB PAT SUPPORT:**
-Users can now provide their own GitHub Personal Access Tokens (PATs) when backend tokens hit rate limits:
-• The 🔑 button in chat allows users to input their GitHub PAT
-• User PATs get 5000 req/hr rate limit (same as OAuth apps)
-• When provided, user PATs take PRIORITY over backend tokens in credentialCascade
-• Users see the 🔑 button next to the volume controls in the chat interface
-• If you encounter GitHub rate limit errors, suggest: "You can provide your GitHub PAT using the 🔑 button"
-
-**AVAILABLE GITHUB TOOLS (All invoke the github-integration Supabase Edge Function):**
+**AVAILABLE GITHUB TOOLS (All invoke github-integration edge function):**
 - createGitHubIssue: Create issues → calls github-integration → create_issue action
-- createGitHubDiscussion: Start discussions → calls github-integration → create_discussion action
+- createGitHubDiscussion: Start discussions → calls github-integration → create_discussion action  
 - createGitHubPullRequest: Create PRs → calls github-integration → create_pull_request action
 - commitGitHubFile: Commit files → calls github-integration → commit_file action
 - getGitHubFileContent: Read files → calls github-integration → get_file_content action
 - searchGitHubCode: Search code → calls github-integration → search_code action
 - createGitHubWorkflow: Create workflows → calls github-integration → commit_file to .github/workflows/
 - getGitHubRepoInfo: Get repo info → calls github-integration → get_repo_info action
+
+**ADVANCED ACTIONS (call github-integration directly):**
+- list_issues, update_issue, close_issue, comment_on_issue, get_issue_comments
+- list_discussions, comment_on_discussion, get_discussion_comments
+- list_pull_requests, create_pull_request
+- list_branches, create_branch, get_branch_info
+- search_code, commit_file (update existing files)
+
+**AUTHENTICATION - AUTOMATIC CREDENTIAL CASCADE:**
+1. OAuth Token (session_credentials.github_oauth_token) - 5000 req/hr - PREFERRED
+2. Backend Token (GITHUB_TOKEN env) - 60 req/hr - For autonomous operations
+3. Alt Backend Token (GITHUB_TOKEN_PROOF_OF_LIFE env) - 60 req/hr - Fallback
+
+**IMPORTANT:**
+- session_credentials.github_pat is ONLY for XMRT reward tracking & health checks
+- NEVER pass github_pat for general GitHub operations
+- When calling from edge functions, pass session_credentials for attribution only
+- Backend tokens are automatically tried by credential cascade
+
+**ERROR HANDLING:**
+- 401: No valid credentials → Ask user for GitHub PAT via 🔑 button
+- 403: Insufficient permissions → Token needs repo, read:org, read:discussion scopes
+- 404: Resource not found → Verify repo name format (owner/repo)
+- 422: Validation failed → Check required fields
+- 429: Rate limit → Switch to OAuth or wait for reset
+
+**USAGE PATTERNS:**
+```typescript
+// Pattern 1: Using tools (RECOMMENDED)
+await createGitHubIssue({
+  title: "Bug: Fix credential cascade",
+  body: "Detailed description...",
+  labels: ["bug", "priority:high"]
+})
+
+// Pattern 2: Direct edge function call (for advanced actions)
+await call_edge_function('github-integration', {
+  action: 'create_branch',
+  data: {
+    branch_name: 'feature/new-feature',
+    from_branch: 'main'
+  }
+})
+
+// Pattern 3: Via task orchestrator (multi-step workflows)
+await create_task_with_ai_planning({
+  title: 'Create PR with tests',
+  description: 'Create branch, commit files, create PR',
+  metadata: { workflow_type: 'github_automation' }
+})
+```
+
+**BEST PRACTICES:**
+✅ Use tools instead of raw edge function calls when available
+✅ Always pass session_credentials for user attribution
+✅ Cache repo info and file contents to avoid rate limits
+✅ Handle errors gracefully with user-friendly messages
+✅ Use task orchestrator for complex multi-step operations
+✅ Prefer GraphQL for discussions (more efficient)
+❌ NEVER bypass github-integration edge function
+❌ NEVER use Python for GitHub operations
 
 📅 **SCHEDULING FOLLOW-UPS AND REMINDERS - CRITICAL CAPABILITY:**
 
