@@ -95,13 +95,36 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
       const result = await validatePat(pat);
       
       if (result.success) {
-        // Extract username from success message
-        const usernameMatch = result.message.match(/user: (\w+)/);
-        const username = usernameMatch ? usernameMatch[1] : '';
+        // Fetch full user info from GitHub
+        const userInfoResponse = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `Bearer ${pat}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+
+        if (!userInfoResponse.ok) {
+          setValidationResult({
+            success: false,
+            message: '❌ Failed to fetch GitHub user info'
+          });
+          setIsValidating(false);
+          return;
+        }
+
+        const userInfo = await userInfoResponse.json();
+        
+        // Store PAT and user info in session credentials
+        setCredential('github_pat', pat);
+        setCredential('github_username', userInfo.login);
+        if (userInfo.email) setCredential('github_email', userInfo.email);
+        if (userInfo.name) setCredential('github_name', userInfo.name);
+        
+        console.log(`✅ GitHub user authenticated: ${userInfo.login}`);
         
         setValidationResult({
           ...result,
-          username
+          username: userInfo.login
         });
         
         // Validate repository exists and is public
@@ -121,18 +144,12 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
           return;
         }
 
-        // Store in session credentials
-        setCredential('github_pat', pat);
-        setCredential('github_username', username);
-        setCredential('wallet_address', walletAddress);
-        setCredential('target_repo', `${repoOwner}/${repoName}`);
-        
-        console.log('✅ GitHub PAT stored in session credentials');
+        const repoData = await repoResponse.json();
         
         // Register contributor in database
         try {
           await supabase.from('github_contributors').upsert({
-            github_username: username,
+            github_username: userInfo.login,
             wallet_address: walletAddress,
             target_repo_owner: repoOwner,
             target_repo_name: repoName,
@@ -145,6 +162,10 @@ export const GitHubPATInput: React.FC<GitHubPATInputProps> = ({
         } catch (dbError) {
           console.warn('⚠️ Could not update contributor profile:', dbError);
         }
+        
+        // Store wallet and repo in session credentials
+        setCredential('wallet_address', walletAddress);
+        setCredential('target_repo', `${repoOwner}/${repoName}`);
         
         // Update api_key_health table via edge function
         try {

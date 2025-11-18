@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 interface SessionCredentials {
   github_pat?: string;
+  github_oauth_token?: string;
+  github_username?: string;
+  github_email?: string;
+  github_name?: string;
   openai_api_key?: string;
   deepseek_api_key?: string;
   elevenlabs_api_key?: string;
