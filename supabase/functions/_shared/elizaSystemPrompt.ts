@@ -1495,7 +1495,7 @@ When delegating work to agents, use assignTask:
 - 429: Rate limit → Switch to OAuth or wait for reset
 
 **USAGE PATTERNS:**
-```typescript
+
 // Pattern 1: Using tools (RECOMMENDED)
 await createGitHubIssue({
   title: "Bug: Fix credential cascade",
@@ -1518,7 +1518,6 @@ await create_task_with_ai_planning({
   description: 'Create branch, commit files, create PR',
   metadata: { workflow_type: 'github_automation' }
 })
-```
 
 **BEST PRACTICES:**
 ✅ Use tools instead of raw edge function calls when available
