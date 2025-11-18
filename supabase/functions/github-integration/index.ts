@@ -123,15 +123,23 @@ serve(async (req) => {
       );
     }
 
-    // Intelligent credential cascade: Try all available sources
-    const accessToken = await getGitHubCredential(data, session_credentials);
+    // Sanitize session credentials for auth: exclude github_pat to prevent it from being used
+    // for general GitHub operations. PAT should only be used explicitly for XMRT/health flows.
+    const authSessionCredentials = session_credentials ? {
+      github_oauth_token: session_credentials.github_oauth_token,
+      // Exclude github_pat intentionally - it should not be used for general operations
+      // PAT is only for explicit XMRT reward tracking and health monitoring
+    } : undefined;
+
+    // Intelligent credential cascade: OAuth → Backend tokens (excludes session PAT)
+    const accessToken = await getGitHubCredential(data, authSessionCredentials);
     if (!accessToken) {
       console.error('🔐 All GitHub credential sources exhausted');
       return new Response(
         JSON.stringify(createCredentialRequiredResponse(
           'github',
-          'pat',
-          'To complete this GitHub operation, please provide a GitHub Personal Access Token (PAT).',
+          'oauth_or_backend',
+          'To complete this GitHub operation, please authenticate with GitHub OAuth or ensure backend tokens are configured.',
           'https://github.com/settings/tokens/new?scopes=repo,read:org',
           ['repo', 'read:org', 'read:discussion']
         )),

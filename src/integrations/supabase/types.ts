@@ -1986,6 +1986,7 @@ export type Database = {
           invoked_by: string | null
           metadata: Json | null
           parameters: Json | null
+          payload: Json | null
           result_summary: string | null
           success: boolean
           user_context: string | null
@@ -2000,6 +2001,7 @@ export type Database = {
           invoked_by?: string | null
           metadata?: Json | null
           parameters?: Json | null
+          payload?: Json | null
           result_summary?: string | null
           success: boolean
           user_context?: string | null
@@ -2014,6 +2016,7 @@ export type Database = {
           invoked_by?: string | null
           metadata?: Json | null
           parameters?: Json | null
+          payload?: Json | null
           result_summary?: string | null
           success?: boolean
           user_context?: string | null
