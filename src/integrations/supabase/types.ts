@@ -1703,6 +1703,7 @@ export type Database = {
       device_metrics_summary: {
         Row: {
           active_devices_count: number | null
+          aggregated_at: string
           avg_charging_efficiency: number | null
           avg_session_duration_seconds: number | null
           created_at: string | null
@@ -1722,6 +1723,7 @@ export type Database = {
         }
         Insert: {
           active_devices_count?: number | null
+          aggregated_at?: string
           avg_charging_efficiency?: number | null
           avg_session_duration_seconds?: number | null
           created_at?: string | null
@@ -1741,6 +1743,7 @@ export type Database = {
         }
         Update: {
           active_devices_count?: number | null
+          aggregated_at?: string
           avg_charging_efficiency?: number | null
           avg_session_duration_seconds?: number | null
           created_at?: string | null
@@ -1938,6 +1941,7 @@ export type Database = {
           activity_type: string
           created_at: string | null
           description: string | null
+          function_name: string | null
           id: string
           mentioned_to_user: boolean | null
           metadata: Json | null
@@ -1949,6 +1953,7 @@ export type Database = {
           activity_type: string
           created_at?: string | null
           description?: string | null
+          function_name?: string | null
           id?: string
           mentioned_to_user?: boolean | null
           metadata?: Json | null
@@ -1960,6 +1965,7 @@ export type Database = {
           activity_type?: string
           created_at?: string | null
           description?: string | null
+          function_name?: string | null
           id?: string
           mentioned_to_user?: boolean | null
           metadata?: Json | null
@@ -3243,6 +3249,78 @@ export type Database = {
           miner_id?: string
           status?: string
           update_source?: string | null
+        }
+        Relationships: []
+      }
+      network_proxy_logs: {
+        Row: {
+          caller_id: string | null
+          event: string
+          hostname: string | null
+          id: number
+          level: string
+          meta: Json | null
+          method: string | null
+          reason: string | null
+          ts: string
+          url: string | null
+        }
+        Insert: {
+          caller_id?: string | null
+          event: string
+          hostname?: string | null
+          id?: number
+          level: string
+          meta?: Json | null
+          method?: string | null
+          reason?: string | null
+          ts?: string
+          url?: string | null
+        }
+        Update: {
+          caller_id?: string | null
+          event?: string
+          hostname?: string | null
+          id?: number
+          level?: string
+          meta?: Json | null
+          method?: string | null
+          reason?: string | null
+          ts?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      network_proxy_whitelist: {
+        Row: {
+          category: string
+          comment: string | null
+          enabled: boolean
+          id: number
+          inserted_at: string
+          pattern: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          comment?: string | null
+          enabled?: boolean
+          id?: number
+          inserted_at?: string
+          pattern: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          comment?: string | null
+          enabled?: boolean
+          id?: number
+          inserted_at?: string
+          pattern?: string
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
