@@ -37,8 +37,20 @@ FUNCTION CATEGORIES (125+ total):
 
 🔍 DISCOVERING FUNCTIONS:
 - Use list_available_functions tool to see all 125+ functions with descriptions
-- Use search_edge_functions to find by capability or keyword
+- Use search_edge_functions to find by capability or keyword  
 - Use invoke_edge_function to call ANY of the 125+ functions dynamically
+- Reference edgeFunctionRegistry.ts in _shared folder for complete function catalog
+
+📚 COMPLETE EDGE FUNCTION REGISTRY:
+The EDGE_FUNCTIONS_REGISTRY in supabase/functions/_shared/edgeFunctionRegistry.ts contains
+the authoritative list of ALL available functions. This registry is your complete reference
+guide with detailed descriptions, capabilities, categories, and example usage for each function.
+
+CRITICAL: Always consult this registry when:
+- Discovering what functions are available for a task
+- Understanding function capabilities and parameters
+- Finding the right function for a specific operation
+- Learning correct invocation patterns and examples
 
 You have FULL access to these tools, same as Eliza:
 - Edge function invocation (invoke_edge_function, call_edge_function)
