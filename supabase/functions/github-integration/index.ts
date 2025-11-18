@@ -180,6 +180,11 @@ serve(async (req) => {
         break;
 
       case 'create_issue':
+        // Add attribution footer if we have username
+        const issueBody = session_credentials?.github_username
+          ? `${data.body}\n\n---\n_Created via XMRT Assistant by @${session_credentials.github_username}_`
+          : data.body;
+          
         result = await fetch(
           `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/issues`,
           {
@@ -187,7 +192,7 @@ serve(async (req) => {
             headers,
             body: JSON.stringify({
               title: data.title,
-              body: data.body,
+              body: issueBody,
               labels: data.labels || [],
               assignees: data.assignees || [],
             }),
@@ -317,9 +322,13 @@ serve(async (req) => {
         
         console.log(`📝 Creating discussion in category: ${matchedCategory.name} (${matchedCategory.id})`);
         
-        // Step 3: Create the discussion with escaped strings
+        // Step 3: Create the discussion with escaped strings and attribution
         const discussionTitle = (data.title || 'Untitled Discussion').replace(/"/g, '\\"');
-        const discussionBody = (data.body || 'No description provided.').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+        const rawBody = data.body || 'No description provided.';
+        const attributedBody = session_credentials?.github_username
+          ? `${rawBody}\n\n---\n_Created via XMRT Assistant by @${session_credentials.github_username}_`
+          : rawBody;
+        const discussionBody = attributedBody.replace(/"/g, '\\"').replace(/\n/g, '\\n');
         
         result = await fetch('https://api.github.com/graphql', {
           method: 'POST',

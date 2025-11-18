@@ -12,27 +12,31 @@ export interface CredentialResult {
 
 /**
  * Try to get GitHub credential from multiple sources in priority order
+ * OAuth tokens are prioritized over PATs for better rate limits and UX
  */
 export async function getGitHubCredential(
   data: any,
   sessionCredentials: any
 ): Promise<string | null> {
-  // 1. Try session-provided credential (highest priority for user experience)
-  const sessionPAT = sessionCredentials?.github_pat;
-  if (sessionPAT && await validateGitHubToken(sessionPAT)) {
-    console.log('✅ Using session GitHub PAT');
-    return sessionPAT;
-  }
-
-  // 2. Try data access_token (from OAuth flow)
+  // 1. Try OAuth access token FIRST (primary method - 5000 req/hr)
   if (data?.access_token && await validateGitHubToken(data.access_token)) {
     console.log('✅ Using OAuth access token from data');
     return data.access_token;
   }
 
-  // 3. OAuth app credentials removed - doesn't work with GraphQL API
-  // GraphQL requires actual user tokens (PAT or OAuth user token)
-  // OAuth app client credentials only work for REST API endpoints
+  // 2. Try session OAuth token (if user went through OAuth flow before)
+  const sessionOAuth = sessionCredentials?.github_oauth_token;
+  if (sessionOAuth && await validateGitHubToken(sessionOAuth)) {
+    console.log('✅ Using session GitHub OAuth token');
+    return sessionOAuth;
+  }
+
+  // 3. Try session-provided PAT (fallback for users who prefer PAT)
+  const sessionPAT = sessionCredentials?.github_pat;
+  if (sessionPAT && await validateGitHubToken(sessionPAT)) {
+    console.log('✅ Using session GitHub PAT');
+    return sessionPAT;
+  }
 
   // 4. Try primary backend secret (GITHUB_TOKEN) - may hit rate limits
   const primaryToken = Deno.env.get('GITHUB_TOKEN');
@@ -87,6 +91,46 @@ async function validateGitHubToken(token: string): Promise<boolean> {
   } catch (error) {
     console.warn('Token validation error:', error);
     return false;
+  }
+}
+
+/**
+ * Get GitHub user info from a token (works for both OAuth and PAT)
+ * Returns username, email, name, etc. for proper attribution
+ */
+export async function getGitHubUserInfo(token: string): Promise<{
+  username: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+} | null> {
+  try {
+    const authHeaders = [`Bearer ${token}`, `token ${token}`];
+    
+    for (const authHeader of authHeaders) {
+      const response = await fetch('https://api.github.com/user', {
+        headers: { 
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        console.log(`✅ Retrieved GitHub user info: ${userData.login}`);
+        return {
+          username: userData.login,
+          name: userData.name || null,
+          email: userData.email || null,
+          avatar_url: userData.avatar_url || null
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Failed to get GitHub user info:', error);
+    return null;
   }
 }
 
