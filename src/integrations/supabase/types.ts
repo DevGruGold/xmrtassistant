@@ -6313,6 +6313,21 @@ export type Database = {
           device_type: string
         }[]
       }
+      get_cron_jobs_status: {
+        Args: never
+        Returns: {
+          active: boolean
+          failed_runs_24h: number
+          jobid: number
+          jobname: string
+          last_run_duration: unknown
+          last_run_status: string
+          last_run_time: string
+          schedule: string
+          success_rate: number
+          total_runs_24h: number
+        }[]
+      }
       get_latest_battery_level: {
         Args: { p_device_id: string; p_session_id: string }
         Returns: number

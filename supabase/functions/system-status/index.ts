@@ -353,79 +353,92 @@ serve(async (req) => {
     }
     
     // 7. Check Cron Jobs Health
-    console.log('⏰ Checking cron jobs health...');
+    // 7. Check Cron Jobs Health - REAL-TIME DATA FROM PG_CRON
+    console.log('⏰ Checking cron jobs health (querying pg_cron directly)...');
     try {
-      // Query pg_cron jobs
       const { data: cronJobs, error: cronError } = await supabase.rpc('get_cron_jobs_status');
       
       if (cronError) {
-        // Fallback: check activity log for scheduled tasks
-        const { data: scheduledActivity, error: schedError } = await supabase
-          .from('eliza_activity_log')
-          .select('*')
-          .in('activity_type', ['cron_execution', 'scheduled_task', 'daemon_scan'])
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(100);
-        
-        if (schedError) throw schedError;
-        
-        const cronStats: Record<string, any> = {};
-        scheduledActivity?.forEach((activity: any) => {
-          const jobName = activity.title || activity.activity_type;
-          if (!cronStats[jobName]) {
-            cronStats[jobName] = {
-              executions: 0,
-              successful: 0,
-              failed: 0,
-              last_run: null,
-              success_rate: 0
-            };
-          }
-          
-          cronStats[jobName].executions++;
-          if (activity.status === 'completed') {
-            cronStats[jobName].successful++;
-          } else if (activity.status === 'failed') {
-            cronStats[jobName].failed++;
-          }
-          
-          if (!cronStats[jobName].last_run || new Date(activity.created_at) > new Date(cronStats[jobName].last_run)) {
-            cronStats[jobName].last_run = activity.created_at;
-          }
-        });
-        
-        // Calculate success rates
-        Object.keys(cronStats).forEach(jobName => {
-          const stats = cronStats[jobName];
-          stats.success_rate = stats.executions > 0 ? Math.round((stats.successful / stats.executions) * 100) : 0;
-        });
-        
-        const totalJobs = Object.keys(cronStats).length;
-        const healthyJobs = Object.values(cronStats).filter((s: any) => s.success_rate > 80).length;
-        const failingJobs = Object.values(cronStats).filter((s: any) => s.success_rate < 50).length;
-        
-        statusReport.components.cron_jobs = {
-          status: failingJobs > 2 ? 'degraded' : (healthyJobs < totalJobs / 2 ? 'degraded' : 'healthy'),
-          total_jobs: totalJobs,
-          healthy_jobs: healthyJobs,
-          failing_jobs: failingJobs,
-          jobs_summary: Object.entries(cronStats).map(([name, stats]) => ({
-            name,
-            ...stats
-          })).sort((a: any, b: any) => a.success_rate - b.success_rate),
-          executions_24h: scheduledActivity?.length || 0
-        };
-        
-        if (failingJobs > 2) {
-          statusReport.overall_status = 'degraded';
-        }
-      } else {
-        statusReport.components.cron_jobs = {
-          status: 'healthy',
-          jobs: cronJobs
-        };
+        console.error('❌ Failed to query cron jobs:', cronError);
+        throw cronError;
       }
+      
+      console.log(`✅ Retrieved ${cronJobs?.length || 0} cron jobs from pg_cron`);
+      
+      // Analyze cron job health
+      const totalJobs = cronJobs?.length || 0;
+      const activeJobs = cronJobs?.filter((j: any) => j.active).length || 0;
+      const inactiveJobs = totalJobs - activeJobs;
+      
+      // Jobs that have run in last 24h
+      const recentlyExecutedJobs = cronJobs?.filter((j: any) => 
+        j.total_runs_24h && j.total_runs_24h > 0
+      ).length || 0;
+      
+      // Jobs with high success rate (>80%)
+      const healthyJobs = cronJobs?.filter((j: any) => 
+        j.success_rate !== null && j.success_rate > 80
+      ).length || 0;
+      
+      // Jobs with poor success rate (<50%)
+      const failingJobs = cronJobs?.filter((j: any) => 
+        j.success_rate !== null && j.success_rate < 50
+      ).length || 0;
+      
+      // Jobs that should have run but didn't (active but no runs in 24h)
+      const stalledJobs = cronJobs?.filter((j: any) => 
+        j.active && (!j.total_runs_24h || j.total_runs_24h === 0)
+      ).length || 0;
+      
+      // Determine overall cron health status
+      let cronStatus = 'healthy';
+      if (failingJobs > 3 || stalledJobs > 5) {
+        cronStatus = 'degraded';
+      } else if (failingJobs > 0 || stalledJobs > 2) {
+        cronStatus = 'warning';
+      }
+      
+      // Top 5 failing jobs for visibility
+      const topFailingJobs = cronJobs
+        ?.filter((j: any) => j.failed_runs_24h && j.failed_runs_24h > 0)
+        ?.sort((a: any, b: any) => (b.failed_runs_24h || 0) - (a.failed_runs_24h || 0))
+        ?.slice(0, 5)
+        ?.map((j: any) => ({
+          name: j.jobname,
+          schedule: j.schedule,
+          active: j.active,
+          last_run: j.last_run_time,
+          success_rate: j.success_rate,
+          failed_runs_24h: j.failed_runs_24h,
+          total_runs_24h: j.total_runs_24h
+        })) || [];
+      
+      statusReport.components.cron_jobs = {
+        status: cronStatus,
+        total_jobs: totalJobs,
+        active_jobs: activeJobs,
+        inactive_jobs: inactiveJobs,
+        recently_executed_24h: recentlyExecutedJobs,
+        healthy_jobs: healthyJobs,
+        failing_jobs: failingJobs,
+        stalled_jobs: stalledJobs,
+        top_failing_jobs: topFailingJobs,
+        all_jobs: cronJobs?.map((j: any) => ({
+          name: j.jobname,
+          schedule: j.schedule,
+          active: j.active,
+          last_run: j.last_run_time,
+          last_status: j.last_run_status,
+          success_rate: j.success_rate,
+          runs_24h: j.total_runs_24h
+        })) || []
+      };
+      
+      if (cronStatus === 'degraded') {
+        statusReport.overall_status = 'degraded';
+      }
+      
+      console.log(`✅ Cron jobs analyzed: ${healthyJobs} healthy, ${failingJobs} failing, ${stalledJobs} stalled`);
     } catch (error) {
       statusReport.components.cron_jobs = {
         status: 'error',
