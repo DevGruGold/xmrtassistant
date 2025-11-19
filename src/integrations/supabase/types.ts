@@ -1234,33 +1234,65 @@ export type Database = {
       }
       conversation_sessions: {
         Row: {
+          acquisition_stage: string | null
+          conversion_event: string | null
           created_at: string
           id: string
           is_active: boolean | null
+          last_qualification_at: string | null
+          lead_score: number | null
+          lifetime_value: number | null
           metadata: Json | null
+          services_interested_in: Json | null
           session_key: string
+          tier_preference: string | null
           title: string | null
           updated_at: string
+          user_profile_id: string | null
         }
         Insert: {
+          acquisition_stage?: string | null
+          conversion_event?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
+          last_qualification_at?: string | null
+          lead_score?: number | null
+          lifetime_value?: number | null
           metadata?: Json | null
+          services_interested_in?: Json | null
           session_key: string
+          tier_preference?: string | null
           title?: string | null
           updated_at?: string
+          user_profile_id?: string | null
         }
         Update: {
+          acquisition_stage?: string | null
+          conversion_event?: string | null
           created_at?: string
           id?: string
           is_active?: boolean | null
+          last_qualification_at?: string | null
+          lead_score?: number | null
+          lifetime_value?: number | null
           metadata?: Json | null
+          services_interested_in?: Json | null
           session_key?: string
+          tier_preference?: string | null
           title?: string | null
           updated_at?: string
+          user_profile_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversation_sessions_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_summaries: {
         Row: {
@@ -3061,6 +3093,47 @@ export type Database = {
           },
         ]
       }
+      lead_qualification_signals: {
+        Row: {
+          confidence_score: number | null
+          contributed_to_score: number | null
+          created_at: string | null
+          detected_at: string | null
+          id: string
+          session_key: string
+          signal_type: string
+          signal_value: Json | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          contributed_to_score?: number | null
+          created_at?: string | null
+          detected_at?: string | null
+          id?: string
+          session_key: string
+          signal_type: string
+          signal_value?: Json | null
+        }
+        Update: {
+          confidence_score?: number | null
+          contributed_to_score?: number | null
+          created_at?: string | null
+          detected_at?: string | null
+          id?: string
+          session_key?: string
+          signal_type?: string
+          signal_value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_lead_signals_session"
+            columns: ["session_key"]
+            isOneToOne: false
+            referencedRelation: "conversation_sessions"
+            referencedColumns: ["session_key"]
+          },
+        ]
+      }
       learning_patterns: {
         Row: {
           confidence_score: number | null
@@ -3410,6 +3483,44 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
+      }
+      onboarding_checkpoints: {
+        Row: {
+          api_key: string
+          checkpoint: string
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          time_to_complete_seconds: number | null
+        }
+        Insert: {
+          api_key: string
+          checkpoint: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          time_to_complete_seconds?: number | null
+        }
+        Update: {
+          api_key?: string
+          checkpoint?: string
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          time_to_complete_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_onboarding_api_key"
+            columns: ["api_key"]
+            isOneToOne: false
+            referencedRelation: "service_api_keys"
+            referencedColumns: ["api_key"]
+          },
+        ]
       }
       opportunity_log: {
         Row: {
@@ -3937,9 +4048,13 @@ export type Database = {
       }
       service_api_keys: {
         Row: {
+          acquired_via: string | null
+          activation_completed: boolean | null
           api_key: string
+          conversation_context: Json | null
           created_at: string | null
           expires_at: string | null
+          first_api_call_at: string | null
           id: string
           last_used_at: string | null
           metadata: Json | null
@@ -3947,14 +4062,20 @@ export type Database = {
           owner_name: string | null
           quota_requests_per_month: number
           quota_used_current_month: number | null
+          referral_source: string | null
           service_name: string
+          session_key: string | null
           status: string | null
           tier: string
         }
         Insert: {
+          acquired_via?: string | null
+          activation_completed?: boolean | null
           api_key: string
+          conversation_context?: Json | null
           created_at?: string | null
           expires_at?: string | null
+          first_api_call_at?: string | null
           id?: string
           last_used_at?: string | null
           metadata?: Json | null
@@ -3962,14 +4083,20 @@ export type Database = {
           owner_name?: string | null
           quota_requests_per_month: number
           quota_used_current_month?: number | null
+          referral_source?: string | null
           service_name: string
+          session_key?: string | null
           status?: string | null
           tier: string
         }
         Update: {
+          acquired_via?: string | null
+          activation_completed?: boolean | null
           api_key?: string
+          conversation_context?: Json | null
           created_at?: string | null
           expires_at?: string | null
+          first_api_call_at?: string | null
           id?: string
           last_used_at?: string | null
           metadata?: Json | null
@@ -3977,7 +4104,9 @@ export type Database = {
           owner_name?: string | null
           quota_requests_per_month?: number
           quota_used_current_month?: number | null
+          referral_source?: string | null
           service_name?: string
+          session_key?: string | null
           status?: string | null
           tier?: string
         }
@@ -6106,6 +6235,7 @@ export type Database = {
         }
         Returns: number
       }
+      calculate_lead_score: { Args: { p_session_key: string }; Returns: number }
       cancel_job: { Args: { p_job_id: number }; Returns: undefined }
       canonicalize_service_status: { Args: { j: Json }; Returns: Json }
       check_rate_limit: {
@@ -6427,6 +6557,10 @@ export type Database = {
       run_opportunity_scanner: { Args: never; Returns: undefined }
       service_status_change_type: {
         Args: { new_j: Json; old_j: Json }
+        Returns: string
+      }
+      track_onboarding_checkpoint: {
+        Args: { p_api_key: string; p_checkpoint: string; p_metadata?: Json }
         Returns: string
       }
       trigger_daily_discussion_post: { Args: never; Returns: number }

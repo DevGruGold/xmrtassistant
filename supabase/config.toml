@@ -1,5 +1,23 @@
 project_id = "vawouugtzwmejxqkeqqj"
 
+[functions.convert-session-to-user]
+verify_jwt = false
+
+[functions.qualify-lead]
+verify_jwt = false
+
+[functions.identify-service-interest]
+verify_jwt = false
+
+[functions.generate-stripe-link]
+verify_jwt = false
+
+[functions.stripe-payment-webhook]
+verify_jwt = false
+
+[functions.usage-monitor]
+verify_jwt = false
+
 [api]
 enabled = true
 port = 54321
