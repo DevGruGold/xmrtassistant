@@ -114,6 +114,9 @@ serve(async (req) => {
         break;
 
       case 'update_agent_status':
+        if (!data || !data.agent_id || !data.status) {
+          throw new Error('Missing agent_id or status for update_agent_status action.');
+        }
         const { data: updatedAgent, error: updateError } = await supabase
           .from('agents')
           .update({ status: data.status })
@@ -288,6 +291,10 @@ serve(async (req) => {
         });
 
       case 'assign_task':
+        if (!data || !data.title || !data.description || !data.category || !data.assignee_agent_id) {
+          throw new Error('Missing title, description, category, or assignee_agent_id for assign_task action.');
+        }
+        
         // Check if task with same title and assignee already exists
         const { data: existingTask, error: existingTaskError } = await supabase
           .from('tasks')
