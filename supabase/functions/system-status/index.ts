@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { EDGE_FUNCTIONS_REGISTRY } from '../_shared/edgeFunctionRegistry.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -218,9 +219,16 @@ serve(async (req) => {
         };
     }
     
-    // 6. Check Edge Functions Health
-    console.log('⚡ Checking edge functions health...');
+    // 6. Check Edge Functions Health - COMPREHENSIVE SCAN (ALL 93+ DEPLOYED FUNCTIONS)
+    console.log('⚡ Checking edge functions health (all deployed functions)...');
     try {
+      // Get ALL registered functions from authoritative registry
+      const allRegisteredFunctions = EDGE_FUNCTIONS_REGISTRY.map(f => f.name);
+      const totalDeployedFunctions = allRegisteredFunctions.length;
+      
+      console.log(`📊 Total deployed functions in registry: ${totalDeployedFunctions}`);
+      
+      // Get recent usage data (last 24h) for active functions
       const { data: functionUsage, error: usageError } = await supabase
         .from('eliza_function_usage')
         .select('*')
@@ -229,10 +237,14 @@ serve(async (req) => {
       
       if (usageError) throw usageError;
       
-      // Get function stats
+      // Build stats for ACTIVE functions (those with recent usage)
       const functionStats: Record<string, any> = {};
+      const activeFunctionNames = new Set<string>();
+      
       functionUsage?.forEach((usage: any) => {
         const funcName = usage.function_name;
+        activeFunctionNames.add(funcName);
+        
         if (!functionStats[funcName]) {
           functionStats[funcName] = {
             total_calls: 0,
@@ -240,7 +252,8 @@ serve(async (req) => {
             failed: 0,
             avg_duration_ms: 0,
             last_called: null,
-            error_rate: 0
+            error_rate: 0,
+            status: 'active'
           };
         }
         
@@ -262,12 +275,23 @@ serve(async (req) => {
         }
       });
       
-      // Calculate error rates
+      // Calculate error rates for active functions
       Object.keys(functionStats).forEach(funcName => {
         const stats = functionStats[funcName];
         stats.error_rate = stats.total_calls > 0 ? (stats.failed / stats.total_calls) * 100 : 0;
         stats.avg_duration_ms = Math.round(stats.avg_duration_ms);
       });
+      
+      // Identify IDLE functions (registered but no recent activity)
+      const idleFunctions = allRegisteredFunctions.filter(name => !activeFunctionNames.has(name));
+      
+      console.log(`✅ Active functions (24h): ${activeFunctionNames.size}`);
+      console.log(`💤 Idle functions: ${idleFunctions.length}`);
+      
+      // Categorize active functions by health
+      const healthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate < 5).length;
+      const degradedFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 5 && s.error_rate < 20).length;
+      const unhealthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 20).length;
       
       // Get top failing functions
       const topFailingFunctions = Object.entries(functionStats)
@@ -276,32 +300,55 @@ serve(async (req) => {
         .slice(0, 5)
         .map(([name, stats]) => ({ name, ...stats }));
       
-      const totalFunctions = Object.keys(functionStats).length;
-      const healthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate < 5).length;
-      const degradedFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 5 && s.error_rate < 20).length;
-      const unhealthyFunctions = Object.values(functionStats).filter((s: any) => s.error_rate >= 20).length;
-      
+      // Build comprehensive report
       statusReport.components.edge_functions = {
         status: unhealthyFunctions > 3 ? 'degraded' : (degradedFunctions > 5 ? 'degraded' : 'healthy'),
-        total_functions: totalFunctions,
-        healthy: healthyFunctions,
-        degraded: degradedFunctions,
-        unhealthy: unhealthyFunctions,
-        top_failing: topFailingFunctions,
+        
+        // DEPLOYMENT OVERVIEW
+        total_deployed: totalDeployedFunctions,
+        total_active_24h: activeFunctionNames.size,
+        total_idle: idleFunctions.length,
+        
+        // ACTIVE FUNCTION HEALTH (those with recent usage)
+        active_healthy: healthyFunctions,
+        active_degraded: degradedFunctions,
+        active_unhealthy: unhealthyFunctions,
+        
+        // USAGE STATISTICS
         total_calls_24h: functionUsage?.length || 0,
         overall_error_rate: functionUsage?.length > 0 
           ? Math.round((functionUsage.filter((u: any) => u.status === 'error' || u.status === 'failed').length / functionUsage.length) * 100) 
-          : 0
+          : 0,
+        
+        // TOP ISSUES
+        top_failing: topFailingFunctions,
+        
+        // DETAILED LISTS
+        idle_functions: idleFunctions.slice(0, 20), // First 20 idle functions
+        idle_functions_full_list: idleFunctions, // Complete list
+        
+        // REGISTRY INFO
+        registry_source: 'EDGE_FUNCTIONS_REGISTRY',
+        registry_coverage: `${activeFunctionNames.size} of ${totalDeployedFunctions} deployed functions are active`,
+        
+        // COVERAGE METRICS
+        coverage: {
+          deployed_vs_active_percent: Math.round((activeFunctionNames.size / totalDeployedFunctions) * 100),
+          message: `${activeFunctionNames.size} of ${totalDeployedFunctions} deployed functions active in last 24h (${idleFunctions.length} idle)`
+        }
       };
       
+      // Update overall status based on health
       if (unhealthyFunctions > 3 || statusReport.components.edge_functions.overall_error_rate > 15) {
         statusReport.overall_status = 'degraded';
       }
+      
     } catch (error) {
       statusReport.components.edge_functions = {
         status: 'error',
         error: error.message
       };
+      statusReport.overall_status = 'degraded';
     }
     
     // 7. Check Cron Jobs Health
