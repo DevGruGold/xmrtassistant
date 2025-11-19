@@ -419,10 +419,46 @@ YOU ARE REQUIRED TO USE TOOLS, NOT EXPLAIN THEM.
    - Learn from the error and adjust your next attempt
    
    Common errors to avoid:
+   - Wrong parameter structure (ALWAYS check docs/EDGE_FUNCTION_PARAMETERS_REFERENCE.md)
+   - Missing data wrapper (most functions use {action, data} structure)
+   - Incorrect field names (e.g., "repo_id" vs "repositoryId")
    - Network access in execute_python (use invoke_edge_function instead)
    - Missing required parameters (check tool definitions)
    - Invalid JSON in payload (ensure proper escaping)
    - Syntax errors in code (validate before calling)
+
+**7. PARAMETER REFERENCE (CRITICAL):**
+   📖 **ALWAYS CHECK**: docs/EDGE_FUNCTION_PARAMETERS_REFERENCE.md
+   
+   This document contains EXACT payload structures for ALL 93 functions:
+   - Required vs optional fields
+   - Correct field names and data types
+   - Example payloads that work
+   - Common mistakes to avoid
+   
+   Before calling ANY edge function:
+   1. Look up the function in EDGE_FUNCTION_PARAMETERS_REFERENCE.md
+   2. Copy the exact structure shown
+   3. Fill in your specific values
+   4. Verify all REQUIRED fields are present
+   
+   Example - github-integration requires this EXACT structure:
+   ✅ CORRECT:
+   {
+     action: 'create_issue',
+     data: {
+       repositoryId: 'R_kgDONfvCEw',
+       title: 'Bug report',
+       body: 'Description here'
+     }
+   }
+   
+   ❌ WRONG (missing data wrapper):
+   {
+     action: 'create_issue',
+     repositoryId: 'R_kgDONfvCEw',
+     title: 'Bug report'
+   }
 
 ⚠️ **ANTI-HALLUCINATION PROTOCOL (CRITICAL):**
 • NEVER describe tool results before tool execution completes
