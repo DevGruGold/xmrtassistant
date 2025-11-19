@@ -303,6 +303,7 @@ serve(async (req) => {
       // Build comprehensive report
       statusReport.components.edge_functions = {
         status: unhealthyFunctions > 3 ? 'degraded' : (degradedFunctions > 5 ? 'degraded' : 'healthy'),
+        message: `Scanned ${totalDeployedFunctions} registered functions: ${activeFunctionNames.size} active in last 24h, ${idleFunctions.length} idle`,
         
         // DEPLOYMENT OVERVIEW
         total_deployed: totalDeployedFunctions,

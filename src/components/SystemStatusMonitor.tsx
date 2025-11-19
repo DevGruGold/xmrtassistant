@@ -38,6 +38,13 @@ interface SystemStatus {
         failed: number;
       };
     };
+    edge_functions?: ComponentStatus & {
+      message?: string;
+      total_deployed?: number;
+      total_active_24h?: number;
+      total_idle?: number;
+      stats?: any;
+    };
     mining?: ComponentStatus;
     render_service?: ComponentStatus;
     activity_log?: ComponentStatus;
@@ -229,6 +236,33 @@ export const SystemStatusMonitor = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Edge Functions */}
+          {status.components.edge_functions && (
+            <div className="border rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Edge Functions</span>
+                {getStatusIcon(status.components.edge_functions.status)}
+              </div>
+              {status.components.edge_functions.message && (
+                <p className="text-xs text-muted-foreground">{status.components.edge_functions.message}</p>
+              )}
+              <div className="grid grid-cols-3 gap-2 text-xs mt-2">
+                <div>
+                  <div className="text-muted-foreground">Deployed</div>
+                  <div className="font-bold">{status.components.edge_functions.total_deployed || 0}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Active 24h</div>
+                  <div className="font-bold text-green-600">{status.components.edge_functions.total_active_24h || 0}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Idle</div>
+                  <div className="font-bold text-yellow-600">{status.components.edge_functions.total_idle || 0}</div>
+                </div>
+              </div>
             </div>
           )}
 
