@@ -109,6 +109,145 @@ export async function executeToolCall(
     
     // Route tool calls to appropriate edge functions
     switch(name) {
+      // ====================================================================
+      // CONVERSATIONAL USER ACQUISITION TOOLS
+      // ====================================================================
+      case 'qualify_lead':
+        console.log(`🎯 [${executiveName}] Qualify Lead`);
+        const qualifyResult = await supabase.functions.invoke('qualify-lead', { body: parsedArgs });
+        result = qualifyResult.error 
+          ? { success: false, error: qualifyResult.error.message }
+          : { success: true, result: qualifyResult.data };
+        break;
+
+      case 'identify_service_interest':
+        console.log(`🔍 [${executiveName}] Identify Service Interest`);
+        const interestResult = await supabase.functions.invoke('identify-service-interest', { body: parsedArgs });
+        result = interestResult.error
+          ? { success: false, error: interestResult.error.message }
+          : { success: true, result: interestResult.data };
+        break;
+
+      case 'suggest_tier_based_on_needs':
+        console.log(`💡 [${executiveName}] Suggest Pricing Tier`);
+        const { estimated_monthly_usage, budget_range } = parsedArgs;
+        let recommendedTier = 'free';
+        let reasoning = '';
+
+        if (estimated_monthly_usage <= 100) {
+          recommendedTier = 'free';
+          reasoning = 'Free tier (100 requests/mo) fits your estimated usage perfectly.';
+        } else if (estimated_monthly_usage <= 1000) {
+          recommendedTier = 'basic';
+          reasoning = 'Basic tier ($10/mo, 1,000 requests) gives you 10x headroom for growth.';
+        } else if (estimated_monthly_usage <= 10000) {
+          recommendedTier = 'pro';
+          reasoning = 'Pro tier ($50/mo, 10,000 requests) handles your volume with best value.';
+        } else {
+          recommendedTier = 'enterprise';
+          reasoning = 'Enterprise tier ($500/mo, unlimited) for your high-volume needs.';
+        }
+
+        // Adjust for budget
+        if (budget_range === 'budget-conscious' && recommendedTier === 'enterprise') {
+          recommendedTier = 'pro';
+          reasoning += ' Consider Pro tier as a cost-effective alternative.';
+        }
+
+        result = { 
+          success: true, 
+          result: { 
+            recommended_tier: recommendedTier, 
+            reasoning,
+            monthly_cost: { free: 0, basic: 10, pro: 50, enterprise: 500 }[recommendedTier]
+          } 
+        };
+        break;
+
+      case 'create_user_profile_from_session':
+        console.log(`👤 [${executiveName}] Create User Profile`);
+        const profileResult = await supabase.functions.invoke('convert-session-to-user', { 
+          body: { action: 'create_user_profile', ...parsedArgs }
+        });
+        result = profileResult.error
+          ? { success: false, error: profileResult.error.message }
+          : { success: true, result: profileResult.data };
+        break;
+
+      case 'generate_stripe_payment_link':
+        console.log(`💳 [${executiveName}] Generate Payment Link`);
+        const paymentResult = await supabase.functions.invoke('generate-stripe-link', { body: parsedArgs });
+        result = paymentResult.error
+          ? { success: false, error: paymentResult.error.message }
+          : { success: true, result: paymentResult.data };
+        break;
+
+      case 'check_onboarding_progress':
+        console.log(`📊 [${executiveName}] Check Onboarding Progress`);
+        const { data: checkpoints } = await supabase
+          .from('onboarding_checkpoints')
+          .select('*')
+          .eq('api_key', parsedArgs.api_key)
+          .order('completed_at', { ascending: true });
+
+        result = {
+          success: true,
+          result: {
+            checkpoints: checkpoints || [],
+            completed_count: checkpoints?.length || 0,
+            activation_completed: checkpoints?.some(c => c.checkpoint === 'value_realized') || false,
+          }
+        };
+        break;
+
+      case 'send_usage_alert':
+        console.log(`⚠️ [${executiveName}] Send Usage Alert`);
+        const alertResult = await supabase.functions.invoke('usage-monitor', { 
+          body: { api_key: parsedArgs.api_key, alert_type: parsedArgs.alert_type }
+        });
+        result = alertResult.error
+          ? { success: false, error: alertResult.error.message }
+          : { success: true, result: alertResult.data };
+        break;
+
+      case 'link_api_key_to_conversation':
+        console.log(`🔗 [${executiveName}] Link API Key to Conversation`);
+        const linkResult = await supabase.functions.invoke('convert-session-to-user', {
+          body: { action: 'link_api_key_to_session', ...parsedArgs }
+        });
+        result = linkResult.error
+          ? { success: false, error: linkResult.error.message }
+          : { success: true, result: linkResult.data };
+        break;
+
+      case 'apply_retention_discount':
+        console.log(`🎁 [${executiveName}] Apply Retention Discount`);
+        // Update API key with discount metadata
+        const { error: discountError } = await supabase
+          .from('service_api_keys')
+          .update({
+            metadata: {
+              discount_percent: parsedArgs.discount_percent,
+              discount_duration_months: parsedArgs.duration_months,
+              discount_applied_at: new Date().toISOString(),
+            }
+          })
+          .eq('api_key', parsedArgs.api_key);
+
+        result = discountError
+          ? { success: false, error: discountError.message }
+          : { 
+              success: true, 
+              result: { 
+                discount_applied: true,
+                message: `${parsedArgs.discount_percent}% discount applied for ${parsedArgs.duration_months} months`
+              } 
+            };
+        break;
+
+      // ====================================================================
+      // EXISTING TOOLS
+      // ====================================================================
       case 'invoke_edge_function':
       case 'call_edge_function':
         const { function_name, payload, body } = parsedArgs;

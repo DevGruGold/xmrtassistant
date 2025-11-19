@@ -12,7 +12,163 @@
 
 
 export const ELIZA_TOOLS = [
-    // Revenue Generation Tools
+    // ====================================================================
+    // 🎯 CONVERSATIONAL USER ACQUISITION TOOLS
+    // ====================================================================
+    {
+      type: 'function',
+      function: {
+        name: 'qualify_lead',
+        description: '🎯 Score a potential customer based on conversation signals (budget, urgency, company size, use case complexity). Returns lead score 0-100 and qualification level.',
+        parameters: {
+          type: 'object',
+          properties: {
+            session_key: { type: 'string', description: 'Current conversation session key' },
+            user_signals: {
+              type: 'object',
+              description: 'Signals detected from conversation',
+              properties: {
+                mentioned_budget: { type: 'boolean', description: 'User mentioned budget or willingness to pay' },
+                has_urgent_need: { type: 'boolean', description: 'User expressed urgency or time pressure' },
+                company_mentioned: { type: 'string', description: 'Company name if mentioned' },
+                use_case_complexity: { type: 'string', enum: ['simple', 'moderate', 'complex'], description: 'Complexity of their use case' }
+              }
+            }
+          },
+          required: ['session_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'identify_service_interest',
+        description: '🔍 Analyze user message to detect interest in specific monetized services. Returns service names with confidence scores.',
+        parameters: {
+          type: 'object',
+          properties: {
+            user_message: { type: 'string', description: 'Current user message to analyze' },
+            conversation_history: { type: 'array', description: 'Optional: recent conversation messages for context' },
+            session_key: { type: 'string', description: 'Session key to track services interested in' }
+          },
+          required: ['user_message']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'suggest_tier_based_on_needs',
+        description: '💡 Recommend optimal pricing tier based on estimated usage and budget. Returns tier recommendation with reasoning.',
+        parameters: {
+          type: 'object',
+          properties: {
+            estimated_monthly_usage: { type: 'number', description: 'Estimated API calls per month' },
+            budget_range: { type: 'string', enum: ['budget-conscious', 'moderate', 'premium', 'enterprise'], description: 'User budget category' },
+            feature_requirements: { type: 'array', items: { type: 'string' }, description: 'Optional: specific features needed' }
+          },
+          required: ['estimated_monthly_usage', 'budget_range']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_user_profile_from_session',
+        description: '👤 Convert anonymous session to identified user profile. Collects email and links session to user_profiles table.',
+        parameters: {
+          type: 'object',
+          properties: {
+            session_key: { type: 'string', description: 'Current session key' },
+            email: { type: 'string', format: 'email', description: 'User email address' }
+          },
+          required: ['session_key', 'email']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_stripe_payment_link',
+        description: '💳 Generate Stripe checkout link for tier upgrade. Returns shareable payment URL with optional trial period.',
+        parameters: {
+          type: 'object',
+          properties: {
+            customer_email: { type: 'string', format: 'email', description: 'Customer email' },
+            tier: { type: 'string', enum: ['basic', 'pro', 'enterprise'], description: 'Tier to purchase' },
+            service_name: { type: 'string', description: 'Service being purchased' },
+            trial_days: { type: 'number', description: 'Optional: number of trial days (default 0)' },
+            session_key: { type: 'string', description: 'Session key for tracking conversion' },
+            api_key: { type: 'string', description: 'API key to upgrade after payment' }
+          },
+          required: ['customer_email', 'tier', 'service_name']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'check_onboarding_progress',
+        description: '📊 Track user activation milestones (API key received, first call, integration complete, value realized).',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to check progress for' }
+          },
+          required: ['api_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'send_usage_alert',
+        description: '⚠️ Notify user about quota usage (75% warning, exceeded, or upsell opportunity).',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to check usage for' },
+            alert_type: { type: 'string', enum: ['quota_warning', 'quota_exceeded', 'upsell'], description: 'Type of alert to send' }
+          },
+          required: ['api_key', 'alert_type']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'link_api_key_to_conversation',
+        description: '🔗 Associate an API key with the current conversation session for attribution tracking.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key to link' },
+            session_key: { type: 'string', description: 'Current session key' }
+          },
+          required: ['api_key', 'session_key']
+        }
+      }
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'apply_retention_discount',
+        description: '🎁 Offer discount to at-risk customer to prevent churn.',
+        parameters: {
+          type: 'object',
+          properties: {
+            api_key: { type: 'string', description: 'API key for customer' },
+            discount_percent: { type: 'number', description: 'Discount percentage (e.g., 20 for 20% off)' },
+            duration_months: { type: 'number', description: 'How many months discount applies' }
+          },
+          required: ['api_key', 'discount_percent', 'duration_months']
+        }
+      }
+    },
+
+    // ====================================================================
+    // 💰 REVENUE GENERATION TOOLS
+    // ====================================================================
     {
       type: 'function',
       function: {
