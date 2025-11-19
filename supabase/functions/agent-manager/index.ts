@@ -35,7 +35,12 @@ serve(async (req) => {
     const { action, data, autonomous = false } = await req.json();
     console.log(`Agent Manager - Action: ${action}`, data);
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
     let result;
 
     switch (action) {
@@ -291,9 +296,28 @@ serve(async (req) => {
         });
 
       case 'assign_task':
-        if (!data || !data.title || !data.description || !data.category || !data.assignee_agent_id) {
-          throw new Error('Missing title, description, category, or assignee_agent_id for assign_task action.');
+        // Enhanced input validation
+        if (!data) {
+          throw new Error('Missing data object for assign_task');
         }
+        if (!data.title || typeof data.title !== 'string') {
+          throw new Error('Missing or invalid title (must be string)');
+        }
+        if (!data.description || typeof data.description !== 'string') {
+          throw new Error('Missing or invalid description (must be string)');
+        }
+        if (!data.category || typeof data.category !== 'string') {
+          throw new Error('Missing or invalid category (must be string)');
+        }
+        if (!data.assignee_agent_id || typeof data.assignee_agent_id !== 'string') {
+          throw new Error('Missing or invalid assignee_agent_id (must be string)');
+        }
+        
+        console.log('✅ assign_task - Input validation passed:', {
+          title: data.title,
+          assignee: data.assignee_agent_id,
+          category: data.category
+        });
         
         // Check if task with same title and assignee already exists
         const { data: existingTask, error: existingTaskError } = await supabase
@@ -308,7 +332,7 @@ serve(async (req) => {
         
         // If task already exists, return it instead of creating duplicate
         if (existingTask) {
-          console.log('Task already exists, returning existing:', existingTask);
+          console.log('⚠️ Task already exists, returning existing:', existingTask);
           result = {
             ...existingTask,
             message: 'Task already exists',
@@ -333,7 +357,22 @@ serve(async (req) => {
           .select()
           .single();
         
-        if (taskError) throw taskError;
+        if (taskError) {
+          console.error('❌ Task INSERT error:', taskError);
+          throw taskError;
+        }
+        
+        if (!task) {
+          console.error('❌ Task INSERT returned null - likely RLS blocking writes');
+          throw new Error('Task creation failed - database returned null (possible RLS issue)');
+        }
+        
+        console.log('✅ Task created successfully:', {
+          id: task.id,
+          title: task.title,
+          assignee: task.assignee_agent_id,
+          status: task.status
+        });
         
         // Update agent status to BUSY
         await supabase

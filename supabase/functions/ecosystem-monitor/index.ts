@@ -32,7 +32,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     console.log('🔍 Ecosystem Monitor - Starting daily evaluation...');
 
@@ -507,6 +512,120 @@ async function generateAutonomousTasks(supabase: any, context: any) {
         priority: msg.flagged_for_review ? 9 : 6,
         repo: 'XMRT-Ecosystem'
       }).then(() => tasksCreated++);
+    }
+
+
+    // NEW: Create tasks from high-priority GitHub issues
+    if (githubToken && context.repoActivityScores) {
+      console.log('🔍 Scanning GitHub issues for task creation...');
+      
+      for (const repoScore of context.repoActivityScores) {
+        const repo = repos.find(r => r.name === repoScore.repo_name);
+        if (!repo) continue;
+
+        try {
+          // Fetch open issues labeled as 'bug', 'feature', or 'enhancement'
+          const issuesResponse = await fetch(
+            `https://api.github.com/repos/${repo.owner}/${repo.name}/issues?state=open&labels=bug,feature,enhancement&per_page=5`,
+            {
+              headers: {
+                'Authorization': `token ${githubToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            }
+          );
+
+          if (issuesResponse.ok) {
+            const issues = await issuesResponse.json();
+            
+            for (const issue of issues) {
+              // Check if task already exists for this issue
+              const { data: existingTask } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('metadata->>github_issue_number', issue.number.toString())
+                .eq('repo', `${repo.owner}/${repo.name}`)
+                .maybeSingle();
+
+              if (!existingTask) {
+                const taskId = `task-gh-${repo.name}-${issue.number}`;
+                const category = issue.labels.some((l: any) => l.name === 'bug') ? 'CODE' : 'FEATURE';
+                const priority = issue.labels.some((l: any) => l.name === 'critical') ? 9 : 7;
+
+                await supabase.from('tasks').insert({
+                  id: taskId,
+                  title: `GitHub Issue #${issue.number}: ${issue.title}`,
+                  description: `${issue.body?.substring(0, 500) || 'No description'}\n\nGitHub URL: ${issue.html_url}`,
+                  category: category,
+                  stage: 'PLANNING',
+                  status: 'PENDING',
+                  priority: priority,
+                  repo: `${repo.owner}/${repo.name}`,
+                  metadata: {
+                    github_issue_number: issue.number,
+                    github_issue_url: issue.html_url,
+                    github_labels: issue.labels.map((l: any) => l.name),
+                    created_from: 'ecosystem-monitor'
+                  }
+                }).then(() => tasksCreated++);
+
+                console.log(`📝 Created task from GitHub issue #${issue.number}: ${issue.title}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching issues for ${repo.name}:`, error);
+        }
+      }
+    }
+
+    // Auto-assign newly created tasks to available agents
+    try {
+      const { data: unassignedTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .is('assignee_agent_id', null)
+        .eq('status', 'PENDING')
+        .order('priority', { ascending: false })
+        .limit(10);
+
+      for (const task of unassignedTasks || []) {
+        // Find best agent based on category and availability
+        const { data: availableAgent } = await supabase
+          .from('agents')
+          .select('*')
+          .contains('skills', [task.category.toLowerCase()])
+          .eq('status', 'IDLE')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (availableAgent) {
+          // Use agent-manager to assign task
+          const assignResult = await supabase.functions.invoke('agent-manager', {
+            body: {
+              action: 'assign_task',
+              data: {
+                task_id: task.id,
+                title: task.title,
+                description: task.description,
+                category: task.category,
+                assignee_agent_id: availableAgent.id,
+                repo: task.repo,
+                priority: task.priority
+              }
+            }
+          });
+
+          if (assignResult.error) {
+            console.error(`Error auto-assigning task ${task.id}:`, assignResult.error);
+          } else {
+            console.log(`👷 Auto-assigned task ${task.id} to agent ${availableAgent.name}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error auto-assigning tasks:', error);
     }
 
     // If GitHub token healthy but low engagement, create engagement tasks
