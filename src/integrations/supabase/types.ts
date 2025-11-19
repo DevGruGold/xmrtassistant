@@ -6176,6 +6176,13 @@ export type Database = {
         Returns: undefined
       }
       generate_conversation_insights: { Args: never; Returns: undefined }
+      get_active_devices_by_type: {
+        Args: { p_cutoff: string }
+        Returns: {
+          count: number
+          device_type: string
+        }[]
+      }
       get_latest_battery_level: {
         Args: { p_device_id: string; p_session_id: string }
         Returns: number
