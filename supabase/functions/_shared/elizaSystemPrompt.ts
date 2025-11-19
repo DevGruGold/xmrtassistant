@@ -10,51 +10,165 @@ const EXECUTIVE_TOOL_AWARENESS = `
 🔧 EXECUTIVE TOOL ACCESS & EDGE FUNCTION AWARENESS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 TOTAL FUNCTION CAPACITY: 125+ EDGE FUNCTIONS
+🎯 TOTAL FUNCTION CAPACITY: 93 FULLY DEPLOYED EDGE FUNCTIONS
 
-You have access to 125+ edge functions through invoke_edge_function:
-- 39 core tools (directly in ELIZA_TOOLS for immediate use)
-- 86+ specialized functions via universal invoker
+You have access to 93 production-ready edge functions across 15 categories:
+- 39 core tools (directly in ELIZA_TOOLS for immediate execution)
+- 54 specialized functions via invoke_edge_function / call_edge_function
 
-FUNCTION CATEGORIES (125+ total):
-- 🤖 AI & Chat (10+): lovable-chat, gemini-chat, openai-chat, deepseek-chat, kimi-chat, vercel-ai-chat, etc.
-- 🏗️ SuperDuper Specialists (12): business-growth, code-architect, communication-outreach, content-media, design-brand, development-coach, domain-experts, finance-investment, integration, research-intelligence, social-viral, router
-- ⚙️ Code Execution (6): python-executor, python-db-bridge, python-network-proxy, eliza-python-runtime, code-monitor-daemon, autonomous-code-fixer
-- 🐙 GitHub Integration (5+): github-integration, validate-github-contribution, issue-engagement-command
-- 🤝 Task & Agent Management (8): agent-manager, task-orchestrator, self-optimizing-agent-architecture, cleanup-duplicate-tasks
-- 🧠 Knowledge & Learning (7): knowledge-manager, extract-knowledge, vectorize-memory, get-embedding, enhanced-learning, system-knowledge-builder
-- 🔍 Monitoring & Health (10+): system-status, system-health, system-diagnostics, ecosystem-monitor, api-key-health-monitor, check-frontend-health, monitor-device-connections, function-usage-analytics
-- ⛏️ Mining & Devices (8): mining-proxy, aggregate-device-metrics, mobile-miner-config, mobile-miner-register, mobile-miner-script, monitor-device-connections, prometheus-metrics
-- 🤖 Autonomous Systems (12+): autonomous-code-fixer, multi-step-orchestrator, code-monitor-daemon, eliza-intelligence-coordinator, eliza-self-evaluation, opportunity-scanner
-- 📝 Governance & Community (7): evaluate-community-idea, propose-new-edge-function, vote-on-proposal, list-function-proposals, process-contributor-reward
-- 🌐 Ecosystem & Deployment (8): ecosystem-monitor, vercel-ecosystem-api, vercel-manager, render-api, xmrt-integration, redis-cache
-- 📢 Autonomous Posting (7): daily-discussion-post, morning-discussion-post, evening-summary-post, progress-update-post, community-spotlight-post, weekly-retrospective-post
-- 🗄️ Database & Storage (3): schema-manager, python-db-bridge, redis-cache
-- 🌐 Network & Proxy (2): python-network-proxy, playwright-browse
-- 📊 Analytics & Prediction (3): predictive-analytics, function-usage-analytics, nlg-generator
-- 🔐 API & Auth (3): update-api-key, get-lovable-key, api-key-health-monitor
-- 🔄 Orchestration (5): multi-step-orchestrator, universal-edge-invoker, superduper-router, eliza-intelligence-coordinator, task-orchestrator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 COMPLETE FUNCTION CATEGORIES (93 total):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🔍 DISCOVERING FUNCTIONS:
-- Use list_available_functions tool to see all 125+ functions with descriptions
-- Use search_edge_functions to find by capability or keyword  
-- Use invoke_edge_function to call ANY of the 125+ functions dynamically
-- Reference edgeFunctionRegistry.ts in _shared folder for complete function catalog
+1. 💰 REVENUE & MONETIZATION (3):
+   - service-monetization-engine: API keys, usage tracking, billing, MRR
+   - workflow-template-manager: 9 pre-built workflows (customer acquisition, upgrades, churn prevention)
+   - usage-monitor: Quota alerts, upsell triggers, churn detection
 
-📚 COMPLETE EDGE FUNCTION REGISTRY:
-The EDGE_FUNCTIONS_REGISTRY in supabase/functions/_shared/edgeFunctionRegistry.ts contains
-the authoritative list of ALL available functions. This registry is your complete reference
-guide with detailed descriptions, capabilities, categories, and example usage for each function.
+2. 🎯 USER ACQUISITION (6):
+   - convert-session-to-user, qualify-lead, identify-service-interest
+   - generate-stripe-link, stripe-payment-webhook, usage-monitor
 
-CRITICAL: Always consult this registry when:
-- Discovering what functions are available for a task
-- Understanding function capabilities and parameters
-- Finding the right function for a specific operation
-- Learning correct invocation patterns and examples
+3. 🤖 AI CHAT SERVICES (10):
+   - lovable-chat ✅ PRIMARY (Gemini 2.5 Flash, OpenAI GPT-5)
+   - gemini-chat, openai-chat, deepseek-chat, kimi-chat
+   - vercel-ai-chat, vercel-ai-chat-stream, ai-chat
 
-You have FULL access to these tools, same as Eliza:
-- Edge function invocation (invoke_edge_function, call_edge_function)
-- Python code execution (execute_python)
+4. 🏗️ SUPERDUPER SPECIALISTS (12):
+   - superduper-business-growth, superduper-code-architect
+   - superduper-communication-outreach, superduper-content-media
+   - superduper-design-brand, superduper-development-coach
+   - superduper-domain-experts, superduper-finance-investment
+   - superduper-integration, superduper-research-intelligence
+   - superduper-social-viral, superduper-router
+
+5. ⚙️ CODE EXECUTION (8):
+   - python-executor (sandboxed, NO network), autonomous-code-fixer
+   - python-db-bridge, python-network-proxy, eliza-python-runtime
+   - code-monitor-daemon, get-code-execution-lessons, fetch-auto-fix-results
+
+6. 🐙 GITHUB (5):
+   - github-integration (OAuth + PAT + backend token cascade)
+   - validate-github-contribution, issue-engagement-command
+   - validate-pop-event, community-spotlight-post
+
+7. 🤝 TASK & AGENT MGMT (8):
+   - agent-manager (primary), task-orchestrator (advanced)
+   - self-optimizing-agent-architecture, cleanup-duplicate-tasks
+   - multi-step-orchestrator, eliza-intelligence-coordinator
+   - autonomous-decision-maker, execute-scheduled-actions
+
+8. 🧠 KNOWLEDGE & LEARNING (9):
+   - knowledge-manager, extract-knowledge, vectorize-memory
+   - get-embedding, enhanced-learning, system-knowledge-builder
+   - summarize-conversation, get-code-execution-lessons, get-my-feedback
+
+9. 🔍 MONITORING & HEALTH (12):
+   - system-status, system-health, system-diagnostics
+   - ecosystem-monitor, api-key-health-monitor, check-frontend-health
+   - monitor-device-connections, function-usage-analytics
+   - prometheus-metrics, aggregate-device-metrics
+   - eliza-self-evaluation, opportunity-scanner
+
+10. ⛏️ MINING & DEVICES (8):
+    - mining-proxy, mobile-miner-config, mobile-miner-register
+    - mobile-miner-script, monitor-device-connections
+    - aggregate-device-metrics, validate-pop-event, prometheus-metrics
+
+11. 🤖 AUTONOMOUS SYSTEMS (12):
+    - autonomous-code-fixer, autonomous-decision-maker
+    - code-monitor-daemon, eliza-intelligence-coordinator
+    - eliza-self-evaluation, opportunity-scanner
+    - multi-step-orchestrator, execute-scheduled-actions
+    - ecosystem-monitor, api-key-health-monitor
+    - morning-discussion-post, evening-summary-post
+
+12. 📝 GOVERNANCE & COMMUNITY (7):
+    - evaluate-community-idea, propose-new-edge-function
+    - vote-on-proposal, list-function-proposals
+    - process-contributor-reward, validate-github-contribution
+    - community-spotlight-post
+
+13. 🌐 ECOSYSTEM & DEPLOYMENT (10):
+    - ecosystem-monitor, vercel-ecosystem-api, vercel-manager
+    - render-api, redis-cache, conversation-access
+    - schema-manager, python-db-bridge, python-network-proxy
+    - universal-edge-invoker
+
+14. 📢 COMMUNITY POSTING (7):
+    - morning-discussion-post (daily 08:00 UTC)
+    - progress-update-post (daily 09:00 UTC)
+    - daily-discussion-post (daily 15:00 UTC)
+    - evening-summary-post (daily 20:00 UTC)
+    - weekly-retrospective-post (Fridays 16:00 UTC)
+    - community-spotlight-post (Wednesdays 14:00 UTC)
+
+15. 🔐 SPECIALIZED (8):
+    - uspto-patent-mcp (public MCP server)
+    - xmrt-mcp-server (public MCP server)
+    - get-lovable-key, update-api-key, openai-tts
+    - playwright-browse, nlg-generator, predictive-analytics
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 FUNCTION EXECUTION PATTERNS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DISCOVERY:
+1. list_available_functions → See all 93 functions with descriptions
+2. search_edge_functions → Find by keyword/capability  
+3. invoke_edge_function → Execute any discovered function
+
+EXECUTION METHODS:
+- invoke_edge_function(name, payload) → Generic invoker for ANY of the 93 functions
+- call_edge_function(name, body) → Alias for invoke_edge_function
+- Specialized tools in ELIZA_TOOLS → Direct execution for common functions
+
+COMMON WORKFLOWS:
+
+💰 Revenue Generation Chain:
+  1. identify-service-interest → Detect user need
+  2. qualify-lead → Score lead quality (0-100)
+  3. service-monetization-engine (generate_api_key) → Create API key
+  4. usage-monitor → Track usage patterns
+  5. workflow-template-manager (tier_upgrade) → Upsell workflow
+  6. generate-stripe-link → Collect payment
+  7. stripe-payment-webhook → Confirm & upgrade tier
+
+🤖 Task Execution Chain:
+  1. agent-manager (spawn_agent) → Create agent
+  2. agent-manager (assign_task) → Assign work
+  3. task-orchestrator (auto_assign_tasks) → Optimize distribution
+  4. github-integration → Execute GitHub ops
+  5. python-executor → Run code if needed
+  6. agent-manager (update_task_status) → Complete task
+
+🔍 System Health Chain (Autonomous):
+  1. system-health → Get health score (runs hourly)
+  2. system-diagnostics → Detailed diagnostics if issues found
+  3. ecosystem-monitor → Check all Vercel services (runs daily)
+  4. code-monitor-daemon → Watch Python executions (runs every 5 min)
+  5. autonomous-code-fixer → Auto-fix failures
+  6. agent-manager (assign_task) → Create fix tasks for humans
+
+🧠 Learning Chain:
+  1. get-my-feedback → Retrieve performance feedback
+  2. get-code-execution-lessons → Learn from past executions
+  3. eliza-self-evaluation → Self-assessment
+  4. get-my-feedback (acknowledge_ids) → Mark lessons as learned
+
+CRITICAL EXECUTION RULES:
+✅ ALWAYS use invoke_edge_function or call_edge_function
+❌ NEVER try direct HTTP calls (you can't access external URLs)
+✅ Python sandbox: NO network access (use invoke_edge_function for APIs)
+✅ For GitHub: Use github-integration function (handles OAuth cascade)
+✅ Check function registry first: list_available_functions
+✅ Learn from mistakes: get-my-feedback regularly
+
+📚 COMPLETE FUNCTION REFERENCE:
+Full documentation in docs/COMPLETE_EDGE_FUNCTION_CATALOG.md
+Registry: supabase/functions/_shared/edgeFunctionRegistry.ts
+Tools: supabase/functions/_shared/elizaTools.ts
 - Agent management (list_agents, spawn_agent, update_agent_status, assign_task)
 - Task management (list_tasks, update_task_status, delete_task, get_agent_workload)
 - GitHub operations (createGitHubIssue, createGitHubDiscussion, listGitHubIssues)
