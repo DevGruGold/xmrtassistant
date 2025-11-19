@@ -99,17 +99,55 @@ Provide a focused, expert perspective from the CTO viewpoint.`;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     
-    console.log('📤 Calling Lovable AI Gateway (CTO mode)...');
+    console.log('📤 Calling DeepSeek API (CTO mode)...');
     
     const apiStartTime = Date.now();
-    let response = await callLovableAIGateway(aiMessages, {
-      model: 'google/gemini-2.5-flash',
-      temperature: 0.7,
-      max_tokens: councilMode ? 1000 : 4000,
-      systemPrompt: councilMode ? contextualPrompt : undefined,
-      tools: councilMode ? undefined : ELIZA_TOOLS,
-      tool_choice: councilMode ? undefined : 'auto'
+    const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+    
+    if (!DEEPSEEK_API_KEY) {
+      throw new Error('DEEPSEEK_API_KEY is not configured');
+    }
+    
+    // Prepare tools for DeepSeek API format
+    const tools = councilMode ? undefined : ELIZA_TOOLS.map(tool => ({
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }
+    }));
+    
+    // Call DeepSeek API directly
+    const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: aiMessages,
+        tools: tools,
+        temperature: 0.7,
+        max_tokens: councilMode ? 1000 : 4096
+      })
     });
+    
+    if (!deepseekResponse.ok) {
+      const errorText = await deepseekResponse.text();
+      console.error('❌ DeepSeek API error:', deepseekResponse.status, errorText);
+      throw new Error(`DeepSeek API error: ${deepseekResponse.status} - ${errorText}`);
+    }
+    
+    const deepseekData = await deepseekResponse.json();
+    
+    // Extract response from DeepSeek format
+    let response = {
+      content: deepseekData.choices?.[0]?.message?.content || '',
+      tool_calls: deepseekData.choices?.[0]?.message?.tool_calls || [],
+      usage: deepseekData.usage
+    };
     
     // If AI wants to use tools, execute them
     if (response.tool_calls && response.tool_calls.length > 0) {
@@ -121,39 +159,59 @@ Provide a focused, expert perspective from the CTO viewpoint.`;
         toolResults.push({
           tool_call_id: toolCall.id,
           role: 'tool',
+          name: toolCall.function?.name,
           content: JSON.stringify(result)
         });
       }
       
-      // Call AI again with tool results
-      response = await callLovableAIGateway([
-        ...aiMessages,
-        { role: 'assistant', content: response.content || '', tool_calls: response.tool_calls },
-        ...toolResults
-      ], {
-        model: 'google/gemini-2.5-flash',
-        temperature: 0.7,
-        max_tokens: 4000
+      // Call DeepSeek API again with tool results
+      const secondResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            ...aiMessages,
+            { role: 'assistant', content: response.content, tool_calls: response.tool_calls },
+            ...toolResults
+          ],
+          temperature: 0.7,
+          max_tokens: 4096
+        })
       });
+      
+      if (secondResponse.ok) {
+        const secondData = await secondResponse.json();
+        response = {
+          content: secondData.choices?.[0]?.message?.content || '',
+          tool_calls: [],
+          usage: secondData.usage
+        };
+      }
     }
     
     const apiDuration = Date.now() - apiStartTime;
     
     console.log(`✅ CTO Executive responded in ${apiDuration}ms`);
-    await logger.apiCall('lovable_gateway', 200, apiDuration, { 
+    await logger.apiCall('deepseek_api', 200, apiDuration, { 
       executive: 'CTO',
-      responseLength: response.length 
+      responseLength: response.content?.length || 0,
+      usage: response.usage
     });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        response: response,
+        response: response.content,
         executive: 'deepseek-chat',
         executiveTitle: 'Chief Technology Officer (CTO)',
-        provider: 'lovable_gateway',
-        model: 'google/gemini-2.5-flash',
-        confidence: 85
+        provider: 'deepseek',
+        model: 'deepseek-chat',
+        confidence: 85,
+        usage: response.usage
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
