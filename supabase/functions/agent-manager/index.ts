@@ -32,8 +32,18 @@ serve(async (req) => {
   }
 
   try {
-    const { action, data, autonomous = false } = await req.json();
-    console.log(`Agent Manager - Action: ${action}`, data);
+    const body = await req.json();
+    const { action, data, autonomous = false } = body;
+    
+    // Enhanced request body logging for debugging
+    console.log(`📦 [agent-manager] Full request body:`, JSON.stringify(body, null, 2));
+    console.log(`🎯 [agent-manager] Extracted action: "${action}"`);
+    console.log(`📋 [agent-manager] Extracted data:`, data ? JSON.stringify(data, null, 2) : 'UNDEFINED');
+
+    // Validate request structure
+    if (!action || typeof action !== 'string') {
+      throw new Error(`Invalid or missing action. Received: ${JSON.stringify(body)}`);
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -296,35 +306,43 @@ serve(async (req) => {
         });
 
       case 'assign_task':
-        // Enhanced input validation
-        if (!data) {
-          throw new Error('Missing data object for assign_task');
+        // Special handling for assign_task to prevent data loss
+        let taskData = data;
+        if (!taskData && body.title) {
+          console.warn(`⚠️ [agent-manager] Data in root body, restructuring...`);
+          taskData = { ...body };
+          delete taskData.action;
         }
-        if (!data.title || typeof data.title !== 'string') {
+        
+        // Enhanced input validation
+        if (!taskData) {
+          throw new Error(`Missing data object for assign_task. Body structure: ${JSON.stringify(body)}`);
+        }
+        if (!taskData.title || typeof taskData.title !== 'string') {
           throw new Error('Missing or invalid title (must be string)');
         }
-        if (!data.description || typeof data.description !== 'string') {
+        if (!taskData.description || typeof taskData.description !== 'string') {
           throw new Error('Missing or invalid description (must be string)');
         }
-        if (!data.category || typeof data.category !== 'string') {
+        if (!taskData.category || typeof taskData.category !== 'string') {
           throw new Error('Missing or invalid category (must be string)');
         }
-        if (!data.assignee_agent_id || typeof data.assignee_agent_id !== 'string') {
+        if (!taskData.assignee_agent_id || typeof taskData.assignee_agent_id !== 'string') {
           throw new Error('Missing or invalid assignee_agent_id (must be string)');
         }
         
         console.log('✅ assign_task - Input validation passed:', {
-          title: data.title,
-          assignee: data.assignee_agent_id,
-          category: data.category
+          title: taskData.title,
+          assignee: taskData.assignee_agent_id,
+          category: taskData.category
         });
         
         // Check if task with same title and assignee already exists
         const { data: existingTask, error: existingTaskError } = await supabase
           .from('tasks')
           .select('*')
-          .eq('title', data.title)
-          .eq('assignee_agent_id', data.assignee_agent_id)
+          .eq('title', taskData.title)
+          .eq('assignee_agent_id', taskData.assignee_agent_id)
           .in('status', ['PENDING', 'IN_PROGRESS'])
           .maybeSingle();
         
@@ -344,15 +362,15 @@ serve(async (req) => {
         const { data: task, error: taskError } = await supabase
           .from('tasks')
           .insert({
-            id: data.task_id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: data.title,
-            description: data.description,
-            repo: data.repo || 'xmrt-ecosystem',
-            category: data.category,
-            stage: data.stage || 'PLANNING',
+            id: taskData.task_id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            title: taskData.title,
+            description: taskData.description,
+            repo: taskData.repo || 'xmrt-ecosystem',
+            category: taskData.category,
+            stage: taskData.stage || 'PLANNING',
             status: 'PENDING',
-            priority: data.priority || 5,
-            assignee_agent_id: data.assignee_agent_id,
+            priority: taskData.priority || 5,
+            assignee_agent_id: taskData.assignee_agent_id,
           })
           .select()
           .single();
@@ -378,7 +396,7 @@ serve(async (req) => {
         await supabase
           .from('agents')
           .update({ status: 'BUSY' })
-          .eq('id', data.assignee_agent_id);
+          .eq('id', taskData.assignee_agent_id);
         
         // Log to activity log
         await supabase.from('eliza_activity_log').insert({

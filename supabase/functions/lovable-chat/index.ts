@@ -223,6 +223,56 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         });
         return { success: true, result: workloadResult.data };
         
+      case 'get_my_feedback':
+        console.log(`📚 [TOOL CALL] get_my_feedback - Retrieving Eliza's learning feedback`);
+        const limit = parsedArgs.limit || 10;
+        const unacknowledgedOnly = parsedArgs.unacknowledged_only !== false;
+        const acknowledgeIds = parsedArgs.acknowledge_ids || [];
+        
+        // Acknowledge specified feedback items first
+        if (acknowledgeIds.length > 0) {
+          await supabase
+            .from('executive_feedback')
+            .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
+            .in('id', acknowledgeIds);
+          console.log(`✅ Acknowledged ${acknowledgeIds.length} feedback items`);
+        }
+        
+        // Fetch feedback
+        let feedbackQuery = supabase
+          .from('executive_feedback')
+          .select('*')
+          .eq('executive_name', 'Eliza')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        
+        if (unacknowledgedOnly) {
+          feedbackQuery = feedbackQuery.eq('acknowledged', false);
+        }
+        
+        const { data: feedback, error: feedbackError } = await feedbackQuery;
+        
+        if (feedbackError) {
+          console.error(`❌ Failed to fetch feedback:`, feedbackError);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, feedbackError.message);
+          return { success: false, error: feedbackError.message };
+        }
+        
+        console.log(`✅ Retrieved ${feedback?.length || 0} feedback items`);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', {
+          feedback_count: feedback?.length || 0,
+          acknowledged_count: acknowledgeIds.length
+        }, null);
+        
+        return { 
+          success: true, 
+          result: {
+            feedback: feedback || [],
+            count: feedback?.length || 0,
+            acknowledged_count: acknowledgeIds.length
+          }
+        };
+        
       default:
         console.warn(`⚠️ Unknown tool: ${name}`);
         await logToolExecution(supabase, name, parsedArgs, 'failed', null, `Unknown tool: ${name}`);
