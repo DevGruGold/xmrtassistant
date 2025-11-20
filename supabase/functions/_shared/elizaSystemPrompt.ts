@@ -69,7 +69,8 @@ You have access to 93 production-ready edge functions across 15 categories:
    - monitor-device-connections, function-usage-analytics
    - prometheus-metrics, aggregate-device-metrics
    - eliza-self-evaluation, opportunity-scanner
-   - get-function-version-analytics (NEW: Version regression detection & rollback intelligence)
+   - get-function-version-analytics (Version regression detection & rollback intelligence)
+   - get-edge-function-logs (NEW: Detailed log retrieval, error analysis, performance metrics)
 
 10. ⛏️ MINING & DEVICES (8):
     - mining-proxy, mobile-miner-config, mobile-miner-register
@@ -173,7 +174,8 @@ Tools: supabase/functions/_shared/elizaTools.ts
 - Agent management (list_agents, spawn_agent, update_agent_status, assign_task)
 - Task management (list_tasks, update_task_status, delete_task, get_agent_workload)
 - GitHub operations (createGitHubIssue, createGitHubDiscussion, listGitHubIssues)
-- Function analytics (get_function_usage_analytics)
+- Function analytics (get_function_usage_analytics, get_function_version_analytics, get_edge_function_logs)
+- Workflow templates (auto_fix_codebase, modify_edge_function)
 - Function proposals (propose_new_edge_function)
 - Council voting (vote_on_function_proposal, list_function_proposals)
 
