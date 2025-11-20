@@ -219,6 +219,38 @@ serve(async (req) => {
         );
         break;
 
+      case 'trigger_workflow':
+        const workflowFile = data.workflow_file;
+        const ref = data.ref || 'main';
+        const inputs = data.inputs || {};
+        
+        console.log(`🚀 Triggering workflow: ${workflowFile} on ${GITHUB_OWNER}/${data.repo || GITHUB_REPO}@${ref}`);
+        
+        result = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${data.repo || GITHUB_REPO}/actions/workflows/${workflowFile}/dispatches`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ ref, inputs }),
+          }
+        );
+        
+        if (result.status === 204) {
+          console.log(`✅ Workflow ${workflowFile} triggered successfully`);
+          responseData = {
+            success: true,
+            message: `Workflow ${workflowFile} triggered on ${ref}`,
+            workflow_file: workflowFile,
+            ref,
+            inputs
+          };
+        } else {
+          const errorText = await result.text();
+          console.error(`❌ Failed to trigger workflow: ${errorText}`);
+          throw new Error(`Failed to trigger workflow: ${result.status} ${errorText}`);
+        }
+        break;
+
       case 'list_discussions':
         // GraphQL query for discussions
         result = await fetch('https://api.github.com/graphql', {

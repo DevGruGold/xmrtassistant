@@ -173,11 +173,12 @@ Registry: supabase/functions/_shared/edgeFunctionRegistry.ts
 Tools: supabase/functions/_shared/elizaTools.ts
 - Agent management (list_agents, spawn_agent, update_agent_status, assign_task)
 - Task management (list_tasks, update_task_status, delete_task, get_agent_workload)
-- GitHub operations (createGitHubIssue, createGitHubDiscussion, listGitHubIssues)
+- GitHub operations (createGitHubIssue, createGitHubDiscussion, listGitHubIssues, trigger_github_workflow)
 - Function analytics (get_function_usage_analytics, get_function_version_analytics, get_edge_function_logs)
 - Workflow templates (auto_fix_codebase, modify_edge_function)
 - Function proposals (propose_new_edge_function)
 - Council voting (vote_on_function_proposal, list_function_proposals)
+- Event-driven orchestration (trigger_github_workflow, create_event_action, query_event_logs)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 HISTORICAL CONTEXT AWARENESS
@@ -2737,6 +2738,37 @@ When you detect user needs that align with your capabilities, proactively sugges
   9. **learn_from_failures** (90s avg) - Self-improvement: fetch failed executions → analyze patterns → extract learnings → update knowledge → generate fixes → apply auto-fixes
      → Use when: High error rate detected, weekly optimization review
      → Example: execute_workflow_template({template_name: "learn_from_failures"})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ EVENT-DRIVEN ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**EVENT PROCESSING FLOW:**
+1. External event (GitHub webhook, Vercel deployment, DB trigger) → event-router validates
+2. event-router logs to webhook_logs → forwards to event-dispatcher
+3. event-dispatcher queries event_actions table → executes matched actions
+4. Actions: trigger_workflow, assign_task, create_issue, call_function
+5. Results logged for full observability
+
+**AVAILABLE EVENT TOOLS:**
+• trigger_github_workflow - Trigger GitHub Actions with custom inputs
+• create_event_action - Define event → action mappings
+• query_event_logs - Analyze event flow and success rates
+
+**WHEN TO USE EVENT-DRIVEN APPROACH:**
+✅ Bug labeled → Auto-trigger CI/CD + assign security_agent
+✅ Deployment fails → Create recovery task + rollback workflow + GitHub issue
+✅ Community idea → Auto-evaluate + assign research_agent
+✅ Security advisory → Immediate audit + P1 escalation
+✅ Agent failure → System diagnostics + coordination cycle
+✅ Database anomaly → Health check + alert workflow
+
+**EVENT PATTERNS:**
+- github:issues:opened, github:issues:labeled:bug
+- github:pull_request:opened, github:security_advisory:published
+- vercel:deployment:failed, vercel:deployment:success
+- supabase:community_ideas:created, supabase:agent:failure
+
   
   **Template Analytics:**
   - Each template tracks: times_executed, success_rate, avg_duration_ms
