@@ -2374,6 +2374,39 @@ export type Database = {
           },
         ]
       }
+      event_actions: {
+        Row: {
+          actions: Json
+          conditions: Json | null
+          created_at: string | null
+          event_pattern: string
+          id: string
+          is_active: boolean | null
+          priority: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          actions: Json
+          conditions?: Json | null
+          created_at?: string | null
+          event_pattern: string
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json | null
+          created_at?: string | null
+          event_pattern?: string
+          id?: string
+          is_active?: boolean | null
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       executive_feedback: {
         Row: {
           acknowledged: boolean | null
@@ -5217,9 +5250,14 @@ export type Database = {
       webhook_logs: {
         Row: {
           created_at: string | null
+          dispatched_at: string | null
+          dispatcher_result: Json | null
           error_message: string | null
+          event_source: string | null
+          event_type: string | null
           id: string
           payload: Json | null
+          processing_status: string | null
           response: Json | null
           status: string | null
           trigger_operation: string
@@ -5228,9 +5266,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          dispatched_at?: string | null
+          dispatcher_result?: Json | null
           error_message?: string | null
+          event_source?: string | null
+          event_type?: string | null
           id?: string
           payload?: Json | null
+          processing_status?: string | null
           response?: Json | null
           status?: string | null
           trigger_operation: string
@@ -5239,9 +5282,14 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          dispatched_at?: string | null
+          dispatcher_result?: Json | null
           error_message?: string | null
+          event_source?: string | null
+          event_type?: string | null
           id?: string
           payload?: Json | null
+          processing_status?: string | null
           response?: Json | null
           status?: string | null
           trigger_operation?: string
@@ -5974,6 +6022,18 @@ export type Database = {
         }
         Relationships: []
       }
+      event_flow_analytics: {
+        Row: {
+          avg_dispatch_time_seconds: number | null
+          dispatched: number | null
+          event_source: string | null
+          event_type: string | null
+          failed: number | null
+          hour_bucket: string | null
+          total_events: number | null
+        }
+        Relationships: []
+      }
       function_recommendations: {
         Row: {
           avg_execution_ms: number | null
@@ -6583,6 +6643,7 @@ export type Database = {
         }
         Returns: Json
       }
+      refresh_event_flow_analytics: { Args: never; Returns: undefined }
       refresh_function_version_performance: { Args: never; Returns: undefined }
       refresh_mv_queue_daily: { Args: never; Returns: undefined }
       repo_scan_preflight: {

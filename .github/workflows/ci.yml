@@ -4,11 +4,46 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        type: string
+      event_source:
+        description: 'Event source (github, vercel, supabase)'
+        required: false
+        type: string
+      event_type:
+        description: 'Event type that triggered this workflow'
+        required: false
+        type: string
+      context_data:
+        description: 'JSON context from triggering event'
+        required: false
+        type: string
+      pr_number:
+        description: 'PR number if triggered by PR event'
+        required: false
+        type: string
+      issue_number:
+        description: 'Issue number if triggered by issue event'
+        required: false
+        type: string
 jobs:
   test:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Log Event-Driven Trigger Context
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        echo "🎯 Event-Driven Workflow Triggered"
+        echo "📋 Reason: ${{ github.event.inputs.reason }}"
+        echo "🔗 Event Source: ${{ github.event.inputs.event_source }}"
+        echo "🏷️ Event Type: ${{ github.event.inputs.event_type }}"
+        echo "📦 Context: ${{ github.event.inputs.context_data }}"
+    
     - name: Checkout code
       uses: actions/checkout@v4
     
