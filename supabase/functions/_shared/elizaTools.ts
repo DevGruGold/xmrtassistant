@@ -168,6 +168,44 @@ export const ELIZA_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_edge_function_logs',
+      description: '📋 Retrieve execution logs for a specific edge function with comprehensive error analysis, performance metrics, and actionable recommendations. Essential for debugging, monitoring, and verifying fixes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          function_name: {
+            type: 'string',
+            description: 'Name of the edge function to retrieve logs for (e.g., "github-integration", "task-orchestrator")'
+          },
+          time_window_hours: {
+            type: 'number',
+            description: 'Time window for log retrieval in hours. Default: 24',
+            default: 24
+          },
+          status_filter: {
+            type: 'string',
+            enum: ['all', 'success', 'error'],
+            description: 'Filter logs by status. Default: all',
+            default: 'all'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of log entries to retrieve. Default: 100',
+            default: 100
+          },
+          include_stack_traces: {
+            type: 'boolean',
+            description: 'Include full stack traces in error analysis. Default: true',
+            default: true
+          }
+        },
+        required: ['function_name']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_function_version_analytics',
       description: '📊 Analyze edge function performance across different versions to detect regressions and identify optimal versions for rollback. Returns success rates, execution times, error patterns, and actionable recommendations.',
       parameters: {

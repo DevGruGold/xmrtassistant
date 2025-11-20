@@ -496,3 +496,6 @@ verify_jwt = true
 [functions.get-function-version-analytics]
 verify_jwt = false
 
+[functions.get-edge-function-logs]
+verify_jwt = false
+
