@@ -63,12 +63,13 @@ You have access to 93 production-ready edge functions across 15 categories:
    - get-embedding, enhanced-learning, system-knowledge-builder
    - summarize-conversation, get-code-execution-lessons, get-my-feedback
 
-9. 🔍 MONITORING & HEALTH (12):
+9. 🔍 MONITORING & HEALTH (13):
    - system-status, system-health, system-diagnostics
    - ecosystem-monitor, api-key-health-monitor, check-frontend-health
    - monitor-device-connections, function-usage-analytics
    - prometheus-metrics, aggregate-device-metrics
    - eliza-self-evaluation, opportunity-scanner
+   - get-function-version-analytics (NEW: Version regression detection & rollback intelligence)
 
 10. ⛏️ MINING & DEVICES (8):
     - mining-proxy, mobile-miner-config, mobile-miner-register
@@ -2943,6 +2944,13 @@ When you detect user needs that align with your capabilities, proactively sugges
   Capabilities: Device activity summaries, PoP point totals, command stats, anomaly detection, top performers
   Use for: Dashboard metrics, performance analytics, trend analysis
   Example: "Show device activity metrics for last 24 hours"
+
+**get-function-version-analytics** - Version regression detection & rollback intelligence  
+  Capabilities: Analyze function performance across deployment versions, detect regressions, identify optimal rollback targets
+  Parameters: { function_name: string, version?: string, compare_versions?: boolean, time_window_hours?: number }
+  Returns: Success rates, execution times (avg/median/p95), stability scores, error patterns per version, actionable recommendations
+  Use for: "Analyze github-integration versions", "Detect regressions in task-orchestrator", "Which version should I rollback to?"
+  Example: "Latest version has 76% success vs 98% for v2.0.1 - recommend rollback"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⛏️ **CATEGORY 7: MINING & BLOCKCHAIN**

@@ -2009,10 +2009,14 @@ export type Database = {
       }
       eliza_function_usage: {
         Row: {
+          deployment_id: string | null
+          deployment_version: string | null
           error_message: string | null
           execution_time_ms: number | null
           executive_name: string | null
+          function_hash: string | null
           function_name: string
+          git_commit_hash: string | null
           id: string
           invoked_at: string | null
           invoked_by: string | null
@@ -2024,10 +2028,14 @@ export type Database = {
           user_context: string | null
         }
         Insert: {
+          deployment_id?: string | null
+          deployment_version?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
           executive_name?: string | null
+          function_hash?: string | null
           function_name: string
+          git_commit_hash?: string | null
           id?: string
           invoked_at?: string | null
           invoked_by?: string | null
@@ -2039,10 +2047,14 @@ export type Database = {
           user_context?: string | null
         }
         Update: {
+          deployment_id?: string | null
+          deployment_version?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
           executive_name?: string | null
+          function_hash?: string | null
           function_name?: string
+          git_commit_hash?: string | null
           id?: string
           invoked_at?: string | null
           invoked_by?: string | null
@@ -5985,6 +5997,26 @@ export type Database = {
         }
         Relationships: []
       }
+      function_version_performance: {
+        Row: {
+          avg_execution_ms: number | null
+          deployment_version: string | null
+          failed_calls: number | null
+          first_invoked_at: string | null
+          function_hash: string | null
+          function_name: string | null
+          last_invoked_at: string | null
+          max_execution_ms: number | null
+          median_execution_ms: number | null
+          min_execution_ms: number | null
+          p95_execution_ms: number | null
+          stability_score: number | null
+          success_rate_pct: number | null
+          successful_calls: number | null
+          total_invocations: number | null
+        }
+        Relationships: []
+      }
       mv_github_contrib_daily: {
         Row: {
           activity_date: string | null
@@ -6551,6 +6583,7 @@ export type Database = {
         }
         Returns: Json
       }
+      refresh_function_version_performance: { Args: never; Returns: undefined }
       refresh_mv_queue_daily: { Args: never; Returns: undefined }
       repo_scan_preflight: {
         Args: never
