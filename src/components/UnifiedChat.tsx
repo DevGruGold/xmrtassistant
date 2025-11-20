@@ -14,7 +14,9 @@ import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
 import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users } from 'lucide-react';
 import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
+import { MakeMeHumanToggle } from './MakeMeHumanToggle';
 import { enhancedTTS } from '@/services/enhancedTTSService';
+import { humanizedTTS } from '@/services/humanizedTTSService';
 import { speechLearningService } from '@/services/speechLearningService';
 import { supabase } from '@/integrations/supabase/client';
 // Toast removed for lighter UI
@@ -116,6 +118,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [currentAIMethod, setCurrentAIMethod] = useState<string>('');
   const [currentTTSMethod, setCurrentTTSMethod] = useState<string>('');
+  const [isHumanizedMode, setIsHumanizedMode] = useState(false);
 
   // Lazy TTS initialization - only when user enables voice
   // Removed auto-initialization to improve page load performance
@@ -162,6 +165,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         // Initialize TTS silently so it's ready when user sends first message
         try {
           await enhancedTTS.initialize();
+          await humanizedTTS.restoreMode();
+          setIsHumanizedMode(humanizedTTS.isHumanized());
           setAudioInitialized(true);
           console.log('✅ TTS pre-initialized and ready');
         } catch (error) {
@@ -579,9 +584,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         }
         
         setIsSpeaking(true);
-        await enhancedTTS.speak(responseText, { language });
-        setCurrentTTSMethod(enhancedTTS.getLastMethod());
-        console.log(`🎵 TTS Method: ${enhancedTTS.getLastMethod()}`);
+        
+        // Use humanized TTS if enabled
+        await humanizedTTS.speak({
+          text: responseText,
+          emotion: currentEmotion,
+          language
+        });
+        
+        setCurrentTTSMethod(isHumanizedMode ? 'Humanized (ElevenLabs)' : 'Browser Web Speech');
+        console.log(`🎵 TTS Method: ${isHumanizedMode ? 'Humanized' : 'Browser'}`);
         setIsSpeaking(false);
       } catch (error) {
         console.error('❌ TTS error:', error, 'Audio unavailable. Check browser permissions.');
@@ -596,7 +608,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // If Eliza is speaking, interrupt her
     if (isSpeaking) {
-      enhancedTTS.stop();
+      humanizedTTS.stop();
       setIsSpeaking(false);
     }
 
@@ -1170,6 +1182,9 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   return (
     <Card className={`bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col h-[500px] sm:h-[600px] ${className}`}>
+      {/* Make Me Human Toggle */}
+      <MakeMeHumanToggle onModeChange={setIsHumanizedMode} />
+      
       {/* Simplified Header */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -1241,8 +1256,12 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onClick={toggleVoiceSynthesis}
               variant="ghost"
               size="sm"
-              className={`h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0 ${voiceEnabled ? 'text-primary' : 'text-muted-foreground'}`}
-              title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+              className={`h-7 w-7 sm:h-8 sm:w-8 p-0 flex-shrink-0 ${
+                voiceEnabled 
+                  ? (isHumanizedMode ? 'text-purple-500' : 'text-primary')
+                  : 'text-muted-foreground'
+              }`}
+              title={`${voiceEnabled ? 'Disable' : 'Enable'} voice${isHumanizedMode ? ' (Humanized)' : ''}`}
             >
               {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
