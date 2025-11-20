@@ -6756,7 +6756,17 @@ export type Database = {
         | "COMPLETED"
     }
     CompositeTypes: {
-      [_ in never]: never
+      edge_log_row: {
+        id: string | null
+        timestamp: string | null
+        event_message: string | null
+        status_code: number | null
+        method: string | null
+        function_id: string | null
+        execution_time_ms: number | null
+        deployment_id: string | null
+        version: string | null
+      }
     }
   }
 }
