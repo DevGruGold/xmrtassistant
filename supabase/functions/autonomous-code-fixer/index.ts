@@ -30,7 +30,7 @@ async function generateFix(code: string, error: string, description: string) {
     "🔬 Analyzing code failure to generate fix...",
     {
       code_length: code.length,
-      error_preview: error.substring(0, 200),
+      error_preview: error?.substring(0, 200) || 'No error message',
       description,
     },
     "in_progress"
@@ -166,7 +166,7 @@ Provide a JSON response with:
   
   return {
     error_type: "unknown",
-    root_cause: originalError.substring(0, 200),
+    root_cause: originalError?.substring(0, 200) || 'No error message',
     fix_strategy: "code correction",
     lesson: "See execution logs",
     prevention: "Add error handling",
@@ -175,7 +175,17 @@ Provide a JSON response with:
 
 Deno.serve(async (req) => {
   try {
-    const { execution_id } = await req.json();
+    const body = await req.json();
+    console.log('🔍 Received request body:', JSON.stringify(body, null, 2));
+    
+    const { execution_id } = body;
+
+    if (!execution_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing execution_id parameter" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     await logActivity(
       "auto_fix_start",
@@ -195,9 +205,24 @@ Deno.serve(async (req) => {
       throw new Error("Execution not found");
     }
 
+    // Validate execution data
+    if (!execution.code) {
+      throw new Error("Execution has no code to fix");
+    }
+    if (!execution.error_message) {
+      throw new Error("Execution has no error message");
+    }
+    if (!execution.description) {
+      execution.description = "No description provided";
+    }
+
     if (execution.status !== "error") {
       return new Response(
-        JSON.stringify({ error: "Execution did not fail" }),
+        JSON.stringify({ 
+          error: "Execution did not fail",
+          details: `Execution ${execution_id} has status: ${execution.status}`,
+          execution_id 
+        }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -205,7 +230,7 @@ Deno.serve(async (req) => {
     // Generate fix
     const fixedCode = await generateFix(
       execution.code,
-      execution.error,
+      execution.error_message,
       execution.description
     );
 
@@ -218,7 +243,7 @@ Deno.serve(async (req) => {
     // Generate learning metadata
     const learning = await generateLearningMetadata(
       execution.code,
-      execution.error,
+      execution.error_message,
       fixedCode,
       success
     );
