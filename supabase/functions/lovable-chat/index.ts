@@ -317,10 +317,10 @@ serve(async (req) => {
 
     console.log('✅ Using Lovable AI Gateway (google/gemini-2.5-flash)');
     
-    const aiProvider = 'lovable_gateway';
-    const aiModel = 'google/gemini-2.5-flash';
+    let aiProvider = 'lovable_gateway'; // Mutable for fallback
+    let aiModel = 'google/gemini-2.5-flash';
     const aiExecutive = 'lovable-chat';
-    const aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
+    let aiExecutiveTitle = 'Chief Strategy Officer (CSO)';
 
     console.log(`🎯 ${aiExecutiveTitle} - Processing request`);
     
@@ -586,8 +586,98 @@ serve(async (req) => {
         } catch (error) {
           console.error('❌ Lovable AI Gateway error:', error);
           
-          // Check for rate limit or payment errors
-          if (error.message?.includes('429')) {
+          // Check for payment required (402) - FALLBACK TO DEEPSEEK
+          if (error.message?.includes('402') || error.message?.includes('Payment Required') || error.message?.includes('Not enough credits')) {
+            console.warn('💳 Lovable AI Gateway out of credits - Falling back to DeepSeek');
+            
+            // Get DeepSeek API key
+            const deepseekKey = getAICredential('deepseek', session_credentials);
+            
+            if (!deepseekKey) {
+              return new Response(JSON.stringify({ 
+                success: false, 
+                error: 'Lovable AI out of credits and DeepSeek API key not configured. Please add credits or configure DeepSeek at /#credentials',
+                provider: 'lovable_gateway',
+                fallback_failed: true
+              }), {
+                status: 402,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+            
+            // Switch provider to DeepSeek and retry
+            aiProvider = 'deepseek';
+            aiModel = 'deepseek-chat';
+            aiExecutiveTitle = 'Chief Technology Officer (CTO) [Fallback]';
+            console.log('🔄 Retrying with DeepSeek API...');
+            
+            // Call DeepSeek API
+            const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
+            const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+            
+            try {
+              const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${deepseekKey}`,
+                },
+                body: JSON.stringify({
+                  model: 'deepseek-chat',
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...messagesForDeepSeek
+                  ],
+                  tools: ELIZA_TOOLS,
+                  tool_choice: 'auto',
+                  stream: false,
+                }),
+              });
+              
+              if (!deepseekResponse.ok) {
+                const errorBody = await deepseekResponse.text();
+                console.error('❌ DeepSeek fallback also failed:', errorBody);
+                return new Response(JSON.stringify({ 
+                  success: false, 
+                  error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${errorBody}`,
+                  provider: 'deepseek',
+                  fallback_failed: true
+                }), {
+                  status: deepseekResponse.status,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              }
+              
+              const data = await deepseekResponse.json();
+              message = data.choices?.[0]?.message;
+              
+              if (!message) {
+                return new Response(JSON.stringify({ 
+                  success: false, 
+                  error: 'DeepSeek returned invalid response',
+                  provider: 'deepseek'
+                }), {
+                  status: 500,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              }
+              
+              console.log(`✅ DeepSeek fallback successful with ${message.tool_calls?.length || 0} tool calls`);
+              
+            } catch (deepseekError) {
+              console.error('❌ DeepSeek fallback error:', deepseekError);
+              return new Response(JSON.stringify({ 
+                success: false, 
+                error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${deepseekError.message}`,
+                provider: 'deepseek',
+                fallback_failed: true
+              }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+            
+          } else if (error.message?.includes('429')) {
             return new Response(JSON.stringify({ 
               success: false, 
               error: 'Rate limit exceeded. Please wait and try again.',
@@ -596,27 +686,16 @@ serve(async (req) => {
               status: 429,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
-          }
-          
-          if (error.message?.includes('402')) {
+          } else {
             return new Response(JSON.stringify({ 
               success: false, 
-              error: 'Payment required. Please add credits to your Lovable AI workspace.',
+              error: `Lovable AI Gateway error: ${error.message}`,
               provider: 'lovable_gateway'
             }), {
-              status: 402,
+              status: 500,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           }
-          
-          return new Response(JSON.stringify({ 
-            success: false, 
-            error: `Lovable AI Gateway error: ${error.message}`,
-            provider: 'lovable_gateway'
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
         }
         
       } else if (aiProvider === 'openai') {
