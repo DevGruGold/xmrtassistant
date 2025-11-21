@@ -33,7 +33,6 @@ serve(async (req) => {
         hostname: Deno.hostname(),
         env_vars_count: Object.keys(Deno.env.toObject()).length,
       },
-      resources: Deno.resources(),
     };
 
     // Format memory values in MB
