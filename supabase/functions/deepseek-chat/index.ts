@@ -108,15 +108,8 @@ Provide a focused, expert perspective from the CTO viewpoint.`;
       throw new Error('DEEPSEEK_API_KEY is not configured');
     }
     
-    // Prepare tools for DeepSeek API format
-    const tools = councilMode ? undefined : ELIZA_TOOLS.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
-      }
-    }));
+    // Use ELIZA_TOOLS directly - they're already in the correct format
+    const tools = councilMode ? undefined : ELIZA_TOOLS;
     
     // Call DeepSeek API directly
     const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
