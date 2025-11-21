@@ -133,35 +133,9 @@ serve(async (req) => {
       statusCodes[statusCode] = (statusCodes[statusCode] || 0) + 1;
     });
 
-    // Query function_edge_logs for additional context (if available)
-    const { data: edgeLogs } = await supabase
-      .rpc('analytics_query', {
-        query: `
-          select 
-            id, 
-            function_edge_logs.timestamp, 
-            event_message, 
-            response.status_code, 
-            request.method, 
-            m.function_id, 
-            m.execution_time_ms, 
-            m.deployment_id, 
-            m.version 
-          from function_edge_logs
-          cross join unnest(metadata) as m
-          cross join unnest(m.response) as response
-          cross join unnest(m.request) as request
-          where m.function_id = '${function_name}'
-          and timestamp >= '${timeThreshold.toISOString()}'
-          order by timestamp desc
-          limit 50
-        `
-      })
-      .then(res => res.data)
-      .catch(err => {
-        console.warn('Could not fetch edge logs:', err);
-        return null;
-      });
+    // Note: Edge logs from Supabase analytics are not directly queryable
+    // We rely on eliza_function_usage table which contains comprehensive execution data
+    const edgeLogs = null;
 
     const result = {
       function_name,
