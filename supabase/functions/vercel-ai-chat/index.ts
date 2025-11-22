@@ -94,8 +94,8 @@ serve(async (req) => {
 
     // Try services in order of preference: OpenAI -> DeepSeek -> Gemini -> WAN
     let API_KEY: string | null = null;
-    let aiProvider = 'unknown';
-    let aiModel = 'gpt-4o-mini';
+    let aiProvider: string = 'unknown';
+    let aiModel: string = 'gpt-4o-mini';
     let aiClient: any = null;
 
     if (openaiKey) {
