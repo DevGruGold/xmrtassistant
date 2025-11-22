@@ -223,6 +223,68 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         });
         return { success: true, result: workloadResult.data };
         
+      case 'check_system_status':
+        console.log(`🏥 [TOOL CALL] check_system_status - Getting system health`);
+        const systemStatusResult = await supabase.functions.invoke('system-status', {
+          body: {}
+        });
+        
+        if (systemStatusResult.error) {
+          console.error(`❌ System status check error:`, systemStatusResult.error);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, systemStatusResult.error.message);
+          return { success: false, error: systemStatusResult.error.message || 'System status check failed' };
+        }
+        
+        console.log(`✅ System status retrieved`);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', systemStatusResult.data, null);
+        return { success: true, result: systemStatusResult.data };
+
+      case 'check_ecosystem_health':
+        console.log(`🌐 [TOOL CALL] check_ecosystem_health - Getting ecosystem health`);
+        const ecosystemResult = await supabase.functions.invoke('ecosystem-monitor', {
+          body: {
+            include_repos: parsedArgs.include_repos || [],
+            detailed: parsedArgs.detailed !== false
+          }
+        });
+        
+        if (ecosystemResult.error) {
+          console.error(`❌ Ecosystem health check error:`, ecosystemResult.error);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, ecosystemResult.error.message);
+          return { success: false, error: ecosystemResult.error.message || 'Ecosystem health check failed' };
+        }
+        
+        console.log(`✅ Ecosystem health retrieved`);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', ecosystemResult.data, null);
+        return { success: true, result: ecosystemResult.data };
+
+      case 'generate_health_report':
+        console.log(`📋 [TOOL CALL] generate_health_report - Generating health report`);
+        
+        // Get both system status and ecosystem health
+        const [sysStatus, ecoHealth] = await Promise.all([
+          supabase.functions.invoke('system-status', { body: {} }),
+          supabase.functions.invoke('ecosystem-monitor', { body: { detailed: true } })
+        ]);
+        
+        const format = parsedArgs.format || 'markdown';
+        const report = {
+          generated_at: new Date().toISOString(),
+          format,
+          system_status: sysStatus.data,
+          ecosystem_health: ecoHealth.data,
+          summary: {
+            overall_health: sysStatus.data?.status || 'unknown',
+            total_functions: sysStatus.data?.total_functions || 0,
+            healthy_functions: sysStatus.data?.healthy_functions || 0,
+            repositories_checked: ecoHealth.data?.repositories?.length || 0
+          }
+        };
+        
+        console.log(`✅ Health report generated`);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', report, null);
+        return { success: true, result: report };
+        
       case 'get_my_feedback':
         console.log(`📚 [TOOL CALL] get_my_feedback - Retrieving Eliza's learning feedback`);
         const limit = parsedArgs.limit || 10;
@@ -275,8 +337,15 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
         
       default:
         console.warn(`⚠️ Unknown tool: ${name}`);
-        await logToolExecution(supabase, name, parsedArgs, 'failed', null, `Unknown tool: ${name}`);
-        return { success: false, error: `Unknown tool: ${name}` };
+        console.log(`💡 Available tools in lovable-chat: check_system_status, check_ecosystem_health, generate_health_report, get_my_feedback, createGitHubDiscussion, createGitHubIssue, listGitHubIssues, list_available_functions, list_agents, spawn_agent, update_agent_status, assign_task, list_tasks, update_task_status, delete_task, get_agent_workload`);
+        console.log(`💡 For other functions, use invoke_edge_function instead`);
+        
+        await logToolExecution(supabase, name, parsedArgs, 'failed', null, `Unknown tool: ${name}. Use invoke_edge_function for edge functions not listed above.`);
+        return { 
+          success: false, 
+          error: `Unknown tool: ${name}. Available tools: check_system_status, check_ecosystem_health, generate_health_report, get_my_feedback, GitHub tools, agent tools. For other edge functions, use invoke_edge_function.`,
+          suggestion: 'Use invoke_edge_function("function-name", {payload}) for direct edge function calls'
+        };
     }
   } catch (error) {
     console.error(`❌ Tool execution error for ${name}:`, error);
@@ -744,6 +813,68 @@ serve(async (req) => {
         if (!message) {
           console.error("No message in OpenAI response");
           return new Response(JSON.stringify({ success: false, error: 'Invalid OpenAI response' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+      } else if (aiProvider === 'deepseek') {
+        // DeepSeek direct call (when already using DeepSeek from fallback)
+        console.log(`🔄 AI iteration ${iterationCount} using deepseek`);
+        
+        const deepseekKey = getAICredential('deepseek', session_credentials);
+        if (!deepseekKey) {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: 'DeepSeek API key not configured',
+            needsCredentials: true,
+            provider: 'deepseek'
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
+        const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+        
+        const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...messagesForDeepSeek
+            ],
+            tools: ELIZA_TOOLS,
+            tool_choice: 'auto',
+            stream: false,
+          }),
+        });
+        
+        if (!deepseekResponse.ok) {
+          const errorBody = await deepseekResponse.text();
+          console.error('❌ DeepSeek call failed:', errorBody);
+          return new Response(JSON.stringify({ 
+            success: false, 
+            error: `DeepSeek API error: ${errorBody}`,
+            provider: 'deepseek'
+          }), {
+            status: deepseekResponse.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        const data = await deepseekResponse.json();
+        message = data.choices?.[0]?.message;
+        
+        if (!message) {
+          console.error("No message in DeepSeek response");
+          return new Response(JSON.stringify({ success: false, error: 'Invalid DeepSeek response' }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
