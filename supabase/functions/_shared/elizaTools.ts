@@ -1481,78 +1481,87 @@ export const ELIZA_TOOLS = [
     }
   },
   {
-    name: "trigger_github_workflow",
-    description: "Dynamically trigger GitHub Actions workflows with custom inputs for event-driven automation. Use this to respond to events by triggering CI/CD pipelines, tests, deployments, or custom workflows.",
-    parameters: {
-      type: "object",
-      properties: {
-        workflow_file: {
-          type: "string",
-          description: "Workflow filename (e.g., 'ci.yml', 'deploy.yml', 'agent-coordination-cycle.yml')"
+    type: 'function',
+    function: {
+      name: "trigger_github_workflow",
+      description: "Dynamically trigger GitHub Actions workflows with custom inputs for event-driven automation. Use this to respond to events by triggering CI/CD pipelines, tests, deployments, or custom workflows.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_file: {
+            type: "string",
+            description: "Workflow filename (e.g., 'ci.yml', 'deploy.yml', 'agent-coordination-cycle.yml')"
+          },
+          ref: {
+            type: "string",
+            description: "Git ref (branch/tag) to trigger on (default: 'main')"
+          },
+          inputs: {
+            type: "object",
+            description: "Custom inputs to pass to the workflow (event context, reason, etc.)"
+          },
+          repo: {
+            type: "string",
+            description: "Repository name (default: 'XMRT-Ecosystem')"
+          }
         },
-        ref: {
-          type: "string",
-          description: "Git ref (branch/tag) to trigger on (default: 'main')"
-        },
-        inputs: {
-          type: "object",
-          description: "Custom inputs to pass to the workflow (event context, reason, etc.)"
-        },
-        repo: {
-          type: "string",
-          description: "Repository name (default: 'XMRT-Ecosystem')"
-        }
-      },
-      required: ["workflow_file"]
+        required: ["workflow_file"]
+      }
     }
   },
   {
-    name: "create_event_action",
-    description: "Create new event-to-action mappings for dynamic event-driven orchestration. Define how the system should respond to specific events (GitHub issues, deployments, database changes, etc.)",
-    parameters: {
-      type: "object",
-      properties: {
-        event_pattern: {
-          type: "string",
-          description: "Event pattern to match (e.g., 'github:issues:opened', 'vercel:deployment:failed', supports wildcards)"
+    type: 'function',
+    function: {
+      name: "create_event_action",
+      description: "Create new event-to-action mappings for dynamic event-driven orchestration. Define how the system should respond to specific events (GitHub issues, deployments, database changes, etc.)",
+      parameters: {
+        type: "object",
+        properties: {
+          event_pattern: {
+            type: "string",
+            description: "Event pattern to match (e.g., 'github:issues:opened', 'vercel:deployment:failed', supports wildcards)"
+          },
+          priority: {
+            type: "number",
+            description: "Priority level (1-10, higher = more urgent)"
+          },
+          actions: {
+            type: "array",
+            description: "Array of actions to execute (trigger_workflow, assign_task, create_issue, call_function)"
+          },
+          conditions: {
+            type: "object",
+            description: "Optional conditions (label_matches, severity_min, etc.)"
+          }
         },
-        priority: {
-          type: "number",
-          description: "Priority level (1-10, higher = more urgent)"
-        },
-        actions: {
-          type: "array",
-          description: "Array of actions to execute (trigger_workflow, assign_task, create_issue, call_function)"
-        },
-        conditions: {
-          type: "object",
-          description: "Optional conditions (label_matches, severity_min, etc.)"
-        }
-      },
-      required: ["event_pattern", "actions"]
+        required: ["event_pattern", "actions"]
+      }
     }
   },
   {
-    name: "query_event_logs",
-    description: "Query webhook and event processing logs to analyze event flow, success rates, and identify issues in event-driven orchestration",
-    parameters: {
-      type: "object",
-      properties: {
-        event_source: {
-          type: "string",
-          description: "Filter by event source (github, vercel, supabase)"
-        },
-        event_type: {
-          type: "string",
-          description: "Filter by specific event type"
-        },
-        processing_status: {
-          type: "string",
-          description: "Filter by status (pending, dispatched, failed)"
-        },
-        time_window_hours: {
-          type: "number",
-          description: "Time window in hours (default: 24)"
+    type: 'function',
+    function: {
+      name: "query_event_logs",
+      description: "Query webhook and event processing logs to analyze event flow, success rates, and identify issues in event-driven orchestration",
+      parameters: {
+        type: "object",
+        properties: {
+          event_source: {
+            type: "string",
+            description: "Filter by event source (github, vercel, supabase)"
+          },
+          event_type: {
+            type: "string",
+            description: "Filter by specific event type"
+          },
+          processing_status: {
+            type: "string",
+            description: "Filter by status (pending, dispatched, failed)"
+          },
+          time_window_hours: {
+            type: "number",
+            description: "Time window in hours (default: 24)"
+          }
         }
       }
     }

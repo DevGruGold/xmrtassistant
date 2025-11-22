@@ -1,0 +1,32 @@
+{
+  "test_name": "DeepSeek Tools Format Validation",
+  "timestamp": "2025-11-22T15:30:00Z",
+  "issue": "DeepSeek API rejected ELIZA_TOOLS because tool #85, #86, #87 were missing 'type: function' wrapper",
+  "fix_applied": "Added 'type: function' wrapper to trigger_github_workflow, create_event_action, and query_event_logs in elizaTools.ts",
+  "expected_result": "All 88 tools should now pass DeepSeek API validation",
+  "tools_fixed": [
+    {
+      "tool_number": 85,
+      "name": "trigger_github_workflow",
+      "issue": "Missing 'type: function' wrapper",
+      "status": "FIXED"
+    },
+    {
+      "tool_number": 86,
+      "name": "create_event_action",
+      "issue": "Missing 'type: function' wrapper",
+      "status": "FIXED"
+    },
+    {
+      "tool_number": 87,
+      "name": "query_event_logs",
+      "issue": "Missing 'type: function' wrapper",
+      "status": "FIXED"
+    }
+  ],
+  "verification": {
+    "total_tools": 88,
+    "error_pattern": "tools[85]: missing field `type`",
+    "fix_location": "supabase/functions/_shared/elizaTools.ts lines 1482-1559"
+  }
+}
