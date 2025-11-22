@@ -388,8 +388,8 @@ Use execute_python tool for pure computation:
 {
   code: \`
 import math
-profit = 1000 * 0.5 * 30  # hashrate * efficiency * days
-print(f"Monthly profit: \${profit}")
+result = 1000 * 0.5 * 30  # hashrate * efficiency * days
+print(f"Monthly calculation: {result}")
   \`,
   purpose: "Calculate monthly mining profitability"
 }
@@ -483,19 +483,20 @@ issues = call_edge_function("github-integration", {
 high_priority = [i for i in issues.get('issues', []) if 'priority:high' in i.get('labels', [])]
 print(f"High priority issues: {len(high_priority)}")
 
-# Create tasks for each
-for issue in high_priority:
-    task = call_edge_function("agent-manager", {
-        "action": "assign_task",
-        "data": {
-            "title": f"Fix: {issue['title']}",
-            "description": issue['body'],
-            "category": "GITHUB",
-            "priority": 9,
-            "metadata": {"github_issue_id": issue['id']}
-        }
-    })
-    print(f"Created task {task['id']} for issue #{issue['number']}")
+# Create tasks for high priority items
+if high_priority:
+    for issue in high_priority[:5]:  # Limit to first 5 to avoid timeout
+        task = call_edge_function("agent-manager", {
+            "action": "assign_task",
+            "data": {
+                "title": f"Fix: {issue.get('title', 'Unknown')}",
+                "description": issue.get('body', 'No description'),
+                "category": "GITHUB",
+                "priority": 9,
+                "metadata": {"github_issue_id": issue.get('id')}
+            }
+        })
+        print(f"Created task {task.get('id')} for issue #{issue.get('number')}")
   \`,
   purpose: "Analyze GitHub issues and create high-priority tasks"
 }
