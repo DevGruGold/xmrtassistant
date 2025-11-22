@@ -10,6 +10,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Parser for DeepSeek's text-based tool call format
+function parseDeepSeekToolCalls(content: string): Array<any> | null {
+  // DeepSeek format: <｜tool▁calls▁begin｜><｜tool▁call▁begin｜>function_name<｜tool▁sep｜>{"arg": "value"}<｜tool▁call▁end｜><｜tool▁calls▁end｜>
+  
+  const toolCallsMatch = content.match(/<｜tool▁calls▁begin｜>(.*?)<｜tool▁calls▁end｜>/s);
+  if (!toolCallsMatch) return null;
+  
+  const toolCallsText = toolCallsMatch[1];
+  const toolCallPattern = /<｜tool▁call▁begin｜>(.*?)<｜tool▁sep｜>(.*?)<｜tool▁call▁end｜>/gs;
+  const toolCalls: Array<any> = [];
+  
+  let match;
+  while ((match = toolCallPattern.exec(toolCallsText)) !== null) {
+    const functionName = match[1].trim();
+    let args = match[2].trim();
+    
+    // Parse arguments (might be JSON or empty)
+    let parsedArgs = {};
+    if (args && args !== '{}') {
+      try {
+        parsedArgs = JSON.parse(args);
+      } catch (e) {
+        console.warn(`Failed to parse DeepSeek tool args for ${functionName}:`, args);
+      }
+    }
+    
+    // Convert to OpenAI tool call format
+    toolCalls.push({
+      id: `deepseek_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      type: 'function',
+      function: {
+        name: functionName,
+        arguments: JSON.stringify(parsedArgs)
+      }
+    });
+  }
+  
+  return toolCalls.length > 0 ? toolCalls : null;
+}
 
 // Helper function to log tool execution to activity log
 async function logToolExecution(supabase: any, toolName: string, args: any, status: 'started' | 'completed' | 'failed', result?: any, error?: any) {
@@ -838,6 +877,22 @@ serve(async (req) => {
         const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
         const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
         
+        // Limit tools for DeepSeek to prevent overwhelming the model
+        const CORE_TOOLS = ELIZA_TOOLS.filter(tool => {
+          const name = tool.function?.name;
+          return [
+            'execute_python',
+            'invoke_edge_function', 
+            'check_system_status',
+            'list_agents',
+            'assign_task',
+            'createGitHubIssue',
+            'get_my_feedback'
+          ].includes(name);
+        });
+        
+        console.log(`📊 Tools provided to DeepSeek: ${CORE_TOOLS.length} (filtered from ${ELIZA_TOOLS.length})`);
+        
         const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -850,7 +905,7 @@ serve(async (req) => {
               { role: 'system', content: systemPrompt },
               ...messagesForDeepSeek
             ],
-            tools: ELIZA_TOOLS,
+            tools: CORE_TOOLS,
             tool_choice: 'auto',
             stream: false,
           }),
@@ -890,6 +945,23 @@ serve(async (req) => {
       
       // Add assistant message to conversation
       currentMessages.push(message);
+      
+      // ✅ Normalize tool calls from different providers
+      if (!message.tool_calls || message.tool_calls.length === 0) {
+        // Check if DeepSeek returned tool calls as text
+        if (aiProvider === 'deepseek' && message.content) {
+          if (message.content.includes('<｜tool▁calls▁begin｜>')) {
+            console.log(`⚠️ DeepSeek returned tool calls in text format - parsing...`);
+            const parsedToolCalls = parseDeepSeekToolCalls(message.content);
+            if (parsedToolCalls) {
+              console.log(`🔧 Parsed ${parsedToolCalls.length} tool calls from DeepSeek text format`);
+              message.tool_calls = parsedToolCalls;
+              // Remove tool call text from content to avoid displaying it
+              message.content = message.content.replace(/<｜tool▁calls▁begin｜>.*?<｜tool▁calls▁end｜>/s, '').trim();
+            }
+          }
+        }
+      }
       
       // Check if AI wants to call tools
       if (message.tool_calls && message.tool_calls.length > 0) {
