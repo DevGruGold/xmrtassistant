@@ -859,7 +859,7 @@ serve(async (req) => {
         
       } else if (aiProvider === 'deepseek') {
         // DeepSeek direct call (when already using DeepSeek from fallback)
-        console.log(`🔄 AI iteration ${iterationCount} using deepseek`);
+        console.log(`🔄 AI iteration ${toolIterations} using deepseek`);
         
         const deepseekKey = getAICredential('deepseek', session_credentials);
         if (!deepseekKey) {
