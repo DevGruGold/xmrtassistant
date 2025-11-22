@@ -77,43 +77,47 @@ serve(async (req) => {
 
     console.log('💻 CTO Executive - Processing request via Lovable AI Gateway');
 
-    // In council mode, use simplified prompt (no tools, just perspective)
-    let contextualPrompt: string;
-    
+    // Always use full CTO capabilities (tools + knowledge + memory)
+    const executivePrompt = generateExecutiveSystemPrompt('CTO');
+    let contextualPrompt = await buildContextualPrompt(executivePrompt, {
+      conversationHistory,
+      userContext,
+      miningStats,
+      systemVersion
+    });
+
+    // If in council mode, add conciseness instruction
     if (councilMode) {
-      console.log('🏛️ Council mode - using simplified prompt (no tools)');
-      contextualPrompt = `You are the Chief Technology Officer (CTO) of XMRT DAO - an AI executive specializing in code and technical architecture.
+      console.log('🏛️ Council mode - including full capabilities with conciseness guidance');
+      contextualPrompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏛️ COUNCIL DELIBERATION MODE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Your role in this council deliberation:
-- Provide your expert perspective on the user's question  
-- Focus on technical, architectural, and implementation aspects
-- Be concise and actionable (2-3 paragraphs maximum)
-- State your confidence level (0-100%)
+You are participating in an Executive Council deliberation alongside the CSO, CIO, and CAO.
 
-User Context:
-${userContext ? `IP: ${userContext.ip}, Founder: ${userContext.isFounder}` : 'Anonymous'}
+**Council Guidelines:**
+- Provide your CTO perspective concisely (2-4 paragraphs)
+- Focus on technical/architectural insights specific to your expertise
+- You still have access to ALL tools - use them if needed for accurate analysis
+- Leverage your comprehensive XMRT knowledge to provide informed responses
+- State confidence level and reasoning clearly
 
-Mining Stats:
-${miningStats ? `Hash Rate: ${miningStats.hashRate || miningStats.hashrate || 0} H/s, Shares: ${miningStats.validShares || 0}` : 'Not available'}
+**You retain full capabilities:**
+✅ All 88 ELIZA_TOOLS available
+✅ Complete XMRT ecosystem knowledge
+✅ Conversation history and memory
+✅ Technical deep-dive expertise
 
-User Question: ${messages[messages.length - 1]?.content || ''}
-
-Provide a focused, expert perspective from the CTO viewpoint.`;
+**Be concise but don't sacrifice accuracy.** Use tools if they help you provide better answers.`;
     } else {
-      // Full mode with tools
-      const executivePrompt = generateExecutiveSystemPrompt('CTO');
-      contextualPrompt = await buildContextualPrompt(executivePrompt, {
-        conversationHistory,
-        userContext,
-        miningStats,
-        systemVersion
-      });
+      console.log('💻 Full CTO mode - complete capabilities enabled');
     }
 
-    // Prepare messages for Lovable AI Gateway
-    const aiMessages = councilMode 
-      ? messages  // In council mode, use simplified messages
-      : [{ role: 'system', content: contextualPrompt }, ...messages];
+    // Always include system prompt with full context
+    const aiMessages = [
+      { role: 'system', content: contextualPrompt },
+      ...messages
+    ];
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -128,8 +132,8 @@ Provide a focused, expert perspective from the CTO viewpoint.`;
       throw new Error('DEEPSEEK_API_KEY is not configured');
     }
     
-    // Use ELIZA_TOOLS directly - they're already in the correct format
-    const tools = councilMode ? undefined : ELIZA_TOOLS;
+    // ALWAYS include tools (CTO has full capabilities in all modes)
+    const tools = ELIZA_TOOLS;
     
     // Call DeepSeek API directly
     const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -143,7 +147,7 @@ Provide a focused, expert perspective from the CTO viewpoint.`;
         messages: aiMessages,
         tools: tools,
         temperature: 0.7,
-        max_tokens: councilMode ? 1000 : 4096
+        max_tokens: councilMode ? 800 : 2000  // Shorter responses in council mode, but still intelligent
       })
     });
     
