@@ -389,7 +389,7 @@ Use execute_python tool for pure computation:
   code: \`
 import math
 profit = 1000 * 0.5 * 30  # hashrate * efficiency * days
-print(f"Monthly profit: ${profit}")
+print(f"Monthly profit: \${profit}")
   \`,
   purpose: "Calculate monthly mining profitability"
 }
