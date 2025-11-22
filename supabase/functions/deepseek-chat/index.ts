@@ -22,6 +22,26 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body with defensive error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      await logger.error('Body parsing failed', parseError, 'request_parsing');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid JSON in request body. Please check your request format.',
+          details: parseError instanceof Error ? parseError.message : 'Unknown parsing error'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     const { 
       messages, 
       conversationHistory = [], 
@@ -29,7 +49,7 @@ serve(async (req) => {
       miningStats = null, 
       systemVersion = null,
       councilMode = false
-    } = await req.json();
+    } = requestBody;
     
     await logger.info('Request received', 'ai_interaction', { 
       messagesCount: messages?.length,
