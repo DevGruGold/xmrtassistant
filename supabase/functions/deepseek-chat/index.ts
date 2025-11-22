@@ -172,11 +172,35 @@ You are participating in an Executive Council deliberation alongside the CSO, CI
       
       const toolResults = [];
       for (const toolCall of response.tool_calls) {
+        const toolName = toolCall.function?.name;
+        
+        // Validate tool exists
+        const validTools = ELIZA_TOOLS.map(t => t.function?.name);
+        if (!validTools.includes(toolName)) {
+          console.warn(`⚠️ [CTO] Unknown tool attempted: ${toolName}`);
+          console.log(`💡 Suggestion: Check docs/EDGE_FUNCTION_PARAMETERS_REFERENCE.md`);
+          console.log(`Available patterns:`);
+          console.log(`  - invoke_edge_function for direct edge function calls`);
+          console.log(`  - execute_python for multi-step workflows with call_edge_function`);
+          console.log(`  - Check tool registry in elizaTools.ts`);
+          
+          toolResults.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: toolName,
+            content: JSON.stringify({ 
+              error: `Unknown tool: ${toolName}. Use invoke_edge_function("${toolName}", {}) or execute_python with call_edge_function helper.`,
+              suggestion: 'Check CTO Quick Reference in system prompt for common workflows'
+            })
+          });
+          continue;
+        }
+        
         const result = await executeToolCall(supabase, toolCall, 'CTO', SUPABASE_URL, SERVICE_ROLE_KEY);
         toolResults.push({
           tool_call_id: toolCall.id,
           role: 'tool',
-          name: toolCall.function?.name,
+          name: toolName,
           content: JSON.stringify(result)
         });
       }
