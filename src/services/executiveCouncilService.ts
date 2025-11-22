@@ -158,8 +158,15 @@ class ExecutiveCouncilService {
           console.log(`📥 ${executive} returned data:`, {
             hasResponse: !!data?.response,
             hasContent: !!data?.content,
-            dataKeys: Object.keys(data || {})
+            dataKeys: Object.keys(data || {}),
+            success: data?.success,
+            actualResponse: data?.response?.substring(0, 100) // Log first 100 chars
           });
+          
+          // Validate we have a response
+          if (!data || (!data.response && !data.content)) {
+            throw new Error(`${executive} returned no response content`);
+          }
           
           return data;
         },
