@@ -72,6 +72,31 @@ serve(async (req) => {
         break;
 
       case 'spawn_agent':
+        // ✅ ENHANCED: Validate role enum
+        const validRoles = ['developer', 'analyst', 'designer', 'tester', 'coordinator', 'researcher', 'architect'];
+        if (!validRoles.includes(data.role.toLowerCase())) {
+          throw new Error(`Invalid role "${data.role}". Must be one of: ${validRoles.join(', ')}`);
+        }
+        
+        // ✅ ENHANCED: Check agent capacity limit (configurable, default 100)
+        const maxAgents = data.max_agents || 100;
+        const { count: agentCount } = await supabase
+          .from('agents')
+          .select('*', { count: 'exact', head: true })
+          .neq('status', 'ARCHIVED');
+        
+        if (agentCount >= maxAgents) {
+          throw new Error(`Agent capacity reached (${agentCount}/${maxAgents}). Archive unused agents or increase limit.`);
+        }
+        
+        // ✅ ENHANCED: Validate skills (warn on invalid, don't block)
+        const validSkills = ['python', 'javascript', 'typescript', 'github', 'database', 'testing', 'documentation', 'api-design', 'deployment', 'security'];
+        const skills = data.skills || [];
+        const invalidSkills = skills.filter(s => !validSkills.includes(s.toLowerCase()));
+        if (invalidSkills.length > 0) {
+          console.warn(`⚠️ Invalid skills detected: ${invalidSkills.join(', ')}. Available: ${validSkills.join(', ')}`);
+        }
+        
         // Check if agent with this name already exists
         const { data: existingAgent, error: checkError } = await supabase
           .from('agents')
@@ -92,15 +117,24 @@ serve(async (req) => {
           break;
         }
         
-        // Create new agent
+        // ✅ ENHANCED: Create new agent with enriched metadata
         const { data: newAgent, error: spawnError } = await supabase
           .from('agents')
           .insert({
             id: data.id || `agent-${Date.now()}`,
             name: data.name,
-            role: data.role,
+            role: data.role.toLowerCase(),
             status: 'IDLE',
-            skills: data.skills || [],
+            skills: skills,
+            metadata: {
+              spawned_by: data.spawned_by || 'eliza',
+              spawn_reason: data.rationale || data.spawn_reason,
+              created_at: new Date().toISOString(),
+              version: data.version || '1.0',
+              ...(data.metadata || {})
+            },
+            max_concurrent_tasks: data.max_concurrent_tasks || 3,
+            current_workload: 0
           })
           .select()
           .single();
@@ -123,6 +157,22 @@ serve(async (req) => {
           metadata: { agent_id: newAgent.id, skills: newAgent.skills },
           status: 'completed'
         });
+        
+        // ✅ ENHANCED: Auto-assign initial calibration task if requested
+        if (data.auto_assign_initial_task) {
+          await supabase.from('tasks').insert({
+            id: `task-${Date.now()}`,
+            title: `${newAgent.name} - Initial Calibration`,
+            description: 'Familiarize with codebase, available tools, and team structure',
+            repo: 'XMRT-Ecosystem',
+            category: 'onboarding',
+            stage: 'PLANNING',
+            status: 'PENDING',
+            priority: 3,
+            assignee_agent_id: newAgent.id
+          });
+          console.log(`✅ Assigned initial calibration task to ${newAgent.name}`);
+        }
         
         result = newAgent;
         console.log('New agent spawned:', newAgent);
