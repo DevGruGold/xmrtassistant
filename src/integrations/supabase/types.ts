@@ -191,43 +191,64 @@ export type Database = {
       }
       agents: {
         Row: {
+          archived_at: string | null
+          archived_reason: string | null
           created_at: string
+          current_workload: number | null
           heartbeat_ms: number | null
           id: string
           last_seen: string | null
+          max_concurrent_tasks: number | null
           metadata: Json
           name: string
           role: Database["public"]["Enums"]["agent_role"]
           role_old: string | null
           skills: Json
+          spawn_reason: string | null
+          spawned_by: string | null
           status: Database["public"]["Enums"]["agent_status"]
           updated_at: string
+          version: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_reason?: string | null
           created_at?: string
+          current_workload?: number | null
           heartbeat_ms?: number | null
           id: string
           last_seen?: string | null
+          max_concurrent_tasks?: number | null
           metadata?: Json
           name: string
           role: Database["public"]["Enums"]["agent_role"]
           role_old?: string | null
           skills?: Json
+          spawn_reason?: string | null
+          spawned_by?: string | null
           status?: Database["public"]["Enums"]["agent_status"]
           updated_at?: string
+          version?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_reason?: string | null
           created_at?: string
+          current_workload?: number | null
           heartbeat_ms?: number | null
           id?: string
           last_seen?: string | null
+          max_concurrent_tasks?: number | null
           metadata?: Json
           name?: string
           role?: Database["public"]["Enums"]["agent_role"]
           role_old?: string | null
           skills?: Json
+          spawn_reason?: string | null
+          spawned_by?: string | null
           status?: Database["public"]["Enums"]["agent_status"]
           updated_at?: string
+          version?: string | null
         }
         Relationships: []
       }
@@ -2668,6 +2689,51 @@ export type Database = {
         }
         Relationships: []
       }
+      github_api_usage: {
+        Row: {
+          action: string
+          created_at: string | null
+          credential_type: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          rate_limit_remaining: number | null
+          rate_limit_reset: string | null
+          repo: string | null
+          response_time_ms: number | null
+          status_code: number | null
+          success: boolean | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          credential_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          rate_limit_remaining?: number | null
+          rate_limit_reset?: string | null
+          repo?: string | null
+          response_time_ms?: number | null
+          status_code?: number | null
+          success?: boolean | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          credential_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          rate_limit_remaining?: number | null
+          rate_limit_reset?: string | null
+          repo?: string | null
+          response_time_ms?: number | null
+          status_code?: number | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       github_contributions: {
         Row: {
           contribution_data: Json
@@ -4771,51 +4837,69 @@ export type Database = {
       }
       tasks: {
         Row: {
+          actual_duration_hours: number | null
           assignee_agent_id: string | null
+          blocked_reason: string | null
           blocking_reason: string | null
           category: Database["public"]["Enums"]["task_category"]
           claimed_at: string | null
           claimed_by: string | null
           created_at: string
           description: string
+          estimated_duration_hours: number | null
           id: string
+          max_retries: number | null
           metadata: Json
           priority: number
           repo: string
+          required_skills: Json | null
+          retry_count: number | null
           stage: Database["public"]["Enums"]["task_stage"]
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
         }
         Insert: {
+          actual_duration_hours?: number | null
           assignee_agent_id?: string | null
+          blocked_reason?: string | null
           blocking_reason?: string | null
           category: Database["public"]["Enums"]["task_category"]
           claimed_at?: string | null
           claimed_by?: string | null
           created_at?: string
           description: string
+          estimated_duration_hours?: number | null
           id: string
+          max_retries?: number | null
           metadata?: Json
           priority?: number
           repo: string
+          required_skills?: Json | null
+          retry_count?: number | null
           stage: Database["public"]["Enums"]["task_stage"]
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
         }
         Update: {
+          actual_duration_hours?: number | null
           assignee_agent_id?: string | null
+          blocked_reason?: string | null
           blocking_reason?: string | null
           category?: Database["public"]["Enums"]["task_category"]
           claimed_at?: string | null
           claimed_by?: string | null
           created_at?: string
           description?: string
+          estimated_duration_hours?: number | null
           id?: string
+          max_retries?: number | null
           metadata?: Json
           priority?: number
           repo?: string
+          required_skills?: Json | null
+          retry_count?: number | null
           stage?: Database["public"]["Enums"]["task_stage"]
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
@@ -6318,7 +6402,12 @@ export type Database = {
       }
     }
     Functions: {
+      batch_spawn_agents: { Args: { p_agents: Json }; Returns: Json }
       batch_vectorize_memories: { Args: never; Returns: Json }
+      calculate_agent_performance: {
+        Args: { p_agent_id: string; p_time_window_days?: number }
+        Returns: Json
+      }
       calculate_charging_pop_points: {
         Args: {
           p_battery_contribution?: number
@@ -6397,12 +6486,36 @@ export type Database = {
         }
         Returns: undefined
       }
+      find_agents_with_skills: {
+        Args: { p_required_skills: Json }
+        Returns: {
+          id: string
+          matching_skills: Json
+          name: string
+          role: Database["public"]["Enums"]["agent_role"]
+          skill_match_score: number
+        }[]
+      }
       generate_conversation_insights: { Args: never; Returns: undefined }
       get_active_devices_by_type: {
         Args: { p_cutoff: string }
         Returns: {
           count: number
           device_type: string
+        }[]
+      }
+      get_agent_by_name: {
+        Args: { p_name: string }
+        Returns: {
+          created_at: string
+          current_workload: number
+          id: string
+          max_concurrent_tasks: number
+          metadata: Json
+          name: string
+          role: Database["public"]["Enums"]["agent_role"]
+          skills: Json
+          status: Database["public"]["Enums"]["agent_status"]
         }[]
       }
       get_cron_jobs_status: {
@@ -6570,6 +6683,20 @@ export type Database = {
           lease_token: string
           payload: Json
         }[]
+      }
+      log_github_api_call: {
+        Args: {
+          p_action: string
+          p_credential_type: string
+          p_error_message?: string
+          p_rate_limit_remaining?: number
+          p_rate_limit_reset?: string
+          p_repo: string
+          p_response_time_ms: number
+          p_status_code: number
+          p_success: boolean
+        }
+        Returns: string
       }
       match_knowledge_entities: {
         Args: { match_count?: number; search_query: string }
