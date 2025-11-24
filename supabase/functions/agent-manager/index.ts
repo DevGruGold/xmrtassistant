@@ -33,7 +33,18 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, data, autonomous = false } = body;
+    let { action, data, autonomous = false } = body;
+    
+    // ✅ AUTO-RESTRUCTURE: Handle both nested and flat request formats
+    // If data is undefined but body has other properties besides action/autonomous,
+    // assume parameters were passed at root level (common caller mistake)
+    if (!data && Object.keys(body).length > (autonomous ? 2 : 1)) {
+      const { action: _, autonomous: __, ...restParams } = body;
+      if (Object.keys(restParams).length > 0) {
+        console.log(`🔧 [agent-manager] Auto-restructuring flat params into data object`);
+        data = restParams;
+      }
+    }
     
     // Enhanced request body logging for debugging
     console.log(`📦 [agent-manager] Full request body:`, JSON.stringify(body, null, 2));
