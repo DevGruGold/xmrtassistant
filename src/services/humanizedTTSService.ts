@@ -235,59 +235,30 @@ export class HumanizedTTSService {
     }
   }
 
-  private async attemptHumeSpeak(text: string, voiceId: string, token: string): Promise<void> {
-    console.log('🎭 Calling Hume TTS API with voice:', voiceId);
+  private async attemptHumeSpeak(text: string, voiceId: string, _token: string): Promise<void> {
+    console.log('🎭 Calling Hume TTS via edge function with voice:', voiceId);
     console.log('🎭 Text:', text.substring(0, 50) + '...');
 
-    const response = await fetch('https://api.hume.ai/v0/tts', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'audio/mpeg',
-      },
-      body: JSON.stringify({
-        utterances: [
-          {
-            text: text,
-            voice: {
-              id: voiceId
-            }
-          }
-        ],
-        format: {
-          type: 'mp3'
-        }
-      }),
+    // Use edge function to call Hume TTS with API key (server-side)
+    const { data, error } = await supabase.functions.invoke('hume-tts', {
+      body: { text, voiceId }
     });
 
-    console.log('📡 Hume TTS response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Hume TTS API error:', response.status, errorText);
-      throw new Error(`Hume TTS error: ${response.status} - ${errorText}`);
+    if (error) {
+      console.error('❌ Hume TTS edge function error:', error);
+      throw new Error(`Hume TTS error: ${error.message}`);
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    let audioBlob: Blob;
-
-    if (contentType.includes('audio/')) {
-      console.log('🎵 Received binary audio response');
-      audioBlob = await response.blob();
-    } else {
-      console.log('📦 Received JSON response, parsing...');
-      const data = await response.json();
-      
-      const base64Audio = data.generations?.[0]?.audio;
-      if (!base64Audio) {
-        console.error('❌ No audio in Hume response:', data);
-        throw new Error('No audio data in Hume TTS response');
-      }
-
-      const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-      audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+    if (!data?.audio) {
+      console.error('❌ No audio in Hume TTS response:', data);
+      throw new Error('No audio data in Hume TTS response');
     }
+
+    console.log('🎵 Received audio, size:', data.size, 'bytes');
+
+    // Decode base64 audio
+    const audioBytes = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
+    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
 
     console.log('🎵 Audio blob size:', audioBlob.size, 'bytes');
     
