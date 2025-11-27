@@ -373,16 +373,119 @@ async function executeToolCall(supabase: any, toolCall: any, SUPABASE_URL: strin
             acknowledged_count: acknowledgeIds.length
           }
         };
+
+      // ========== GOVERNANCE TOOLS ==========
+      case 'propose_new_edge_function':
+        console.log(`📝 [TOOL CALL] propose_new_edge_function - Submitting proposal to Council`);
+        const proposalResult = await supabase.functions.invoke('propose-new-edge-function', {
+          body: {
+            function_name: parsedArgs.function_name,
+            description: parsedArgs.description,
+            proposed_by: parsedArgs.proposed_by || 'Eliza',
+            category: parsedArgs.category,
+            rationale: parsedArgs.rationale,
+            use_cases: parsedArgs.use_cases,
+            implementation_outline: parsedArgs.implementation_outline
+          }
+        });
+        
+        if (proposalResult.error) {
+          console.error(`❌ Proposal submission error:`, proposalResult.error);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, proposalResult.error.message);
+          return { 
+            success: false, 
+            error: proposalResult.error.message || 'Proposal submission failed',
+            governance_action: 'propose_new_edge_function',
+            status: 'failed'
+          };
+        }
+        
+        console.log(`✅ Proposal submitted:`, proposalResult.data);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', proposalResult.data, null);
+        return { 
+          success: true, 
+          result: proposalResult.data,
+          governance_action: 'propose_new_edge_function',
+          status: 'submitted',
+          message: `Proposal "${parsedArgs.function_name}" submitted. Awaiting votes from 4 executives (need 3/4 approval).`
+        };
+
+      case 'vote_on_function_proposal':
+        console.log(`🗳️ [TOOL CALL] vote_on_function_proposal - Recording executive vote`);
+        const voteResult = await supabase.functions.invoke('vote-on-proposal', {
+          body: {
+            proposal_id: parsedArgs.proposal_id,
+            executive_name: parsedArgs.executive_name,
+            vote: parsedArgs.vote,
+            reasoning: parsedArgs.reasoning
+          }
+        });
+        
+        if (voteResult.error) {
+          console.error(`❌ Vote recording error:`, voteResult.error);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, voteResult.error.message);
+          return { 
+            success: false, 
+            error: voteResult.error.message || 'Vote recording failed',
+            governance_action: 'vote_on_function_proposal',
+            status: 'failed'
+          };
+        }
+        
+        console.log(`✅ Vote recorded:`, voteResult.data);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', voteResult.data, null);
+        return { 
+          success: true, 
+          result: voteResult.data,
+          governance_action: 'vote_on_function_proposal',
+          status: 'recorded',
+          message: `Vote recorded from ${parsedArgs.executive_name}: ${parsedArgs.vote}`
+        };
+
+      case 'list_function_proposals':
+        console.log(`📋 [TOOL CALL] list_function_proposals - Fetching proposals`);
+        const status = parsedArgs.status || 'voting';
+        
+        const { data: proposals, error: proposalsError } = await supabase
+          .from('edge_function_proposals')
+          .select('*, executive_votes(*)')
+          .eq('status', status)
+          .order('created_at', { ascending: false })
+          .limit(parsedArgs.limit || 20);
+        
+        if (proposalsError) {
+          console.error(`❌ Failed to fetch proposals:`, proposalsError);
+          await logToolExecution(supabase, name, parsedArgs, 'failed', null, proposalsError.message);
+          return { 
+            success: false, 
+            error: proposalsError.message,
+            governance_action: 'list_function_proposals',
+            status: 'failed'
+          };
+        }
+        
+        console.log(`✅ Retrieved ${proposals?.length || 0} proposals`);
+        await logToolExecution(supabase, name, parsedArgs, 'completed', { count: proposals?.length || 0 }, null);
+        return { 
+          success: true, 
+          result: {
+            proposals: proposals || [],
+            count: proposals?.length || 0,
+            filter_status: status
+          },
+          governance_action: 'list_function_proposals',
+          status: 'retrieved'
+        };
         
       default:
         console.warn(`⚠️ Unknown tool: ${name}`);
-        console.log(`💡 Available tools in lovable-chat: check_system_status, check_ecosystem_health, generate_health_report, get_my_feedback, createGitHubDiscussion, createGitHubIssue, listGitHubIssues, list_available_functions, list_agents, spawn_agent, update_agent_status, assign_task, list_tasks, update_task_status, delete_task, get_agent_workload`);
+        console.log(`💡 Available tools: check_system_status, check_ecosystem_health, generate_health_report, get_my_feedback, createGitHubDiscussion, createGitHubIssue, listGitHubIssues, list_available_functions, agent tools, propose_new_edge_function, vote_on_function_proposal, list_function_proposals`);
         console.log(`💡 For other functions, use invoke_edge_function instead`);
         
         await logToolExecution(supabase, name, parsedArgs, 'failed', null, `Unknown tool: ${name}. Use invoke_edge_function for edge functions not listed above.`);
         return { 
           success: false, 
-          error: `Unknown tool: ${name}. Available tools: check_system_status, check_ecosystem_health, generate_health_report, get_my_feedback, GitHub tools, agent tools. For other edge functions, use invoke_edge_function.`,
+          error: `Unknown tool: ${name}. For governance: propose_new_edge_function, vote_on_function_proposal, list_function_proposals. For other edge functions, use invoke_edge_function.`,
           suggestion: 'Use invoke_edge_function("function-name", {payload}) for direct edge function calls'
         };
     }

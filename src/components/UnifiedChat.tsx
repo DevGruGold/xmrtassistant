@@ -12,8 +12,10 @@ import { GitHubPATInput } from './GitHubContributorRegistration';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
-import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users, Vote } from 'lucide-react';
 import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
+import { GovernanceStatusBadge } from './GovernanceStatusBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { MakeMeHumanToggle } from './MakeMeHumanToggle';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { humanizedTTS } from '@/services/humanizedTTSService';
@@ -1202,17 +1204,35 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            {/* Council Mode Toggle */}
-            <Button
-              onClick={() => setCouncilMode(!councilMode)}
-              variant={councilMode ? 'default' : 'outline'}
-              size="sm"
-              className="text-xs h-7 px-1.5 sm:px-2 flex-shrink-0"
-              title={councilMode ? 'Full Council Mode (All Executives)' : 'Single Executive Mode'}
-            >
-              <Users className="h-3 w-3 sm:mr-1" />
-              <span className="hidden sm:inline">{councilMode ? 'Council' : 'Single'}</span>
-            </Button>
+            {/* Council Mode Toggle with Tooltip */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => setCouncilMode(!councilMode)}
+                    variant={councilMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="text-xs h-7 px-1.5 sm:px-2 flex-shrink-0"
+                  >
+                    <Users className="h-3 w-3 sm:mr-1" />
+                    <span className="hidden sm:inline">{councilMode ? 'Multi-AI' : 'Single'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium text-sm mb-1">
+                    {councilMode ? 'Multi-AI Mode Active' : 'Single Executive Mode'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {councilMode 
+                      ? 'Get perspectives from all 4 AI executives (CTO, CSO, CIO, CAO) before a unified response.'
+                      : 'Chat with Eliza directly. Toggle to consult all executives.'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            {/* Governance Status Badge */}
+            <GovernanceStatusBadge />
             
             {/* Realtime Connection Indicator */}
             {realtimeConnected && (
