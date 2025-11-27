@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Brain, Mic2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sparkles, Brain, Mic2, Volume2 } from 'lucide-react';
 import { humanizedTTS } from '@/services/humanizedTTSService';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,6 +13,7 @@ interface MakeMeHumanToggleProps {
 export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({ onModeChange }) => {
   const [isHumanized, setIsHumanized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -64,6 +66,29 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({ onModeChan
     }
   };
 
+  const handleTestVoice = async () => {
+    setIsTesting(true);
+    try {
+      console.log('🧪 Testing Hume TTS...');
+      await humanizedTTS.speak({ 
+        text: "Hello! I am Eliza, your XMRT DAO assistant. The Hume voice is now active." 
+      });
+      toast({
+        title: "✅ Voice Test Complete",
+        description: isHumanized ? "Hume AI voice working!" : "Browser voice working!"
+      });
+    } catch (error) {
+      console.error('Voice test failed:', error);
+      toast({
+        title: "Voice Test Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-purple-500/20">
       <div className="flex items-center gap-2 flex-1">
@@ -78,6 +103,18 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({ onModeChan
           <span className="text-xs text-muted-foreground animate-pulse">Connecting...</span>
         )}
       </div>
+      
+      {/* Test Voice Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleTestVoice}
+        disabled={isTesting || isLoading}
+        className="h-7 px-2 text-xs"
+      >
+        <Volume2 className={`h-3 w-3 mr-1 ${isTesting ? 'animate-pulse' : ''}`} />
+        {isTesting ? 'Testing...' : 'Test'}
+      </Button>
       
       <Switch
         checked={isHumanized}
