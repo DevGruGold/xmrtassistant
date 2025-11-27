@@ -9,6 +9,7 @@ import Credentials from "./pages/Credentials";
 import Index from "./pages/Index";
 import Treasury from "./pages/Treasury";
 import Council from "./pages/Council";
+import Governance from "./pages/Governance";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
             <Route path="/treasury" element={<Treasury />} />
             <Route path="/contributors" element={<Contributors />} />
             <Route path="/credentials" element={<Credentials />} />
+            <Route path="/governance" element={<Governance />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

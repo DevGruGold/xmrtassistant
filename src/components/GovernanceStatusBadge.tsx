@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from './ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +12,7 @@ interface ProposalCount {
 }
 
 export const GovernanceStatusBadge: React.FC = () => {
+  const navigate = useNavigate();
   const [counts, setCounts] = useState<ProposalCount>({ voting: 0, approved: 0, rejected: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +67,8 @@ export const GovernanceStatusBadge: React.FC = () => {
         <TooltipTrigger asChild>
           <Badge 
             variant="outline" 
-            className="text-xs flex items-center gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30 cursor-help"
+            className="text-xs flex items-center gap-1 bg-amber-500/10 text-amber-600 border-amber-500/30 cursor-pointer hover:bg-amber-500/20 transition-colors"
+            onClick={() => navigate('/governance')}
           >
             <Vote className="h-3 w-3" />
             <span>{counts.voting}</span>
@@ -92,6 +95,9 @@ export const GovernanceStatusBadge: React.FC = () => {
                 </div>
               )}
             </div>
+            <p className="text-xs text-muted-foreground pt-1 border-t border-border mt-1">
+              Click to view & vote on proposals
+            </p>
           </div>
         </TooltipContent>
       </Tooltip>

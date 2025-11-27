@@ -54,6 +54,13 @@ export function MobileNav() {
             >
               🏆 Contributors
             </Link>
+            <Link
+              to="/governance"
+              className="text-2xl font-bold text-white hover:text-amber-400 transition-colors"
+              onClick={toggleMenu}
+            >
+              ⚖️ Governance
+            </Link>
           </nav>
         </div>
       )}
