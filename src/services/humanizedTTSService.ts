@@ -113,7 +113,9 @@ export class HumanizedTTSService {
       throw new Error('No Hume access token available');
     }
 
-    // Use Hume's TTS API
+    console.log('🎭 Calling Hume TTS API with text:', text.substring(0, 50) + '...');
+
+    // Use Hume's TTS API with correct utterances format
     const response = await fetch('https://api.hume.ai/v0/tts', {
       method: 'POST',
       headers: {
@@ -121,30 +123,48 @@ export class HumanizedTTSService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: text,
-        voice: {
-          id: 'c7aa10be-57c1-4647-9306-7ac48dde3536'
-        }
+        utterances: [
+          {
+            text: text,
+            voice: {
+              id: 'c7aa10be-57c1-4647-9306-7ac48dde3536'
+            }
+          }
+        ]
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('❌ Hume TTS API error:', response.status, errorText);
       throw new Error(`Hume TTS error: ${response.status} - ${errorText}`);
     }
 
-    // Get audio as blob and play it
-    const audioBlob = await response.blob();
+    // Parse JSON response and decode base64 audio
+    const data = await response.json();
+    console.log('✅ Hume TTS response received');
+    
+    const base64Audio = data.generations?.[0]?.audio;
+    if (!base64Audio) {
+      console.error('❌ No audio in Hume response:', data);
+      throw new Error('No audio data in Hume TTS response');
+    }
+
+    // Decode base64 to audio blob
+    const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
     
     return new Promise((resolve, reject) => {
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        console.log('🎭 Hume TTS playback complete');
         resolve();
       };
       audio.onerror = (e) => {
         URL.revokeObjectURL(audioUrl);
+        console.error('❌ Hume audio playback error:', e);
         reject(e);
       };
       audio.play().catch(reject);
