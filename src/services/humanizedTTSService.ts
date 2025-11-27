@@ -260,13 +260,40 @@ export class HumanizedTTSService {
       throw new Error('No audio data in Hume TTS response');
     }
 
-    console.log('🎵 Received audio from edge function, size:', data.size, 'bytes');
+    console.log('🎵 Received audio from edge function:', {
+      size: data.size,
+      format: data.format,
+      base64Length: data.audio?.length,
+      headerBytes: data.headerBytes
+    });
 
-    // Efficient base64 decoding using fetch() instead of atob()
-    // This avoids memory issues with large audio files
+    // Validate MP3 header bytes from server (0xFF 0xFB/0xFA = MP3, 0x49 0x44 0x33 = ID3 tag)
+    if (data.headerBytes && data.headerBytes.length >= 2) {
+      const isMP3Frame = data.headerBytes[0] === 0xFF && (data.headerBytes[1] === 0xFB || data.headerBytes[1] === 0xFA || data.headerBytes[1] === 0xF3);
+      const isID3 = data.headerBytes[0] === 0x49 && data.headerBytes[1] === 0x44 && data.headerBytes[2] === 0x33;
+      console.log('🔍 Audio format validation:', { isMP3Frame, isID3, valid: isMP3Frame || isID3 });
+      
+      if (!isMP3Frame && !isID3) {
+        console.warn('⚠️ Audio header does not match MP3 format, bytes:', 
+          data.headerBytes.map((b: number) => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
+      }
+    }
+
+    // Decode base64 to binary using native browser APIs
     try {
-      const response = await fetch(`data:audio/mpeg;base64,${data.audio}`);
-      const audioBlob = await response.blob();
+      // Use atob + Uint8Array for proper binary decoding
+      const binaryString = atob(data.audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Verify first bytes match expected header
+      const clientHeader = Array.from(bytes.slice(0, 4));
+      console.log('🔍 Client-side decoded header bytes:', 
+        clientHeader.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
+      
+      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
       
       console.log('🎵 Audio blob created, size:', audioBlob.size, 'bytes');
       
@@ -293,10 +320,16 @@ export class HumanizedTTSService {
           resolve();
         };
         this.currentAudio.onerror = (e) => {
-          console.error('❌ Hume audio playback error:', e);
+          console.error('❌ Hume audio playback error:', e, 'Audio state:', {
+            readyState: this.currentAudio?.readyState,
+            networkState: this.currentAudio?.networkState,
+            error: this.currentAudio?.error
+          });
           this.cleanupAudio();
           reject(new Error('Audio playback failed'));
         };
+        
+        console.log('▶️ Starting Hume audio playback...');
         this.currentAudio.play().catch((err) => {
           console.error('❌ Audio play() failed:', err);
           this.cleanupAudio();

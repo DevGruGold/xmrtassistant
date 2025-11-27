@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,19 +80,23 @@ serve(async (req) => {
 
     // Get the audio data as ArrayBuffer
     const audioBuffer = await response.arrayBuffer();
+    const audioBytes = new Uint8Array(audioBuffer);
     
-    // Convert to base64 for easy client-side handling
-    const base64Audio = btoa(
-      new Uint8Array(audioBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-    );
+    // Log first few bytes to verify MP3 header (should start with 0xFF 0xFB or ID3)
+    const headerBytes = Array.from(audioBytes.slice(0, 4));
+    console.log('🎵 Audio header bytes:', headerBytes.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
+    
+    // Use Deno's proper base64 encoding (fixes binary corruption)
+    const base64Audio = base64Encode(audioBytes);
 
-    console.log('✅ Hume TTS success, audio size:', audioBuffer.byteLength, 'bytes');
+    console.log('✅ Hume TTS success, audio size:', audioBuffer.byteLength, 'bytes, base64 length:', base64Audio.length);
 
     return new Response(
       JSON.stringify({ 
         audio: base64Audio,
         format: 'mp3',
-        size: audioBuffer.byteLength
+        size: audioBuffer.byteLength,
+        headerBytes: headerBytes // Include for client-side validation
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
