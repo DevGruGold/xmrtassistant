@@ -730,6 +730,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
+          // Stop any previous speech before starting new one
+          humanizedTTS.stop();
           await humanizedTTS.speak({ text: responseText, language });
           setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
           setIsSpeaking(false);
@@ -937,30 +939,17 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           setIsSpeaking(true);
           
           // Build spoken text based on what's available
-          let spokenText = '';
+          console.log('🎵 Speaking council deliberation with executive voices...');
           
-          if (deliberation.responses.length >= 2) {
-            // Multiple executives responded - speak their perspectives
-            const executiveVoices = deliberation.responses
-              .map(r => `${r.executiveTitle}: ${r.perspective}`)
-              .join('\n\n');
-            spokenText = `${executiveVoices}\n\nUnified Recommendation: ${deliberation.synthesis}`;
-          } else if (deliberation.responses.length === 1) {
-            // Single executive - speak their response
-            spokenText = `${deliberation.responses[0].executiveTitle} says: ${deliberation.synthesis}`;
-          } else {
-            // Fallback synthesis only (shouldn't happen but handle gracefully)
-            spokenText = deliberation.synthesis;
-          }
-          
-          console.log('🎵 Speaking council deliberation:', spokenText.substring(0, 100) + '...');
-          
-          humanizedTTS.speak({ 
-            text: spokenText,
-            language: language as 'en' | 'es',
-            voice: 'nova',
-            speed: 1.0 
-          })
+          // Use the new council deliberation method with per-executive voices
+          humanizedTTS.speakCouncilDeliberation(
+            deliberation.responses.map(r => ({
+              executive: r.executive,
+              executiveTitle: r.executiveTitle,
+              perspective: r.perspective
+            })),
+            deliberation.synthesis
+          )
             .then(() => {
               setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
               setIsSpeaking(false);
@@ -1069,6 +1058,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             }
             
             setIsSpeaking(true);
+            // Stop any previous speech before starting new one
+            humanizedTTS.stop();
             await humanizedTTS.speak({ text: cleanResponse, language });
             setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
             setIsSpeaking(false);
