@@ -730,8 +730,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           // Add small delay in voice mode to let speech recognition settle
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          await enhancedTTS.speak(responseText, { language });
-          setCurrentTTSMethod(enhancedTTS.getLastMethod());
+          await humanizedTTS.speak({ text: responseText, language });
+          setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
           setIsSpeaking(false);
         } catch (error) {
           console.error('TTS failed:', error);
@@ -955,13 +955,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           
           console.log('🎵 Speaking council deliberation:', spokenText.substring(0, 100) + '...');
           
-          enhancedTTS.speak(spokenText, { 
+          humanizedTTS.speak({ 
+            text: spokenText,
             language: language as 'en' | 'es',
             voice: 'nova',
             speed: 1.0 
           })
             .then(() => {
-              setCurrentTTSMethod(enhancedTTS.getLastMethod());
+              setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
               setIsSpeaking(false);
             })
             .catch((error) => {
@@ -1068,8 +1069,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
             }
             
             setIsSpeaking(true);
-            await enhancedTTS.speak(cleanResponse, { language });
-            setCurrentTTSMethod(enhancedTTS.getLastMethod());
+            await humanizedTTS.speak({ text: cleanResponse, language });
+            setCurrentTTSMethod(humanizedTTS.isHumanized() ? 'Hume AI EVI' : 'Browser Web Speech');
             setIsSpeaking(false);
           } catch (error) {
             console.error('❌ TTS failed:', error, 'Check browser audio permissions');
