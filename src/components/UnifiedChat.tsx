@@ -594,7 +594,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           language
         });
         
-        setCurrentTTSMethod(isHumanizedMode ? 'Humanized (ElevenLabs)' : 'Browser Web Speech');
+        setCurrentTTSMethod(isHumanizedMode ? 'Hume AI EVI' : 'Browser Web Speech');
         console.log(`🎵 TTS Method: ${isHumanizedMode ? 'Humanized' : 'Browser'}`);
         setIsSpeaking(false);
       } catch (error) {
