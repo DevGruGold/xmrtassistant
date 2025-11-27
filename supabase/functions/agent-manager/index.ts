@@ -1,934 +1,966 @@
+// agent-manager.ts
+// Ultra-robust agent manager (Gemini-only AI backend)
+// - Always returns { ok: boolean, data: <payload|null>, error?: string }
+// - Uses Supabase service role key for backend operations
+// - Auto-restructures flat request bodies into `data` if needed
+// - Extensive activity logging to eliza_activity_log
+// - Gatekeeper call helper for cross-function calls
+// - Conservative defensive programming: checks, maybeSingle, single, head queries
+// - No IIFEs, single mutable query builder pattern where appropriate
+// - Lightweight debug logs throughout
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const INTERNAL_KEY = Deno.env.get('INTERNAL_ELIZA_KEY')!;
+// ---------- Config / Env ----------
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || ""; // required for Option 1
 
-// Helper to call other Eliza instances through gatekeeper
-async function callEliza(target: string, action: string, payload: any) {
-  const response = await fetch(`${supabaseUrl}/functions/v1/eliza-gatekeeper`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-eliza-key': INTERNAL_KEY,
-      'x-eliza-source': 'agent-manager'
-    },
-    body: JSON.stringify({ target, action, payload })
+// ---------- Utility Types ----------
+type RequestPayload = {
+  action?: string;
+  data?: any;
+  autonomous?: boolean;
+  [k: string]: any;
+};
+
+type ResponseEnvelope = {
+  ok: boolean;
+  data: any | null;
+  error?: string;
+};
+
+// ---------- Response Helpers (always include data key) ----------
+function okResponse(payload: any) {
+  const envelope: ResponseEnvelope = { ok: true, data: payload ?? null };
+  return new Response(JSON.stringify(envelope), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Gatekeeper error: ${error.error || 'Unknown error'}`);
-  }
-  
-  return response.json();
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+function errorResponse(message: string, status = 400) {
+  const envelope: ResponseEnvelope = { ok: false, error: message, data: null };
+  return new Response(JSON.stringify(envelope), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ---------- Error Classes ----------
+class ValidationError extends Error {}
+class AppError extends Error {}
+
+// ---------- Valid Enums ----------
+const VALID_AGENT_STATUSES = ["IDLE", "BUSY", "ARCHIVED", "ERROR", "OFFLINE"] as const;
+const VALID_TASK_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "BLOCKED"] as const;
+
+// ---------- Create Supabase client factory ----------
+function createSupabase(): SupabaseClient {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+// ---------- Gemini Helpers (Option 1: Gemini-only) ----------
+async function callGeminiGenerateMessage(prompt: string, opts?: { temperature?: number; maxOutputTokens?: number }) {
+  if (!GEMINI_API_KEY) {
+    throw new AppError("GEMINI_API_KEY is not configured in environment");
+  }
+
+  // Use Google's Generative Language API shape (generateMessage)
+  const endpoint = `${GEMINI_API_BASE}/models/${encodeURIComponent(GEMINI_MODEL)}:generateMessage`;
+
+  const body = {
+    // message prompt structure - simple wrapper for single-turn generation
+    // adjust structure if your environment expects a custom format
+    maxOutputTokens: opts?.maxOutputTokens ?? 512,
+    temperature: opts?.temperature ?? 0.2,
+    // message as text input
+    // Keep it simple: one "author: user" message
+    messages: [
+      {
+        author: "user",
+        content: [
+          {
+            type: "text",
+            text: prompt,
+          },
+        ],
+      },
+    ],
+  };
+
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new AppError(`Gemini API error: ${resp.status} ${resp.statusText} - ${text}`);
+  }
+
+  const result = await resp.json();
+  // attempt to read generated text conservatively
+  try {
+    // Google's shape: result?.candidates?.[0]?.content -> array of items; join text pieces
+    const candidate = result?.candidates?.[0];
+    if (!candidate) return { raw: result, text: "" };
+    const contentArr = candidate?.content ?? [];
+    const textPieces = contentArr.map((c: any) => (c?.text ? String(c.text) : "")).filter(Boolean);
+    const text = textPieces.join("\n");
+    return { raw: result, text };
+  } catch (e) {
+    return { raw: result, text: JSON.stringify(result) };
+  }
+}
+
+async function callGeminiEmbedding(texts: string[] | string) {
+  if (!GEMINI_API_KEY) throw new AppError("GEMINI_API_KEY is not configured");
+  const endpoint = `${GEMINI_API_BASE}/models/${encodeURIComponent(GEMINI_MODEL)}:embedText`;
+
+  const payload = Array.isArray(texts) ? { input: texts } : { input: [texts] };
+
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => "");
+    throw new AppError(`Gemini embedding error: ${resp.status} ${resp.statusText} - ${txt}`);
+  }
+
+  const json = await resp.json();
+  // shape: { embeddings: [...] } or { data: [{ embedding: [...] }, ...] } depending on API; return raw for safety
+  return json;
+}
+
+// ---------- Gatekeeper / Inter-function call helper ----------
+async function callElizaGatekeeper(target: string, action: string, payload: any) {
+  if (!INTERNAL_KEY) throw new AppError("INTERNAL_ELIZA_KEY not configured for gatekeeper calls");
+  const endpoint = `${SUPABASE_URL}/functions/v1/eliza-gatekeeper`;
+  const resp = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-eliza-key": INTERNAL_KEY,
+      "x-eliza-source": "agent-manager",
+    },
+    body: JSON.stringify({ target, action, payload }),
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = { error: text };
+    }
+    throw new AppError(`Gatekeeper error: ${parsed?.error || resp.statusText}`);
   }
 
   try {
-    const body = await req.json();
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+// ---------- Main Serve Handler ----------
+serve(async (req) => {
+  // handle CORS preflight quickly
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  // create a fresh supabase client per request (server-side)
+  const supabase = createSupabase();
+
+  try {
+    // parse request body safely
+    const body: RequestPayload = await req.json().catch(() => ({} as RequestPayload));
     let { action, data, autonomous = false } = body;
-    
-    // ✅ AUTO-RESTRUCTURE: Handle both nested and flat request formats
-    // If data is undefined but body has other properties besides action/autonomous,
-    // assume parameters were passed at root level (common caller mistake)
-    if (!data && Object.keys(body).length > (autonomous ? 2 : 1)) {
-      const { action: _, autonomous: __, ...restParams } = body;
-      if (Object.keys(restParams).length > 0) {
-        console.log(`🔧 [agent-manager] Auto-restructuring flat params into data object`);
-        data = restParams;
+
+    // AUTO-RESTRUCTURE flat params: if data missing but body has other props -> pack them into data
+    if ((data === undefined || data === null) && Object.keys(body).length > (autonomous ? 2 : 1)) {
+      const { action: _, autonomous: __, ...rest } = body;
+      if (Object.keys(rest).length > 0) {
+        console.info("[agent-manager] Auto-restructuring flat params into data object");
+        data = rest;
       }
     }
-    
-    // Enhanced request body logging for debugging
-    console.log(`📦 [agent-manager] Full request body:`, JSON.stringify(body, null, 2));
-    console.log(`🎯 [agent-manager] Extracted action: "${action}"`);
-    console.log(`📋 [agent-manager] Extracted data:`, data ? JSON.stringify(data, null, 2) : 'UNDEFINED');
 
-    // Validate request structure
-    if (!action || typeof action !== 'string') {
-      throw new Error(`Invalid or missing action. Received: ${JSON.stringify(body)}`);
+    console.info("[agent-manager] request", { action, autonomous, data });
+
+    if (!action || typeof action !== "string") {
+      throw new ValidationError("Missing or invalid `action` in request body");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
+    // ---------- Local helper: safe DB query runner ----------
+    async function runQuery<T = any>(query: Promise<{ data: T; error: any }>) {
+      const { data: qdata, error } = await query;
+      if (error) {
+        console.error("[agent-manager] DB error:", error);
+        throw new AppError(error.message || "Database query failed");
       }
-    });
-    let result;
+      return qdata;
+    }
+
+    // ---------- Start switch-case action handling ----------
+    let result: any = null;
 
     switch (action) {
-      case 'list_agents':
-        const { data: agents, error: listError } = await supabase
-          .from('agents')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        console.log('🔍 [agent-manager] list_agents - DB query result:', {
-          agentsCount: agents?.length || 0,
-          agents: agents,
-          error: listError
-        });
-        
-        if (listError) throw listError;
-        result = agents;
-        console.log('🔍 [agent-manager] list_agents - Setting result:', result);
-        break;
+      // ------------------------
+      // LIST AGENTS (with filtering + paging)
+      // ------------------------
+      case "list_agents": {
+        const {
+          status,
+          role,
+          skill,
+          limit = 50,
+          offset = 0,
+          order_by,
+        } = data ?? {};
 
-      case 'spawn_agent':
-        // ✅ ENHANCED: Validate role enum
-        const validRoles = ['developer', 'analyst', 'designer', 'tester', 'coordinator', 'researcher', 'architect'];
-        if (!validRoles.includes(data.role.toLowerCase())) {
-          throw new Error(`Invalid role "${data.role}". Must be one of: ${validRoles.join(', ')}`);
+        // validations
+        if (status && !VALID_AGENT_STATUSES.includes(String(status).toUpperCase() as any)) {
+          throw new ValidationError(`status must be one of: ${VALID_AGENT_STATUSES.join(", ")}`);
         }
-        
-        // ✅ ENHANCED: Check agent capacity limit (configurable, default 100)
-        const maxAgents = data.max_agents || 100;
-        const { count: agentCount } = await supabase
-          .from('agents')
-          .select('*', { count: 'exact', head: true })
-          .neq('status', 'ARCHIVED');
-        
-        if (agentCount >= maxAgents) {
-          throw new Error(`Agent capacity reached (${agentCount}/${maxAgents}). Archive unused agents or increase limit.`);
+        if (typeof limit !== "number" || limit < 1 || limit > 1000) throw new ValidationError("limit must be 1..1000");
+        if (typeof offset !== "number" || offset < 0) throw new ValidationError("offset must be >= 0");
+
+        console.info("[agent-manager] list_agents params:", { status, role, skill, limit, offset, order_by });
+
+        let query = supabase.from("agents").select("*");
+
+        if (status) query = query.eq("status", status);
+        if (role) query = query.eq("role", role);
+        if (skill) query = query.contains("skills", [skill]);
+
+        if (order_by?.column) {
+          query = query.order(order_by.column, { ascending: !!order_by.ascending });
+        } else {
+          query = query.order("created_at", { ascending: false });
         }
-        
-        // ✅ ENHANCED: Validate skills (warn on invalid, don't block)
-        const validSkills = ['python', 'javascript', 'typescript', 'github', 'database', 'testing', 'documentation', 'api-design', 'deployment', 'security'];
-        const skills = data.skills || [];
-        const invalidSkills = skills.filter(s => !validSkills.includes(s.toLowerCase()));
+
+        const q = await query.limit(limit).offset(offset);
+        const agents = q.data;
+        if (q.error) throw new AppError(q.error.message || "DB error");
+        result = agents ?? [];
+        break;
+      }
+
+      // ------------------------
+      // SPAWN AGENT
+      // ------------------------
+      case "spawn_agent": {
+        const payload = data ?? {};
+        const required = ["name", "role"];
+        for (const f of required) {
+          if (!payload[f]) throw new ValidationError(`spawn_agent requires ${f}`);
+        }
+
+        // role enum enforcement (case-insensitive)
+        const validRoles = ["developer", "analyst", "designer", "tester", "coordinator", "researcher", "architect"];
+        if (!validRoles.includes(String(payload.role).toLowerCase())) {
+          throw new ValidationError(`Invalid role "${payload.role}". Must be one of: ${validRoles.join(", ")}`);
+        }
+
+        // capacity check
+        const maxAgents = Number(payload.max_agents ?? 100);
+        const countResp = await supabase.from("agents").select("*", { head: true, count: "exact" }).neq("status", "ARCHIVED");
+        if (countResp.error) throw new AppError(countResp.error.message);
+        const existingCount = typeof countResp.count === "number" ? countResp.count : 0;
+        if (existingCount >= maxAgents) {
+          throw new AppError(`Agent capacity reached (${existingCount}/${maxAgents})`);
+        }
+
+        // normalize skills and warn on invalid ones (non-blocking)
+        const validSkills = ["python", "javascript", "typescript", "github", "database", "testing", "documentation", "api-design", "deployment", "security"];
+        const skills = Array.isArray(payload.skills) ? payload.skills.map((s: string) => String(s)) : [];
+        const invalidSkills = skills.filter((s: string) => !validSkills.includes(s.toLowerCase()));
         if (invalidSkills.length > 0) {
-          console.warn(`⚠️ Invalid skills detected: ${invalidSkills.join(', ')}. Available: ${validSkills.join(', ')}`);
+          console.warn("[agent-manager] spawn_agent invalid skills:", invalidSkills);
         }
-        
-        // Check if agent with this name already exists
-        const { data: existingAgent, error: checkError } = await supabase
-          .from('agents')
-          .select('*')
-          .eq('name', data.name)
-          .maybeSingle();
-        
-        if (checkError) throw checkError;
-        
-        // If agent already exists, return it instead of creating duplicate
-        if (existingAgent) {
-          console.log('Agent already exists, returning existing:', existingAgent);
-          result = {
-            ...existingAgent,
-            message: 'Agent already exists with this name',
-            wasExisting: true
-          };
+
+        // check existing agent by name
+        const check = await supabase.from("agents").select("*").eq("name", payload.name).maybeSingle();
+        if (check.error) throw new AppError(check.error.message);
+        if (check.data) {
+          console.info("[agent-manager] spawn_agent - agent exists, returning existing");
+          result = { ...check.data, message: "Agent already exists", wasExisting: true };
           break;
         }
-        
-        // ✅ ENHANCED: Create new agent with enriched metadata
-        const { data: newAgent, error: spawnError } = await supabase
-          .from('agents')
-          .insert({
-            id: data.id || `agent-${Date.now()}`,
-            name: data.name,
-            role: data.role.toLowerCase(),
-            status: 'IDLE',
-            skills: skills,
-            metadata: {
-              spawned_by: data.spawned_by || 'eliza',
-              spawn_reason: data.rationale || data.spawn_reason,
-              created_at: new Date().toISOString(),
-              version: data.version || '1.0',
-              ...(data.metadata || {})
-            },
-            max_concurrent_tasks: data.max_concurrent_tasks || 3,
-            current_workload: 0
-          })
-          .select()
-          .single();
-        
-        if (spawnError) throw spawnError;
-        
-        // Log the decision to spawn this agent
-        await supabase.from('decisions').insert({
+
+        // create agent
+        const agentId = payload.id ?? `agent-${Date.now()}`;
+        const insertBody = {
+          id: agentId,
+          name: payload.name,
+          role: String(payload.role).toLowerCase(),
+          status: "IDLE",
+          skills,
+          metadata: {
+            spawned_by: payload.spawned_by ?? "eliza",
+            spawn_reason: payload.rationale ?? payload.spawn_reason ?? null,
+            created_at: new Date().toISOString(),
+            version: payload.version ?? "1.0",
+            ...(payload.metadata || {}),
+          },
+          max_concurrent_tasks: payload.max_concurrent_tasks ?? 3,
+          current_workload: 0,
+        };
+
+        const inserted = await supabase.from("agents").insert(insertBody).select().single();
+        if (inserted.error) {
+          console.error("[agent-manager] spawn_agent db error:", inserted.error);
+          throw new AppError(inserted.error.message || "Agent insert failed");
+        }
+
+        // decision & activity logs
+        await supabase.from("decisions").insert({
           id: `decision-${Date.now()}`,
-          agent_id: 'eliza',
-          decision: `Spawned new agent: ${newAgent.name}`,
-          rationale: data.rationale || 'Agent spawned for task delegation',
+          agent_id: "eliza",
+          decision: `Spawned new agent: ${inserted.data.name}`,
+          rationale: payload.rationale ?? "Spawned via spawn_agent",
         });
-        
-        // Log to activity log
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'agent_spawned',
-          title: `Spawned Agent: ${newAgent.name}`,
-          description: `Role: ${newAgent.role}`,
-          metadata: { agent_id: newAgent.id, skills: newAgent.skills },
-          status: 'completed'
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "agent_spawned",
+          title: `Spawned Agent: ${inserted.data.name}`,
+          description: `role: ${inserted.data.role}`,
+          metadata: { agent_id: inserted.data.id, skills: inserted.data.skills },
+          status: "completed",
         });
-        
-        // ✅ ENHANCED: Auto-assign initial calibration task if requested
-        if (data.auto_assign_initial_task) {
-          await supabase.from('tasks').insert({
-            id: `task-${Date.now()}`,
-            title: `${newAgent.name} - Initial Calibration`,
-            description: 'Familiarize with codebase, available tools, and team structure',
-            repo: 'XMRT-Ecosystem',
-            category: 'onboarding',
-            stage: 'PLANNING',
-            status: 'PENDING',
-            priority: 3,
-            assignee_agent_id: newAgent.id
-          });
-          console.log(`✅ Assigned initial calibration task to ${newAgent.name}`);
-        }
-        
-        result = newAgent;
-        console.log('New agent spawned:', newAgent);
-        break;
 
-      case 'update_agent_status':
-        if (!data || !data.agent_id || !data.status) {
-          throw new Error('Missing agent_id or status for update_agent_status action.');
+        // optional initial calibration task
+        if (payload.auto_assign_initial_task) {
+          await supabase.from("tasks").insert({
+            id: `task-${Date.now()}`,
+            title: `${inserted.data.name} - Initial Calibration`,
+            description: "Initial onboarding and calibration",
+            repo: "XMRT-Ecosystem",
+            category: "onboarding",
+            stage: "PLANNING",
+            status: "PENDING",
+            priority: 3,
+            assignee_agent_id: inserted.data.id,
+          });
         }
-        const { data: updatedAgent, error: updateError } = await supabase
-          .from('agents')
-          .update({ status: data.status })
-          .eq('id', data.agent_id)
+
+        result = inserted.data;
+        break;
+      }
+
+      // ------------------------
+      // UPDATE AGENT STATUS
+      // ------------------------
+      case "update_agent_status": {
+        const { agent_id, status } = data ?? {};
+        if (!agent_id || !status) throw new ValidationError("update_agent_status requires agent_id and status");
+        const updateResp = await supabase.from("agents").update({ status }).eq("id", agent_id).select().single();
+        if (updateResp.error) throw new AppError(updateResp.error.message);
+        result = updateResp.data;
+        break;
+      }
+
+      // ------------------------
+      // ASSIGN TASK
+      // ------------------------
+      case "assign_task": {
+        let taskData = data ?? {};
+        // support data in root fields by restructure
+        if (!taskData || Object.keys(taskData).length === 0) {
+          throw new ValidationError("assign_task requires a data object with title, description, category, assignee_agent_id");
+        }
+
+        const requiredFields = ["title", "description", "category", "assignee_agent_id"];
+        for (const f of requiredFields) {
+          if (!taskData[f]) throw new ValidationError(`assign_task missing required field: ${f}`);
+        }
+
+        // prevent duplicate pending tasks for same assignee + title
+        const existing = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("title", taskData.title)
+          .eq("assignee_agent_id", taskData.assignee_agent_id)
+          .in("status", ["PENDING", "IN_PROGRESS"])
+          .maybeSingle();
+
+        if (existing.error) throw new AppError(existing.error.message);
+        if (existing.data) {
+          result = { ...existing.data, message: "Task already exists", wasExisting: true };
+          break;
+        }
+
+        const insertTask = {
+          id: taskData.task_id ?? `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          title: taskData.title,
+          description: taskData.description,
+          repo: taskData.repo ?? "XMRT-Ecosystem",
+          category: taskData.category,
+          stage: taskData.stage ?? "PLANNING",
+          status: "PENDING",
+          priority: taskData.priority ?? 5,
+          assignee_agent_id: taskData.assignee_agent_id,
+        };
+
+        const created = await supabase.from("tasks").insert(insertTask).select().single();
+        if (created.error) {
+          console.error("[agent-manager] assign_task insert error:", created.error);
+          throw new AppError(created.error.message || "Task creation failed (possible RLS)");
+        }
+        if (!created.data) {
+          throw new AppError("Task creation returned null (possible RLS)");
+        }
+
+        // update agent to BUSY
+        await supabase.from("agents").update({ status: "BUSY" }).eq("id", taskData.assignee_agent_id);
+
+        // activity log
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_created",
+          title: `Created Task: ${created.data.title}`,
+          description: created.data.description,
+          metadata: {
+            task_id: created.data.id,
+            assignee: created.data.assignee_agent_id,
+            category: created.data.category,
+          },
+          status: "completed",
+        });
+
+        result = created.data;
+        break;
+      }
+
+      // ------------------------
+      // LIST TASKS (with ordering)
+      // ------------------------
+      case "list_tasks": {
+        const { status, agent_id, limit = 50, offset = 0, order_by } = data ?? {};
+        if (status && !VALID_TASK_STATUSES.includes(String(status).toUpperCase() as any)) {
+          throw new ValidationError(`status must be one of: ${VALID_TASK_STATUSES.join(", ")}`);
+        }
+        if (typeof limit !== "number" || limit < 1 || limit > 1000) throw new ValidationError("limit must be 1..1000");
+        if (typeof offset !== "number" || offset < 0) throw new ValidationError("offset must be >= 0");
+
+        let query = supabase.from("tasks").select("*");
+        if (status) query = query.eq("status", status);
+        if (agent_id) query = query.eq("assignee_agent_id", agent_id);
+
+        if (order_by?.column) query = query.order(order_by.column, { ascending: !!order_by.ascending });
+        else query = query.order("priority", { ascending: false }).order("created_at", { ascending: false });
+
+        const q = await query.limit(limit).offset(offset);
+        if (q.error) throw new AppError(q.error.message);
+        result = q.data ?? [];
+        break;
+      }
+
+      // ------------------------
+      // UPDATE TASK STATUS
+      // ------------------------
+      case "update_task_status": {
+        const { task_id, status, stage, failure_reason } = data ?? {};
+        if (!task_id || !status) throw new ValidationError("update_task_status requires task_id and status");
+
+        const updated = await supabase
+          .from("tasks")
+          .update({ status, stage })
+          .eq("id", task_id)
           .select()
           .single();
-        
-        if (updateError) throw updateError;
-        result = updatedAgent;
-        break;
 
-      case 'execute_autonomous_workflow':
-        // NEW: Multi-step autonomous task execution
-        const { workflow_steps, agent_id, context } = data;
-        
-        console.log(`🤖 Starting autonomous workflow for agent ${agent_id} with ${workflow_steps.length} steps`);
-        
-        const workflowResults = [];
-        let currentContext = context || {};
-        
+        if (updated.error) throw new AppError(updated.error.message);
+        if (!updated.data) throw new AppError("Task update returned null");
+
+        // activity log
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_updated",
+          title: `Updated Task: ${updated.data.title}`,
+          description: `Status: ${status}, Stage: ${stage}`,
+          metadata: { task_id: updated.data.id, failure_reason },
+          status: "completed",
+        });
+
+        // handle failure alerts
+        if (["FAILED", "BLOCKED"].includes(String(status))) {
+          await supabase.from("eliza_activity_log").insert({
+            activity_type: "agent_failure_alert",
+            title: `Agent Failure Alert: ${updated.data.assignee_agent_id}`,
+            description: `Task ${updated.data.title} ${String(status).toLowerCase()}: ${failure_reason ?? "Unknown"}`,
+            metadata: { task_id: updated.data.id, agent_id: updated.data.assignee_agent_id, failure_reason },
+            status: "pending",
+          });
+        }
+
+        // free up agent if completed/failed
+        if (["COMPLETED", "FAILED"].includes(String(status))) {
+          await supabase.from("agents").update({ status: "IDLE" }).eq("id", updated.data.assignee_agent_id);
+        }
+
+        result = updated.data;
+        break;
+      }
+
+      // ------------------------
+      // REPORT PROGRESS
+      // ------------------------
+      case "report_progress": {
+        const { agent_id, agent_name, task_id, progress_percentage, progress_message, current_stage } = data ?? {};
+        if (!agent_id || !agent_name || !task_id) throw new ValidationError("report_progress requires agent_id, agent_name, and task_id");
+
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "progress_report",
+          title: `Progress Report: ${agent_name}`,
+          description: progress_message ?? "",
+          metadata: { agent_id, task_id, progress_percentage, current_stage },
+          status: "completed",
+        });
+
+        result = { success: true, message: "Progress reported" };
+        break;
+      }
+
+      // ------------------------
+      // REQUEST ASSIGNMENT (agent asks for next task)
+      // ------------------------
+      case "request_assignment": {
+        const { agent_id, agent_name } = data ?? {};
+        if (!agent_id) throw new ValidationError("request_assignment requires agent_id");
+
+        const pending = await supabase
+          .from("tasks")
+          .select("*")
+          .eq("status", "PENDING")
+          .order("priority", { ascending: false })
+          .limit(1);
+
+        if (pending.error) throw new AppError(pending.error.message);
+
+        if (pending.data && pending.data.length > 0) {
+          const nextTask = pending.data[0];
+          // assign
+          await supabase.from("tasks").update({ status: "IN_PROGRESS", assignee_agent_id: agent_id }).eq("id", nextTask.id);
+          await supabase.from("agents").update({ status: "BUSY" }).eq("id", agent_id);
+
+          await supabase.from("eliza_activity_log").insert({
+            activity_type: "task_assigned",
+            title: `Task Assigned: ${nextTask.title}`,
+            description: `Assigned to ${agent_name ?? agent_id}`,
+            metadata: { task_id: nextTask.id, agent_id },
+            status: "completed",
+          });
+
+          result = { success: true, task: nextTask };
+        } else {
+          result = { success: false, message: "No pending tasks available" };
+        }
+        break;
+      }
+
+      // ------------------------
+      // GET AGENT WORKLOAD
+      // ------------------------
+      case "get_agent_workload": {
+        const { agent_id } = data ?? {};
+        if (!agent_id) throw new ValidationError("get_agent_workload requires agent_id");
+
+        const q = await supabase.from("tasks").select("*").eq("assignee_agent_id", agent_id).neq("status", "COMPLETED");
+        if (q.error) throw new AppError(q.error.message);
+        result = { agent_id, active_tasks: q.data?.length ?? 0, tasks: q.data ?? [] };
+        break;
+      }
+
+      // ------------------------
+      // LOG DECISION
+      // ------------------------
+      case "log_decision": {
+        const { agent_id, decision, rationale } = data ?? {};
+        if (!decision) throw new ValidationError("log_decision requires decision text");
+        const inserted = await supabase.from("decisions").insert({
+          id: `decision-${Date.now()}`,
+          agent_id: agent_id ?? "eliza",
+          decision,
+          rationale,
+        }).select().single();
+        if (inserted.error) throw new AppError(inserted.error.message);
+        result = inserted.data;
+        break;
+      }
+
+      // ------------------------
+      // UPDATE AGENT SKILLS
+      // ------------------------
+      case "update_agent_skills": {
+        const { agent_id, skills } = data ?? {};
+        if (!agent_id || !Array.isArray(skills)) throw new ValidationError("update_agent_skills requires agent_id and skills array");
+        const updated = await supabase.from("agents").update({ skills }).eq("id", agent_id).select().single();
+        if (updated.error) throw new AppError(updated.error.message);
+        result = { success: true, agent: updated.data };
+        break;
+      }
+
+      // ------------------------
+      // UPDATE AGENT ROLE
+      // ------------------------
+      case "update_agent_role": {
+        const { agent_id, role } = data ?? {};
+        if (!agent_id || !role) throw new ValidationError("update_agent_role requires agent_id and role");
+        const updated = await supabase.from("agents").update({ role }).eq("id", agent_id).select().single();
+        if (updated.error) throw new AppError(updated.error.message);
+        result = { success: true, agent: updated.data };
+        break;
+      }
+
+      // ------------------------
+      // DELETE AGENT
+      // ------------------------
+      case "delete_agent": {
+        const { agent_id } = data ?? {};
+        if (!agent_id) throw new ValidationError("delete_agent requires agent_id");
+        const del = await supabase.from("agents").delete().eq("id", agent_id);
+        if (del.error) throw new AppError(del.error.message);
+        result = { success: true, message: `Agent ${agent_id} deleted` };
+        break;
+      }
+
+      // ------------------------
+      // SEARCH AGENTS
+      // ------------------------
+      case "search_agents": {
+        const { skills, role, status } = data ?? {};
+        let agentQuery: any = supabase.from("agents").select("*");
+        if (skills) agentQuery = agentQuery.contains("skills", Array.isArray(skills) ? skills : [skills]);
+        if (role) agentQuery = agentQuery.ilike("role", `%${role}%`);
+        if (status) agentQuery = agentQuery.eq("status", status);
+        const q = await agentQuery;
+        if (q.error) throw new AppError(q.error.message);
+        result = { success: true, agents: q.data ?? [] };
+        break;
+      }
+
+      // ------------------------
+      // UPDATE TASK
+      // ------------------------
+      case "update_task": {
+        const { task_id, updates } = data ?? {};
+        if (!task_id || !updates) throw new ValidationError("update_task requires task_id and updates");
+        const updated = await supabase.from("tasks").update(updates).eq("id", task_id).select().single();
+        if (updated.error) throw new AppError(updated.error.message);
+        result = { success: true, task: updated.data };
+        break;
+      }
+
+      // ------------------------
+      // SEARCH TASKS
+      // ------------------------
+      case "search_tasks": {
+        const { category, repo, stage, status, min_priority, max_priority } = data ?? {};
+        let taskQuery: any = supabase.from("tasks").select("*");
+        if (category) taskQuery = taskQuery.eq("category", category);
+        if (repo) taskQuery = taskQuery.eq("repo", repo);
+        if (stage) taskQuery = taskQuery.eq("stage", stage);
+        if (status) taskQuery = taskQuery.eq("status", status);
+        if (min_priority !== undefined) taskQuery = taskQuery.gte("priority", min_priority);
+        if (max_priority !== undefined) taskQuery = taskQuery.lte("priority", max_priority);
+        const q = await taskQuery;
+        if (q.error) throw new AppError(q.error.message);
+        result = { success: true, tasks: q.data ?? [] };
+        break;
+      }
+
+      // ------------------------
+      // BULK UPDATE TASKS
+      // ------------------------
+      case "bulk_update_tasks": {
+        const { task_ids, updates } = data ?? {};
+        if (!Array.isArray(task_ids) || !updates) throw new ValidationError("bulk_update_tasks requires task_ids array and updates");
+        const q = await supabase.from("tasks").update(updates).in("id", task_ids).select();
+        if (q.error) throw new AppError(q.error.message);
+        result = { success: true, updated_count: q.data?.length ?? 0, tasks: q.data ?? [] };
+        break;
+      }
+
+      // ------------------------
+      // DELETE TASK
+      // ------------------------
+      case "delete_task": {
+        const { task_id, reason } = data ?? {};
+        if (!task_id) throw new ValidationError("delete_task requires task_id");
+        const deleted = await supabase.from("tasks").delete().eq("id", task_id).select().single();
+        if (deleted.error) throw new AppError(deleted.error.message);
+        // log deletion
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_deleted",
+          title: `Deleted Task: ${deleted.data.title}`,
+          description: `Reason: ${reason ?? "Not provided"}`,
+          metadata: { task_id: deleted.data.id, reason },
+          status: "completed",
+        });
+        // free agent if assigned
+        if (deleted.data.assignee_agent_id) {
+          await supabase.from("agents").update({ status: "IDLE" }).eq("id", deleted.data.assignee_agent_id);
+        }
+        result = { success: true, deleted_task: deleted.data };
+        break;
+      }
+
+      // ------------------------
+      // REASSIGN TASK
+      // ------------------------
+      case "reassign_task": {
+        const { task_id, new_assignee_id, reason } = data ?? {};
+        if (!task_id || !new_assignee_id) throw new ValidationError("reassign_task requires task_id and new_assignee_id");
+
+        const fetch = await supabase.from("tasks").select("*").eq("id", task_id).single();
+        if (fetch.error) throw new AppError(fetch.error.message);
+        const oldAssignee = fetch.data?.assignee_agent_id;
+
+        const reassigned = await supabase.from("tasks").update({ assignee_agent_id: new_assignee_id }).eq("id", task_id).select().single();
+        if (reassigned.error) throw new AppError(reassigned.error.message);
+
+        if (oldAssignee) await supabase.from("agents").update({ status: "IDLE" }).eq("id", oldAssignee);
+        await supabase.from("agents").update({ status: "BUSY" }).eq("id", new_assignee_id);
+
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_updated",
+          title: `Reassigned Task: ${reassigned.data.title}`,
+          description: `From ${oldAssignee ?? "unassigned"} to ${new_assignee_id}. ${reason ?? ""}`,
+          metadata: { task_id: reassigned.data.id, old_assignee: oldAssignee, new_assignee: new_assignee_id, reason },
+          status: "completed",
+        });
+
+        result = reassigned.data;
+        break;
+      }
+
+      // ------------------------
+      // UPDATE TASK DETAILS
+      // ------------------------
+      case "update_task_details": {
+        const fieldsToUpdate: any = {};
+        if (!data?.task_id) throw new ValidationError("update_task_details requires task_id");
+        if (data.title) fieldsToUpdate.title = data.title;
+        if (data.description) fieldsToUpdate.description = data.description;
+        if (data.priority !== undefined) fieldsToUpdate.priority = data.priority;
+        if (data.category) fieldsToUpdate.category = data.category;
+        if (data.repo) fieldsToUpdate.repo = data.repo;
+
+        const updated = await supabase.from("tasks").update(fieldsToUpdate).eq("id", data.task_id).select().single();
+        if (updated.error) throw new AppError(updated.error.message);
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_updated",
+          title: `Updated Task Details: ${updated.data.title}`,
+          description: `Updated fields: ${Object.keys(fieldsToUpdate).join(", ")}`,
+          metadata: { task_id: updated.data.id, updated_fields: fieldsToUpdate },
+          status: "completed",
+        });
+
+        result = updated.data;
+        break;
+      }
+
+      // ------------------------
+      // GET TASK DETAILS
+      // ------------------------
+      case "get_task_details": {
+        const { task_id } = data ?? {};
+        if (!task_id) throw new ValidationError("get_task_details requires task_id");
+        const fetched = await supabase.from("tasks").select("*").eq("id", task_id).single();
+        if (fetched.error) throw new AppError(fetched.error.message);
+        result = fetched.data;
+        break;
+      }
+
+      // ------------------------
+      // CLEANUP DUPLICATE AGENTS
+      // ------------------------
+      case "cleanup_duplicate_agents": {
+        const allAgentsResp = await supabase.from("agents").select("*").order("created_at", { ascending: true });
+        if (allAgentsResp.error) throw new AppError(allAgentsResp.error.message);
+
+        const agentsByName = new Map<string, any>();
+        const duplicatesToDelete: string[] = [];
+
+        for (const a of allAgentsResp.data ?? []) {
+          if (!agentsByName.has(a.name)) agentsByName.set(a.name, a);
+          else duplicatesToDelete.push(a.id);
+        }
+
+        if (duplicatesToDelete.length > 0) {
+          const del = await supabase.from("agents").delete().in("id", duplicatesToDelete);
+          if (del.error) throw new AppError(del.error.message);
+          await supabase.from("eliza_activity_log").insert({
+            activity_type: "cleanup",
+            title: "Cleaned up duplicate agents",
+            description: `Removed ${duplicatesToDelete.length} duplicate agents`,
+            metadata: { deleted_ids: duplicatesToDelete },
+            status: "completed",
+          });
+        }
+
+        result = { success: true, duplicatesRemoved: duplicatesToDelete.length, deletedIds: duplicatesToDelete };
+        break;
+      }
+
+      // ------------------------
+      // AUTONOMOUS WORKFLOW EXECUTION (simplified orchestrator)
+      // ------------------------
+      case "execute_autonomous_workflow": {
+        const { workflow_steps, agent_id, context } = data ?? {};
+        if (!Array.isArray(workflow_steps) || workflow_steps.length === 0) throw new ValidationError("execute_autonomous_workflow requires workflow_steps array");
+        console.info(`[agent-manager] Starting autonomous workflow for agent ${agent_id}`);
+        const workflowResults: any[] = [];
+        let currentContext = context ?? {};
+
         for (let i = 0; i < workflow_steps.length; i++) {
           const step = workflow_steps[i];
-          console.log(`📍 Executing step ${i + 1}/${workflow_steps.length}: ${step.action}`);
-          
           try {
-            let stepResult;
-            
-            // Execute each step based on its action type
+            console.info(`[agent-manager] workflow step ${i + 1}/${workflow_steps.length}:`, step.action);
+            let stepResult: any = null;
+
             switch (step.action) {
-              case 'analyze':
-                // Agent analyzes data and makes decisions
-                stepResult = {
-                  analysis: step.data,
-                  decision: step.expected_outcome,
-                  timestamp: new Date().toISOString()
-                };
+              case "analyze": {
+                // simple analyze via Gemini
+                const prompt = `Analyze: ${JSON.stringify(step.data ?? {})}\nContext: ${JSON.stringify(currentContext ?? {})}\nProvide a short analysis and next decision.`;
+                const gen = await callGeminiGenerateMessage(prompt, { temperature: 0.2, maxOutputTokens: 512 });
+                stepResult = { text: gen.text, raw: gen.raw };
                 break;
-                
-              case 'execute_python':
-                // Execute Python code through gatekeeper
-                stepResult = await callEliza('python-executor', 'execute', {
-                  code: step.code,
-                  source: 'autonomous_agent',
-                  agent_id: agent_id,
-                  task_id: context.task_id,
-                  purpose: step.purpose || `Workflow step ${i + 1}`
-                });
+              }
+
+              case "execute_python": {
+                // call python-executor via gatekeeper
+                const resp = await callElizaGatekeeper("python-executor", "execute", { code: step.code, agent_id });
+                stepResult = resp;
                 break;
-                
-              case 'github_operation':
-                // Execute GitHub operations through gatekeeper
-                stepResult = await callEliza('github-integration', step.github_action, step.github_data);
+              }
+
+              case "github_operation": {
+                const resp = await callElizaGatekeeper("github-integration", step.github_action, step.github_data);
+                stepResult = resp;
                 break;
-                
-              case 'create_subtask':
-                // Create and assign subtask to another agent
-                const { data: subtask } = await supabase
-                  .from('tasks')
-                  .insert({
-                    id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    title: step.task_title,
-                    description: step.task_description,
-                    repo: step.repo || 'XMRT-Ecosystem',
-                    category: step.category || 'autonomous',
-                    stage: 'PLANNING',
-                    status: 'PENDING',
-                    priority: step.priority || 5,
-                    assignee_agent_id: step.assigned_agent || null
-                  })
-                  .select()
-                  .single();
-                  
-                stepResult = { task: subtask, assigned: true };
+              }
+
+              case "create_subtask": {
+                const inserted = await supabase.from("tasks").insert({
+                  id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                  title: step.task_title,
+                  description: step.task_description,
+                  repo: step.repo ?? "XMRT-Ecosystem",
+                  category: step.category ?? "autonomous",
+                  stage: "PLANNING",
+                  status: "PENDING",
+                  priority: step.priority ?? 5,
+                  assignee_agent_id: step.assigned_agent ?? null,
+                }).select().single();
+                if (inserted.error) throw new AppError(inserted.error.message);
+                stepResult = { task: inserted.data, assigned: !!step.assigned_agent };
                 break;
-                
-              case 'query_knowledge':
-                // Query knowledge base or memory contexts
-                const { data: knowledge } = await supabase
-                  .from('knowledge_entities')
-                  .select('*')
-                  .or(step.query_filters)
-                  .limit(10);
-                  
-                stepResult = { knowledge_items: knowledge };
+              }
+
+              case "query_knowledge": {
+                const queryFilters = step.query_filters ?? "";
+                const kb = await supabase.from("knowledge_entities").select("*").or(queryFilters).limit(10);
+                if (kb.error) throw new AppError(kb.error.message);
+                stepResult = { knowledge_items: kb.data };
                 break;
-                
-              case 'log_decision':
-                // Log autonomous decision
-                const { data: decision } = await supabase
-                  .from('decisions')
-                  .insert({
-                    id: `decision-${Date.now()}`,
-                    agent_id: agent_id,
-                    decision: step.decision,
-                    rationale: step.rationale
-                  })
-                  .select()
-                  .single();
-                  
-                stepResult = { decision };
+              }
+
+              case "log_decision": {
+                const dec = await supabase.from("decisions").insert({
+                  id: `decision-${Date.now()}`,
+                  agent_id,
+                  decision: step.decision,
+                  rationale: step.rationale,
+                }).select().single();
+                if (dec.error) throw new AppError(dec.error.message);
+                stepResult = { decision: dec.data };
                 break;
-                
-              default:
-                stepResult = { status: 'skipped', reason: 'Unknown action type' };
+              }
+
+              default: {
+                stepResult = { status: "skipped", reason: "Unknown step action" };
+              }
             }
-            
-            // Store step result and update context
+
             workflowResults.push({
               step: i + 1,
               action: step.action,
               result: stepResult,
-              status: 'completed',
-              timestamp: new Date().toISOString()
+              status: "completed",
+              timestamp: new Date().toISOString(),
             });
-            
-            // Update context with step results for next steps
-            currentContext = {
-              ...currentContext,
-              [`step_${i + 1}_result`]: stepResult
-            };
-            
-            // Log activity
-            await supabase.from('eliza_activity_log').insert({
-              activity_type: 'autonomous_step',
+
+            // update context
+            currentContext = { ...currentContext, [`step_${i + 1}_result`]: stepResult };
+
+            // log
+            await supabase.from("eliza_activity_log").insert({
+              activity_type: "autonomous_step",
               title: `Autonomous Step ${i + 1}: ${step.action}`,
-              description: `Agent ${agent_id} completed workflow step`,
-              metadata: {
-                step: i + 1,
-                action: step.action,
-                result: stepResult
-              },
-              status: 'completed'
+              description: `Completed by agent ${agent_id}`,
+              metadata: { step: i + 1, action: step.action, result: stepResult },
+              status: "completed",
             });
-            
-          } catch (stepError) {
-            console.error(`❌ Error in step ${i + 1}:`, stepError);
+          } catch (stepErr) {
+            console.error(`[agent-manager] Error in workflow step ${i + 1}:`, stepErr);
             workflowResults.push({
               step: i + 1,
               action: step.action,
-              error: stepError.message,
-              status: 'failed',
-              timestamp: new Date().toISOString()
+              error: stepErr?.message ?? String(stepErr),
+              status: "failed",
+              timestamp: new Date().toISOString(),
             });
-            
-            // Log failure
-            await supabase.from('eliza_activity_log').insert({
-              activity_type: 'autonomous_step',
+
+            // log failure
+            await supabase.from("eliza_activity_log").insert({
+              activity_type: "autonomous_step",
               title: `Autonomous Step ${i + 1} Failed: ${step.action}`,
-              description: stepError.message,
-              metadata: {
-                step: i + 1,
-                action: step.action,
-                error: stepError.message
-              },
-              status: 'failed'
+              description: String(stepErr?.message ?? stepErr),
+              metadata: { step: i + 1, action: step.action, error: String(stepErr?.message ?? stepErr) },
+              status: "failed",
             });
-            
-            // Continue or break based on error handling strategy
+
             if (step.critical) {
-              break; // Stop workflow on critical step failure
+              break;
             }
           }
         }
-        
-        return new Response(JSON.stringify({
-          workflow_completed: true,
-          steps_executed: workflowResults.length,
-          results: workflowResults,
-          final_context: currentContext
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+
+        return new Response(JSON.stringify({ ok: true, data: { workflow_completed: true, steps_executed: workflowResults.length, results: workflowResults, final_context: currentContext } }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
 
-      case 'assign_task':
-        // Special handling for assign_task to prevent data loss
-        let taskData = data;
-        if (!taskData && body.title) {
-          console.warn(`⚠️ [agent-manager] Data in root body, restructuring...`);
-          taskData = { ...body };
-          delete taskData.action;
-        }
-        
-        // Enhanced input validation
-        if (!taskData) {
-          throw new Error(`Missing data object for assign_task. Body structure: ${JSON.stringify(body)}`);
-        }
-        if (!taskData.title || typeof taskData.title !== 'string') {
-          throw new Error('Missing or invalid title (must be string)');
-        }
-        if (!taskData.description || typeof taskData.description !== 'string') {
-          throw new Error('Missing or invalid description (must be string)');
-        }
-        if (!taskData.category || typeof taskData.category !== 'string') {
-          throw new Error('Missing or invalid category (must be string)');
-        }
-        if (!taskData.assignee_agent_id || typeof taskData.assignee_agent_id !== 'string') {
-          throw new Error('Missing or invalid assignee_agent_id (must be string)');
-        }
-        
-        console.log('✅ assign_task - Input validation passed:', {
-          title: taskData.title,
-          assignee: taskData.assignee_agent_id,
-          category: taskData.category
-        });
-        
-        // Check if task with same title and assignee already exists
-        const { data: existingTask, error: existingTaskError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('title', taskData.title)
-          .eq('assignee_agent_id', taskData.assignee_agent_id)
-          .in('status', ['PENDING', 'IN_PROGRESS'])
-          .maybeSingle();
-        
-        if (existingTaskError) throw existingTaskError;
-        
-        // If task already exists, return it instead of creating duplicate
-        if (existingTask) {
-          console.log('⚠️ Task already exists, returning existing:', existingTask);
-          result = {
-            ...existingTask,
-            message: 'Task already exists',
-            wasExisting: true
-          };
-          break;
-        }
-        
-        const { data: task, error: taskError } = await supabase
-          .from('tasks')
-          .insert({
-            id: taskData.task_id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            title: taskData.title,
-            description: taskData.description,
-            repo: taskData.repo || 'xmrt-ecosystem',
-            category: taskData.category,
-            stage: taskData.stage || 'PLANNING',
-            status: 'PENDING',
-            priority: taskData.priority || 5,
-            assignee_agent_id: taskData.assignee_agent_id,
-          })
-          .select()
-          .single();
-        
-        if (taskError) {
-          console.error('❌ Task INSERT error:', taskError);
-          throw taskError;
-        }
-        
-        if (!task) {
-          console.error('❌ Task INSERT returned null - likely RLS blocking writes');
-          throw new Error('Task creation failed - database returned null (possible RLS issue)');
-        }
-        
-        console.log('✅ Task created successfully:', {
-          id: task.id,
-          title: task.title,
-          assignee: task.assignee_agent_id,
-          status: task.status
-        });
-        
-        // Update agent status to BUSY
-        await supabase
-          .from('agents')
-          .update({ status: 'BUSY' })
-          .eq('id', taskData.assignee_agent_id);
-        
-        // Log to activity log
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'task_created',
-          title: `Created Task: ${task.title}`,
-          description: task.description,
-          metadata: {
-            task_id: task.id,
-            assignee: data.assignee_agent_id,
-            category: task.category,
-            stage: task.stage
-          },
-          status: 'completed'
-        });
-        
-        result = task;
-        console.log('Task assigned:', task);
-        break;
-
-      case 'list_tasks':
-        const { data: tasks, error: tasksError } = await supabase
-          .from('tasks')
-          .select('*')
-          .order('priority', { ascending: false })
-          .order('created_at', { ascending: false });
-        
-        if (tasksError) throw tasksError;
-        result = tasks;
-        break;
-
-      case 'update_task_status':
-        const { data: updatedTask, error: taskUpdateError } = await supabase
-          .from('tasks')
-          .update({ 
-            status: data.status,
-            stage: data.stage,
-          })
-          .eq('id', data.task_id)
-          .select()
-          .single();
-        
-        if (taskUpdateError) throw taskUpdateError;
-        
-        // Log to activity log
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'task_updated',
-          title: `Updated Task: ${updatedTask.title}`,
-          description: `Status: ${data.status}, Stage: ${data.stage}`,
-          metadata: {
-            task_id: updatedTask.id,
-            old_status: data.old_status,
-            new_status: data.status,
-            stage: data.stage
-          },
-          status: 'completed'
-        });
-
-        // If task FAILED or BLOCKED, create agent failure alert for Eliza to investigate
-        if (data.status === 'FAILED' || data.status === 'BLOCKED') {
-          await supabase.from('eliza_activity_log').insert({
-            activity_type: 'agent_failure_alert',
-            title: `⚠️ Agent Blocked: ${updatedTask.assignee_agent_id}`,
-            description: `Task "${updatedTask.title}" ${data.status.toLowerCase()}: ${data.failure_reason || 'Unknown reason'}`,
-            metadata: {
-              task_id: updatedTask.id,
-              agent_id: updatedTask.assignee_agent_id,
-              failure_status: data.status,
-              failure_reason: data.failure_reason,
-              task_title: updatedTask.title,
-              stage: data.stage,
-              requires_intervention: true
-            },
-            status: 'pending'
-          });
-          
-          console.warn(`⚠️ AGENT FAILURE ALERT: Agent ${updatedTask.assignee_agent_id} blocked on task ${updatedTask.id}`);
-        }
-
-        // If task is completed, free up the agent for new assignments
-        if (data.status === 'COMPLETED' || data.status === 'FAILED') {
-          await supabase
-            .from('agents')
-            .update({ status: 'IDLE' })
-            .eq('id', updatedTask.assignee_agent_id);
-          
-          console.log(`✅ Agent ${updatedTask.assignee_agent_id} marked IDLE after task completion`);
-        }
-        
-        result = updatedTask;
-        break;
-
-      case 'report_progress':
-        // Agent reports progress to lead agent
-        const progressLog = await supabase.from('eliza_activity_log').insert({
-          activity_type: 'progress_report',
-          title: `Progress Report: ${data.agent_name}`,
-          description: data.progress_message,
-          metadata: {
-            agent_id: data.agent_id,
-            task_id: data.task_id,
-            progress_percentage: data.progress_percentage,
-            current_stage: data.current_stage
-          },
-          status: 'completed'
-        });
-        
-        console.log(`📊 Progress reported by ${data.agent_name}:`, data.progress_message);
-        result = { success: true, message: 'Progress reported' };
-        break;
-
-      case 'request_assignment':
-        // Agent requests new assignment from lead
-        const { data: availableTasks, error: availableError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('status', 'PENDING')
-          .order('priority', { ascending: false })
-          .limit(1);
-        
-        if (availableError) throw availableError;
-        
-        if (availableTasks && availableTasks.length > 0) {
-          const nextTask = availableTasks[0];
-          
-          // Assign the task
-          await supabase
-            .from('tasks')
-            .update({ 
-              status: 'IN_PROGRESS',
-              assignee_agent_id: data.agent_id 
-            })
-            .eq('id', nextTask.id);
-          
-          // Update agent status
-          await supabase
-            .from('agents')
-            .update({ status: 'BUSY' })
-            .eq('id', data.agent_id);
-          
-          // Log assignment
-          await supabase.from('eliza_activity_log').insert({
-            activity_type: 'task_assigned',
-            title: `Task Assigned: ${nextTask.title}`,
-            description: `Assigned to ${data.agent_name}`,
-            metadata: {
-              task_id: nextTask.id,
-              agent_id: data.agent_id
-            },
-            status: 'completed'
-          });
-          
-          console.log(`📋 Assigned task "${nextTask.title}" to ${data.agent_name}`);
-          result = { success: true, task: nextTask };
-        } else {
-          console.log(`⏸️ No tasks available for ${data.agent_name}`);
-          result = { success: false, message: 'No pending tasks available' };
-        }
-        break;
-
-      case 'get_agent_workload':
-        const { data: agentTasks, error: workloadError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('assignee_agent_id', data.agent_id)
-          .neq('status', 'COMPLETED');
-        
-        if (workloadError) throw workloadError;
-        result = { agent_id: data.agent_id, active_tasks: agentTasks?.length || 0, tasks: agentTasks };
-        break;
-
-      case 'log_decision':
-        const { data: decision, error: decisionError } = await supabase
-          .from('decisions')
-          .insert({
-            id: `decision-${Date.now()}`,
-            agent_id: data.agent_id || 'eliza',
-            decision: data.decision,
-            rationale: data.rationale,
-          })
-          .select()
-          .single();
-        
-        if (decisionError) throw decisionError;
-        result = decision;
-        break;
-
-      case 'update_agent_skills':
-        const { data: agentWithUpdatedSkills, error: updateSkillsError } = await supabase
-          .from('agents')
-          .update({ skills: data.skills })
-          .eq('id', data.agent_id)
-          .select()
-          .single();
-        
-        if (updateSkillsError) throw updateSkillsError;
-        result = { success: true, agent: agentWithUpdatedSkills };
-        break;
-
-      case 'update_agent_role':
-        const { data: updatedRoleAgent, error: updateRoleError } = await supabase
-          .from('agents')
-          .update({ role: data.role })
-          .eq('id', data.agent_id)
-          .select()
-          .single();
-        
-        if (updateRoleError) throw updateRoleError;
-        result = { success: true, agent: updatedRoleAgent };
-        break;
-
-      case 'delete_agent':
-        const { error: deleteAgentError } = await supabase
-          .from('agents')
-          .delete()
-          .eq('id', data.agent_id);
-        
-        if (deleteAgentError) throw deleteAgentError;
-        result = { success: true, message: `Agent ${data.agent_id} deleted` };
-        break;
-
-      case 'search_agents':
-        let agentQuery = supabase.from('agents').select('*');
-        
-        if (data.skills) agentQuery = agentQuery.contains('skills', data.skills);
-        if (data.role) agentQuery = agentQuery.ilike('role', `%${data.role}%`);
-        if (data.status) agentQuery = agentQuery.eq('status', data.status);
-        
-        const { data: searchedAgents, error: searchAgentsError } = await agentQuery;
-        if (searchAgentsError) throw searchAgentsError;
-        result = { success: true, agents: searchedAgents };
-        break;
-
-      case 'update_task':
-        const { data: taskWithUpdates, error: updateTaskError } = await supabase
-          .from('tasks')
-          .update(data.updates)
-          .eq('id', data.task_id)
-          .select()
-          .single();
-        
-        if (updateTaskError) throw updateTaskError;
-        result = { success: true, task: taskWithUpdates };
-        break;
-
-      case 'search_tasks':
-        let taskQuery = supabase.from('tasks').select('*');
-        
-        if (data.category) taskQuery = taskQuery.eq('category', data.category);
-        if (data.repo) taskQuery = taskQuery.eq('repo', data.repo);
-        if (data.stage) taskQuery = taskQuery.eq('stage', data.stage);
-        if (data.status) taskQuery = taskQuery.eq('status', data.status);
-        if (data.min_priority) taskQuery = taskQuery.gte('priority', data.min_priority);
-        if (data.max_priority) taskQuery = taskQuery.lte('priority', data.max_priority);
-        
-        const { data: searchedTasks, error: searchTasksError } = await taskQuery;
-        if (searchTasksError) throw searchTasksError;
-        result = { success: true, tasks: searchedTasks };
-        break;
-
-      case 'bulk_update_tasks':
-        const { data: bulkUpdated, error: bulkError } = await supabase
-          .from('tasks')
-          .update(data.updates)
-          .in('id', data.task_ids)
-          .select();
-        
-        if (bulkError) throw bulkError;
-        result = { success: true, updated_count: bulkUpdated.length, tasks: bulkUpdated };
-        break;
-
-      case 'delete_task':
-        const { data: deletedTask, error: deleteError } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', data.task_id)
-          .select()
-          .single();
-        
-        if (deleteError) throw deleteError;
-        
-        // Log deletion
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'task_deleted',
-          title: `Deleted Task: ${deletedTask.title}`,
-          description: `Reason: ${data.reason}`,
-          metadata: {
-            task_id: deletedTask.id,
-            reason: data.reason
-          },
-          status: 'completed'
-        });
-        
-        // Free up the agent if it was assigned
-        if (deletedTask.assignee_agent_id) {
-          await supabase
-            .from('agents')
-            .update({ status: 'IDLE' })
-            .eq('id', deletedTask.assignee_agent_id);
-        }
-        
-        result = { success: true, deleted_task: deletedTask };
-        break;
-
-      case 'reassign_task':
-        const { data: taskToReassign, error: fetchError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('id', data.task_id)
-          .single();
-        
-        if (fetchError) throw fetchError;
-        
-        const oldAssignee = taskToReassign.assignee_agent_id;
-        
-        // Update task assignment
-        const { data: reassignedTask, error: reassignError } = await supabase
-          .from('tasks')
-          .update({ assignee_agent_id: data.new_assignee_id })
-          .eq('id', data.task_id)
-          .select()
-          .single();
-        
-        if (reassignError) throw reassignError;
-        
-        // Free up old agent
-        if (oldAssignee) {
-          await supabase
-            .from('agents')
-            .update({ status: 'IDLE' })
-            .eq('id', oldAssignee);
-        }
-        
-        // Mark new agent as busy
-        await supabase
-          .from('agents')
-          .update({ status: 'BUSY' })
-          .eq('id', data.new_assignee_id);
-        
-        // Log reassignment
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'task_updated',
-          title: `Reassigned Task: ${reassignedTask.title}`,
-          description: `From ${oldAssignee || 'unassigned'} to ${data.new_assignee_id}. ${data.reason || ''}`,
-          metadata: {
-            task_id: reassignedTask.id,
-            old_assignee: oldAssignee,
-            new_assignee: data.new_assignee_id,
-            reason: data.reason
-          },
-          status: 'completed'
-        });
-        
-        result = reassignedTask;
-        break;
-
-      case 'update_task_details':
-        const updateFields: any = {};
-        if (data.title) updateFields.title = data.title;
-        if (data.description) updateFields.description = data.description;
-        if (data.priority !== undefined) updateFields.priority = data.priority;
-        if (data.category) updateFields.category = data.category;
-        if (data.repo) updateFields.repo = data.repo;
-        
-        const { data: detailUpdatedTask, error: detailUpdateError } = await supabase
-          .from('tasks')
-          .update(updateFields)
-          .eq('id', data.task_id)
-          .select()
-          .single();
-        
-        if (detailUpdateError) throw detailUpdateError;
-        
-        // Log update
-        await supabase.from('eliza_activity_log').insert({
-          activity_type: 'task_updated',
-          title: `Updated Task Details: ${detailUpdatedTask.title}`,
-          description: `Updated fields: ${Object.keys(updateFields).join(', ')}`,
-          metadata: {
-            task_id: detailUpdatedTask.id,
-            updated_fields: updateFields
-          },
-          status: 'completed'
-        });
-        
-        result = detailUpdatedTask;
-        break;
-
-      case 'get_task_details':
-        const { data: taskDetails, error: taskDetailsError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('id', data.task_id)
-          .single();
-        
-        if (taskDetailsError) throw taskDetailsError;
-        result = taskDetails;
-        break;
-
-      case 'cleanup_duplicate_agents':
-        // Find all duplicate agents (same name)
-        const { data: allAgents, error: agentsFetchError } = await supabase
-          .from('agents')
-          .select('*')
-          .order('created_at', { ascending: true });
-        
-        if (agentsFetchError) throw agentsFetchError;
-        
-        // Group by name and keep only the oldest
-        const agentsByName = new Map();
-        const duplicatesToDelete = [];
-        
-        for (const agent of allAgents) {
-          if (!agentsByName.has(agent.name)) {
-            agentsByName.set(agent.name, agent);
-          } else {
-            duplicatesToDelete.push(agent.id);
-          }
-        }
-        
-        // Delete duplicates
-        if (duplicatesToDelete.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('agents')
-            .delete()
-            .in('id', duplicatesToDelete);
-          
-          if (deleteError) throw deleteError;
-          
-          // Log the cleanup
-          await supabase.from('eliza_activity_log').insert({
-            activity_type: 'cleanup',
-            title: '🧹 Cleaned up duplicate agents',
-            description: `Removed ${duplicatesToDelete.length} duplicate agents`,
-            metadata: { deleted_ids: duplicatesToDelete },
-            status: 'completed'
-          });
-        }
-        
-        result = { 
-          success: true, 
-          duplicatesRemoved: duplicatesToDelete.length,
-          deletedIds: duplicatesToDelete
-        };
-        console.log('Duplicate agents cleaned up:', duplicatesToDelete);
-        break;
-
+      // ------------------------
+      // FALLTHROUGH: unknown action
+      // ------------------------
       default:
-        throw new Error(`Unknown action: ${action}`);
+        throw new ValidationError(`Unknown action: ${action}`);
     }
 
-    const responsePayload = { success: true, data: result };
-    console.log('🔍 [agent-manager] Final response payload:', {
-      action,
-      dataType: Array.isArray(result) ? 'array' : typeof result,
-      dataLength: Array.isArray(result) ? result.length : 'N/A',
-      payload: responsePayload
-    });
-    
-    return new Response(
-      JSON.stringify(responsePayload),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Agent Manager Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    // final success envelope
+    return okResponse(result);
+  } catch (err) {
+    console.error("[agent-manager] error:", err);
+    if (err instanceof ValidationError) return errorResponse(err.message, 400);
+    if (err instanceof AppError) return errorResponse(err.message, 500);
+    // unknown/unhandled
+    return errorResponse("internal error", 500);
   }
 });
