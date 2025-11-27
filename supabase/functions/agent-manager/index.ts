@@ -256,7 +256,7 @@ serve(async (req) => {
           query = query.order("created_at", { ascending: false });
         }
 
-        const q = await query.limit(limit).offset(offset);
+    const q = await query.range(offset, offset + limit - 1);
         const agents = q.data;
         if (q.error) throw new AppError(q.error.message || "DB error");
         result = agents ?? [];
@@ -465,7 +465,7 @@ serve(async (req) => {
         if (order_by?.column) query = query.order(order_by.column, { ascending: !!order_by.ascending });
         else query = query.order("priority", { ascending: false }).order("created_at", { ascending: false });
 
-        const q = await query.limit(limit).offset(offset);
+        const q = await query.range(offset, offset + limit - 1);
         if (q.error) throw new AppError(q.error.message);
         result = q.data ?? [];
         break;
