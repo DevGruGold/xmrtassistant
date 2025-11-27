@@ -78,24 +78,57 @@ serve(async (req) => {
       );
     }
 
-    // Get the audio data as ArrayBuffer
-    const audioBuffer = await response.arrayBuffer();
-    const audioBytes = new Uint8Array(audioBuffer);
-    
-    // Log first few bytes to verify MP3 header (should start with 0xFF 0xFB or ID3)
-    const headerBytes = Array.from(audioBytes.slice(0, 4));
-    console.log('🎵 Audio header bytes:', headerBytes.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
-    
-    // Use Deno's proper base64 encoding (fixes binary corruption)
-    const base64Audio = base64Encode(audioBytes);
+    // Check content type to determine response format
+    const contentType = response.headers.get('content-type') || '';
+    console.log('📦 Hume response content-type:', contentType);
 
-    console.log('✅ Hume TTS success, audio size:', audioBuffer.byteLength, 'bytes, base64 length:', base64Audio.length);
+    let base64Audio: string;
+    let audioSize: number;
+    let headerBytes: number[];
+
+    if (contentType.includes('application/json')) {
+      // Parse JSON response format (Hume returns { generations: [{ audio: "base64..." }] })
+      const jsonResponse = await response.json();
+      console.log('📦 Hume JSON response keys:', Object.keys(jsonResponse));
+      
+      // Try different possible JSON structures
+      let audioData = jsonResponse.generations?.[0]?.audio // Direct audio field
+        || jsonResponse.generations?.[0]?.snippets?.[0]?.audio // Nested snippets
+        || jsonResponse.audio; // Root level audio
+      
+      if (!audioData) {
+        console.error('❌ Could not find audio in JSON response:', JSON.stringify(jsonResponse).substring(0, 500));
+        throw new Error('No audio data in Hume JSON response');
+      }
+      
+      base64Audio = audioData;
+      // Decode a bit to get header bytes for validation
+      const decoded = Uint8Array.from(atob(base64Audio.substring(0, 20)), c => c.charCodeAt(0));
+      headerBytes = Array.from(decoded.slice(0, 4));
+      audioSize = Math.round(base64Audio.length * 0.75); // Approximate decoded size
+      
+      console.log('✅ Extracted audio from JSON response');
+    } else {
+      // Handle binary response (audio/mpeg)
+      const audioBuffer = await response.arrayBuffer();
+      const audioBytes = new Uint8Array(audioBuffer);
+      
+      // Log first few bytes to verify MP3 header (should start with 0xFF 0xFB or ID3)
+      headerBytes = Array.from(audioBytes.slice(0, 4));
+      
+      // Use Deno's proper base64 encoding (fixes binary corruption)
+      base64Audio = base64Encode(audioBytes);
+      audioSize = audioBuffer.byteLength;
+    }
+
+    console.log('🎵 Audio header bytes:', headerBytes.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
+    console.log('✅ Hume TTS success, audio size:', audioSize, 'bytes, base64 length:', base64Audio.length);
 
     return new Response(
       JSON.stringify({ 
         audio: base64Audio,
         format: 'mp3',
-        size: audioBuffer.byteLength,
+        size: audioSize,
         headerBytes: headerBytes // Include for client-side validation
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

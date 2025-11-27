@@ -69,13 +69,16 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({ onModeChan
   const handleTestVoice = async () => {
     setIsTesting(true);
     try {
-      console.log('🧪 Testing Hume TTS...');
-      await humanizedTTS.speak({ 
-        text: "Hello! I am Eliza, your XMRT DAO assistant. The Hume voice is now active." 
-      });
+      // Different test messages based on toggle state
+      const testMessage = isHumanized 
+        ? "Hello! I am Eliza, your XMRT DAO assistant. The Hume AI empathic voice is now active."
+        : "Browser voice mode is active. Toggle on to use Hume AI empathic voice.";
+      
+      console.log(`🧪 Testing ${isHumanized ? 'Hume' : 'Browser'} TTS...`);
+      await humanizedTTS.speak({ text: testMessage });
       toast({
-        title: "✅ Voice Test Complete",
-        description: isHumanized ? "Hume AI voice working!" : "Browser voice working!"
+        title: isHumanized ? "✅ Hume Voice Test Complete" : "✅ Browser Voice Test Complete",
+        description: isHumanized ? "Hume AI empathic voice working!" : "Browser Web Speech API working!"
       });
     } catch (error) {
       console.error('Voice test failed:', error);
