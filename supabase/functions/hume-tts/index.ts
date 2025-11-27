@@ -21,6 +21,12 @@ serve(async (req) => {
       );
     }
 
+    // Truncate text to prevent memory issues (max 1000 chars)
+    const MAX_TEXT_LENGTH = 1000;
+    const truncatedText = text.length > MAX_TEXT_LENGTH 
+      ? text.substring(0, MAX_TEXT_LENGTH) + '...' 
+      : text;
+
     const humeApiKey = Deno.env.get('HUME_API_KEY');
     if (!humeApiKey) {
       console.error('HUME_API_KEY not configured');
@@ -34,9 +40,11 @@ serve(async (req) => {
     const selectedVoiceId = voiceId || 'c7aa10be-57c1-4647-9306-7ac48dde3536';
 
     console.log('🎙️ Hume TTS request:', { 
-      textLength: text.length, 
+      originalLength: text.length,
+      truncatedLength: truncatedText.length,
+      wasTruncated: text.length > MAX_TEXT_LENGTH,
       voiceId: selectedVoiceId,
-      textPreview: text.substring(0, 50) + '...'
+      textPreview: truncatedText.substring(0, 50) + '...'
     });
 
     // Call Hume TTS API with X-Hume-Api-Key header
@@ -49,7 +57,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         utterances: [{ 
-          text, 
+          text: truncatedText, 
           voice: { id: selectedVoiceId } 
         }],
         format: { type: 'mp3' }

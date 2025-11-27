@@ -10,6 +10,7 @@
 
 import { unifiedTTSService } from './unifiedTTSService';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 type TTSMode = 'browser' | 'humanized';
 
@@ -143,6 +144,11 @@ export class HumanizedTTSService {
         await this.speakWithHume(options.text, options.executive);
       } catch (error) {
         console.error('❌ Hume TTS failed, falling back to browser:', error);
+        toast({
+          title: "Hume Voice Unavailable",
+          description: "Using browser voice as fallback",
+          variant: "default",
+        });
         // Fallback to browser TTS
         await this.speakWithBrowser(options);
       }
@@ -237,7 +243,7 @@ export class HumanizedTTSService {
 
   private async attemptHumeSpeak(text: string, voiceId: string, _token: string): Promise<void> {
     console.log('🎭 Calling Hume TTS via edge function with voice:', voiceId);
-    console.log('🎭 Text:', text.substring(0, 50) + '...');
+    console.log('🎭 Text length:', text.length, 'chars, preview:', text.substring(0, 50) + '...');
 
     // Use edge function to call Hume TTS with API key (server-side)
     const { data, error } = await supabase.functions.invoke('hume-tts', {
@@ -254,42 +260,53 @@ export class HumanizedTTSService {
       throw new Error('No audio data in Hume TTS response');
     }
 
-    console.log('🎵 Received audio, size:', data.size, 'bytes');
+    console.log('🎵 Received audio from edge function, size:', data.size, 'bytes');
 
-    // Decode base64 audio
-    const audioBytes = Uint8Array.from(atob(data.audio), c => c.charCodeAt(0));
-    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
-
-    console.log('🎵 Audio blob size:', audioBlob.size, 'bytes');
-    
-    if (this.currentAudioUrl) {
-      URL.revokeObjectURL(this.currentAudioUrl);
-    }
-    
-    this.currentAudioUrl = URL.createObjectURL(audioBlob);
-    this.currentAudio = new Audio(this.currentAudioUrl);
-    
-    return new Promise((resolve, reject) => {
-      if (!this.currentAudio) {
-        reject(new Error('Audio element not created'));
-        return;
+    // Efficient base64 decoding using fetch() instead of atob()
+    // This avoids memory issues with large audio files
+    try {
+      const response = await fetch(`data:audio/mpeg;base64,${data.audio}`);
+      const audioBlob = await response.blob();
+      
+      console.log('🎵 Audio blob created, size:', audioBlob.size, 'bytes');
+      
+      if (audioBlob.size === 0) {
+        throw new Error('Audio blob is empty');
       }
       
-      this.currentAudio.onended = () => {
-        console.log('🎭 Hume TTS playback complete');
-        this.cleanupAudio();
-        resolve();
-      };
-      this.currentAudio.onerror = (e) => {
-        console.error('❌ Hume audio playback error:', e);
-        this.cleanupAudio();
-        reject(e);
-      };
-      this.currentAudio.play().catch((err) => {
-        this.cleanupAudio();
-        reject(err);
+      if (this.currentAudioUrl) {
+        URL.revokeObjectURL(this.currentAudioUrl);
+      }
+      
+      this.currentAudioUrl = URL.createObjectURL(audioBlob);
+      this.currentAudio = new Audio(this.currentAudioUrl);
+      
+      return new Promise((resolve, reject) => {
+        if (!this.currentAudio) {
+          reject(new Error('Audio element not created'));
+          return;
+        }
+        
+        this.currentAudio.onended = () => {
+          console.log('🎭 Hume TTS playback complete');
+          this.cleanupAudio();
+          resolve();
+        };
+        this.currentAudio.onerror = (e) => {
+          console.error('❌ Hume audio playback error:', e);
+          this.cleanupAudio();
+          reject(new Error('Audio playback failed'));
+        };
+        this.currentAudio.play().catch((err) => {
+          console.error('❌ Audio play() failed:', err);
+          this.cleanupAudio();
+          reject(err);
+        });
       });
-    });
+    } catch (decodeError) {
+      console.error('❌ Failed to decode audio:', decodeError);
+      throw new Error(`Audio decoding failed: ${decodeError}`);
+    }
   }
 
   private cleanupAudio(): void {
