@@ -11,7 +11,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
-import { corsHeaders } from "https://deno.land/x/supabase_edge_functions_shared@v1.0.0/_shared/cors.ts";
+import { corsHeaders } from "@supabase/functions/_shared/cors.ts";
 
 // ---------- Config / Env ----------
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
