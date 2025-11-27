@@ -32,10 +32,11 @@ serve(async (req) => {
       );
     }
 
-    const validExecutives = ['CSO', 'CTO', 'CIO', 'CAO'];
+    // Allow executives and community votes
+    const validExecutives = ['CSO', 'CTO', 'CIO', 'CAO', 'COMMUNITY'];
     if (!validExecutives.includes(executive_name)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid executive name' }),
+        JSON.stringify({ error: 'Invalid voter name. Use CSO, CTO, CIO, CAO, or COMMUNITY.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
