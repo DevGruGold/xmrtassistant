@@ -233,6 +233,9 @@ verify_jwt = true
 [functions.openai-tts]
 verify_jwt = true
 
+[functions.hume-access-token]
+verify_jwt = false
+
 [functions.python-executor]
 verify_jwt = false
 
