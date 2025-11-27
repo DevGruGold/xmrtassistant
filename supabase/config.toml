@@ -119,6 +119,12 @@ function_name = "code-monitor-daemon"
 schedule = "*/5 * * * *"
 body = '{"action":"monitor"}'
 
+# Function Usage Sync - Every 15 minutes at :00, :15, :30, :45
+[[edge_runtime.scheduled_functions]]
+function_name = "sync-function-logs"
+schedule = "0,15,30,45 * * * *"
+body = '{"hours_back":1}'
+
 # Scheduled Actions - Every minute for responsive execution
 [[edge_runtime.scheduled_functions]]
 function_name = "execute-scheduled-actions"
@@ -494,6 +500,9 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.get-function-version-analytics]
+verify_jwt = false
+
+[functions.sync-function-logs]
 verify_jwt = false
 
 [functions.event-router]
