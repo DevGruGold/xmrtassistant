@@ -2,6 +2,10 @@
  * Humanized TTS Service - Dual Mode System
  * Mode 1 (Default): Browser Web Speech API (free, fast, reliable)
  * Mode 2 (Premium): Hume AI EVI (Empathic Voice Interface)
+ * 
+ * Features:
+ * - Audio tracking to prevent overlapping speech
+ * - Executive voice differentiation for Council mode
  */
 
 import { unifiedTTSService } from './unifiedTTSService';
@@ -15,7 +19,17 @@ interface HumanizedTTSOptions {
   voice?: string;
   speed?: number;
   language?: 'en' | 'es';
+  executive?: string; // Executive name for voice selection in council mode
 }
+
+// Executive-specific Hume voice IDs for council differentiation
+const EXECUTIVE_HUME_VOICES: Record<string, string> = {
+  'CSO': 'c7aa10be-57c1-4647-9306-7ac48dde3536', // User's preferred voice (default)
+  'CTO': '00aa16ff-0ffa-4a89-8941-6a4ac78882b1', // Tech-focused persona
+  'CIO': 'b09c4a95-2c07-4a7b-bfb9-1ad46f6e1f73', // Vision-focused persona  
+  'CAO': '5dd52779-c50b-479c-80f7-6c4b5e79e9ad', // Analytics-focused persona
+  'default': 'c7aa10be-57c1-4647-9306-7ac48dde3536', // Fallback to user's preferred
+};
 
 // Store Hume connection state
 let humeAccessToken: string | null = null;
@@ -24,6 +38,8 @@ let humeTokenExpiry: number = 0;
 export class HumanizedTTSService {
   private mode: TTSMode = 'browser';
   private isConnected = false;
+  private currentAudio: HTMLAudioElement | null = null;
+  private currentAudioUrl: string | null = null;
 
   async enableHumanizedMode(): Promise<boolean> {
     try {
@@ -93,10 +109,13 @@ export class HumanizedTTSService {
   }
 
   async speak(options: HumanizedTTSOptions): Promise<void> {
+    // Stop any currently playing audio before starting new speech
+    this.stop();
+    
     if (this.mode === 'humanized' && this.isConnected) {
       try {
-        // Use Hume TTS API
-        await this.speakWithHume(options.text);
+        // Use Hume TTS API with optional executive voice
+        await this.speakWithHume(options.text, options.executive);
       } catch (error) {
         console.error('❌ Hume TTS failed, falling back to browser:', error);
         // Fallback to browser TTS
@@ -107,14 +126,77 @@ export class HumanizedTTSService {
     }
   }
 
-  private async speakWithHume(text: string): Promise<void> {
+  /**
+   * Speak council deliberation with different voices for each executive
+   */
+  async speakCouncilDeliberation(responses: Array<{ executive: string; executiveTitle: string; perspective: string }>, synthesis: string): Promise<void> {
+    // Stop any currently playing audio
+    this.stop();
+
+    if (this.mode === 'humanized' && this.isConnected) {
+      try {
+        // Speak each executive's perspective with their designated voice
+        for (const response of responses) {
+          const introText = `${response.executiveTitle} says: ${response.perspective}`;
+          await this.speakWithHume(introText, response.executive);
+        }
+        
+        // Speak the unified synthesis with default voice
+        if (synthesis) {
+          await this.speakWithHume(`Unified Council Recommendation: ${synthesis}`, 'default');
+        }
+      } catch (error) {
+        console.error('❌ Hume council TTS failed, falling back to browser:', error);
+        // Fallback: combine all text and speak with browser
+        const combinedText = responses.map(r => `${r.executiveTitle}: ${r.perspective}`).join('. ') + 
+          (synthesis ? `. Unified Recommendation: ${synthesis}` : '');
+        await this.speakWithBrowser({ text: combinedText });
+      }
+    } else {
+      // Browser TTS: combine all text and speak
+      const combinedText = responses.map(r => `${r.executiveTitle}: ${r.perspective}`).join('. ') + 
+        (synthesis ? `. Unified Recommendation: ${synthesis}` : '');
+      await this.speakWithBrowser({ text: combinedText });
+    }
+  }
+
+  private getVoiceIdForExecutive(executive?: string): string {
+    if (!executive) return EXECUTIVE_HUME_VOICES['default'];
+    
+    // Try exact match first
+    if (EXECUTIVE_HUME_VOICES[executive]) {
+      return EXECUTIVE_HUME_VOICES[executive];
+    }
+    
+    // Try to extract role from executive title (e.g., "Chief Security Officer" -> "CSO")
+    const roleMap: Record<string, string> = {
+      'security': 'CSO',
+      'technology': 'CTO',
+      'tech': 'CTO',
+      'innovation': 'CIO',
+      'analytics': 'CAO',
+      'operations': 'CAO',
+    };
+    
+    const lowerExec = executive.toLowerCase();
+    for (const [keyword, role] of Object.entries(roleMap)) {
+      if (lowerExec.includes(keyword)) {
+        return EXECUTIVE_HUME_VOICES[role];
+      }
+    }
+    
+    return EXECUTIVE_HUME_VOICES['default'];
+  }
+
+  private async speakWithHume(text: string, executive?: string): Promise<void> {
     const token = await this.getHumeAccessToken();
     if (!token) {
       throw new Error('No Hume access token available');
     }
 
-    console.log('🎭 Calling Hume TTS API with text:', text.substring(0, 50) + '...');
-    console.log('🔑 Using token:', token.substring(0, 10) + '...');
+    const voiceId = this.getVoiceIdForExecutive(executive);
+    console.log('🎭 Calling Hume TTS API with voice:', voiceId, 'for executive:', executive || 'default');
+    console.log('🎭 Text:', text.substring(0, 50) + '...');
 
     // Use Hume's TTS API - returns binary audio directly
     const response = await fetch('https://api.hume.ai/v0/tts', {
@@ -129,7 +211,7 @@ export class HumanizedTTSService {
           {
             text: text,
             voice: {
-              id: 'c7aa10be-57c1-4647-9306-7ac48dde3536'
+              id: voiceId
             }
           }
         ],
@@ -140,7 +222,6 @@ export class HumanizedTTSService {
     });
 
     console.log('📡 Hume TTS response status:', response.status);
-    console.log('📡 Hume TTS content-type:', response.headers.get('content-type'));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -160,7 +241,6 @@ export class HumanizedTTSService {
       // JSON response with base64 audio
       console.log('📦 Received JSON response, parsing...');
       const data = await response.json();
-      console.log('✅ Hume TTS JSON response received');
       
       const base64Audio = data.generations?.[0]?.audio;
       if (!base64Audio) {
@@ -174,22 +254,44 @@ export class HumanizedTTSService {
     }
 
     console.log('🎵 Audio blob size:', audioBlob.size, 'bytes');
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
+    
+    // Clean up previous audio URL if exists
+    if (this.currentAudioUrl) {
+      URL.revokeObjectURL(this.currentAudioUrl);
+    }
+    
+    this.currentAudioUrl = URL.createObjectURL(audioBlob);
+    this.currentAudio = new Audio(this.currentAudioUrl);
     
     return new Promise((resolve, reject) => {
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
+      if (!this.currentAudio) {
+        reject(new Error('Audio element not created'));
+        return;
+      }
+      
+      this.currentAudio.onended = () => {
         console.log('🎭 Hume TTS playback complete');
+        this.cleanupAudio();
         resolve();
       };
-      audio.onerror = (e) => {
-        URL.revokeObjectURL(audioUrl);
+      this.currentAudio.onerror = (e) => {
         console.error('❌ Hume audio playback error:', e);
+        this.cleanupAudio();
         reject(e);
       };
-      audio.play().catch(reject);
+      this.currentAudio.play().catch((err) => {
+        this.cleanupAudio();
+        reject(err);
+      });
     });
+  }
+
+  private cleanupAudio(): void {
+    if (this.currentAudioUrl) {
+      URL.revokeObjectURL(this.currentAudioUrl);
+      this.currentAudioUrl = null;
+    }
+    this.currentAudio = null;
   }
 
   private async speakWithBrowser(options: HumanizedTTSOptions): Promise<void> {
@@ -202,11 +304,16 @@ export class HumanizedTTSService {
   }
 
   stop(): void {
+    // Stop Hume audio playback
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.cleanupAudio();
+      console.log('🛑 Stopped Hume audio playback');
+    }
+    
     // Stop browser TTS
     unifiedTTSService.stopSpeaking();
-    
-    // Note: Hume audio playback would need to be tracked and stopped separately
-    // For now, browser fallback handles this
   }
 
   getCurrentMode(): TTSMode {
