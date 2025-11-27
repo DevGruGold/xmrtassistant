@@ -192,6 +192,11 @@ serve(async (req) => {
 function analyzeRegressions(versions: VersionComparisonResult[]) {
   const regressions = [];
   
+  // Defensive check for empty or insufficient data
+  if (!versions || versions.length < 2) {
+    return { total_regressions: 0, critical_regressions: 0, regressions: [] };
+  }
+  
   for (let i = 0; i < versions.length - 1; i++) {
     const newer = versions[i];
     const older = versions[i + 1];
@@ -245,13 +250,28 @@ function generateRecommendations(
   versions: VersionComparisonResult[], 
   functionName: string
 ): string[] {
-  const recommendations = [];
+  const recommendations: string[] = [];
+  
+  // Handle empty or undefined versions array - CRITICAL FIX
+  if (!versions || versions.length === 0) {
+    recommendations.push(`⚠️ No version data available for ${functionName}.`);
+    recommendations.push(`📊 This could mean: no invocations in the time window, or all calls are below the minimum threshold.`);
+    recommendations.push(`💡 Try increasing time_window_hours or decreasing min_calls_threshold.`);
+    return recommendations;
+  }
+  
   const bestVersion = versions.find(v => v.recommendation === 'stable');
   const latestVersion = versions[0];
   
+  // Additional null safety for latestVersion
+  if (!latestVersion) {
+    recommendations.push(`⚠️ Could not determine latest version for ${functionName}.`);
+    return recommendations;
+  }
+  
   if (!bestVersion) {
     recommendations.push(`⚠️ No stable version found for ${functionName}. All versions have issues.`);
-    recommendations.push(`🔍 Investigate error patterns: ${Object.keys(latestVersion?.error_types || {}).join(', ')}`);
+    recommendations.push(`🔍 Investigate error patterns: ${Object.keys(latestVersion.error_types || {}).join(', ')}`);
   } else if (latestVersion.version !== bestVersion.version) {
     recommendations.push(`🎯 ROLLBACK RECOMMENDED: Consider rolling back to version ${bestVersion.version}`);
     recommendations.push(`📊 Latest version (${latestVersion.version}) has ${latestVersion.success_rate}% success vs ${bestVersion.success_rate}% for best version`);
@@ -259,8 +279,8 @@ function generateRecommendations(
     recommendations.push(`✅ Current version (${latestVersion.version}) is stable and performing well`);
   }
   
-  // Check for execution time issues
-  if (latestVersion.p95_execution_ms > 5000) {
+  // Check for execution time issues - with null safety
+  if (latestVersion.p95_execution_ms && latestVersion.p95_execution_ms > 5000) {
     recommendations.push(`⏱️ P95 execution time is ${latestVersion.p95_execution_ms}ms. Consider optimization.`);
   }
   
