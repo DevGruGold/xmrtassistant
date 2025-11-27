@@ -623,7 +623,30 @@ export async function executeToolCall(
           ? { success: false, error: routeResult.error.message }
           : { success: true, result: routeResult.data };
         break;
-        
+
+      // ====================================================================
+      // DIAGNOSTIC & ANALYTICS TOOLS
+      // ====================================================================
+      case 'get_edge_function_logs':
+        console.log(`📋 [${executiveName}] Get Edge Function Logs: ${parsedArgs.function_name}`);
+        const logsResult = await supabase.functions.invoke('get-edge-function-logs', {
+          body: parsedArgs
+        });
+        result = logsResult.error
+          ? { success: false, error: logsResult.error.message }
+          : { success: true, result: logsResult.data };
+        break;
+
+      case 'get_function_version_analytics':
+        console.log(`📊 [${executiveName}] Get Function Version Analytics: ${parsedArgs.function_name}`);
+        const versionAnalyticsResult = await supabase.functions.invoke('get-function-version-analytics', {
+          body: parsedArgs
+        });
+        result = versionAnalyticsResult.error
+          ? { success: false, error: versionAnalyticsResult.error.message }
+          : { success: true, result: versionAnalyticsResult.data };
+        break;
+
       // Agent management tools
       case 'list_agents':
       case 'spawn_agent':
