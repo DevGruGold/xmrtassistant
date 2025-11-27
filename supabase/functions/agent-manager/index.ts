@@ -948,6 +948,148 @@ serve(async (req) => {
       }
 
       // ------------------------
+      // GET AGENT BY NAME
+      // ------------------------
+      case "get_agent_by_name": {
+        const { name } = data ?? {};
+        if (!name) throw new ValidationError("get_agent_by_name requires name");
+
+        const { data: foundAgent, error: findErr } = await supabase
+          .from("agents")
+          .select("*")
+          .ilike("name", name)
+          .maybeSingle();
+
+        if (findErr) throw new AppError(findErr.message);
+        result = foundAgent || { success: false, message: `No agent found with name: ${name}` };
+        break;
+      }
+
+      // ------------------------
+      // GET AGENT STATS
+      // ------------------------
+      case "get_agent_stats": {
+        const { agent_id, time_window_days = 7 } = data ?? {};
+        if (!agent_id) throw new ValidationError("get_agent_stats requires agent_id");
+
+        const { data: statsData, error: statsErr } = await supabase.rpc("calculate_agent_performance", {
+          p_agent_id: agent_id,
+          p_time_window_days: time_window_days,
+        });
+
+        if (statsErr) throw new AppError(statsErr.message);
+        result = { success: true, agent_id, time_window_days, stats: statsData };
+        break;
+      }
+
+      // ------------------------
+      // BATCH SPAWN AGENTS
+      // ------------------------
+      case "batch_spawn_agents": {
+        const { agents: agentsConfig, spawned_by = "batch_operation" } = data ?? {};
+        if (!Array.isArray(agentsConfig) || agentsConfig.length === 0) {
+          throw new ValidationError("batch_spawn_agents requires non-empty agents array");
+        }
+
+        const spawnedAgents: any[] = [];
+        const spawnErrors: any[] = [];
+
+        for (const cfg of agentsConfig) {
+          try {
+            const agentId = cfg.id || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            const { data: newAgent, error: insertErr } = await supabase
+              .from("agents")
+              .insert({
+                id: agentId,
+                name: cfg.name,
+                role: cfg.role || "developer",
+                status: "IDLE",
+                skills: cfg.skills || [],
+                metadata: {
+                  spawned_by,
+                  spawn_reason: cfg.spawn_reason || "Batch spawn",
+                  created_at: new Date().toISOString(),
+                  version: cfg.version || "1.0",
+                },
+              })
+              .select()
+              .single();
+
+            if (insertErr) {
+              spawnErrors.push({ name: cfg.name, error: insertErr.message });
+            } else {
+              spawnedAgents.push(newAgent);
+              // Log each agent spawn
+              await supabase.from("agent_activities").insert({
+                agent_id: newAgent.id,
+                activity: `Agent spawned via batch operation by ${spawned_by}`,
+                level: "info",
+              });
+            }
+          } catch (err: any) {
+            spawnErrors.push({ name: cfg.name, error: err?.message || String(err) });
+          }
+        }
+
+        // Activity log for batch operation
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "batch_spawn",
+          title: `Batch Spawned ${spawnedAgents.length} Agents`,
+          description: `Spawned by ${spawned_by}. Failed: ${spawnErrors.length}`,
+          metadata: { spawned_count: spawnedAgents.length, failed_count: spawnErrors.length, spawned_by },
+          status: spawnErrors.length === 0 ? "completed" : "partial",
+        });
+
+        result = {
+          success: true,
+          spawned: spawnedAgents.length,
+          failed: spawnErrors.length,
+          agents: spawnedAgents,
+          errors: spawnErrors,
+        };
+        break;
+      }
+
+      // ------------------------
+      // ARCHIVE AGENT
+      // ------------------------
+      case "archive_agent": {
+        const { agent_id, reason = "No reason provided" } = data ?? {};
+        if (!agent_id) throw new ValidationError("archive_agent requires agent_id");
+
+        const { data: archivedAgent, error: archiveErr } = await supabase
+          .from("agents")
+          .update({
+            status: "ARCHIVED",
+            archived_at: new Date().toISOString(),
+            archived_reason: reason,
+          })
+          .eq("id", agent_id)
+          .select()
+          .single();
+
+        if (archiveErr) throw new AppError(archiveErr.message);
+
+        // Activity logs
+        await supabase.from("agent_activities").insert({
+          agent_id,
+          activity: `Agent archived. Reason: ${reason}`,
+          level: "warn",
+        });
+
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "agent_archived",
+          title: `Archived Agent: ${archivedAgent?.name || agent_id}`,
+          description: `Reason: ${reason}`,
+          metadata: { agent_id, reason },
+          status: "completed",
+        });
+
+        result = { success: true, agent: archivedAgent };
+        break;
+      }
+
+      // ------------------------
       // FALLTHROUGH: unknown action
       // ------------------------
       default:

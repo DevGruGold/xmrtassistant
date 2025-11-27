@@ -1947,6 +1947,48 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_logs: {
+        Row: {
+          event_message: string | null
+          event_type: string
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          level: string | null
+          metadata: Json | null
+          request_id: string | null
+          status_code: number | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          event_message?: string | null
+          event_type: string
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          level?: string | null
+          metadata?: Json | null
+          request_id?: string | null
+          status_code?: number | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          event_message?: string | null
+          event_type?: string
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          level?: string | null
+          metadata?: Json | null
+          request_id?: string | null
+          status_code?: number | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       edge_function_proposals: {
         Row: {
           category: string
@@ -2030,6 +2072,8 @@ export type Database = {
       }
       eliza_function_usage: {
         Row: {
+          context: string | null
+          created_at: string | null
           deployment_id: string | null
           deployment_version: string | null
           error_message: string | null
@@ -2049,6 +2093,8 @@ export type Database = {
           user_context: string | null
         }
         Insert: {
+          context?: string | null
+          created_at?: string | null
           deployment_id?: string | null
           deployment_version?: string | null
           error_message?: string | null
@@ -2068,6 +2114,8 @@ export type Database = {
           user_context?: string | null
         }
         Update: {
+          context?: string | null
+          created_at?: string | null
           deployment_id?: string | null
           deployment_version?: string | null
           error_message?: string | null
@@ -3436,6 +3484,30 @@ export type Database = {
           miner_id?: string
           status?: string
           update_source?: string | null
+        }
+        Relationships: []
+      }
+      network_access_errors: {
+        Row: {
+          created_at: string | null
+          error_type: string
+          function_name: string
+          id: string
+          target_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_type: string
+          function_name: string
+          id?: string
+          target_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_type?: string
+          function_name?: string
+          id?: string
+          target_url?: string | null
         }
         Relationships: []
       }
@@ -6118,6 +6190,15 @@ export type Database = {
         }
         Relationships: []
       }
+      failing_network_functions: {
+        Row: {
+          attempted_urls: string[] | null
+          common_error_type: string | null
+          failure_count: number | null
+          function_name: string | null
+        }
+        Relationships: []
+      }
       function_recommendations: {
         Row: {
           avg_execution_ms: number | null
@@ -6402,6 +6483,48 @@ export type Database = {
       }
     }
     Functions: {
+      assign_task_atomic: {
+        Args: {
+          p_assignee_agent_id: string
+          p_category: Database["public"]["Enums"]["task_category"]
+          p_description: string
+          p_metadata: Json
+          p_priority: number
+          p_repo: string
+          p_stage: Database["public"]["Enums"]["task_stage"]
+          p_status: Database["public"]["Enums"]["task_status"]
+          p_title: string
+        }
+        Returns: {
+          actual_duration_hours: number | null
+          assignee_agent_id: string | null
+          blocked_reason: string | null
+          blocking_reason: string | null
+          category: Database["public"]["Enums"]["task_category"]
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          description: string
+          estimated_duration_hours: number | null
+          id: string
+          max_retries: number | null
+          metadata: Json
+          priority: number
+          repo: string
+          required_skills: Json | null
+          retry_count: number | null
+          stage: Database["public"]["Enums"]["task_stage"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       batch_spawn_agents: { Args: { p_agents: Json }; Returns: Json }
       batch_vectorize_memories: { Args: never; Returns: Json }
       calculate_agent_performance: {
@@ -6433,6 +6556,10 @@ export type Database = {
       }
       complete_job: {
         Args: { p_job_id: number; p_lease_token: string; p_logs?: string }
+        Returns: undefined
+      }
+      delete_task_atomic: {
+        Args: { p_force?: boolean; p_task_id: string }
         Returns: undefined
       }
       disconnect_device_session: {
@@ -6532,6 +6659,28 @@ export type Database = {
           success_rate: number
           total_runs_24h: number
         }[]
+      }
+      get_edge_function_logs: {
+        Args: { p_function_name?: string; p_limit?: number; p_since?: string }
+        Returns: {
+          event_message: string | null
+          event_type: string
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          level: string | null
+          metadata: Json | null
+          request_id: string | null
+          status_code: number | null
+          timestamp: string | null
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "edge_function_logs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_latest_battery_level: {
         Args: { p_device_id: string; p_session_id: string }
@@ -6684,6 +6833,39 @@ export type Database = {
           payload: Json
         }[]
       }
+      log_edge_function_execution: {
+        Args: {
+          p_event_message?: string
+          p_event_type: string
+          p_execution_time_ms?: number
+          p_function_name: string
+          p_level?: string
+          p_metadata?: Json
+          p_request_id?: string
+          p_status_code?: number
+          p_user_id?: string
+        }
+        Returns: undefined
+      }
+      log_edge_function_usage: {
+        Args: {
+          context?: string
+          error_message?: string
+          execution_time_ms?: number
+          executive_name?: string
+          function_name: string
+          success: boolean
+        }
+        Returns: string
+      }
+      log_function_failure_with_network_context: {
+        Args: {
+          error_message: string
+          function_name: string
+          target_url?: string
+        }
+        Returns: string
+      }
       log_github_api_call: {
         Args: {
           p_action: string
@@ -6760,6 +6942,42 @@ export type Database = {
         Args: { max_hot_days?: number }
         Returns: undefined
       }
+      reassign_task_atomic: {
+        Args: {
+          p_new_assignee_agent_id: string
+          p_reason: string
+          p_task_id: string
+        }
+        Returns: {
+          actual_duration_hours: number | null
+          assignee_agent_id: string | null
+          blocked_reason: string | null
+          blocking_reason: string | null
+          category: Database["public"]["Enums"]["task_category"]
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          description: string
+          estimated_duration_hours: number | null
+          id: string
+          max_retries: number | null
+          metadata: Json
+          priority: number
+          repo: string
+          required_skills: Json | null
+          retry_count: number | null
+          stage: Database["public"]["Enums"]["task_stage"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_connection_event: {
         Args: {
           p_battery_level?: number
@@ -6803,6 +7021,43 @@ export type Database = {
       update_session_heartbeat: {
         Args: { p_session_id: string }
         Returns: undefined
+      }
+      update_task_status_atomic: {
+        Args: {
+          p_completion_notes: string
+          p_stage: Database["public"]["Enums"]["task_stage"]
+          p_status: Database["public"]["Enums"]["task_status"]
+          p_task_id: string
+        }
+        Returns: {
+          actual_duration_hours: number | null
+          assignee_agent_id: string | null
+          blocked_reason: string | null
+          blocking_reason: string | null
+          category: Database["public"]["Enums"]["task_category"]
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          description: string
+          estimated_duration_hours: number | null
+          id: string
+          max_retries: number | null
+          metadata: Json
+          priority: number
+          repo: string
+          required_skills: Json | null
+          retry_count: number | null
+          stage: Database["public"]["Enums"]["task_stage"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
