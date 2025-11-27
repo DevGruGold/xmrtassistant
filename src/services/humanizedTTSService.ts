@@ -52,14 +52,20 @@ export class HumanizedTTSService {
         this.mode = 'humanized';
         this.isConnected = true;
         localStorage.setItem('tts_mode', 'humanized');
-        console.log('✅ Hume-an mode activated');
+        console.log('✅ Hume-an mode activated, state:', { 
+          mode: this.mode, 
+          isConnected: this.isConnected,
+          tokenLength: token.length 
+        });
         return true;
       }
       
-      console.error('❌ Failed to get Hume access token');
+      console.error('❌ Failed to get Hume access token - token was null/undefined');
       return false;
     } catch (error) {
       console.error('❌ Failed to enable Hume-an mode:', error);
+      this.mode = 'browser';
+      this.isConnected = false;
       return false;
     }
   }
@@ -112,8 +118,27 @@ export class HumanizedTTSService {
     // Stop any currently playing audio before starting new speech
     this.stop();
     
+    // Debug: Log current state to identify routing decision
+    const savedMode = localStorage.getItem('tts_mode');
+    console.log('🎙️ humanizedTTS.speak() called:', {
+      serviceMode: this.mode,
+      isConnected: this.isConnected,
+      localStorageMode: savedMode,
+      willUseHume: this.mode === 'humanized' && this.isConnected,
+      textPreview: options.text.substring(0, 30) + '...'
+    });
+    
+    // Auto-restore mode if localStorage says humanized but service state doesn't match
+    if (savedMode === 'humanized' && (this.mode !== 'humanized' || !this.isConnected)) {
+      console.warn('⚠️ Mode mismatch detected! localStorage=humanized but service mode=', this.mode, 'connected=', this.isConnected);
+      console.log('🔄 Auto-restoring humanized mode...');
+      const restored = await this.enableHumanizedMode();
+      console.log('🔄 Auto-restore result:', restored);
+    }
+    
     if (this.mode === 'humanized' && this.isConnected) {
       try {
+        console.log('🎭 Routing to Hume TTS');
         // Use Hume TTS API with optional executive voice
         await this.speakWithHume(options.text, options.executive);
       } catch (error) {
@@ -122,6 +147,7 @@ export class HumanizedTTSService {
         await this.speakWithBrowser(options);
       }
     } else {
+      console.log('📢 Using browser TTS (mode:', this.mode, ', connected:', this.isConnected, ')');
       await this.speakWithBrowser(options);
     }
   }
