@@ -123,7 +123,7 @@ export class HumanizedTTSService {
       body: JSON.stringify({
         text: text,
         voice: {
-          name: 'ITO' // Hume's default expressive voice
+          id: 'c7aa10be-57c1-4647-9306-7ac48dde3536'
         }
       }),
     });
