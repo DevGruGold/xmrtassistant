@@ -10,6 +10,8 @@ interface HumeVoiceChatProps {
   onEmotionUpdate?: (emotions: EmotionData[]) => void;
   onTranscript?: (text: string, role: 'user' | 'assistant') => void;
   configId?: string;
+  preObtainedStream?: MediaStream | null;
+  autoConnect?: boolean;
 }
 
 export interface EmotionData {
@@ -29,7 +31,9 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export const HumeVoiceChat: React.FC<HumeVoiceChatProps> = ({
   onEmotionUpdate,
-  onTranscript
+  onTranscript,
+  preObtainedStream,
+  autoConnect = false
 }) => {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [voiceMessages, setVoiceMessages] = useState<VoiceMessage[]>([]);
@@ -86,15 +90,20 @@ export const HumeVoiceChat: React.FC<HumeVoiceChatProps> = ({
         throw new Error('Failed to get Hume access token');
       }
 
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          sampleRate: 16000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        } 
-      });
+      // Use pre-obtained stream or get microphone access
+      let stream: MediaStream;
+      if (preObtainedStream) {
+        stream = preObtainedStream;
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { 
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true
+          } 
+        });
+      }
       mediaStreamRef.current = stream;
 
       // Set up audio analysis
@@ -212,6 +221,13 @@ export const HumeVoiceChat: React.FC<HumeVoiceChatProps> = ({
       setIsMuted(!isMuted);
     }
   }, [isMuted]);
+
+  // Auto-connect if pre-obtained stream is provided and autoConnect is true
+  useEffect(() => {
+    if (autoConnect && preObtainedStream && status === 'disconnected') {
+      connect();
+    }
+  }, [autoConnect, preObtainedStream, status, connect]);
 
   // Cleanup on unmount
   useEffect(() => {

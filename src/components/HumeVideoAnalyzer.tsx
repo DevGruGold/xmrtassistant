@@ -15,12 +15,16 @@ interface HumeVideoAnalyzerProps {
   onEmotionUpdate?: (emotions: FacialEmotion[]) => void;
   captureInterval?: number; // ms between frame captures
   enabled?: boolean;
+  preObtainedStream?: MediaStream | null;
+  autoStart?: boolean;
 }
 
 export const HumeVideoAnalyzer: React.FC<HumeVideoAnalyzerProps> = ({
   onEmotionUpdate,
   captureInterval = 1000,
-  enabled = true
+  enabled = true,
+  preObtainedStream,
+  autoStart = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,16 +38,22 @@ export const HumeVideoAnalyzer: React.FC<HumeVideoAnalyzerProps> = ({
   const [analysisCount, setAnalysisCount] = useState(0);
 
   // Start camera stream
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (streamToUse?: MediaStream | null) => {
     try {
       setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user'
-        }
-      });
+      
+      let stream: MediaStream;
+      if (streamToUse) {
+        stream = streamToUse;
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        });
+      }
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -130,12 +140,22 @@ export const HumeVideoAnalyzer: React.FC<HumeVideoAnalyzerProps> = ({
     return () => clearInterval(interval);
   }, [enabled, isStreaming, captureInterval, captureAndAnalyze]);
 
+  // Auto-start with pre-obtained stream
+  useEffect(() => {
+    if (autoStart && preObtainedStream && !isStreaming) {
+      startCamera(preObtainedStream);
+    }
+  }, [autoStart, preObtainedStream, isStreaming, startCamera]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
+      // Only stop if we created the stream ourselves
+      if (!preObtainedStream) {
+        stopCamera();
+      }
     };
-  }, [stopCamera]);
+  }, [stopCamera, preObtainedStream]);
 
   // Get emotion color based on type
   const getEmotionColor = (name: string): string => {
@@ -242,7 +262,7 @@ export const HumeVideoAnalyzer: React.FC<HumeVideoAnalyzerProps> = ({
       {/* Controls */}
       <div className="flex items-center justify-center gap-2 p-3 border-t border-border/50">
         {!isStreaming ? (
-          <Button onClick={startCamera} className="flex-1">
+          <Button onClick={() => startCamera()} className="flex-1">
             <Camera className="h-4 w-4 mr-2" />
             Enable Camera
           </Button>
