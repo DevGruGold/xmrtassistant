@@ -2528,6 +2528,7 @@ export type Database = {
           id: string
           proposal_id: string | null
           reasoning: string
+          session_key: string | null
           vote: string
         }
         Insert: {
@@ -2536,6 +2537,7 @@ export type Database = {
           id?: string
           proposal_id?: string | null
           reasoning: string
+          session_key?: string | null
           vote: string
         }
         Update: {
@@ -2544,6 +2546,7 @@ export type Database = {
           id?: string
           proposal_id?: string | null
           reasoning?: string
+          session_key?: string | null
           vote?: string
         }
         Relationships: [

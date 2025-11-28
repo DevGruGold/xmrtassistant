@@ -19,15 +19,18 @@ serve(async (req) => {
 
     const { 
       proposal_id,
-      executive_name, // CSO, CTO, CIO, or CAO
+      executive_name, // CSO, CTO, CIO, CAO, or COMMUNITY
       vote, // approve, reject, or abstain
-      reasoning
+      reasoning,
+      session_key // Required for COMMUNITY votes
     } = await req.json();
 
-    // Validate
+    console.log('📥 Vote request:', { proposal_id, executive_name, vote, session_key: session_key ? '***' : 'none' });
+
+    // Validate required fields
     if (!proposal_id || !executive_name || !vote || !reasoning) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: proposal_id, executive_name, vote, reasoning' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
@@ -41,6 +44,23 @@ serve(async (req) => {
       );
     }
 
+    // Community votes require session_key
+    if (executive_name === 'COMMUNITY' && !session_key) {
+      return new Response(
+        JSON.stringify({ error: 'Community votes require a session_key' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // Validate vote value
+    const validVotes = ['approve', 'reject', 'abstain'];
+    if (!validVotes.includes(vote)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid vote. Use approve, reject, or abstain.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     // Get proposal
     const { data: proposal, error: proposalError } = await supabase
       .from('edge_function_proposals')
@@ -49,6 +69,7 @@ serve(async (req) => {
       .single();
 
     if (proposalError || !proposal) {
+      console.error('❌ Proposal not found:', proposalError);
       return new Response(
         JSON.stringify({ error: 'Proposal not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
@@ -62,37 +83,105 @@ serve(async (req) => {
       );
     }
 
-    // Record vote (upsert in case of revote)
-    const { error: voteError } = await supabase
-      .from('executive_votes')
-      .upsert({
-        proposal_id,
-        executive_name,
-        vote,
-        reasoning
-      });
+    // Check if user has already voted (for community)
+    if (executive_name === 'COMMUNITY' && session_key) {
+      const { data: existingVote } = await supabase
+        .from('executive_votes')
+        .select('id, vote')
+        .eq('proposal_id', proposal_id)
+        .eq('executive_name', 'COMMUNITY')
+        .eq('session_key', session_key)
+        .single();
 
-    if (voteError) throw voteError;
+      if (existingVote) {
+        // Update existing vote
+        const { error: updateError } = await supabase
+          .from('executive_votes')
+          .update({
+            vote,
+            reasoning,
+            created_at: new Date().toISOString()
+          })
+          .eq('id', existingVote.id);
 
-    // Count votes
-    const { data: votes, error: votesError } = await supabase
+        if (updateError) {
+          console.error('❌ Failed to update vote:', updateError);
+          throw updateError;
+        }
+        console.log(`✅ Updated existing vote from ${existingVote.vote} to ${vote}`);
+      } else {
+        // Insert new community vote
+        const { error: insertError } = await supabase
+          .from('executive_votes')
+          .insert({
+            proposal_id,
+            executive_name,
+            vote,
+            reasoning,
+            session_key
+          });
+
+        if (insertError) {
+          console.error('❌ Failed to insert vote:', insertError);
+          throw insertError;
+        }
+        console.log('✅ Inserted new community vote');
+      }
+    } else {
+      // Executive vote - upsert (they can only have one vote per proposal)
+      const { error: voteError } = await supabase
+        .from('executive_votes')
+        .upsert({
+          proposal_id,
+          executive_name,
+          vote,
+          reasoning,
+          session_key: null // Executives don't need session_key
+        }, {
+          onConflict: 'proposal_id,executive_name,session_key'
+        });
+
+      if (voteError) {
+        console.error('❌ Failed to record executive vote:', voteError);
+        throw voteError;
+      }
+      console.log(`✅ Recorded executive vote: ${executive_name} voted ${vote}`);
+    }
+
+    // Count votes (only count executive votes for consensus)
+    const { data: executiveVotes, error: votesError } = await supabase
       .from('executive_votes')
       .select('*')
-      .eq('proposal_id', proposal_id);
+      .eq('proposal_id', proposal_id)
+      .in('executive_name', ['CSO', 'CTO', 'CIO', 'CAO']);
 
     if (votesError) throw votesError;
 
-    const approvals = votes?.filter(v => v.vote === 'approve').length || 0;
-    const rejections = votes?.filter(v => v.vote === 'reject').length || 0;
-    const totalVotes = votes?.length || 0;
+    // Count community votes separately
+    const { data: communityVotes, error: communityError } = await supabase
+      .from('executive_votes')
+      .select('*')
+      .eq('proposal_id', proposal_id)
+      .eq('executive_name', 'COMMUNITY');
 
-    console.log(`Vote recorded: ${executive_name} voted ${vote} (${approvals} approvals, ${rejections} rejections)`);
+    if (communityError) throw communityError;
 
-    // Check for consensus (3/4 approval required)
+    const executiveApprovals = executiveVotes?.filter(v => v.vote === 'approve').length || 0;
+    const executiveRejections = executiveVotes?.filter(v => v.vote === 'reject').length || 0;
+    const totalExecutiveVotes = executiveVotes?.length || 0;
+    
+    const communityApprovals = communityVotes?.filter(v => v.vote === 'approve').length || 0;
+    const communityRejections = communityVotes?.filter(v => v.vote === 'reject').length || 0;
+    const totalCommunityVotes = communityVotes?.length || 0;
+
+    console.log(`📊 Executive votes: ${executiveApprovals} approvals, ${executiveRejections} rejections (${totalExecutiveVotes} total)`);
+    console.log(`📊 Community votes: ${communityApprovals} approvals, ${communityRejections} rejections (${totalCommunityVotes} total)`);
+
+    // Check for consensus (3/4 executive approval required)
     let consensusReached = false;
     let newStatus = 'voting';
 
-    if (approvals >= 3) {
+    if (executiveApprovals >= 3) {
       // Consensus reached - approve
       consensusReached = true;
       newStatus = 'approved';
@@ -108,18 +197,21 @@ serve(async (req) => {
         .insert({
           type: 'function_approved',
           title: `Edge Function Approved: ${proposal.function_name}`,
-          description: `Consensus reached (${approvals}/4 approvals). Ready for deployment.`,
+          description: `Consensus reached (${executiveApprovals}/4 executive approvals, ${communityApprovals} community approvals). Ready for deployment.`,
           data: {
             proposal_id,
             function_name: proposal.function_name,
-            approvals,
-            votes_summary: votes
+            executive_approvals: executiveApprovals,
+            community_approvals: communityApprovals,
+            votes_summary: executiveVotes
           }
         });
+      
+      console.log('🎉 Proposal approved!');
 
-    } else if (rejections >= 2 || totalVotes === 4) {
-      // If 2+ rejections or all votes are in and < 3 approvals
-      if (approvals < 3 && totalVotes === 4) {
+    } else if (executiveRejections >= 2 || totalExecutiveVotes === 4) {
+      // If 2+ rejections or all executive votes are in and < 3 approvals
+      if (executiveApprovals < 3 && totalExecutiveVotes === 4) {
         consensusReached = true;
         newStatus = 'rejected';
         
@@ -133,14 +225,16 @@ serve(async (req) => {
           .insert({
             type: 'function_rejected',
             title: `Edge Function Rejected: ${proposal.function_name}`,
-            description: `Failed to reach consensus (${approvals}/4 approvals needed).`,
+            description: `Failed to reach consensus (${executiveApprovals}/4 executive approvals needed).`,
             data: {
               proposal_id,
               function_name: proposal.function_name,
-              approvals,
-              rejections
+              executive_approvals: executiveApprovals,
+              executive_rejections: executiveRejections
             }
           });
+
+        console.log('❌ Proposal rejected');
       }
     }
 
@@ -148,13 +242,22 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         vote_recorded: true,
+        voter: executive_name,
+        vote_cast: vote,
         consensus_reached: consensusReached,
         status: newStatus,
         vote_summary: {
-          approvals,
-          rejections,
-          total_votes: totalVotes,
-          votes_needed: Math.max(0, 3 - approvals)
+          executive: {
+            approvals: executiveApprovals,
+            rejections: executiveRejections,
+            total: totalExecutiveVotes,
+            votes_needed: Math.max(0, 3 - executiveApprovals)
+          },
+          community: {
+            approvals: communityApprovals,
+            rejections: communityRejections,
+            total: totalCommunityVotes
+          }
         },
         proposal
       }),
@@ -165,7 +268,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Vote error:', error);
+    console.error('❌ Vote error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
