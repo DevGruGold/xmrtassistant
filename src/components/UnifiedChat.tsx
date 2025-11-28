@@ -1177,7 +1177,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   return (
     <Card className={`bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col h-[500px] sm:h-[600px] ${className}`}>
       {/* Make Me Human Toggle */}
-      <MakeMeHumanToggle onModeChange={setIsHumanizedMode} />
+      <MakeMeHumanToggle onModeChange={(mode, enabled) => setIsHumanizedMode(enabled)} />
       
       {/* Simplified Header */}
       <div className="p-4 border-b border-border/50">

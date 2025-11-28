@@ -3,6 +3,9 @@ project_id = "vawouugtzwmejxqkeqqj"
 [functions.hume-tts]
 verify_jwt = false
 
+[functions.hume-expression-measurement]
+verify_jwt = false
+
 [functions.convert-session-to-user]
 verify_jwt = false
 
