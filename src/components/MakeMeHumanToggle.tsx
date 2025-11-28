@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, Brain, Mic, Volume2, Camera, Layers, 
-  Phone, Settings, Loader2 
+  Phone, Settings, Loader2, CheckCircle2, XCircle 
 } from 'lucide-react';
 import { humanizedTTS } from '@/services/humanizedTTSService';
 import { useToast } from '@/hooks/use-toast';
@@ -16,11 +16,13 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import useHumePermissions from '@/hooks/useHumePermissions';
+import PermissionRequestDialog from './PermissionRequestDialog';
 
 export type HumeMode = 'tts' | 'voice' | 'multimodal';
 
 interface MakeMeHumanToggleProps {
-  onModeChange?: (mode: HumeMode, enabled: boolean) => void;
+  onModeChange?: (mode: HumeMode, enabled: boolean, streams?: { audio?: MediaStream; video?: MediaStream }) => void;
   className?: string;
 }
 
@@ -47,7 +49,21 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [settings, setSettings] = useState<HumeSettings>(DEFAULT_SETTINGS);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+  const [pendingMode, setPendingMode] = useState<HumeMode | null>(null);
   const { toast } = useToast();
+  
+  const {
+    micPermission,
+    cameraPermission,
+    isRequestingMic,
+    isRequestingCamera,
+    error: permissionError,
+    audioStream,
+    videoStream,
+    requestPermissionsForMode,
+    releaseStreams
+  } = useHumePermissions();
 
   // Restore mode from localStorage
   useEffect(() => {
@@ -75,11 +91,51 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
   }, [settings]);
 
   const handleModeChange = async (newMode: HumeMode) => {
+    // If switching to a mode that needs permissions, show dialog first
+    if (newMode === 'voice' || newMode === 'multimodal') {
+      // Check if we already have the required permissions
+      const needsMic = newMode === 'voice' || newMode === 'multimodal';
+      const needsCamera = newMode === 'multimodal';
+      
+      const hasMic = micPermission === 'granted';
+      const hasCamera = cameraPermission === 'granted';
+      
+      if ((needsMic && !hasMic) || (needsCamera && !hasCamera)) {
+        setPendingMode(newMode);
+        setShowPermissionDialog(true);
+        return;
+      }
+    }
+    
+    // Permissions already granted or not needed, proceed
+    completeModeSw(newMode);
+  };
+
+  const completeModeSw = (newMode: HumeMode) => {
     setMode(newMode);
     localStorage.setItem('humeMode', newMode);
     
     if (isEnabled) {
-      onModeChange?.(newMode, true);
+      onModeChange?.(newMode, true, { audio: audioStream || undefined, video: videoStream || undefined });
+    }
+  };
+
+  const handlePermissionRequest = async () => {
+    if (!pendingMode) return;
+    
+    const success = await requestPermissionsForMode(pendingMode);
+    
+    if (success) {
+      setShowPermissionDialog(false);
+      completeModeSw(pendingMode);
+      setPendingMode(null);
+      
+      toast({
+        title: "Permissions Granted",
+        description: pendingMode === 'multimodal' 
+          ? "Camera and microphone access enabled"
+          : "Microphone access enabled"
+      });
     }
   };
 
@@ -178,8 +234,23 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
   };
 
   return (
-    <div className={`flex flex-col gap-2 px-4 py-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-purple-500/20 ${className}`}>
-      {/* Header row */}
+    <>
+      <PermissionRequestDialog
+        open={showPermissionDialog}
+        onOpenChange={(open) => {
+          setShowPermissionDialog(open);
+          if (!open) setPendingMode(null);
+        }}
+        mode={pendingMode || 'voice'}
+        onRequestPermissions={handlePermissionRequest}
+        isRequesting={isRequestingMic || isRequestingCamera}
+        micPermission={micPermission}
+        cameraPermission={cameraPermission}
+        error={permissionError}
+      />
+      
+      <div className={`flex flex-col gap-2 px-4 py-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-purple-500/20 ${className}`}>
+        {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className={`h-4 w-4 ${isEnabled ? 'text-purple-500' : 'text-muted-foreground'}`} />
@@ -285,43 +356,48 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
         </div>
       </div>
 
-      {/* Mode selector tabs */}
-      <Tabs value={mode} onValueChange={(v) => handleModeChange(v as HumeMode)} className="w-full">
-        <TabsList className="w-full h-8 bg-muted/50">
-          <TabsTrigger 
-            value="tts" 
-            className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
-          >
-            <Volume2 className="h-3 w-3 mr-1" />
-            TTS Only
-          </TabsTrigger>
-          <TabsTrigger 
-            value="voice" 
-            className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
-          >
-            <Mic className="h-3 w-3 mr-1" />
-            Voice Chat
-          </TabsTrigger>
-          <TabsTrigger 
-            value="multimodal" 
-            className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
-          >
-            <Camera className="h-3 w-3 mr-1" />
-            Multimodal
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+        {/* Mode selector tabs */}
+        <Tabs value={mode} onValueChange={(v) => handleModeChange(v as HumeMode)} className="w-full">
+          <TabsList className="w-full h-8 bg-muted/50">
+            <TabsTrigger 
+              value="tts" 
+              className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
+            >
+              <Volume2 className="h-3 w-3 mr-1" />
+              TTS Only
+            </TabsTrigger>
+            <TabsTrigger 
+              value="voice" 
+              className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
+            >
+              <Mic className="h-3 w-3 mr-1" />
+              Voice Chat
+              {micPermission === 'granted' && <CheckCircle2 className="h-2.5 w-2.5 ml-1 text-green-500" />}
+            </TabsTrigger>
+            <TabsTrigger 
+              value="multimodal" 
+              className="flex-1 h-7 text-xs data-[state=active]:bg-purple-500/20"
+            >
+              <Camera className="h-3 w-3 mr-1" />
+              Multimodal
+              {micPermission === 'granted' && cameraPermission === 'granted' && (
+                <CheckCircle2 className="h-2.5 w-2.5 ml-1 text-green-500" />
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      {/* Mode description */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {getModeIcon(mode)}
-        <span>
-          {mode === 'tts' && 'Empathic voice synthesis for Eliza responses'}
-          {mode === 'voice' && 'Real-time voice conversation with emotion tracking'}
-          {mode === 'multimodal' && 'Voice + camera with full emotional intelligence'}
-        </span>
+        {/* Mode description */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {getModeIcon(mode)}
+          <span>
+            {mode === 'tts' && 'Empathic voice synthesis for Eliza responses'}
+            {mode === 'voice' && 'Real-time voice conversation with emotion tracking'}
+            {mode === 'multimodal' && 'Voice + camera with full emotional intelligence'}
+          </span>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
