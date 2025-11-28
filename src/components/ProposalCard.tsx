@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Progress } from './ui/progress';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -11,7 +10,9 @@ import {
   MinusCircle,
   User,
   Clock,
-  Sparkles
+  Sparkles,
+  Users,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ interface ExecutiveVote {
   vote: string;
   reasoning: string;
   created_at: string;
+  session_key?: string;
 }
 
 interface ProposalCardProps {
@@ -69,49 +71,77 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
   const [voting, setVoting] = useState(false);
   const [userVote, setUserVote] = useState<string | null>(null);
 
-  const approvals = votes.filter(v => v.vote === 'approve').length;
-  const rejections = votes.filter(v => v.vote === 'reject').length;
-  const abstentions = votes.filter(v => v.vote === 'abstain').length;
-  const totalVotes = votes.length;
-  const progressPercent = (approvals / 3) * 100;
+  // Get session key for identifying user's vote
+  const getSessionKey = () => {
+    let sessionKey = localStorage.getItem('governance_session_key');
+    if (!sessionKey) {
+      sessionKey = `community_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('governance_session_key', sessionKey);
+    }
+    return sessionKey;
+  };
+
+  // Check if user already voted on this proposal
+  useEffect(() => {
+    const sessionKey = getSessionKey();
+    const existingVote = votes.find(
+      v => v.executive_name === 'COMMUNITY' && v.session_key === sessionKey
+    );
+    if (existingVote) {
+      setUserVote(existingVote.vote);
+    }
+  }, [votes]);
+
+  // Separate executive and community votes
+  const executiveVotes = votes.filter(v => ['CSO', 'CTO', 'CIO', 'CAO'].includes(v.executive_name));
+  const communityVotes = votes.filter(v => v.executive_name === 'COMMUNITY');
+  
+  const executiveApprovals = executiveVotes.filter(v => v.vote === 'approve').length;
+  const executiveRejections = executiveVotes.filter(v => v.vote === 'reject').length;
+  const executiveAbstentions = executiveVotes.filter(v => v.vote === 'abstain').length;
+  
+  const communityApprovals = communityVotes.filter(v => v.vote === 'approve').length;
+  const communityRejections = communityVotes.filter(v => v.vote === 'reject').length;
 
   const handleVote = async (vote: 'approve' | 'reject' | 'abstain') => {
     setVoting(true);
     try {
-      // Get or create session key for community voting
-      let sessionKey = localStorage.getItem('governance_session_key');
-      if (!sessionKey) {
-        sessionKey = `community_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem('governance_session_key', sessionKey);
-      }
+      const sessionKey = getSessionKey();
 
       const { data, error } = await supabase.functions.invoke('vote-on-proposal', {
         body: {
           proposal_id: proposal.id,
           executive_name: 'COMMUNITY',
           vote,
-          reasoning: `Community vote: ${vote}`,
+          reasoning: `Community member vote: ${vote}`,
           session_key: sessionKey
         }
       });
 
       if (error) throw error;
 
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       setUserVote(vote);
       toast({
-        title: 'Vote Recorded',
-        description: `Your ${vote} vote has been recorded.`,
+        title: '✅ Vote Recorded',
+        description: userVote 
+          ? `Your vote changed to ${vote}.`
+          : `Your ${vote} vote has been recorded.`,
       });
 
-      if (data.consensus_reached) {
+      if (data?.consensus_reached) {
         toast({
           title: data.status === 'approved' ? '🎉 Proposal Approved!' : '❌ Proposal Rejected',
-          description: `Consensus reached with ${data.vote_summary.approvals}/4 approvals.`,
+          description: `Executive consensus reached (${data.vote_summary.executive.approvals}/4 approvals).`,
         });
       }
 
       onVoteSuccess();
     } catch (error: any) {
+      console.error('Vote failed:', error);
       toast({
         title: 'Vote Failed',
         description: error.message || 'Failed to record vote',
@@ -158,47 +188,75 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         {/* Description */}
         <p className="text-sm">{proposal.description}</p>
 
-        {/* Vote Progress */}
-        <VoteProgress 
-          approvals={approvals} 
-          rejections={rejections} 
-          abstentions={abstentions}
-          required={3}
-        />
+        {/* Executive Vote Progress */}
+        <div>
+          <p className="text-xs text-muted-foreground mb-2 font-medium">Executive Council (3/4 needed)</p>
+          <VoteProgress 
+            approvals={executiveApprovals} 
+            rejections={executiveRejections} 
+            abstentions={executiveAbstentions}
+            required={3}
+          />
+        </div>
+
+        {/* Community Vote Stats */}
+        {communityVotes.length > 0 && (
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1">
+              <Users className="h-4 w-4 text-pink-500" />
+              <span className="text-muted-foreground">Community:</span>
+            </div>
+            <span className="text-green-600">✓ {communityApprovals}</span>
+            <span className="text-red-600">✗ {communityRejections}</span>
+            <span className="text-muted-foreground">({communityVotes.length} total)</span>
+          </div>
+        )}
 
         {/* Voting Buttons (only if voting is open) */}
         {proposal.status === 'voting' && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={userVote === 'approve' ? 'default' : 'outline'}
-              className={userVote === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-500/10 hover:text-green-600 hover:border-green-500/30'}
-              onClick={() => handleVote('approve')}
-              disabled={voting}
-            >
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant={userVote === 'reject' ? 'default' : 'outline'}
-              className={userVote === 'reject' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/30'}
-              onClick={() => handleVote('reject')}
-              disabled={voting}
-            >
-              <XCircle className="h-4 w-4 mr-1" />
-              Reject
-            </Button>
-            <Button
-              size="sm"
-              variant={userVote === 'abstain' ? 'default' : 'outline'}
-              className={userVote === 'abstain' ? 'bg-muted' : ''}
-              onClick={() => handleVote('abstain')}
-              disabled={voting}
-            >
-              <MinusCircle className="h-4 w-4 mr-1" />
-              Abstain
-            </Button>
+          <div className="space-y-2">
+            {userVote && (
+              <p className="text-xs text-muted-foreground">
+                You voted: <span className={
+                  userVote === 'approve' ? 'text-green-600 font-medium' :
+                  userVote === 'reject' ? 'text-red-600 font-medium' :
+                  'text-muted-foreground font-medium'
+                }>{userVote.toUpperCase()}</span>
+                <span className="ml-1">(click to change)</span>
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={userVote === 'approve' ? 'default' : 'outline'}
+                className={userVote === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-green-500/10 hover:text-green-600 hover:border-green-500/30'}
+                onClick={() => handleVote('approve')}
+                disabled={voting}
+              >
+                {voting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant={userVote === 'reject' ? 'default' : 'outline'}
+                className={userVote === 'reject' ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/30'}
+                onClick={() => handleVote('reject')}
+                disabled={voting}
+              >
+                {voting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <XCircle className="h-4 w-4 mr-1" />}
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                variant={userVote === 'abstain' ? 'default' : 'outline'}
+                className={userVote === 'abstain' ? 'bg-muted' : ''}
+                onClick={() => handleVote('abstain')}
+                disabled={voting}
+              >
+                {voting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MinusCircle className="h-4 w-4 mr-1" />}
+                Abstain
+              </Button>
+            </div>
           </div>
         )}
 
@@ -236,7 +294,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
               <div>
                 <h4 className="text-sm font-semibold mb-2">Use Cases</h4>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                  {proposal.use_cases.map((useCase, idx) => (
+                  {proposal.use_cases.map((useCase: string, idx: number) => (
                     <li key={idx}>{useCase}</li>
                   ))}
                 </ul>
@@ -244,11 +302,11 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
             )}
 
             {/* Executive Votes */}
-            {votes.length > 0 && (
+            {executiveVotes.length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Executive Reasoning</h4>
                 <div className="space-y-3">
-                  {votes.map(vote => (
+                  {executiveVotes.map(vote => (
                     <div 
                       key={vote.id} 
                       className="p-3 rounded-lg bg-muted/50 border border-border"

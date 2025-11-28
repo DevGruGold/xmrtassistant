@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Vote, Filter } from 'lucide-react';
+import { ArrowLeft, Vote, Filter, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProposalCard } from '@/components/ProposalCard';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
 
 interface Proposal {
   id: string;
@@ -26,6 +31,7 @@ interface ExecutiveVote {
   vote: string;
   reasoning: string;
   created_at: string;
+  session_key?: string;
 }
 
 export default function Governance() {
@@ -33,6 +39,17 @@ export default function Governance() {
   const [votes, setVotes] = useState<Record<string, ExecutiveVote[]>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [proposalDialogOpen, setProposalDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // New proposal form state
+  const [newProposal, setNewProposal] = useState({
+    function_name: '',
+    description: '',
+    rationale: '',
+    use_cases: '',
+    proposed_by: ''
+  });
 
   const fetchProposals = async () => {
     try {
@@ -45,7 +62,7 @@ export default function Governance() {
 
       setProposals(proposalsData || []);
 
-      // Fetch all votes
+      // Fetch all votes including session_key
       const { data: votesData, error: votesError } = await supabase
         .from('executive_votes')
         .select('*');
@@ -109,6 +126,70 @@ export default function Governance() {
     };
   };
 
+  const handleSubmitProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newProposal.function_name || !newProposal.description || !newProposal.rationale || !newProposal.proposed_by) {
+      toast({
+        title: 'Missing Fields',
+        description: 'Please fill in all required fields.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Parse use cases (split by newlines)
+      const useCases = newProposal.use_cases
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      const { data, error } = await supabase.functions.invoke('propose-new-edge-function', {
+        body: {
+          function_name: newProposal.function_name,
+          description: newProposal.description,
+          rationale: newProposal.rationale,
+          use_cases: useCases,
+          proposed_by: newProposal.proposed_by,
+          category: 'community'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: '✅ Proposal Submitted',
+        description: 'Your proposal has been submitted for executive council review.'
+      });
+
+      // Reset form and close dialog
+      setNewProposal({
+        function_name: '',
+        description: '',
+        rationale: '',
+        use_cases: '',
+        proposed_by: ''
+      });
+      setProposalDialogOpen(false);
+      fetchProposals();
+    } catch (error: any) {
+      console.error('Failed to submit proposal:', error);
+      toast({
+        title: 'Submission Failed',
+        description: error.message || 'Failed to submit proposal',
+        variant: 'destructive'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const counts = getCounts();
 
   return (
@@ -129,9 +210,94 @@ export default function Governance() {
                 <h1 className="text-xl font-bold">Governance Portal</h1>
               </div>
             </div>
-            <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10">
-              {counts.voting} awaiting votes
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-amber-600 border-amber-500/30 bg-amber-500/10">
+                {counts.voting} awaiting votes
+              </Badge>
+              
+              {/* New Proposal Button */}
+              <Dialog open={proposalDialogOpen} onOpenChange={setProposalDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    New Proposal
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Propose New Edge Function</DialogTitle>
+                    <DialogDescription>
+                      Submit a proposal for a new edge function. The executive council will review and vote on it.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmitProposal} className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="function_name">Function Name *</Label>
+                      <Input
+                        id="function_name"
+                        placeholder="e.g., my-awesome-function"
+                        value={newProposal.function_name}
+                        onChange={e => setNewProposal(prev => ({ ...prev, function_name: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="proposed_by">Your Name / Handle *</Label>
+                      <Input
+                        id="proposed_by"
+                        placeholder="e.g., CommunityMember123"
+                        value={newProposal.proposed_by}
+                        onChange={e => setNewProposal(prev => ({ ...prev, proposed_by: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description *</Label>
+                      <Textarea
+                        id="description"
+                        placeholder="What does this function do?"
+                        value={newProposal.description}
+                        onChange={e => setNewProposal(prev => ({ ...prev, description: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="rationale">Rationale *</Label>
+                      <Textarea
+                        id="rationale"
+                        placeholder="Why is this function needed? What problem does it solve?"
+                        value={newProposal.rationale}
+                        onChange={e => setNewProposal(prev => ({ ...prev, rationale: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="use_cases">Use Cases (one per line)</Label>
+                      <Textarea
+                        id="use_cases"
+                        placeholder="Automated monitoring&#10;User notifications&#10;Data processing"
+                        value={newProposal.use_cases}
+                        onChange={e => setNewProposal(prev => ({ ...prev, use_cases: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit Proposal'
+                      )}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
       </header>
@@ -142,7 +308,7 @@ export default function Governance() {
         <div className="mb-8 p-4 rounded-lg bg-muted/50 border border-border">
           <p className="text-sm text-muted-foreground">
             <strong className="text-foreground">Democratic Voting:</strong> Cast your vote alongside AI executives on edge function proposals. 
-            Proposals need 3/4 approvals to pass. Your voice matters in shaping the XMRT ecosystem.
+            Proposals need 3/4 executive approvals to pass. Community votes show support but don't count toward consensus.
           </p>
         </div>
 
@@ -192,7 +358,7 @@ export default function Governance() {
             <>
               <TabsContent value="all" className="space-y-4 mt-0">
                 {filterProposals('all').length === 0 ? (
-                  <EmptyState message="No proposals yet" />
+                  <EmptyState message="No proposals yet. Be the first to submit one!" />
                 ) : (
                   filterProposals('all').map(proposal => (
                     <ProposalCard 
