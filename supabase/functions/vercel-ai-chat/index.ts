@@ -74,25 +74,175 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials, images, systemPrompt: customSystemPrompt } = await req.json();
     
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Intelligent AI service cascade: OpenAI -> DeepSeek -> Gemini -> WAN -> Local Dispatcher
+    // Check for images - if present, route to vision-capable models
+    const hasImages = images && images.length > 0;
+    if (hasImages) {
+      console.log(`🖼️ Image analysis requested: ${images.length} images attached`);
+    }
+    
+    // Intelligent AI service cascade with vision support
+    // Priority for images: Gemini (best vision) -> OpenAI (gpt-4o vision) -> fallbacks
     const openaiKey = getAICredential('openai', session_credentials);
     const deepseekKey = getAICredential('deepseek', session_credentials);
     const geminiKey = getAICredential('gemini', session_credentials);
     const wanKey = getAICredential('wan', session_credentials);
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY'); // Backend key
 
     console.log('🔍 Available AI services:', {
       openai: !!openaiKey,
       deepseek: !!deepseekKey,
-      gemini: !!geminiKey,
-      wan: !!wanKey
+      gemini: !!geminiKey || !!GEMINI_API_KEY,
+      wan: !!wanKey,
+      hasImages
     });
 
-    // Try services in order of preference: OpenAI -> DeepSeek -> Gemini -> WAN
+    // ========== PRIORITY 1: Gemini Vision for Images ==========
+    // If images are present, Gemini is the best choice for vision analysis
+    if (hasImages && (geminiKey || GEMINI_API_KEY)) {
+      console.log('🖼️ Images detected - using Gemini Vision API (best for images)');
+      const effectiveGeminiKey = geminiKey || GEMINI_API_KEY;
+      
+      try {
+        // Get user message content
+        const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+        const userText = typeof lastUserMessage?.content === 'string' 
+          ? lastUserMessage.content 
+          : 'Analyze this image and describe what you see in detail.';
+        
+        // Build parts array for Gemini multimodal
+        const systemContent = customSystemPrompt || messages.find((m: any) => m.role === 'system')?.content || '';
+        const parts: any[] = [
+          { text: `${systemContent}\n\nUser request: ${userText}` }
+        ];
+        
+        // Add images to parts
+        for (const imageBase64 of images) {
+          const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+          if (matches) {
+            const mimeType = matches[1];
+            const base64Data = matches[2];
+            parts.push({
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            });
+          }
+        }
+        
+        console.log(`📸 Calling Gemini Vision API with ${images.length} images`);
+        
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveGeminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 4000
+              }
+            })
+          }
+        );
+        
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json();
+          const geminiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          
+          if (geminiText) {
+            console.log('✅ Gemini Vision analysis successful');
+            return new Response(
+              JSON.stringify({
+                success: true,
+                response: geminiText,
+                provider: 'gemini',
+                model: 'gemini-1.5-flash',
+                executive: 'vercel-ai-chat',
+                executiveTitle: 'Chief Information Officer (CIO) [Vision]',
+                vision_analysis: true
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          const errorText = await geminiResponse.text();
+          console.warn('⚠️ Gemini Vision failed:', errorText);
+        }
+      } catch (geminiError) {
+        console.warn('⚠️ Gemini Vision error:', geminiError.message);
+      }
+    }
+
+    // ========== PRIORITY 2: OpenAI Vision (gpt-4o supports images) ==========
+    if (hasImages && openaiKey) {
+      console.log('🖼️ Trying OpenAI Vision (gpt-4o) for image analysis');
+      try {
+        // Format messages with images for OpenAI vision
+        const formattedMessages = messages.map((msg: any, idx: number) => {
+          if (msg.role === 'user' && idx === messages.length - 1) {
+            const contentParts: any[] = [
+              { type: 'text', text: msg.content }
+            ];
+            for (const imageBase64 of images) {
+              contentParts.push({
+                type: 'image_url',
+                image_url: { url: imageBase64 }
+              });
+            }
+            return { role: 'user', content: contentParts };
+          }
+          return msg;
+        });
+        
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o', // Vision-capable model
+            messages: formattedMessages,
+            max_tokens: 4000
+          })
+        });
+        
+        if (openaiResponse.ok) {
+          const openaiData = await openaiResponse.json();
+          const openaiText = openaiData.choices?.[0]?.message?.content;
+          
+          if (openaiText) {
+            console.log('✅ OpenAI Vision analysis successful');
+            return new Response(
+              JSON.stringify({
+                success: true,
+                response: openaiText,
+                provider: 'openai',
+                model: 'gpt-4o',
+                executive: 'vercel-ai-chat',
+                executiveTitle: 'Chief Analytics Officer (CAO) [Vision]',
+                vision_analysis: true
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          const errorText = await openaiResponse.text();
+          console.warn('⚠️ OpenAI Vision failed:', errorText);
+        }
+      } catch (openaiError) {
+        console.warn('⚠️ OpenAI Vision error:', openaiError.message);
+      }
+    }
+
+    // ========== STANDARD TEXT PROCESSING (no images or vision failed) ==========
     let API_KEY: string | null = null;
     let aiProvider: string = 'unknown';
     let aiModel: string = 'gpt-4o-mini';
@@ -130,12 +280,12 @@ serve(async (req) => {
       } catch (error) {
         console.warn('DeepSeek fallback failed:', error);
       }
-    } else if (geminiKey) {
-      API_KEY = geminiKey;
+    } else if (geminiKey || GEMINI_API_KEY) {
+      API_KEY = geminiKey || GEMINI_API_KEY;
       aiProvider = 'gemini';
       aiModel = 'gemini-1.5-flash';
       aiClient = createOpenAI({ 
-        apiKey: geminiKey, 
+        apiKey: API_KEY, 
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
       });
       console.log('✅ Using Gemini');
