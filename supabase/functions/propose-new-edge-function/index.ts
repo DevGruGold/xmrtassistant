@@ -24,7 +24,8 @@ serve(async (req) => {
       category,
       rationale,
       use_cases,
-      implementation_outline
+      implementation_outline,
+      auto_vote // If true, automatically trigger executive voting
     } = await req.json();
 
     // Validate required fields
@@ -67,6 +68,8 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
+    console.log(`📋 Proposal created: ${proposal.id} by ${proposed_by}`);
+
     // Notify all executives via activity feed
     const executives = ['CSO', 'CTO', 'CIO', 'CAO'];
     const notifications = executives.map(exec => ({
@@ -85,14 +88,39 @@ serve(async (req) => {
       .from('activity_feed')
       .insert(notifications);
 
-    console.log(`Proposal created: ${proposal.id} by ${proposed_by}`);
+    // Auto-trigger executive voting (default: true for new proposals)
+    const shouldAutoVote = auto_vote !== false;
+    let votingResult = null;
+
+    if (shouldAutoVote) {
+      console.log('🗳️ Auto-triggering executive voting...');
+      
+      try {
+        const { data: voteData, error: voteError } = await supabase.functions.invoke('request-executive-votes', {
+          body: { proposal_id: proposal.id }
+        });
+
+        if (voteError) {
+          console.error('⚠️ Auto-voting trigger failed:', voteError);
+        } else {
+          votingResult = voteData;
+          console.log(`✅ Executive voting completed: ${voteData?.final_status || 'in progress'}`);
+        }
+      } catch (voteErr) {
+        console.error('⚠️ Auto-voting error:', voteErr);
+      }
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         proposal_id: proposal.id,
         proposal,
-        message: `Proposal submitted. Awaiting votes from 4 executives (need 3/4 approval).`
+        auto_voting_triggered: shouldAutoVote,
+        voting_result: votingResult,
+        message: shouldAutoVote 
+          ? `Proposal submitted and executives are deliberating.${votingResult?.consensus_reached ? ` Consensus: ${votingResult.final_status}` : ''}`
+          : `Proposal submitted. Awaiting votes from 4 executives (need 3/4 approval).`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -100,7 +128,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Proposal error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

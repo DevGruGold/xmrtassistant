@@ -523,3 +523,16 @@ verify_jwt = false
 [functions.get-edge-function-logs]
 verify_jwt = false
 
+# ====================================================================
+# GOVERNANCE WORKFLOW FUNCTIONS
+# ====================================================================
+
+[functions.request-executive-votes]
+verify_jwt = false
+
+[functions.execute-approved-proposal]
+verify_jwt = false
+
+[functions.handle-rejected-proposal]
+verify_jwt = false
+

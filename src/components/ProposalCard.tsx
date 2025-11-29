@@ -12,7 +12,11 @@ import {
   Clock,
   Sparkles,
   Users,
-  Loader2
+  Loader2,
+  PlayCircle,
+  AlertCircle,
+  Lightbulb,
+  Rocket
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -28,6 +32,8 @@ interface Proposal {
   status: string;
   created_at: string;
   updated_at: string;
+  implementation_code?: string | null;
+  category?: string;
 }
 
 interface ExecutiveVote {
@@ -50,8 +56,20 @@ const statusColors: Record<string, string> = {
   voting: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
   approved: 'bg-green-500/10 text-green-600 border-green-500/30',
   rejected: 'bg-red-500/10 text-red-600 border-red-500/30',
+  rejected_with_feedback: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+  queued_for_deployment: 'bg-purple-500/10 text-purple-600 border-purple-500/30',
   deployed: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
   pending: 'bg-muted text-muted-foreground border-border',
+};
+
+const statusLabels: Record<string, string> = {
+  voting: 'VOTING',
+  approved: 'APPROVED',
+  rejected: 'REJECTED',
+  rejected_with_feedback: 'FEEDBACK READY',
+  queued_for_deployment: 'QUEUED',
+  deployed: 'DEPLOYED',
+  pending: 'PENDING',
 };
 
 const executiveColors: Record<string, string> = {
@@ -70,6 +88,20 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
   const [expanded, setExpanded] = useState(false);
   const [voting, setVoting] = useState(false);
   const [userVote, setUserVote] = useState<string | null>(null);
+  const [triggeringVotes, setTriggeringVotes] = useState(false);
+  const [feedback, setFeedback] = useState<any>(null);
+
+  // Parse feedback from implementation_code if status is rejected_with_feedback
+  useEffect(() => {
+    if (proposal.status === 'rejected_with_feedback' && proposal.implementation_code) {
+      try {
+        const parsedFeedback = JSON.parse(proposal.implementation_code as string);
+        setFeedback(parsedFeedback);
+      } catch (e) {
+        // Not JSON feedback, ignore
+      }
+    }
+  }, [proposal]);
 
   // Get session key for identifying user's vote
   const getSessionKey = () => {
@@ -170,7 +202,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
               <Sparkles className="h-4 w-4 text-primary shrink-0" />
               <CardTitle className="text-lg truncate">{proposal.function_name}</CardTitle>
               <Badge variant="outline" className={statusColors[proposal.status] || statusColors.pending}>
-                {proposal.status.toUpperCase()}
+                {statusLabels[proposal.status] || proposal.status.toUpperCase()}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
@@ -215,6 +247,14 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         {/* Voting Buttons (only if voting is open) */}
         {proposal.status === 'voting' && (
           <div className="space-y-2">
+            {/* Executive deliberation indicator */}
+            {executiveVotes.length < 4 && executiveVotes.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 p-2 rounded-md">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Executives deliberating... ({executiveVotes.length}/4 have voted)</span>
+              </div>
+            )}
+            
             {userVote && (
               <p className="text-xs text-muted-foreground">
                 You voted: <span className={
@@ -257,6 +297,34 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
                 Abstain
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Queued for Deployment Status */}
+        {proposal.status === 'queued_for_deployment' && (
+          <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-500/10 p-3 rounded-md">
+            <Rocket className="h-4 w-4" />
+            <span>Approved and queued for implementation. A task has been created for the development team.</span>
+          </div>
+        )}
+
+        {/* Rejected with Feedback */}
+        {proposal.status === 'rejected_with_feedback' && feedback && (
+          <div className="space-y-3 p-3 rounded-md bg-orange-500/5 border border-orange-500/20">
+            <div className="flex items-center gap-2 text-orange-600">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium text-sm">Improvement Suggestions</span>
+            </div>
+            {feedback.improvement_suggestions && (
+              <ul className="space-y-1">
+                {feedback.improvement_suggestions.map((suggestion: string, idx: number) => (
+                  <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <Lightbulb className="h-3 w-3 mt-1 text-amber-500 shrink-0" />
+                    {suggestion}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
