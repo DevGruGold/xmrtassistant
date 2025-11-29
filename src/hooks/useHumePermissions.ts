@@ -181,25 +181,71 @@ export const useHumePermissions = (): HumePermissions => {
     }
 
     if (mode === 'multimodal') {
-      // Request both mic and camera
-      const micResult = await requestMicPermission();
-      const camResult = await requestCameraPermission();
+      // For multimodal: request COMBINED audio + video in single stream
+      // Audio comes from webcam's built-in microphone, not separate mic
+      setIsRequestingCamera(true);
+      setIsRequestingMic(true);
       
-      // Return true if at least mic is granted (can work voice-only if camera fails)
-      if (!micResult && !camResult) {
-        setError('Both microphone and camera access denied.');
+      try {
+        const combinedStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 16000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        });
+        
+        // Extract audio track for voice streaming (from webcam mic)
+        const audioTracks = combinedStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          const audioOnlyStream = new MediaStream([audioTracks[0]]);
+          audioStreamRef.current = audioOnlyStream;
+          setAudioStream(audioOnlyStream);
+          setMicPermission('granted');
+          console.log('🎬 Multimodal: Audio extracted from webcam stream');
+        }
+        
+        // Keep the full stream for video (includes both audio + video tracks)
+        videoStreamRef.current = combinedStream;
+        setVideoStream(combinedStream);
+        setCameraPermission('granted');
+        
+        console.log('🎬 Multimodal: Combined audio+video stream ready');
+        return true;
+        
+      } catch (err) {
+        console.error('Multimodal permission error:', err);
+        
+        if (err instanceof DOMException) {
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            setMicPermission('denied');
+            setCameraPermission('denied');
+            setError('Camera and microphone access denied. Please enable in browser settings.');
+          } else if (err.name === 'NotFoundError') {
+            setError('Camera or microphone not found on this device.');
+          } else {
+            setError(`Device error: ${err.message}`);
+          }
+        } else {
+          setError('Failed to access camera and microphone.');
+        }
+        
         return false;
+      } finally {
+        setIsRequestingMic(false);
+        setIsRequestingCamera(false);
       }
-      
-      if (micResult && !camResult) {
-        setError('Camera access denied. Voice-only mode available.');
-      }
-      
-      return micResult;
     }
 
     return false;
-  }, [requestMicPermission, requestCameraPermission]);
+  }, []);
 
   return {
     micPermission,

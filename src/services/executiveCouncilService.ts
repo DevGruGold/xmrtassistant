@@ -146,6 +146,7 @@ class ExecutiveCouncilService {
               conversationHistory: context.conversationContext,
               userContext: context.userContext,
               miningStats: context.miningStats,
+              emotionalContext: context.emotionalContext, // Pass real-time emotional data from Hume
               councilMode: true // Signal that this is a council deliberation
             }
           });
@@ -208,10 +209,20 @@ class ExecutiveCouncilService {
   ): Promise<Omit<CouncilDeliberation, 'totalExecutionTimeMs'>> {
     console.log('🔄 Synthesizing perspectives from', responses.length, 'executives...');
     
+    // Build emotional context section if available
+    const emotionalSection = context.emotionalContext ? `
+**USER EMOTIONAL STATE (Real-time Hume AI Detection):**
+- Primary emotion: ${context.emotionalContext.currentEmotion || 'Unknown'} (${Math.round((context.emotionalContext.emotionConfidence || 0) * 100)}% confidence)
+- Voice emotions: ${context.emotionalContext.voiceEmotions?.slice(0, 3).map((e: any) => `${e.name} (${Math.round(e.score * 100)}%)`).join(', ') || 'Not available'}
+- Facial expressions: ${context.emotionalContext.facialEmotions?.slice(0, 3).map((e: any) => `${e.name} (${Math.round(e.score * 100)}%)`).join(', ') || 'Not available'}
+
+Consider the user's emotional state when synthesizing the response. If they appear frustrated, be more solution-focused. If excited, match their energy.
+` : '';
+
     const synthesisPrompt = `You are facilitating an AI Executive Council meeting for XMRT DAO. 
 
 The user asked: "${originalQuestion}"
-
+${emotionalSection}
 Here are the perspectives from the different C-suite executives:
 
 ${responses.map(r => `
@@ -226,6 +237,7 @@ Your task as the council moderator:
 2. Highlight valuable differing viewpoints or debates
 3. Synthesize a unified, actionable recommendation
 4. Determine which executive's perspective should lead for this specific question
+5. If emotional context is available, ensure the response tone is appropriate
 
 Format your response EXACTLY as:
 **Consensus Areas:**
