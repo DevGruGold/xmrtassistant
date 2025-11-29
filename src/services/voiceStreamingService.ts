@@ -22,6 +22,8 @@ export class VoiceStreamingService {
   private isConnecting = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 3;
+  private shouldAutoReconnect = false; // Disabled by default - user controls mic
+  private manuallyDisconnected = false; // Track if user manually disconnected
 
   async connect(audioStream: MediaStream, config: VoiceStreamingConfig): Promise<void> {
     if (this.isConnecting || this.ws?.readyState === WebSocket.OPEN) {
@@ -50,6 +52,7 @@ export class VoiceStreamingService {
         console.log('🎤 VoiceStreaming: WebSocket connected');
         this.isConnecting = false;
         this.reconnectAttempts = 0;
+        this.manuallyDisconnected = false; // Reset on successful connection
         
         // Send session configuration
         this.sendSessionConfig();
@@ -76,11 +79,13 @@ export class VoiceStreamingService {
         this.cleanup();
         config.onDisconnected();
         
-        // Attempt reconnection
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        // Only attempt reconnection if explicitly enabled AND not manually disconnected
+        if (this.shouldAutoReconnect && !this.manuallyDisconnected && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           console.log(`🎤 VoiceStreaming: Attempting reconnect ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
           setTimeout(() => this.connect(audioStream, config), 1000 * this.reconnectAttempts);
+        } else {
+          console.log('🎤 VoiceStreaming: Not reconnecting - user will press mic when ready');
         }
       };
     } catch (error) {
@@ -222,7 +227,10 @@ export class VoiceStreamingService {
   }
 
   disconnect(): void {
-    console.log('🎤 VoiceStreaming: Disconnecting...');
+    console.log('🎤 VoiceStreaming: User requested disconnect');
+    this.manuallyDisconnected = true; // Prevent auto-reconnect
+    this.shouldAutoReconnect = false;
+    this.reconnectAttempts = this.maxReconnectAttempts; // Stop any pending reconnects
     
     if (this.ws) {
       this.ws.close();
