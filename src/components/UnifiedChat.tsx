@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -132,6 +132,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   const [currentEmotion, setCurrentEmotion] = useState<string>('');
   const [emotionConfidence, setEmotionConfidence] = useState<number>(0);
+
+  // Real-time emotional context - combines voice and facial emotions
+  const [emotionalContext, setEmotionalContext] = useState<{
+    currentEmotion: string;
+    emotionConfidence: number;
+    voiceEmotions?: Array<{ name: string; score: number }>;
+    facialEmotions?: Array<{ name: string; score: number }>;
+    lastUpdate: number;
+  } | null>(null);
 
   // XMRT context state - using unified service
   const [miningStats, setMiningStats] = useState<MiningStats | null>(externalMiningStats || null);
@@ -613,6 +622,27 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
   };
 
+  // Handler to update emotional context from voice or video
+  const handleEmotionUpdate = useCallback((emotions: { name: string; score: number }[], source: 'voice' | 'facial' = 'voice') => {
+    const primaryEmotion = emotions[0];
+    
+    setEmotionalContext(prev => ({
+      currentEmotion: primaryEmotion?.name || prev?.currentEmotion || '',
+      emotionConfidence: primaryEmotion?.score || prev?.emotionConfidence || 0,
+      voiceEmotions: source === 'voice' ? emotions : prev?.voiceEmotions,
+      facialEmotions: source === 'facial' ? emotions : prev?.facialEmotions,
+      lastUpdate: Date.now()
+    }));
+    
+    // Also update legacy state for backward compatibility
+    if (primaryEmotion) {
+      setCurrentEmotion(primaryEmotion.name);
+      setEmotionConfidence(primaryEmotion.score);
+    }
+    
+    console.log(`🎭 ${source} emotions updated:`, emotions.slice(0, 3).map(e => e.name).join(', '));
+  }, []);
+
   // Voice input handler - WITH smart TTS timing and speech recognition pausing
   const handleVoiceInput = async (transcript: string) => {
     if (!transcript?.trim() || isProcessing) return;
@@ -628,8 +658,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       content: transcript,
       sender: 'user',
       timestamp: new Date(),
-      emotion: currentEmotion,
-      confidence: emotionConfidence
+      emotion: emotionalContext?.currentEmotion || currentEmotion,
+      confidence: emotionalContext?.emotionConfidence || emotionConfidence
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -676,7 +706,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         shouldSpeak: true,
         enableBrowsing: true,
         conversationContext: await conversationPersistence.getFullConversationContext(),
-        councilMode: false
+        councilMode: false,
+        emotionalContext: emotionalContext || undefined // Pass real-time emotional context
       });
 
       const responseText = typeof response === 'string' ? response : response.deliberation.synthesis;
@@ -898,6 +929,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         shouldSpeak: false,
         enableBrowsing: true,
         conversationContext: fullContext,
+        emotionalContext: emotionalContext || undefined, // Pass real-time emotional context
         councilMode
       }, language);
       
@@ -1456,22 +1488,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               isEnabled={humeState.isEnabled}
               audioStream={humeState.audioStream}
               videoStream={humeState.videoStream}
-              onVoiceInput={(transcript) => {
-                // When voice input is received, send it as a message
-                if (transcript.trim()) {
-                  setTextInput(transcript);
-                  // Auto-send after short delay
-                  setTimeout(() => {
-                    handleSendMessage();
-                  }, 100);
-                }
-              }}
-              onEmotionUpdate={(emotions) => {
-                if (emotions.length > 0) {
-                  setCurrentEmotion(emotions[0].name);
-                  setEmotionConfidence(emotions[0].score);
-                }
-              }}
+              onVoiceInput={handleVoiceInput}
+              onEmotionUpdate={handleEmotionUpdate}
             />
             
             <Input

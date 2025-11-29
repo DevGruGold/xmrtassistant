@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Video, VideoOff, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Loader2, Radio } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { HumeMode } from './MakeMeHumanToggle';
 import VoiceRecordingIndicator from './VoiceRecordingIndicator';
 import VideoPreviewOverlay from './VideoPreviewOverlay';
+import { voiceStreamingService, VoiceEmotion } from '@/services/voiceStreamingService';
 
 interface HumeChatControlsProps {
   mode: HumeMode;
@@ -29,33 +29,32 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isVideoActive, setIsVideoActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [topEmotions, setTopEmotions] = useState<{ name: string; score: number }[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>();
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Determine what to show
   const showControls = mode !== 'tts' && isEnabled;
   const showMic = (mode === 'voice' || mode === 'multimodal') && isEnabled;
   const showVideo = mode === 'multimodal' && isEnabled;
 
-  // Audio level monitoring - only runs when recording
+  // Audio level monitoring for visual feedback
   useEffect(() => {
     if (!isRecording || !audioStream || !showControls) {
       setAudioLevel(0);
       return;
     }
 
-    let audioContext: AudioContext | null = null;
-    
     try {
-      audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(audioStream);
-      const analyzer = audioContext.createAnalyser();
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(audioStream);
+      const analyzer = audioContextRef.current.createAnalyser();
       analyzer.fftSize = 256;
       source.connect(analyzer);
       analyzerRef.current = analyzer;
@@ -79,94 +78,110 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      if (audioContext) {
-        audioContext.close();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
       analyzerRef.current = null;
     };
   }, [isRecording, audioStream, showControls]);
 
-  const startRecording = useCallback(async () => {
+  // Handle real-time transcript from voice streaming
+  const handleTranscript = useCallback((text: string, isFinal: boolean) => {
+    console.log('🎤 Transcript received:', text, 'Final:', isFinal);
+    setCurrentTranscript(text);
+    
+    // Send final transcripts to Eliza immediately
+    if (isFinal && text.trim()) {
+      onVoiceInput(text);
+      setCurrentTranscript(''); // Clear after sending
+    }
+  }, [onVoiceInput]);
+
+  // Handle voice emotions from streaming
+  const handleVoiceEmotions = useCallback((emotions: VoiceEmotion[]) => {
+    setTopEmotions(emotions.slice(0, 3));
+    onEmotionUpdate?.(emotions);
+  }, [onEmotionUpdate]);
+
+  // Start real-time voice streaming
+  const startStreaming = useCallback(async () => {
     if (!audioStream) {
       console.error('No audio stream available');
+      setConnectionError('No microphone access');
       return;
     }
 
     setIsConnecting(true);
+    setConnectionError(null);
     
     try {
-      const mediaRecorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
-      audioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      await voiceStreamingService.connect(audioStream, {
+        onTranscript: handleTranscript,
+        onEmotion: handleVoiceEmotions,
+        onError: (error) => {
+          console.error('Voice streaming error:', error);
+          setConnectionError(error.message);
+          setIsRecording(false);
+          setIsConnected(false);
+        },
+        onConnected: () => {
+          console.log('🎤 Voice streaming connected');
+          setIsConnected(true);
+          setIsRecording(true);
+          setConnectionError(null);
+        },
+        onDisconnected: () => {
+          console.log('🎤 Voice streaming disconnected');
+          setIsConnected(false);
+          setIsRecording(false);
         }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          
-          try {
-            const { data, error } = await supabase.functions.invoke('voice-to-text', {
-              body: { audio: base64Audio }
-            });
-            
-            if (error) throw error;
-            
-            if (data?.text) {
-              setCurrentTranscript(data.text);
-              onVoiceInput(data.text);
-            }
-          } catch (err) {
-            console.error('Transcription error:', err);
-          }
-        };
-        reader.readAsDataURL(audioBlob);
-      };
-      
-      mediaRecorder.start(1000);
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
-      setCurrentTranscript('');
+      });
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      console.error('Failed to start voice streaming:', error);
+      setConnectionError(error instanceof Error ? error.message : 'Connection failed');
     } finally {
       setIsConnecting(false);
     }
-  }, [audioStream, onVoiceInput]);
+  }, [audioStream, handleTranscript, handleVoiceEmotions]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
+  // Stop voice streaming
+  const stopStreaming = useCallback(() => {
+    voiceStreamingService.disconnect();
     setIsRecording(false);
+    setIsConnected(false);
     setAudioLevel(0);
+    setCurrentTranscript('');
   }, []);
 
+  // Toggle recording
   const toggleRecording = useCallback(() => {
-    if (isRecording) {
-      stopRecording();
+    if (isRecording || isConnected) {
+      stopStreaming();
     } else {
-      startRecording();
+      startStreaming();
     }
-  }, [isRecording, stopRecording, startRecording]);
+  }, [isRecording, isConnected, stopStreaming, startStreaming]);
 
+  // Toggle video
   const toggleVideo = useCallback(() => {
     setIsVideoActive(prev => !prev);
   }, []);
 
-  const handleEmotionDetected = useCallback((emotions: { name: string; score: number }[]) => {
-    setTopEmotions(emotions.slice(0, 3));
-    onEmotionUpdate?.(emotions);
-  }, [onEmotionUpdate]);
+  // Handle facial emotions from video preview
+  const handleFacialEmotions = useCallback((emotions: { name: string; score: number }[]) => {
+    // Merge with voice emotions if available, prioritizing facial for primary display
+    const mergedEmotions = [...emotions];
+    
+    // Add voice emotions that aren't already in facial emotions
+    topEmotions.forEach(voiceEmotion => {
+      if (!mergedEmotions.find(e => e.name === voiceEmotion.name)) {
+        mergedEmotions.push(voiceEmotion);
+      }
+    });
+    
+    setTopEmotions(mergedEmotions.slice(0, 5));
+    onEmotionUpdate?.(mergedEmotions);
+  }, [topEmotions, onEmotionUpdate]);
 
   // Don't render anything if controls shouldn't show
   if (!showControls) {
@@ -180,7 +195,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
         <VoiceRecordingIndicator 
           audioLevel={audioLevel}
           transcript={currentTranscript}
-          onStop={stopRecording}
+          onStop={stopStreaming}
         />
       )}
 
@@ -189,9 +204,24 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
         <VideoPreviewOverlay
           videoStream={videoStream}
           onClose={() => setIsVideoActive(false)}
-          onEmotionDetected={handleEmotionDetected}
+          onEmotionDetected={handleFacialEmotions}
           emotions={topEmotions}
         />
+      )}
+
+      {/* Connection Status Indicator */}
+      {isConnected && (
+        <div className="flex items-center gap-1 text-xs text-green-500">
+          <Radio className="h-3 w-3 animate-pulse" />
+          <span>Live</span>
+        </div>
+      )}
+
+      {/* Connection Error */}
+      {connectionError && (
+        <span className="text-xs text-destructive max-w-32 truncate" title={connectionError}>
+          {connectionError}
+        </span>
       )}
 
       {/* Mic Button */}
@@ -203,9 +233,10 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
           disabled={isConnecting || !audioStream}
           className={cn(
             "h-10 w-10 rounded-full transition-all",
-            isRecording && "animate-pulse ring-2 ring-destructive ring-offset-2 ring-offset-background"
+            isRecording && "animate-pulse ring-2 ring-destructive ring-offset-2 ring-offset-background",
+            isConnected && "ring-2 ring-green-500 ring-offset-2 ring-offset-background"
           )}
-          title={isRecording ? "Stop recording" : "Start voice input"}
+          title={isRecording ? "Stop recording" : "Start voice input (real-time)"}
         >
           {isConnecting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -238,13 +269,14 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
         </Button>
       )}
 
-      {/* Emotion badges when video is active */}
-      {isVideoActive && topEmotions.length > 0 && (
+      {/* Emotion badges when active */}
+      {(isRecording || isVideoActive) && topEmotions.length > 0 && (
         <div className="hidden sm:flex items-center gap-1">
-          {topEmotions.map((emotion) => (
+          {topEmotions.slice(0, 3).map((emotion) => (
             <span 
               key={emotion.name}
               className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30"
+              title={`${Math.round(emotion.score * 100)}% confidence`}
             >
               {emotion.name}
             </span>
