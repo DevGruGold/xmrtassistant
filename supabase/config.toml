@@ -199,7 +199,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.conversation-access]
-verify_jwt = true
+verify_jwt = false
 
 # AI Chat Functions - Public access for chat interface
 [functions.ai-chat]
@@ -225,19 +225,19 @@ verify_jwt = false
 
 # Knowledge & TTS Functions - Require Authentication
 [functions.extract-knowledge]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-lovable-key]
-verify_jwt = true
+verify_jwt = false
 
 [functions.github-integration]
 verify_jwt = false
 
 [functions.knowledge-manager]
-verify_jwt = true
+verify_jwt = false
 
 [functions.openai-tts]
-verify_jwt = true
+verify_jwt = false
 
 [functions.hume-access-token]
 verify_jwt = false
@@ -249,7 +249,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.summarize-conversation]
-verify_jwt = true
+verify_jwt = false
 
 [functions.vercel-ecosystem-api]
 verify_jwt = false
@@ -261,10 +261,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.vectorize-memory]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-embedding]
-verify_jwt = true
+verify_jwt = false
 
 # MCP Servers - Public access for external AI agents (Claude Desktop, Cursor, etc.)
 [functions.xmrt-mcp-server]
@@ -274,25 +274,25 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.schema-manager]
-verify_jwt = true
+verify_jwt = false
 
 [functions.predictive-analytics]
-verify_jwt = true
+verify_jwt = false
 
 [functions.nlg-generator]
-verify_jwt = true
+verify_jwt = false
 
 [functions.scenario-modeler]
-verify_jwt = true
+verify_jwt = false
 
 [functions.enhanced-learning]
-verify_jwt = true
+verify_jwt = false
 
 [functions.multi-step-orchestrator]
-verify_jwt = true
+verify_jwt = false
 
 [functions.self-optimizing-agent-architecture]
-verify_jwt = true
+verify_jwt = false
 
 # GitHub Community Posting Functions - Must be public for cron access
 [functions.morning-discussion-post]
@@ -314,7 +314,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.schedule-reminder]
-verify_jwt = true
+verify_jwt = false
 
 [functions.execute-scheduled-actions]
 verify_jwt = false
@@ -360,10 +360,10 @@ verify_jwt = false
 
 # Contributor Incentive Functions
 [functions.validate-github-contribution]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-contributor-reward]
-verify_jwt = true
+verify_jwt = false
 
 [functions.fetch-auto-fix-results]
 verify_jwt = false
@@ -381,7 +381,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.eliza-intelligence-coordinator]
-verify_jwt = true
+verify_jwt = false
 
 # Service Monetization Engine - Public access for API key validation
 [functions.service-monetization-engine]
@@ -405,7 +405,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.function-usage-analytics]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-code-execution-lessons]
 verify_jwt = false
@@ -506,7 +506,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.update-api-key]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-function-version-analytics]
 verify_jwt = false
