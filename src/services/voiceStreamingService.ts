@@ -98,7 +98,8 @@ export class VoiceStreamingService {
       type: 'session_settings',
       audio: {
         encoding: 'linear16',
-        sample_rate: 16000
+        sample_rate: 16000,
+        channels: 1
       },
       context: {
         text: 'You are Eliza, an AI assistant for XMRT cryptocurrency project. Listen to the user and provide helpful responses.'
