@@ -546,6 +546,12 @@ ${ec.facialEmotions?.length ? `- Facial expression emotions: ${ec.facialEmotions
       console.log('🎭 Including emotional context in request:', ec.currentEmotion);
     }
 
+    // Log images being passed to edge function
+    console.log('📸 Images being sent to edge function:', context.images?.length || 0);
+    if (context.images && context.images.length > 0) {
+      console.log('🖼️ First image preview:', context.images[0].substring(0, 80) + '...');
+    }
+
     const requestBody = {
       messages: structuredMessages, // Now includes conversation context for yes/no understanding
       conversationHistory, // Keep for backward compatibility with edge functions
