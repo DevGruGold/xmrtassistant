@@ -1,10 +1,10 @@
 // agent-manager.ts
-// Ultra-robust agent manager (Gemini-only AI backend)
+// Ultra-robust agent manager (DeepSeek AI backend)
 // - Always returns { ok: boolean, data: <payload|null>, error?: string }
 // - Uses Supabase service role key for backend operations
 // - Auto-restructures flat request bodies into `data` if needed
 // - Extensive activity logging to eliza_activity_log
-// - Gatekeeper call helper for cross-function calls
+// - Direct edge function calls for cross-function operations
 // - Conservative defensive programming: checks, maybeSingle, single, head queries
 // - No IIFEs, single mutable query builder pattern where appropriate
 // - Lightweight debug logs throughout
@@ -16,7 +16,14 @@ import { corsHeaders } from "../_shared/cors.ts";
 // ---------- Config / Env ----------
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || ""; // required for Option 1
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY") || "";
+
+// ---------- Valid Enums (match database exactly) ----------
+const VALID_AGENT_STATUSES = ["IDLE", "BUSY", "ARCHIVED", "ERROR", "OFFLINE"] as const;
+const VALID_TASK_STATUSES = ["PENDING", "CLAIMED", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED", "COMPLETED", "FAILED"] as const;
+const VALID_AGENT_ROLES = ["manager", "planner", "analyst", "developer", "integrator", "validator", "miner", "device", "generic"] as const;
+const VALID_TASK_CATEGORIES = ["code", "infra", "research", "governance", "mining", "device", "ops", "other"] as const;
+const VALID_TASK_STAGES = ["DISCUSS", "PLAN", "EXECUTE", "VERIFY", "INTEGRATE"] as const;
 
 // ---------- Utility Types ----------
 type RequestPayload = {
@@ -52,9 +59,37 @@ function errorResponse(message: string, status = 400) {
 class ValidationError extends Error {}
 class AppError extends Error {}
 
-// ---------- Valid Enums ----------
-const VALID_AGENT_STATUSES = ["IDLE", "BUSY", "ARCHIVED", "ERROR", "OFFLINE"] as const;
-const VALID_TASK_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "BLOCKED"] as const;
+// ---------- Helper: Normalize category to valid enum ----------
+function normalizeCategory(cat?: string): string {
+  if (!cat) return "other";
+  const lower = cat.toLowerCase();
+  if ((VALID_TASK_CATEGORIES as readonly string[]).includes(lower)) return lower;
+  // Map common aliases
+  const mapping: Record<string, string> = {
+    "onboarding": "ops",
+    "autonomous": "ops",
+    "development": "code",
+    "infrastructure": "infra",
+  };
+  return mapping[lower] || "other";
+}
+
+// ---------- Helper: Normalize stage to valid enum ----------
+function normalizeStage(stage?: string): string {
+  if (!stage) return "PLAN";
+  const upper = stage.toUpperCase();
+  if ((VALID_TASK_STAGES as readonly string[]).includes(upper)) return upper;
+  // Map common aliases
+  const mapping: Record<string, string> = {
+    "PLANNING": "PLAN",
+    "IN_PROGRESS": "EXECUTE",
+    "EXECUTION": "EXECUTE",
+    "VERIFICATION": "VERIFY",
+    "INTEGRATION": "INTEGRATE",
+    "DISCUSSION": "DISCUSS",
+  };
+  return mapping[upper] || "PLAN";
+}
 
 // ---------- Create Supabase client factory ----------
 function createSupabase(): SupabaseClient {
@@ -63,101 +98,49 @@ function createSupabase(): SupabaseClient {
   });
 }
 
-// ---------- Gemini Helpers (Option 1: Gemini-only) ----------
-async function callGeminiGenerateMessage(prompt: string, opts?: { temperature?: number; maxOutputTokens?: number }) {
-  if (!GEMINI_API_KEY) {
-    throw new AppError("GEMINI_API_KEY is not configured in environment");
+// ---------- DeepSeek AI Helper (replaces Gemini) ----------
+async function callDeepSeekChat(prompt: string, opts?: { temperature?: number; maxTokens?: number }) {
+  if (!DEEPSEEK_API_KEY) {
+    throw new AppError("DEEPSEEK_API_KEY not configured - cannot perform AI analysis");
   }
 
-  // Use Google's Generative Language API shape (generateMessage)
-  const endpoint = `${GEMINI_API_BASE}/models/${encodeURIComponent(GEMINI_MODEL)}:generateMessage`;
-
-  const body = {
-    // message prompt structure - simple wrapper for single-turn generation
-    // adjust structure if your environment expects a custom format
-    maxOutputTokens: opts?.maxOutputTokens ?? 512,
-    temperature: opts?.temperature ?? 0.2,
-    // message as text input
-    // Keep it simple: one "author: user" message
-    messages: [
-      {
-        author: "user",
-        content: [
-          {
-            type: "text",
-            text: prompt,
-          },
-        ],
-      },
-    ],
-  };
-
-  const resp = await fetch(endpoint, {
-    method: "POST",
+  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: 'You are an AI agent coordinator for the XMRT ecosystem. Provide concise, actionable analysis for autonomous agent operations. Focus on practical decisions and next steps.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: opts?.temperature ?? 0.2,
+      max_tokens: opts?.maxTokens ?? 512
+    })
   });
 
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new AppError(`Gemini API error: ${resp.status} ${resp.statusText} - ${text}`);
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new AppError(`DeepSeek API error: ${response.status} - ${text}`);
   }
 
-  const result = await resp.json();
-  // attempt to read generated text conservatively
-  try {
-    // Google's shape: result?.candidates?.[0]?.content -> array of items; join text pieces
-    const candidate = result?.candidates?.[0];
-    if (!candidate) return { raw: result, text: "" };
-    const contentArr = candidate?.content ?? [];
-    const textPieces = contentArr.map((c: any) => (c?.text ? String(c.text) : "")).filter(Boolean);
-    const text = textPieces.join("\n");
-    return { raw: result, text };
-  } catch (e) {
-    return { raw: result, text: JSON.stringify(result) };
-  }
+  const result = await response.json();
+  const text = result.choices?.[0]?.message?.content || "";
+  return { text, raw: result };
 }
 
-async function callGeminiEmbedding(texts: string[] | string) {
-  if (!GEMINI_API_KEY) throw new AppError("GEMINI_API_KEY is not configured");
-  const endpoint = `${GEMINI_API_BASE}/models/${encodeURIComponent(GEMINI_MODEL)}:embedText`;
-
-  const payload = Array.isArray(texts) ? { input: texts } : { input: [texts] };
-
+// ---------- Direct Edge Function Call Helper ----------
+async function callEdgeFunction(functionName: string, payload: any) {
+  const endpoint = `${SUPABASE_URL}/functions/v1/${functionName}`;
   const resp = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
     },
     body: JSON.stringify(payload),
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => "");
-    throw new AppError(`Gemini embedding error: ${resp.status} ${resp.statusText} - ${txt}`);
-  }
-
-  const json = await resp.json();
-  // shape: { embeddings: [...] } or { data: [{ embedding: [...] }, ...] } depending on API; return raw for safety
-  return json;
-}
-
-// ---------- Gatekeeper / Inter-function call helper ----------
-async function callElizaGatekeeper(target: string, action: string, payload: any) {
-  if (!INTERNAL_KEY) throw new AppError("INTERNAL_ELIZA_KEY not configured for gatekeeper calls");
-  const endpoint = `${SUPABASE_URL}/functions/v1/eliza-gatekeeper`;
-  const resp = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-eliza-key": INTERNAL_KEY,
-      "x-eliza-source": "agent-manager",
-    },
-    body: JSON.stringify({ target, action, payload }),
   });
 
   const text = await resp.text();
@@ -168,7 +151,7 @@ async function callElizaGatekeeper(target: string, action: string, payload: any)
     } catch {
       parsed = { error: text };
     }
-    throw new AppError(`Gatekeeper error: ${parsed?.error || resp.statusText}`);
+    throw new AppError(`Edge function ${functionName} error: ${parsed?.error || resp.statusText}`);
   }
 
   try {
@@ -236,7 +219,7 @@ serve(async (req) => {
         } = data ?? {};
 
         // validations
-        if (status && !VALID_AGENT_STATUSES.includes(String(status).toUpperCase() as any)) {
+        if (status && !(VALID_AGENT_STATUSES as readonly string[]).includes(String(status).toUpperCase())) {
           throw new ValidationError(`status must be one of: ${VALID_AGENT_STATUSES.join(", ")}`);
         }
         if (typeof limit !== "number" || limit < 1 || limit > 1000) throw new ValidationError("limit must be 1..1000");
@@ -256,7 +239,7 @@ serve(async (req) => {
           query = query.order("created_at", { ascending: false });
         }
 
-    const q = await query.range(offset, offset + limit - 1);
+        const q = await query.range(offset, offset + limit - 1);
         const agents = q.data;
         if (q.error) throw new AppError(q.error.message || "DB error");
         result = agents ?? [];
@@ -273,10 +256,9 @@ serve(async (req) => {
           if (!payload[f]) throw new ValidationError(`spawn_agent requires ${f}`);
         }
 
-        // role enum enforcement (case-insensitive)
-        const validRoles = ["developer", "analyst", "designer", "tester", "coordinator", "researcher", "architect"];
-        if (!validRoles.includes(String(payload.role).toLowerCase())) {
-          throw new ValidationError(`Invalid role "${payload.role}". Must be one of: ${validRoles.join(", ")}`);
+        // role enum enforcement (case-insensitive) - matches database agent_role enum
+        if (!(VALID_AGENT_ROLES as readonly string[]).includes(String(payload.role).toLowerCase())) {
+          throw new ValidationError(`Invalid role "${payload.role}". Must be one of: ${VALID_AGENT_ROLES.join(", ")}`);
         }
 
         // capacity check
@@ -288,12 +270,12 @@ serve(async (req) => {
           throw new AppError(`Agent capacity reached (${existingCount}/${maxAgents})`);
         }
 
-        // normalize skills and warn on invalid ones (non-blocking)
-        const validSkills = ["python", "javascript", "typescript", "github", "database", "testing", "documentation", "api-design", "deployment", "security"];
+        // normalize skills (non-blocking warning for unknown skills)
+        const validSkills = ["python", "javascript", "typescript", "github", "database", "testing", "documentation", "api-design", "deployment", "security", "ai", "mining", "analytics"];
         const skills = Array.isArray(payload.skills) ? payload.skills.map((s: string) => String(s)) : [];
         const invalidSkills = skills.filter((s: string) => !validSkills.includes(s.toLowerCase()));
         if (invalidSkills.length > 0) {
-          console.warn("[agent-manager] spawn_agent invalid skills:", invalidSkills);
+          console.warn("[agent-manager] spawn_agent unknown skills (allowed):", invalidSkills);
         }
 
         // check existing agent by name
@@ -352,8 +334,8 @@ serve(async (req) => {
             title: `${inserted.data.name} - Initial Calibration`,
             description: "Initial onboarding and calibration",
             repo: "XMRT-Ecosystem",
-            category: "onboarding",
-            stage: "PLANNING",
+            category: "ops",
+            stage: "PLAN",
             status: "PENDING",
             priority: 3,
             assignee_agent_id: inserted.data.id,
@@ -370,6 +352,12 @@ serve(async (req) => {
       case "update_agent_status": {
         const { agent_id, status } = data ?? {};
         if (!agent_id || !status) throw new ValidationError("update_agent_status requires agent_id and status");
+        
+        // Validate status
+        if (!(VALID_AGENT_STATUSES as readonly string[]).includes(String(status).toUpperCase())) {
+          throw new ValidationError(`Invalid status "${status}". Must be one of: ${VALID_AGENT_STATUSES.join(", ")}`);
+        }
+        
         const updateResp = await supabase.from("agents").update({ status }).eq("id", agent_id).select().single();
         if (updateResp.error) throw new AppError(updateResp.error.message);
         result = updateResp.data;
@@ -411,8 +399,8 @@ serve(async (req) => {
           title: taskData.title,
           description: taskData.description,
           repo: taskData.repo ?? "XMRT-Ecosystem",
-          category: taskData.category,
-          stage: taskData.stage ?? "PLANNING",
+          category: normalizeCategory(taskData.category),
+          stage: normalizeStage(taskData.stage),
           status: "PENDING",
           priority: taskData.priority ?? 5,
           assignee_agent_id: taskData.assignee_agent_id,
@@ -452,22 +440,27 @@ serve(async (req) => {
       // ------------------------
       case "list_tasks": {
         const { status, agent_id, limit = 50, offset = 0, order_by } = data ?? {};
-        if (status && !VALID_TASK_STATUSES.includes(String(status).toUpperCase() as any)) {
+        if (status && !(VALID_TASK_STATUSES as readonly string[]).includes(String(status).toUpperCase())) {
           throw new ValidationError(`status must be one of: ${VALID_TASK_STATUSES.join(", ")}`);
         }
         if (typeof limit !== "number" || limit < 1 || limit > 1000) throw new ValidationError("limit must be 1..1000");
         if (typeof offset !== "number" || offset < 0) throw new ValidationError("offset must be >= 0");
 
         let query = supabase.from("tasks").select("*");
+
         if (status) query = query.eq("status", status);
         if (agent_id) query = query.eq("assignee_agent_id", agent_id);
 
-        if (order_by?.column) query = query.order(order_by.column, { ascending: !!order_by.ascending });
-        else query = query.order("priority", { ascending: false }).order("created_at", { ascending: false });
+        if (order_by?.column) {
+          query = query.order(order_by.column, { ascending: !!order_by.ascending });
+        } else {
+          query = query.order("created_at", { ascending: false });
+        }
 
         const q = await query.range(offset, offset + limit - 1);
-        if (q.error) throw new AppError(q.error.message);
-        result = q.data ?? [];
+        const tasks = q.data;
+        if (q.error) throw new AppError(q.error.message || "DB error");
+        result = tasks ?? [];
         break;
       }
 
@@ -475,43 +468,41 @@ serve(async (req) => {
       // UPDATE TASK STATUS
       // ------------------------
       case "update_task_status": {
-        const { task_id, status, stage, failure_reason } = data ?? {};
+        const { task_id, status, completion_data } = data ?? {};
         if (!task_id || !status) throw new ValidationError("update_task_status requires task_id and status");
 
-        const updated = await supabase
-          .from("tasks")
-          .update({ status, stage })
-          .eq("id", task_id)
-          .select()
-          .single();
+        // Validate status
+        if (!(VALID_TASK_STATUSES as readonly string[]).includes(String(status).toUpperCase())) {
+          throw new ValidationError(`Invalid status "${status}". Must be one of: ${VALID_TASK_STATUSES.join(", ")}`);
+        }
 
+        const fetched = await supabase.from("tasks").select("*").eq("id", task_id).single();
+        if (fetched.error) throw new AppError(fetched.error.message);
+        const task = fetched.data;
+        const oldStatus = task?.status;
+
+        const updated = await supabase.from("tasks").update({ status, ...(completion_data ?? {}) }).eq("id", task_id).select().single();
         if (updated.error) throw new AppError(updated.error.message);
-        if (!updated.data) throw new AppError("Task update returned null");
+
+        // free agent if COMPLETED/DONE/FAILED/CANCELLED
+        const completionStatuses = ["COMPLETED", "DONE", "FAILED", "CANCELLED"];
+        if (completionStatuses.includes(status.toUpperCase()) && task?.assignee_agent_id) {
+          await supabase.from("agents").update({ status: "IDLE" }).eq("id", task.assignee_agent_id);
+        }
 
         // activity log
         await supabase.from("eliza_activity_log").insert({
-          activity_type: "task_updated",
-          title: `Updated Task: ${updated.data.title}`,
-          description: `Status: ${status}, Stage: ${stage}`,
-          metadata: { task_id: updated.data.id, failure_reason },
+          activity_type: "task_status_updated",
+          title: `Task Status Updated: ${task?.title ?? task_id}`,
+          description: `Status changed from ${oldStatus} to ${status}`,
+          metadata: {
+            task_id: updated.data.id,
+            old_status: oldStatus,
+            new_status: status,
+            completion_data,
+          },
           status: "completed",
         });
-
-        // handle failure alerts
-        if (["FAILED", "BLOCKED"].includes(String(status))) {
-          await supabase.from("eliza_activity_log").insert({
-            activity_type: "agent_failure_alert",
-            title: `Agent Failure Alert: ${updated.data.assignee_agent_id}`,
-            description: `Task ${updated.data.title} ${String(status).toLowerCase()}: ${failure_reason ?? "Unknown"}`,
-            metadata: { task_id: updated.data.id, agent_id: updated.data.assignee_agent_id, failure_reason },
-            status: "pending",
-          });
-        }
-
-        // free up agent if completed/failed
-        if (["COMPLETED", "FAILED"].includes(String(status))) {
-          await supabase.from("agents").update({ status: "IDLE" }).eq("id", updated.data.assignee_agent_id);
-        }
 
         result = updated.data;
         break;
@@ -521,55 +512,63 @@ serve(async (req) => {
       // REPORT PROGRESS
       // ------------------------
       case "report_progress": {
-        const { agent_id, agent_name, task_id, progress_percentage, progress_message, current_stage } = data ?? {};
-        if (!agent_id || !agent_name || !task_id) throw new ValidationError("report_progress requires agent_id, agent_name, and task_id");
-
-        await supabase.from("eliza_activity_log").insert({
-          activity_type: "progress_report",
-          title: `Progress Report: ${agent_name}`,
-          description: progress_message ?? "",
-          metadata: { agent_id, task_id, progress_percentage, current_stage },
-          status: "completed",
-        });
-
-        result = { success: true, message: "Progress reported" };
+        const { agent_id, task_id, progress, notes } = data ?? {};
+        if (!agent_id || !task_id) throw new ValidationError("report_progress requires agent_id and task_id");
+        const inserted = await supabase.from("agent_activities").insert({
+          agent_id,
+          activity: `Progress: ${progress ?? "N/A"}. Notes: ${notes ?? "N/A"}`,
+          level: "info",
+        }).select().single();
+        if (inserted.error) throw new AppError(inserted.error.message);
+        result = inserted.data;
         break;
       }
 
       // ------------------------
-      // REQUEST ASSIGNMENT (agent asks for next task)
+      // REQUEST ASSIGNMENT
       // ------------------------
       case "request_assignment": {
-        const { agent_id, agent_name } = data ?? {};
+        const { agent_id } = data ?? {};
         if (!agent_id) throw new ValidationError("request_assignment requires agent_id");
 
-        const pending = await supabase
+        // fetch oldest pending task
+        const pendingTask = await supabase
           .from("tasks")
           .select("*")
           .eq("status", "PENDING")
-          .order("priority", { ascending: false })
-          .limit(1);
+          .is("assignee_agent_id", null)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
 
-        if (pending.error) throw new AppError(pending.error.message);
-
-        if (pending.data && pending.data.length > 0) {
-          const nextTask = pending.data[0];
-          // assign
-          await supabase.from("tasks").update({ status: "IN_PROGRESS", assignee_agent_id: agent_id }).eq("id", nextTask.id);
-          await supabase.from("agents").update({ status: "BUSY" }).eq("id", agent_id);
-
-          await supabase.from("eliza_activity_log").insert({
-            activity_type: "task_assigned",
-            title: `Task Assigned: ${nextTask.title}`,
-            description: `Assigned to ${agent_name ?? agent_id}`,
-            metadata: { task_id: nextTask.id, agent_id },
-            status: "completed",
-          });
-
-          result = { success: true, task: nextTask };
-        } else {
+        if (pendingTask.error) throw new AppError(pendingTask.error.message);
+        if (!pendingTask.data) {
           result = { success: false, message: "No pending tasks available" };
+          break;
         }
+
+        // assign task
+        const assignment = await supabase
+          .from("tasks")
+          .update({ assignee_agent_id: agent_id, status: "IN_PROGRESS" })
+          .eq("id", pendingTask.data.id)
+          .select()
+          .single();
+        if (assignment.error) throw new AppError(assignment.error.message);
+
+        // mark agent busy
+        await supabase.from("agents").update({ status: "BUSY" }).eq("id", agent_id);
+
+        // activity log
+        await supabase.from("eliza_activity_log").insert({
+          activity_type: "task_assigned",
+          title: `Auto-assigned Task: ${assignment.data.title}`,
+          description: `Assigned to agent ${agent_id}`,
+          metadata: { task_id: assignment.data.id, agent_id },
+          status: "completed",
+        });
+
+        result = { success: true, task: assignment.data };
         break;
       }
 
@@ -580,9 +579,9 @@ serve(async (req) => {
         const { agent_id } = data ?? {};
         if (!agent_id) throw new ValidationError("get_agent_workload requires agent_id");
 
-        const q = await supabase.from("tasks").select("*").eq("assignee_agent_id", agent_id).neq("status", "COMPLETED");
-        if (q.error) throw new AppError(q.error.message);
-        result = { agent_id, active_tasks: q.data?.length ?? 0, tasks: q.data ?? [] };
+        const tasksResp = await supabase.from("tasks").select("*").eq("assignee_agent_id", agent_id).in("status", ["PENDING", "IN_PROGRESS", "CLAIMED"]);
+        if (tasksResp.error) throw new AppError(tasksResp.error.message);
+        result = { success: true, active_tasks: tasksResp.data?.length ?? 0, tasks: tasksResp.data ?? [] };
         break;
       }
 
@@ -590,13 +589,14 @@ serve(async (req) => {
       // LOG DECISION
       // ------------------------
       case "log_decision": {
-        const { agent_id, decision, rationale } = data ?? {};
-        if (!decision) throw new ValidationError("log_decision requires decision text");
+        const { agent_id, decision, rationale, task_id } = data ?? {};
+        if (!agent_id || !decision || !rationale) throw new ValidationError("log_decision requires agent_id, decision, rationale");
         const inserted = await supabase.from("decisions").insert({
           id: `decision-${Date.now()}`,
-          agent_id: agent_id ?? "eliza",
+          agent_id,
           decision,
           rationale,
+          task_id: task_id ?? null,
         }).select().single();
         if (inserted.error) throw new AppError(inserted.error.message);
         result = inserted.data;
@@ -621,7 +621,13 @@ serve(async (req) => {
       case "update_agent_role": {
         const { agent_id, role } = data ?? {};
         if (!agent_id || !role) throw new ValidationError("update_agent_role requires agent_id and role");
-        const updated = await supabase.from("agents").update({ role }).eq("id", agent_id).select().single();
+        
+        // Validate role
+        if (!(VALID_AGENT_ROLES as readonly string[]).includes(String(role).toLowerCase())) {
+          throw new ValidationError(`Invalid role "${role}". Must be one of: ${VALID_AGENT_ROLES.join(", ")}`);
+        }
+        
+        const updated = await supabase.from("agents").update({ role: role.toLowerCase() }).eq("id", agent_id).select().single();
         if (updated.error) throw new AppError(updated.error.message);
         result = { success: true, agent: updated.data };
         break;
@@ -660,6 +666,11 @@ serve(async (req) => {
       case "update_task": {
         const { task_id, updates } = data ?? {};
         if (!task_id || !updates) throw new ValidationError("update_task requires task_id and updates");
+        
+        // Normalize category and stage if present
+        if (updates.category) updates.category = normalizeCategory(updates.category);
+        if (updates.stage) updates.stage = normalizeStage(updates.stage);
+        
         const updated = await supabase.from("tasks").update(updates).eq("id", task_id).select().single();
         if (updated.error) throw new AppError(updated.error.message);
         result = { success: true, task: updated.data };
@@ -672,9 +683,9 @@ serve(async (req) => {
       case "search_tasks": {
         const { category, repo, stage, status, min_priority, max_priority } = data ?? {};
         let taskQuery: any = supabase.from("tasks").select("*");
-        if (category) taskQuery = taskQuery.eq("category", category);
+        if (category) taskQuery = taskQuery.eq("category", normalizeCategory(category));
         if (repo) taskQuery = taskQuery.eq("repo", repo);
-        if (stage) taskQuery = taskQuery.eq("stage", stage);
+        if (stage) taskQuery = taskQuery.eq("stage", normalizeStage(stage));
         if (status) taskQuery = taskQuery.eq("status", status);
         if (min_priority !== undefined) taskQuery = taskQuery.gte("priority", min_priority);
         if (max_priority !== undefined) taskQuery = taskQuery.lte("priority", max_priority);
@@ -690,6 +701,11 @@ serve(async (req) => {
       case "bulk_update_tasks": {
         const { task_ids, updates } = data ?? {};
         if (!Array.isArray(task_ids) || !updates) throw new ValidationError("bulk_update_tasks requires task_ids array and updates");
+        
+        // Normalize category and stage if present
+        if (updates.category) updates.category = normalizeCategory(updates.category);
+        if (updates.stage) updates.stage = normalizeStage(updates.stage);
+        
         const q = await supabase.from("tasks").update(updates).in("id", task_ids).select();
         if (q.error) throw new AppError(q.error.message);
         result = { success: true, updated_count: q.data?.length ?? 0, tasks: q.data ?? [] };
@@ -758,7 +774,8 @@ serve(async (req) => {
         if (data.title) fieldsToUpdate.title = data.title;
         if (data.description) fieldsToUpdate.description = data.description;
         if (data.priority !== undefined) fieldsToUpdate.priority = data.priority;
-        if (data.category) fieldsToUpdate.category = data.category;
+        if (data.category) fieldsToUpdate.category = normalizeCategory(data.category);
+        if (data.stage) fieldsToUpdate.stage = normalizeStage(data.stage);
         if (data.repo) fieldsToUpdate.repo = data.repo;
 
         const updated = await supabase.from("tasks").update(fieldsToUpdate).eq("id", data.task_id).select().single();
@@ -819,7 +836,7 @@ serve(async (req) => {
       }
 
       // ------------------------
-      // AUTONOMOUS WORKFLOW EXECUTION (simplified orchestrator)
+      // AUTONOMOUS WORKFLOW EXECUTION (simplified orchestrator with DeepSeek AI)
       // ------------------------
       case "execute_autonomous_workflow": {
         const { workflow_steps, agent_id, context } = data ?? {};
@@ -836,22 +853,23 @@ serve(async (req) => {
 
             switch (step.action) {
               case "analyze": {
-                // simple analyze via Gemini
+                // AI analysis via DeepSeek
                 const prompt = `Analyze: ${JSON.stringify(step.data ?? {})}\nContext: ${JSON.stringify(currentContext ?? {})}\nProvide a short analysis and next decision.`;
-                const gen = await callGeminiGenerateMessage(prompt, { temperature: 0.2, maxOutputTokens: 512 });
+                const gen = await callDeepSeekChat(prompt, { temperature: 0.2, maxTokens: 512 });
                 stepResult = { text: gen.text, raw: gen.raw };
                 break;
               }
 
               case "execute_python": {
-                // call python-executor via gatekeeper
-                const resp = await callElizaGatekeeper("python-executor", "execute", { code: step.code, agent_id });
+                // Direct call to python-executor edge function
+                const resp = await callEdgeFunction("python-executor", { code: step.code, agent_id });
                 stepResult = resp;
                 break;
               }
 
               case "github_operation": {
-                const resp = await callElizaGatekeeper("github-integration", step.github_action, step.github_data);
+                // Direct call to github-integration edge function
+                const resp = await callEdgeFunction("github-integration", { action: step.github_action, ...step.github_data });
                 stepResult = resp;
                 break;
               }
@@ -862,8 +880,8 @@ serve(async (req) => {
                   title: step.task_title,
                   description: step.task_description,
                   repo: step.repo ?? "XMRT-Ecosystem",
-                  category: step.category ?? "autonomous",
-                  stage: "PLANNING",
+                  category: normalizeCategory(step.category),
+                  stage: "PLAN",
                   status: "PENDING",
                   priority: step.priority ?? 5,
                   assignee_agent_id: step.assigned_agent ?? null,
@@ -917,7 +935,7 @@ serve(async (req) => {
               metadata: { step: i + 1, action: step.action, result: stepResult },
               status: "completed",
             });
-          } catch (stepErr) {
+          } catch (stepErr: any) {
             console.error(`[agent-manager] Error in workflow step ${i + 1}:`, stepErr);
             workflowResults.push({
               step: i + 1,
@@ -996,13 +1014,20 @@ serve(async (req) => {
 
         for (const cfg of agentsConfig) {
           try {
+            // Validate role
+            const role = String(cfg.role || "developer").toLowerCase();
+            if (!(VALID_AGENT_ROLES as readonly string[]).includes(role)) {
+              spawnErrors.push({ name: cfg.name, error: `Invalid role: ${cfg.role}` });
+              continue;
+            }
+
             const agentId = cfg.id || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
             const { data: newAgent, error: insertErr } = await supabase
               .from("agents")
               .insert({
                 id: agentId,
                 name: cfg.name,
-                role: cfg.role || "developer",
+                role,
                 status: "IDLE",
                 skills: cfg.skills || [],
                 metadata: {
@@ -1098,7 +1123,7 @@ serve(async (req) => {
 
     // final success envelope
     return okResponse(result);
-  } catch (err) {
+  } catch (err: any) {
     console.error("[agent-manager] error:", err);
     if (err instanceof ValidationError) return errorResponse(err.message, 400);
     if (err instanceof AppError) return errorResponse(err.message, 500);
