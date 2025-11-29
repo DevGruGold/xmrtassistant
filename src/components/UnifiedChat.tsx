@@ -229,42 +229,121 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
   // Video frame capture for multimodal mode
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoReady, setVideoReady] = useState(false);
   
-  const captureVideoFrame = useCallback((): string | null => {
-    // Try to capture from Hume state video stream first
-    if (humeState?.videoStream) {
-      try {
-        // Create a video element from the stream if we don't have one
-        if (!videoRef.current) {
-          const video = document.createElement('video');
-          video.srcObject = humeState.videoStream;
-          video.autoplay = true;
-          video.playsInline = true;
-          videoRef.current = video;
-          
-          // Wait for video to be ready
-          return null; // First call initializes, subsequent calls capture
-        }
-        
-        const video = videoRef.current;
-        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 480;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            console.log('📸 Captured video frame for analysis');
-            return dataUrl;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to capture video frame:', error);
+  // Pre-initialize video element when multimodal mode activates
+  useEffect(() => {
+    if (humeState?.mode === 'multimodal' && humeState?.videoStream && !videoRef.current) {
+      console.log('🎬 Pre-initializing video for multimodal mode...');
+      const video = document.createElement('video');
+      video.srcObject = humeState.videoStream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true; // Required for autoplay
+      videoRef.current = video;
+      
+      video.onloadeddata = () => {
+        console.log('🎬 Video data loaded, readyState:', video.readyState);
+        setVideoReady(true);
+      };
+      
+      video.play().then(() => {
+        console.log('🎬 Video pre-initialized and playing for multimodal mode');
+      }).catch(err => {
+        console.error('Video pre-initialization failed:', err);
+      });
+    }
+    
+    // Cleanup when mode changes or stream ends
+    if (humeState?.mode !== 'multimodal' || !humeState?.videoStream) {
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current = null;
+        setVideoReady(false);
       }
     }
-    return null;
-  }, [humeState?.videoStream]);
+  }, [humeState?.mode, humeState?.videoStream]);
+  
+  const captureVideoFrame = useCallback(async (): Promise<string | null> => {
+    console.log('📹 Video capture attempt:', {
+      mode: humeState?.mode,
+      hasVideoStream: !!humeState?.videoStream,
+      videoRefExists: !!videoRef.current,
+      videoReady,
+      readyState: videoRef.current?.readyState
+    });
+    
+    if (!humeState?.videoStream) {
+      console.log('⚠️ No video stream available');
+      return null;
+    }
+    
+    try {
+      // Create video element if needed and wait for it to be ready
+      if (!videoRef.current) {
+        console.log('🎬 Creating video element on-demand...');
+        const video = document.createElement('video');
+        video.srcObject = humeState.videoStream;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = true;
+        videoRef.current = video;
+        
+        // Wait for video to be ready with timeout
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Video load timeout')), 3000);
+          video.onloadeddata = () => {
+            clearTimeout(timeout);
+            setVideoReady(true);
+            resolve();
+          };
+          video.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error('Video load failed'));
+          };
+          video.play().catch(reject);
+        });
+      }
+      
+      const video = videoRef.current;
+      
+      // Ensure video is ready
+      if (video.readyState < 2) {
+        console.log('⏳ Video not ready yet, waiting...', video.readyState);
+        await new Promise<void>((resolve) => {
+          const checkReady = () => {
+            if (video.readyState >= 2) {
+              resolve();
+            } else {
+              setTimeout(checkReady, 100);
+            }
+          };
+          setTimeout(checkReady, 100);
+          // Timeout after 2 seconds
+          setTimeout(resolve, 2000);
+        });
+      }
+      
+      // Capture frame
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        console.error('Failed to get canvas context');
+        return null;
+      }
+      
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      console.log('📸 Successfully captured video frame:', canvas.width, 'x', canvas.height);
+      return dataUrl;
+    } catch (error) {
+      console.error('Failed to capture video frame:', error);
+      return null;
+    }
+  }, [humeState?.videoStream, humeState?.mode, videoReady]);
 
   // Clean up video element on unmount
   useEffect(() => {
@@ -991,10 +1070,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     
     // ✅ Capture video frame in multimodal mode (if camera is active)
     if (humeState?.mode === 'multimodal' && humeState?.videoStream) {
-      const videoFrame = captureVideoFrame();
+      console.log('📹 Attempting to capture video frame for multimodal message...');
+      const videoFrame = await captureVideoFrame();
       if (videoFrame) {
         imageBase64Array.push(videoFrame);
         console.log('📹 Added live video frame to message for visual analysis');
+      } else {
+        console.warn('⚠️ Could not capture video frame - video may not be ready');
       }
     }
 
@@ -1656,6 +1738,16 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onVoiceInput={handleVoiceInput}
               onEmotionUpdate={handleEmotionUpdate}
             />
+            
+            {/* Camera Active Indicator */}
+            {humeState?.mode === 'multimodal' && humeState?.videoStream && (
+              <Badge 
+                variant="outline" 
+                className={`text-xs ${videoReady ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse'}`}
+              >
+                📹 {videoReady ? 'Camera Ready' : 'Initializing...'}
+              </Badge>
+            )}
             
             {/* File Attachment Button */}
             <input
