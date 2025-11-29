@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, MicOff, Video, VideoOff, Loader2, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { humanizedTTS } from '@/services/humanizedTTSService';
 import { HumeMode } from './MakeMeHumanToggle';
 import VoiceRecordingIndicator from './VoiceRecordingIndicator';
 import VideoPreviewOverlay from './VideoPreviewOverlay';
@@ -39,20 +38,22 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>();
 
-  // Don't show controls if mode is TTS or not enabled
-  if (mode === 'tts' || !isEnabled) {
-    return null;
-  }
+  // Determine what to show
+  const showControls = mode !== 'tts' && isEnabled;
+  const showMic = (mode === 'voice' || mode === 'multimodal') && isEnabled;
+  const showVideo = mode === 'multimodal' && isEnabled;
 
-  // Audio level monitoring
+  // Audio level monitoring - only runs when recording
   useEffect(() => {
-    if (!isRecording || !audioStream) {
+    if (!isRecording || !audioStream || !showControls) {
       setAudioLevel(0);
       return;
     }
 
+    let audioContext: AudioContext | null = null;
+    
     try {
-      const audioContext = new AudioContext();
+      audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(audioStream);
       const analyzer = audioContext.createAnalyser();
       analyzer.fftSize = 256;
@@ -70,17 +71,20 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
       };
       
       updateLevel();
-
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        audioContext.close();
-      };
     } catch (error) {
       console.error('Failed to setup audio analyzer:', error);
     }
-  }, [isRecording, audioStream]);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContext) {
+        audioContext.close();
+      }
+      analyzerRef.current = null;
+    };
+  }, [isRecording, audioStream, showControls]);
 
   const startRecording = useCallback(async () => {
     if (!audioStream) {
@@ -91,7 +95,6 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
     setIsConnecting(true);
     
     try {
-      // Setup MediaRecorder for audio capture
       const mediaRecorder = new MediaRecorder(audioStream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -107,7 +110,6 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         
-        // Convert to base64 and send to transcription
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Audio = (reader.result as string).split(',')[1];
@@ -130,7 +132,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
         reader.readAsDataURL(audioBlob);
       };
       
-      mediaRecorder.start(1000); // Collect data every second
+      mediaRecorder.start(1000);
       mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
       setCurrentTranscript('');
@@ -149,26 +151,27 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
     setAudioLevel(0);
   }, []);
 
-  const toggleRecording = () => {
+  const toggleRecording = useCallback(() => {
     if (isRecording) {
       stopRecording();
     } else {
       startRecording();
     }
-  };
+  }, [isRecording, stopRecording, startRecording]);
 
-  const toggleVideo = () => {
-    setIsVideoActive(!isVideoActive);
-  };
+  const toggleVideo = useCallback(() => {
+    setIsVideoActive(prev => !prev);
+  }, []);
 
-  // Handle emotion updates from video
-  const handleEmotionDetected = (emotions: { name: string; score: number }[]) => {
+  const handleEmotionDetected = useCallback((emotions: { name: string; score: number }[]) => {
     setTopEmotions(emotions.slice(0, 3));
     onEmotionUpdate?.(emotions);
-  };
+  }, [onEmotionUpdate]);
 
-  const showMic = mode === 'voice' || mode === 'multimodal';
-  const showVideo = mode === 'multimodal';
+  // Don't render anything if controls shouldn't show
+  if (!showControls) {
+    return null;
+  }
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -238,7 +241,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
       {/* Emotion badges when video is active */}
       {isVideoActive && topEmotions.length > 0 && (
         <div className="hidden sm:flex items-center gap-1">
-          {topEmotions.map((emotion, i) => (
+          {topEmotions.map((emotion) => (
             <span 
               key={emotion.name}
               className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30"
