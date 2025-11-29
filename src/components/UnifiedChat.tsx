@@ -16,7 +16,8 @@ import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users, Vote } from 'lucide-r
 import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
 import { GovernanceStatusBadge } from './GovernanceStatusBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { MakeMeHumanToggle } from './MakeMeHumanToggle';
+import { MakeMeHumanToggle, HumeState, HumeMode } from './MakeMeHumanToggle';
+import { HumeChatControls } from './HumeChatControls';
 import { enhancedTTS } from '@/services/enhancedTTSService';
 import { humanizedTTS } from '@/services/humanizedTTSService';
 import { speechLearningService } from '@/services/speechLearningService';
@@ -139,6 +140,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   
   // Council mode state
   const [councilMode, setCouncilMode] = useState<boolean>(false);
+
+  // Hume controls state
+  const [humeState, setHumeState] = useState<HumeState>({
+    mode: 'tts',
+    isEnabled: false,
+    audioStream: null,
+    videoStream: null
+  });
 
   // Refs
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -1177,7 +1186,10 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
   return (
     <Card className={`bg-card/50 backdrop-blur-sm border border-border/50 flex flex-col h-[500px] sm:h-[600px] ${className}`}>
       {/* Make Me Human Toggle */}
-      <MakeMeHumanToggle onModeChange={(mode, enabled) => setIsHumanizedMode(enabled)} />
+      <MakeMeHumanToggle 
+        onModeChange={(mode, enabled) => setIsHumanizedMode(enabled)}
+        onStateChange={(state) => setHumeState(state)}
+      />
       
       {/* Simplified Header */}
       <div className="p-4 border-b border-border/50">
@@ -1437,7 +1449,31 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       {/* Text Input Area */}
       <div className="border-t border-border/50 bg-background/50">
         <div className="p-4">
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {/* Hume Voice/Video Controls */}
+            <HumeChatControls
+              mode={humeState.mode}
+              isEnabled={humeState.isEnabled}
+              audioStream={humeState.audioStream}
+              videoStream={humeState.videoStream}
+              onVoiceInput={(transcript) => {
+                // When voice input is received, send it as a message
+                if (transcript.trim()) {
+                  setTextInput(transcript);
+                  // Auto-send after short delay
+                  setTimeout(() => {
+                    handleSendMessage();
+                  }, 100);
+                }
+              }}
+              onEmotionUpdate={(emotions) => {
+                if (emotions.length > 0) {
+                  setCurrentEmotion(emotions[0].name);
+                  setEmotionConfidence(emotions[0].score);
+                }
+              }}
+            />
+            
             <Input
               value={textInput}
               onChange={(e) => {
@@ -1452,9 +1488,11 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               placeholder={
                 needsAPIKey 
                   ? "Provide your GitHub PAT using the 🔑 button to post discussions..." 
-                  : isSpeaking 
-                    ? "Start typing to interrupt..." 
-                    : "Ask Eliza anything..."
+                  : humeState.mode === 'voice' && humeState.isEnabled
+                    ? "Speak or type..."
+                    : isSpeaking 
+                      ? "Start typing to interrupt..." 
+                      : "Ask Eliza anything..."
               }
               className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
               disabled={isProcessing}
