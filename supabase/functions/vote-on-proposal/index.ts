@@ -209,6 +209,21 @@ serve(async (req) => {
       
       console.log('🎉 Proposal approved!');
 
+      // Trigger post-approval workflow
+      try {
+        const { data: workflowData, error: workflowError } = await supabase.functions.invoke('execute-approved-proposal', {
+          body: { proposal_id }
+        });
+        
+        if (workflowError) {
+          console.error('⚠️ Post-approval workflow failed:', workflowError);
+        } else {
+          console.log('✅ Post-approval workflow completed:', workflowData?.task_id);
+        }
+      } catch (wfErr) {
+        console.error('⚠️ Post-approval workflow error:', wfErr);
+      }
+
     } else if (executiveRejections >= 2 || totalExecutiveVotes === 4) {
       // If 2+ rejections or all executive votes are in and < 3 approvals
       if (executiveApprovals < 3 && totalExecutiveVotes === 4) {
@@ -235,6 +250,21 @@ serve(async (req) => {
           });
 
         console.log('❌ Proposal rejected');
+
+        // Trigger post-rejection workflow
+        try {
+          const { data: rejectionData, error: rejectionError } = await supabase.functions.invoke('handle-rejected-proposal', {
+            body: { proposal_id }
+          });
+          
+          if (rejectionError) {
+            console.error('⚠️ Post-rejection workflow failed:', rejectionError);
+          } else {
+            console.log('✅ Post-rejection workflow completed');
+          }
+        } catch (rejErr) {
+          console.error('⚠️ Post-rejection workflow error:', rejErr);
+        }
       }
     }
 

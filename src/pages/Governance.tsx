@@ -22,6 +22,8 @@ interface Proposal {
   status: string;
   created_at: string;
   updated_at: string;
+  implementation_code?: string | null;
+  category?: string;
 }
 
 interface ExecutiveVote {
@@ -113,6 +115,8 @@ export default function Governance() {
 
   const filterProposals = (status: string) => {
     if (status === 'all') return proposals;
+    if (status === 'approved') return proposals.filter(p => p.status === 'approved' || p.status === 'queued_for_deployment');
+    if (status === 'rejected') return proposals.filter(p => p.status === 'rejected' || p.status === 'rejected_with_feedback');
     return proposals.filter(p => p.status === status);
   };
 
@@ -120,8 +124,8 @@ export default function Governance() {
     return {
       all: proposals.length,
       voting: proposals.filter(p => p.status === 'voting').length,
-      approved: proposals.filter(p => p.status === 'approved').length,
-      rejected: proposals.filter(p => p.status === 'rejected').length,
+      approved: proposals.filter(p => p.status === 'approved' || p.status === 'queued_for_deployment').length,
+      rejected: proposals.filter(p => p.status === 'rejected' || p.status === 'rejected_with_feedback').length,
       deployed: proposals.filter(p => p.status === 'deployed').length,
     };
   };
