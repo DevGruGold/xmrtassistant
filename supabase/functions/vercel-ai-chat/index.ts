@@ -242,6 +242,65 @@ serve(async (req) => {
       }
     }
 
+    // ========== PRIORITY 3: OpenRouter Vision (claude-3-haiku supports images) ==========
+    const openRouterKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (hasImages && openRouterKey) {
+      console.log('🖼️ Trying OpenRouter Vision (claude-3-haiku) for image analysis');
+      try {
+        const contentParts: any[] = [
+          { type: 'text', text: userMessage }
+        ];
+        
+        for (const imageBase64 of images) {
+          contentParts.push({
+            type: 'image_url',
+            image_url: { url: imageBase64 }
+          });
+        }
+        
+        const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://xmrt.pro',
+            'X-Title': 'XMRT Eliza'
+          },
+          body: JSON.stringify({
+            model: 'anthropic/claude-3-haiku',
+            messages: [{ role: 'user', content: contentParts }],
+            max_tokens: 4000
+          })
+        });
+        
+        if (openRouterResponse.ok) {
+          const openRouterData = await openRouterResponse.json();
+          const openRouterText = openRouterData.choices?.[0]?.message?.content;
+          
+          if (openRouterText) {
+            console.log('✅ OpenRouter Vision analysis successful');
+            return new Response(
+              JSON.stringify({
+                success: true,
+                response: openRouterText,
+                provider: 'openrouter',
+                model: 'claude-3-haiku',
+                executive: 'vercel-ai-chat',
+                executiveTitle: 'Chief Innovation Officer (CIO) [OpenRouter Vision]',
+                vision_analysis: true
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          const errorText = await openRouterResponse.text();
+          console.warn('⚠️ OpenRouter Vision failed:', errorText);
+        }
+      } catch (openRouterError) {
+        console.warn('⚠️ OpenRouter Vision error:', openRouterError.message);
+      }
+    }
+
     // ========== STANDARD TEXT PROCESSING (no images or vision failed) ==========
     let API_KEY: string | null = null;
     let aiProvider: string = 'unknown';
