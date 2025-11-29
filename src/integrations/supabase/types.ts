@@ -7083,7 +7083,7 @@ export type Database = {
         | "miner"
         | "device"
         | "generic"
-      agent_status: "IDLE" | "BUSY" | "OFFLINE"
+      agent_status: "IDLE" | "BUSY" | "OFFLINE" | "ARCHIVED" | "ERROR"
       command_status:
         | "pending"
         | "sent"
@@ -7139,6 +7139,7 @@ export type Database = {
         | "DONE"
         | "CANCELLED"
         | "COMPLETED"
+        | "FAILED"
     }
     CompositeTypes: {
       edge_log_row: {
@@ -7297,7 +7298,7 @@ export const Constants = {
         "device",
         "generic",
       ],
-      agent_status: ["IDLE", "BUSY", "OFFLINE"],
+      agent_status: ["IDLE", "BUSY", "OFFLINE", "ARCHIVED", "ERROR"],
       command_status: [
         "pending",
         "sent",
@@ -7358,6 +7359,7 @@ export const Constants = {
         "DONE",
         "CANCELLED",
         "COMPLETED",
+        "FAILED",
       ],
     },
   },
