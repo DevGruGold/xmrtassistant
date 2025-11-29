@@ -44,6 +44,7 @@ export interface ElizaContext {
   councilMode?: boolean; // Enable multi-executive council deliberation
   emotionalContext?: EmotionalContext; // Real-time emotional state from voice and video
   images?: string[]; // Base64 encoded images for vision/multimodal analysis
+  isLiveCameraFeed?: boolean; // Flag indicating images are from live webcam, not uploaded files
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -550,6 +551,9 @@ ${ec.facialEmotions?.length ? `- Facial expression emotions: ${ec.facialEmotions
     console.log('📸 Images being sent to edge function:', context.images?.length || 0);
     if (context.images && context.images.length > 0) {
       console.log('🖼️ First image preview:', context.images[0].substring(0, 80) + '...');
+      if (context.isLiveCameraFeed) {
+        console.log('📹 Images are from LIVE CAMERA FEED - Eliza can see the user in real-time!');
+      }
     }
 
     const requestBody = {
@@ -558,6 +562,7 @@ ${ec.facialEmotions?.length ? `- Facial expression emotions: ${ec.facialEmotions
       emotionalContext: context.emotionalContext, // Real-time emotional state
       emotionalContextStr, // Formatted string for system prompt
       images: context.images, // Base64 encoded images for vision analysis
+      isLiveCameraFeed: context.isLiveCameraFeed || false, // Flag for live webcam vs uploaded images
       userContext: {
         isFounder: userContext?.isFounder || false,
         ip: userContext?.ip || 'unknown',

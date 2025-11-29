@@ -846,13 +846,25 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setIsSpeaking(false);
     }
 
+    // 📹 Capture video frame in multimodal mode - Eliza can SEE the user!
+    const imageBase64Array: string[] = [];
+    if (humeState?.mode === 'multimodal' && humeState?.videoStream) {
+      console.log('📹 Capturing live video frame for voice input in multimodal mode...');
+      const videoFrame = await captureVideoFrame();
+      if (videoFrame) {
+        imageBase64Array.push(videoFrame);
+        console.log('📹 Added LIVE video frame to voice message - Eliza can see you!');
+      }
+    }
+
     const userMessage: UnifiedMessage = {
       id: `voice-user-${Date.now()}`,
       content: transcript,
       sender: 'user',
       timestamp: new Date(),
       emotion: emotionalContext?.currentEmotion || currentEmotion,
-      confidence: emotionalContext?.emotionConfidence || emotionConfidence
+      confidence: emotionalContext?.emotionConfidence || emotionConfidence,
+      attachments: imageBase64Array.length > 0 ? { images: imageBase64Array } : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -863,7 +875,8 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       await conversationPersistence.storeMessage(transcript, 'user', {
         emotion: currentEmotion,
         confidence: emotionConfidence,
-        inputType: 'voice'
+        inputType: 'voice',
+        hasLiveVideo: imageBase64Array.length > 0
       });
 
       // Extract and store knowledge entities from user input
@@ -872,7 +885,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       // Record interaction pattern
       await conversationPersistence.storeInteractionPattern(
         'voice_input',
-        { transcript, emotion: currentEmotion },
+        { transcript, emotion: currentEmotion, hasLiveVideo: imageBase64Array.length > 0 },
         emotionConfidence
       );
 
@@ -884,7 +897,7 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
           transcript,
           'user_voice_input',
           0.7,
-          { emotion: currentEmotion, confidence: emotionConfidence }
+          { emotion: currentEmotion, confidence: emotionConfidence, hasLiveVideo: imageBase64Array.length > 0 }
         );
       }
     } catch (error) {
@@ -892,15 +905,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     }
 
     try {
+      // Determine input mode - use 'vision' if we have live video frames
+      const inputMode = imageBase64Array.length > 0 ? 'vision' : 'voice';
+      
       const response = await UnifiedElizaService.generateResponse(transcript, {
         miningStats,
         userContext,
-        inputMode: 'voice',
+        inputMode,
         shouldSpeak: true,
         enableBrowsing: true,
         conversationContext: await conversationPersistence.getFullConversationContext(),
         councilMode: false,
-        emotionalContext: emotionalContext || undefined // Pass real-time emotional context
+        emotionalContext: emotionalContext || undefined,
+        images: imageBase64Array.length > 0 ? imageBase64Array : undefined, // 📹 Pass live video frames!
+        isLiveCameraFeed: imageBase64Array.length > 0 // Flag for system prompt context
       });
 
       const responseText = typeof response === 'string' ? response : response.deliberation.synthesis;
@@ -1739,13 +1757,14 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onEmotionUpdate={handleEmotionUpdate}
             />
             
-            {/* Camera Active Indicator */}
+            {/* Camera Active Indicator - Shows Eliza can see you */}
             {humeState?.mode === 'multimodal' && humeState?.videoStream && (
               <Badge 
                 variant="outline" 
-                className={`text-xs ${videoReady ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse'}`}
+                className={`text-xs flex items-center gap-1 ${videoReady ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse'}`}
               >
-                📹 {videoReady ? 'Camera Ready' : 'Initializing...'}
+                <span className={`w-2 h-2 rounded-full ${videoReady ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></span>
+                {videoReady ? 'Eliza can see you' : 'Camera initializing...'}
               </Badge>
             )}
             
