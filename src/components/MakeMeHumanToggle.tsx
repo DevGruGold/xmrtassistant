@@ -99,24 +99,43 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
     localStorage.setItem('humeSettings', JSON.stringify(settings));
   }, [settings]);
 
+  // Sync stream changes to parent - this ensures streams are passed after permissions are granted
+  useEffect(() => {
+    onStateChange?.({
+      mode,
+      isEnabled,
+      audioStream: audioStream || undefined,
+      videoStream: videoStream || undefined
+    });
+  }, [audioStream, videoStream, mode, isEnabled, onStateChange]);
+
   const handleModeChange = async (newMode: HumeMode) => {
-    // If switching to a mode that needs permissions, show dialog first
+    // If switching to a mode that needs permissions, check and request streams
     if (newMode === 'voice' || newMode === 'multimodal') {
-      // Check if we already have the required permissions
       const needsMic = newMode === 'voice' || newMode === 'multimodal';
       const needsCamera = newMode === 'multimodal';
       
       const hasMic = micPermission === 'granted';
       const hasCamera = cameraPermission === 'granted';
       
+      // If we don't have permissions yet, show dialog
       if ((needsMic && !hasMic) || (needsCamera && !hasCamera)) {
         setPendingMode(newMode);
         setShowPermissionDialog(true);
         return;
       }
+      
+      // Permissions granted but we may not have streams yet - request them
+      const hasAudioStream = !!audioStream;
+      const hasVideoStream = !!videoStream;
+      
+      if ((needsMic && !hasAudioStream) || (needsCamera && !hasVideoStream)) {
+        // Request streams (permissions already granted, so this should succeed)
+        await requestPermissionsForMode(newMode);
+      }
     }
     
-    // Permissions already granted or not needed, proceed
+    // Proceed with mode switch
     completeModeSw(newMode);
   };
 
