@@ -90,10 +90,17 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
     console.log('🎤 Transcript received:', text, 'Final:', isFinal);
     setCurrentTranscript(text);
     
-    // Send final transcripts to Eliza immediately
+    // Send final transcripts to Eliza and AUTO-STOP recording
     if (isFinal && text.trim()) {
       onVoiceInput(text);
       setCurrentTranscript(''); // Clear after sending
+      
+      // AUTO-STOP: Close mic after final transcript so Eliza can respond
+      console.log('🎤 Final transcript received - stopping mic to let Eliza respond');
+      voiceStreamingService.disconnect();
+      setIsRecording(false);
+      setIsConnected(false);
+      setAudioLevel(0);
     }
   }, [onVoiceInput]);
 
@@ -248,7 +255,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
             isRecording && "animate-pulse ring-2 ring-destructive ring-offset-2 ring-offset-background",
             isConnected && "ring-2 ring-green-500 ring-offset-2 ring-offset-background"
           )}
-          title={isRecording ? "Stop recording" : "Start voice input (real-time)"}
+          title={isRecording ? "Stop recording" : "Press to speak (mic closes automatically when you finish)"}
         >
           {isConnecting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
