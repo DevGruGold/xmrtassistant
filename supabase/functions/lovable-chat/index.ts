@@ -909,8 +909,48 @@ serve(async (req) => {
               }
             }
             
-            // ========== DEEPSEEK FALLBACK (text-only) ==========
-            // Only try DeepSeek if we don't already have a message from Gemini
+            // ========== VERCEL AI CHAT FALLBACK (multi-provider cascade) ==========
+            // Only try Vercel AI Chat if we don't already have a message from Gemini
+            if (!message) {
+              console.log('🔄 Trying Vercel AI Chat fallback (multi-provider cascade)...');
+              
+              try {
+                const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+                const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+                const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                const fallbackSupabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+                
+                const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+                const userMessages = currentMessages.filter(m => m.role !== 'system');
+                
+                const vercelResult = await fallbackSupabase.functions.invoke('vercel-ai-chat', {
+                  body: { 
+                    messages: userMessages,
+                    conversationHistory: userMessages.slice(-10),
+                    session_credentials,
+                    systemPrompt
+                  }
+                });
+                
+                if (!vercelResult.error && vercelResult.data?.success && vercelResult.data?.response) {
+                  console.log(`✅ Vercel AI Chat fallback successful (provider: ${vercelResult.data.provider})`);
+                  aiProvider = vercelResult.data.provider || 'vercel-ai-chat';
+                  aiModel = vercelResult.data.model || 'multi-provider';
+                  aiExecutiveTitle = vercelResult.data.executiveTitle || 'Chief Strategy Officer (CSO) [Fallback]';
+                  message = { role: 'assistant', content: vercelResult.data.response };
+                  // Skip DeepSeek since vercel-ai-chat succeeded
+                } else {
+                  console.warn('⚠️ Vercel AI Chat fallback failed:', vercelResult.error || 'No valid response');
+                  // Continue to DeepSeek fallback
+                }
+              } catch (vercelError) {
+                console.warn('⚠️ Vercel AI Chat error:', vercelError.message);
+                // Continue to DeepSeek fallback
+              }
+            }
+            
+            // ========== DEEPSEEK FALLBACK (last resort, text-only) ==========
+            // Only try DeepSeek if we don't already have a message from previous fallbacks
             if (!message) {
               // Get DeepSeek API key
               const deepseekKey = getAICredential('deepseek', session_credentials);
@@ -920,8 +960,8 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ 
                   success: false, 
                   error: hasImages 
-                    ? 'Lovable AI out of credits and image analysis fallback failed. Please add Lovable AI credits or configure GEMINI_API_KEY for vision.'
-                    : 'Lovable AI out of credits and DeepSeek API key not configured. Please add credits or configure DeepSeek at /#credentials',
+                    ? 'All AI providers failed. Image analysis requires Lovable AI credits or GEMINI_API_KEY.'
+                    : 'All AI providers exhausted. Please add Lovable AI credits or configure API keys at /#credentials',
                   provider: 'lovable_gateway',
                   fallback_failed: true
                 }), {
@@ -938,8 +978,8 @@ serve(async (req) => {
               // Switch provider to DeepSeek and retry
               aiProvider = 'deepseek';
               aiModel = 'deepseek-chat';
-              aiExecutiveTitle = 'Chief Technology Officer (CTO) [Fallback]';
-              console.log('🔄 Retrying with DeepSeek API...');
+              aiExecutiveTitle = 'Chief Technology Officer (CTO) [Last Resort Fallback]';
+              console.log('🔄 Retrying with DeepSeek API (last resort)...');
               
               // Call DeepSeek API
               const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
@@ -969,7 +1009,7 @@ serve(async (req) => {
                   console.error('❌ DeepSeek fallback also failed:', errorBody);
                   return new Response(JSON.stringify({ 
                     success: false, 
-                    error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${errorBody}`,
+                    error: `All AI providers failed. Last error (DeepSeek): ${errorBody}`,
                     provider: 'deepseek',
                     fallback_failed: true
                   }), {
@@ -998,7 +1038,7 @@ serve(async (req) => {
                 console.error('❌ DeepSeek fallback error:', deepseekError);
                 return new Response(JSON.stringify({ 
                   success: false, 
-                  error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${deepseekError.message}`,
+                  error: `All AI providers exhausted. Last error: ${deepseekError.message}`,
                   provider: 'deepseek',
                   fallback_failed: true
                 }), {
