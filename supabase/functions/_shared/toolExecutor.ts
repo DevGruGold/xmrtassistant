@@ -647,6 +647,86 @@ export async function executeToolCall(
           : { success: true, result: versionAnalyticsResult.data };
         break;
 
+      case 'get_tool_usage_analytics':
+        console.log(`📈 [${executiveName}] Get Tool Usage Analytics`);
+        const toolAnalyticsResult = await supabase.functions.invoke('tool-usage-analytics', {
+          body: parsedArgs
+        });
+        result = toolAnalyticsResult.error
+          ? { success: false, error: toolAnalyticsResult.error.message }
+          : { success: true, result: toolAnalyticsResult.data };
+        break;
+
+      // ====================================================================
+      // SYSTEM HEALTH & MONITORING TOOLS (FIXED)
+      // ====================================================================
+      case 'check_system_status':
+      case 'check_ecosystem_health':
+      case 'generate_health_report':
+        console.log(`🩺 [${executiveName}] System Health Check: ${name}`);
+        const healthResult = await supabase.functions.invoke('system-status', { 
+          body: { action: name, ...parsedArgs } 
+        });
+        result = healthResult.error
+          ? { success: false, error: healthResult.error.message }
+          : { success: true, result: healthResult.data };
+        break;
+
+      // ====================================================================
+      // CODE EXECUTION TOOLS (FIXED)
+      // ====================================================================
+      case 'run_code':
+        // Alias for execute_python
+        console.log(`🐍 [${executiveName}] Run Code (alias for execute_python)`);
+        const runCodeResult = await supabase.functions.invoke('python-executor', {
+          body: { 
+            code: parsedArgs.code, 
+            purpose: parsedArgs.purpose || 'Code execution via run_code',
+            source: executiveName.toLowerCase() + '-executive',
+            agent_id: executiveName.toLowerCase()
+          }
+        });
+        result = runCodeResult.error
+          ? { success: false, error: runCodeResult.error.message }
+          : { success: true, result: runCodeResult.data };
+        break;
+
+      // ====================================================================
+      // MCP & PATENT TOOLS (FIXED)
+      // ====================================================================
+      case 'search_uspto_patents':
+        console.log(`🔍 [${executiveName}] USPTO Patent Search`);
+        const patentResult = await supabase.functions.invoke('uspto-patent-mcp', {
+          body: { action: 'search', ...parsedArgs }
+        });
+        result = patentResult.error
+          ? { success: false, error: patentResult.error.message }
+          : { success: true, result: patentResult.data };
+        break;
+
+      // ====================================================================
+      // WORKFLOW TOOLS (FIXED)
+      // ====================================================================
+      case 'list_workflow_templates':
+        console.log(`📋 [${executiveName}] List Workflow Templates`);
+        const templatesResult = await supabase.functions.invoke('workflow-template-manager', {
+          body: { action: 'list_templates', ...parsedArgs }
+        });
+        result = templatesResult.error
+          ? { success: false, error: templatesResult.error.message }
+          : { success: true, result: templatesResult.data };
+        break;
+
+      case 'execute_workflow_template':
+        console.log(`▶️ [${executiveName}] Execute Workflow Template: ${parsedArgs.template_id}`);
+        const workflowResult = await supabase.functions.invoke('workflow-template-manager', {
+          body: { action: 'execute_template', ...parsedArgs }
+        });
+        result = workflowResult.error
+          ? { success: false, error: workflowResult.error.message }
+          : { success: true, result: workflowResult.data };
+        break;
+
       // Agent management tools
       case 'list_agents':
       case 'spawn_agent':
@@ -656,6 +736,10 @@ export async function executeToolCall(
       case 'update_task_status':
       case 'delete_task':
       case 'get_agent_workload':
+      case 'get_agent_by_name':
+      case 'get_agent_stats':
+      case 'batch_spawn_agents':
+      case 'archive_agent':
         const agentResult = await supabase.functions.invoke('agent-manager', {
           body: { action: name.replace('_', '_').toLowerCase(), ...parsedArgs }
         });
@@ -664,7 +748,10 @@ export async function executeToolCall(
         
       default:
         console.warn(`⚠️ [${executiveName}] Unknown tool: ${name}`);
-        result = { success: false, error: `Unknown tool: ${name}` };
+        result = { 
+          success: false, 
+          error: `Unknown tool: ${name}. Available tools include: invoke_edge_function, execute_python, createGitHubIssue, list_agents, assign_task, check_system_status, get_tool_usage_analytics, and more.`
+        };
     }
     
     const executionTime = Date.now() - startTime;

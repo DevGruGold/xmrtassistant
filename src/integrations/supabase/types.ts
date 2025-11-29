@@ -2089,8 +2089,11 @@ export type Database = {
           parameters: Json | null
           payload: Json | null
           result_summary: string | null
+          session_id: string | null
           success: boolean
+          tool_category: string | null
           user_context: string | null
+          user_id: string | null
         }
         Insert: {
           context?: string | null
@@ -2110,8 +2113,11 @@ export type Database = {
           parameters?: Json | null
           payload?: Json | null
           result_summary?: string | null
+          session_id?: string | null
           success: boolean
+          tool_category?: string | null
           user_context?: string | null
+          user_id?: string | null
         }
         Update: {
           context?: string | null
@@ -2131,8 +2137,11 @@ export type Database = {
           parameters?: Json | null
           payload?: Json | null
           result_summary?: string | null
+          session_id?: string | null
           success?: boolean
+          tool_category?: string | null
           user_context?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -6331,6 +6340,21 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_usage_dashboard: {
+        Row: {
+          avg_time_ms: number | null
+          function_name: string | null
+          last_call: string | null
+          p95_time_ms: number | null
+          success_rate: number | null
+          successful: number | null
+          tool_category: string | null
+          total_calls: number | null
+          unique_executives: number | null
+          unique_sessions: number | null
+        }
+        Relationships: []
+      }
       v_critical_incidents: {
         Row: {
           duration_minutes: number | null
@@ -6994,6 +7018,7 @@ export type Database = {
       refresh_event_flow_analytics: { Args: never; Returns: undefined }
       refresh_function_version_performance: { Args: never; Returns: undefined }
       refresh_mv_queue_daily: { Args: never; Returns: undefined }
+      refresh_tool_usage_dashboard: { Args: never; Returns: undefined }
       repo_scan_preflight: {
         Args: never
         Returns: {
