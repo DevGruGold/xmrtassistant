@@ -811,8 +811,8 @@ serve(async (req) => {
           
           console.log(`📸 Calling Gemini Vision API directly with ${images.length} images`);
           
-          const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        const geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -837,7 +837,7 @@ serve(async (req) => {
                 response: geminiText,
                 hasToolCalls: false,
                 provider: 'gemini',
-                model: 'gemini-1.5-flash',
+                model: 'gemini-2.0-flash-exp',
                 executive: 'lovable-chat',
                 executiveTitle: 'Chief Information Officer (CIO) [Vision]',
                 vision_analysis: true
@@ -953,8 +953,8 @@ serve(async (req) => {
                   
                   console.log(`📸 Calling Gemini Vision API with ${images.length} images`);
                   
-                  const geminiResponse = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                const geminiResponse = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
                     {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -975,7 +975,7 @@ serve(async (req) => {
                     if (geminiText) {
                       console.log('✅ Gemini Vision fallback successful');
                       aiProvider = 'gemini';
-                      aiModel = 'gemini-1.5-flash';
+                      aiModel = 'gemini-2.0-flash-exp';
                       aiExecutiveTitle = 'Chief Strategy Officer (CSO) [Vision Fallback]';
                       message = { role: 'assistant', content: geminiText };
                       // Skip DeepSeek fallback since Gemini succeeded

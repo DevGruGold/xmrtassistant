@@ -137,8 +137,8 @@ serve(async (req) => {
         
         console.log(`📸 Calling Gemini Vision API with ${images.length} images`);
         
-        const geminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveGeminiKey}`,
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${effectiveGeminiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -163,7 +163,7 @@ serve(async (req) => {
                 success: true,
                 response: geminiText,
                 provider: 'gemini',
-                model: 'gemini-1.5-flash',
+                model: 'gemini-2.0-flash-exp',
                 executive: 'vercel-ai-chat',
                 executiveTitle: 'Chief Information Officer (CIO) [Vision]',
                 vision_analysis: true
