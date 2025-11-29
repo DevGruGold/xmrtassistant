@@ -43,6 +43,7 @@ export interface ElizaContext {
   }; // Enhanced conversation context for better understanding
   councilMode?: boolean; // Enable multi-executive council deliberation
   emotionalContext?: EmotionalContext; // Real-time emotional state from voice and video
+  images?: string[]; // Base64 encoded images for vision/multimodal analysis
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -550,6 +551,7 @@ ${ec.facialEmotions?.length ? `- Facial expression emotions: ${ec.facialEmotions
       conversationHistory, // Keep for backward compatibility with edge functions
       emotionalContext: context.emotionalContext, // Real-time emotional state
       emotionalContextStr, // Formatted string for system prompt
+      images: context.images, // Base64 encoded images for vision analysis
       userContext: {
         isFounder: userContext?.isFounder || false,
         ip: userContext?.ip || 'unknown',
