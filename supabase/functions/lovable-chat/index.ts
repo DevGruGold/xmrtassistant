@@ -990,7 +990,71 @@ serve(async (req) => {
                   // Continue to DeepSeek fallback
                 }
               } else {
-                console.warn('⚠️ GEMINI_API_KEY not configured - images cannot be analyzed');
+                console.warn('⚠️ GEMINI_API_KEY not configured - trying OpenRouter');
+              }
+            }
+            
+            // ========== OPENROUTER VISION FALLBACK ==========
+            if (!message && images && images.length > 0) {
+              const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+              
+              if (OPENROUTER_API_KEY) {
+                console.log('🔄 Trying OpenRouter Vision as fallback...');
+                try {
+                  const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+                  const userMessages = currentMessages.filter(m => m.role !== 'system');
+                  const lastUserMessage = userMessages.filter(m => m.role === 'user').pop();
+                  const userText = typeof lastUserMessage?.content === 'string' 
+                    ? lastUserMessage.content 
+                    : 'Analyze this image';
+                  
+                  // Format for OpenRouter's OpenAI-compatible API
+                  const contentParts: any[] = [
+                    { type: 'text', text: `${systemPrompt}\n\nUser: ${userText}` }
+                  ];
+                  
+                  for (const imageBase64 of images) {
+                    contentParts.push({
+                      type: 'image_url',
+                      image_url: { url: imageBase64 }
+                    });
+                  }
+                  
+                  const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                      'Content-Type': 'application/json',
+                      'HTTP-Referer': 'https://xmrt.pro',
+                      'X-Title': 'XMRT Eliza'
+                    },
+                    body: JSON.stringify({
+                      model: 'anthropic/claude-3-haiku', // Fast, cheap, vision-capable
+                      messages: [{ role: 'user', content: contentParts }],
+                      max_tokens: 4000
+                    })
+                  });
+                  
+                  if (openRouterResponse.ok) {
+                    const openRouterData = await openRouterResponse.json();
+                    const openRouterText = openRouterData.choices?.[0]?.message?.content;
+                    
+                    if (openRouterText) {
+                      console.log('✅ OpenRouter Vision fallback successful');
+                      aiProvider = 'openrouter';
+                      aiModel = 'claude-3-haiku';
+                      aiExecutiveTitle = 'Chief Innovation Officer (CIO) [OpenRouter Vision]';
+                      message = { role: 'assistant', content: openRouterText };
+                    }
+                  } else {
+                    const errorText = await openRouterResponse.text();
+                    console.warn('⚠️ OpenRouter Vision fallback failed:', errorText);
+                  }
+                } catch (openRouterError) {
+                  console.warn('⚠️ OpenRouter Vision error:', openRouterError.message);
+                }
+              } else {
+                console.warn('⚠️ OPENROUTER_API_KEY not configured');
               }
             }
             
