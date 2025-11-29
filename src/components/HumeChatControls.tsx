@@ -105,7 +105,19 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
 
   // Start real-time voice streaming
   const startStreaming = useCallback(async () => {
-    if (!audioStream) {
+    // For multimodal mode, extract audio from video stream (webcam mic)
+    let streamToUse = audioStream;
+    
+    if (mode === 'multimodal' && videoStream) {
+      // Get audio track from video stream (webcam's built-in microphone)
+      const audioTracks = videoStream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        streamToUse = new MediaStream([audioTracks[0]]);
+        console.log('🎬 Multimodal: Using audio from video capture (webcam mic)');
+      }
+    }
+    
+    if (!streamToUse) {
       console.error('No audio stream available');
       setConnectionError('No microphone access');
       return;
@@ -115,7 +127,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
     setConnectionError(null);
     
     try {
-      await voiceStreamingService.connect(audioStream, {
+      await voiceStreamingService.connect(streamToUse, {
         onTranscript: handleTranscript,
         onEmotion: handleVoiceEmotions,
         onError: (error) => {
@@ -142,7 +154,7 @@ export const HumeChatControls: React.FC<HumeChatControlsProps> = ({
     } finally {
       setIsConnecting(false);
     }
-  }, [audioStream, handleTranscript, handleVoiceEmotions]);
+  }, [audioStream, videoStream, mode, handleTranscript, handleVoiceEmotions]);
 
   // Stop voice streaming
   const stopStreaming = useCallback(() => {
