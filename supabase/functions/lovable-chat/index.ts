@@ -772,6 +772,91 @@ serve(async (req) => {
       execution_time_ms?: number;
     }> = [];
     
+    // ========== PRIORITY VISION ROUTING ==========
+    // If images are attached, route directly to Gemini Vision FIRST (bypasses Lovable AI Gateway credit issues)
+    if (images && images.length > 0) {
+      console.log(`🖼️ Images detected (${images.length}) - routing to Gemini Vision API first (bypasses credit issues)`);
+      
+      const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+      
+      if (GEMINI_API_KEY) {
+        try {
+          // Format messages for Gemini's multimodal endpoint
+          const systemPromptContent = currentMessages.find(m => m.role === 'system')?.content || '';
+          const userMessages = currentMessages.filter(m => m.role !== 'system');
+          const lastUserMessage = userMessages.filter(m => m.role === 'user').pop();
+          const userText = typeof lastUserMessage?.content === 'string' 
+            ? lastUserMessage.content 
+            : 'Analyze this image and describe what you see in detail.';
+          
+          // Build parts array with text and images
+          const parts: any[] = [
+            { text: `${systemPromptContent}\n\nUser request: ${userText}` }
+          ];
+          
+          // Add images to parts
+          for (const imageBase64 of images) {
+            const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+              const mimeType = matches[1];
+              const base64Data = matches[2];
+              parts.push({
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              });
+            }
+          }
+          
+          console.log(`📸 Calling Gemini Vision API directly with ${images.length} images`);
+          
+          const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts }],
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 4000
+                }
+              })
+            }
+          );
+          
+          if (geminiResponse.ok) {
+            const geminiData = await geminiResponse.json();
+            const geminiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (geminiText) {
+              console.log('✅ Gemini Vision analysis successful (direct routing)');
+              return new Response(JSON.stringify({
+                success: true,
+                response: geminiText,
+                hasToolCalls: false,
+                provider: 'gemini',
+                model: 'gemini-1.5-flash',
+                executive: 'lovable-chat',
+                executiveTitle: 'Chief Information Officer (CIO) [Vision]',
+                vision_analysis: true
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              });
+            }
+          } else {
+            const errorText = await geminiResponse.text();
+            console.warn('⚠️ Direct Gemini Vision failed:', errorText, '- falling back to standard routing');
+          }
+        } catch (geminiError) {
+          console.warn('⚠️ Direct Gemini Vision error:', geminiError.message, '- falling back to standard routing');
+        }
+      } else {
+        console.warn('⚠️ GEMINI_API_KEY not configured - will try Lovable AI Gateway for images');
+      }
+    }
+    
     while (toolIterations < MAX_TOOL_ITERATIONS) {
       toolIterations++;
       console.log(`🔄 AI iteration ${toolIterations} using ${aiProvider}`);
@@ -928,7 +1013,8 @@ serve(async (req) => {
                     messages: userMessages,
                     conversationHistory: userMessages.slice(-10),
                     session_credentials,
-                    systemPrompt
+                    systemPrompt,
+                    images // ✅ PASS IMAGES to vercel-ai-chat for vision fallback
                   }
                 });
                 

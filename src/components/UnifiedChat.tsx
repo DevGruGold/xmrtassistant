@@ -227,6 +227,55 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     });
   };
 
+  // Video frame capture for multimodal mode
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  
+  const captureVideoFrame = useCallback((): string | null => {
+    // Try to capture from Hume state video stream first
+    if (humeState?.videoStream) {
+      try {
+        // Create a video element from the stream if we don't have one
+        if (!videoRef.current) {
+          const video = document.createElement('video');
+          video.srcObject = humeState.videoStream;
+          video.autoplay = true;
+          video.playsInline = true;
+          videoRef.current = video;
+          
+          // Wait for video to be ready
+          return null; // First call initializes, subsequent calls capture
+        }
+        
+        const video = videoRef.current;
+        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            console.log('📸 Captured video frame for analysis');
+            return dataUrl;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to capture video frame:', error);
+      }
+    }
+    return null;
+  }, [humeState?.videoStream]);
+
+  // Clean up video element on unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current = null;
+      }
+    };
+  }, []);
+
   // Enable audio after user interaction (required for mobile browsers)
   const handleEnableAudio = async () => {
     try {
@@ -929,6 +978,15 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
         imageBase64Array.push(base64);
       } catch (err) {
         console.error('Failed to convert image to base64:', err);
+      }
+    }
+    
+    // ✅ Capture video frame in multimodal mode (if camera is active)
+    if (humeState?.mode === 'multimodal' && humeState?.videoStream) {
+      const videoFrame = captureVideoFrame();
+      if (videoFrame) {
+        imageBase64Array.push(videoFrame);
+        console.log('📹 Added live video frame to message for visual analysis');
       }
     }
 
