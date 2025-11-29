@@ -18,6 +18,14 @@ try {
   // Context not available, will use null
 }
 
+export interface EmotionalContext {
+  currentEmotion: string;
+  emotionConfidence: number;
+  voiceEmotions?: Array<{ name: string; score: number }>;
+  facialEmotions?: Array<{ name: string; score: number }>;
+  lastUpdate: number;
+}
+
 export interface ElizaContext {
   miningStats?: MiningStats | null;
   userContext?: UserContext | null;
@@ -34,6 +42,7 @@ export interface ElizaContext {
     sessionStartedAt: Date | null;
   }; // Enhanced conversation context for better understanding
   councilMode?: boolean; // Enable multi-executive council deliberation
+  emotionalContext?: EmotionalContext; // Real-time emotional state from voice and video
 }
 
 // Unified Eliza response service that both text and voice modes can use
@@ -523,9 +532,24 @@ export class UnifiedElizaService {
       content: userInput
     });
 
+    // Build emotional context string if available
+    let emotionalContextStr = '';
+    if (context.emotionalContext) {
+      const ec = context.emotionalContext;
+      emotionalContextStr = `\n\n**USER EMOTIONAL STATE (Real-time):**
+- Primary emotion: ${ec.currentEmotion} (${Math.round(ec.emotionConfidence * 100)}% confidence)
+${ec.voiceEmotions?.length ? `- Voice tone emotions: ${ec.voiceEmotions.slice(0, 3).map(e => `${e.name} (${Math.round(e.score * 100)}%)`).join(', ')}` : ''}
+${ec.facialEmotions?.length ? `- Facial expression emotions: ${ec.facialEmotions.slice(0, 3).map(e => `${e.name} (${Math.round(e.score * 100)}%)`).join(', ')}` : ''}
+- Adjust your response tone to be empathetic and appropriate to the user's emotional state.`;
+      
+      console.log('🎭 Including emotional context in request:', ec.currentEmotion);
+    }
+
     const requestBody = {
       messages: structuredMessages, // Now includes conversation context for yes/no understanding
       conversationHistory, // Keep for backward compatibility with edge functions
+      emotionalContext: context.emotionalContext, // Real-time emotional state
+      emotionalContextStr, // Formatted string for system prompt
       userContext: {
         isFounder: userContext?.isFounder || false,
         ip: userContext?.ip || 'unknown',
