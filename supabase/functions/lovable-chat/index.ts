@@ -826,95 +826,186 @@ serve(async (req) => {
         } catch (error) {
           console.error('❌ Lovable AI Gateway error:', error);
           
-          // Check for payment required (402) - FALLBACK TO DEEPSEEK
+          // Check for payment required (402) - FALLBACK CHAIN
           if (error.message?.includes('402') || error.message?.includes('Payment Required') || error.message?.includes('Not enough credits')) {
-            console.warn('💳 Lovable AI Gateway out of credits - Falling back to DeepSeek');
+            console.warn('💳 Lovable AI Gateway out of credits - checking fallback options');
             
-            // Get DeepSeek API key
-            const deepseekKey = getAICredential('deepseek', session_credentials);
-            
-            if (!deepseekKey) {
-              return new Response(JSON.stringify({ 
-                success: false, 
-                error: 'Lovable AI out of credits and DeepSeek API key not configured. Please add credits or configure DeepSeek at /#credentials',
-                provider: 'lovable_gateway',
-                fallback_failed: true
-              }), {
-                status: 402,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
+            // ========== GEMINI VISION FALLBACK (when images are present) ==========
+            if (images && images.length > 0) {
+              console.log('🖼️ Images detected - trying Gemini API for vision fallback');
+              const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+              
+              if (GEMINI_API_KEY) {
+                try {
+                  // Format messages for Gemini's multimodal endpoint
+                  const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+                  const userMessages = currentMessages.filter(m => m.role !== 'system');
+                  const lastUserMessage = userMessages.filter(m => m.role === 'user').pop();
+                  const userText = typeof lastUserMessage?.content === 'string' 
+                    ? lastUserMessage.content 
+                    : 'Analyze this image';
+                  
+                  // Build parts array with text and images
+                  const parts: any[] = [
+                    { text: `${systemPrompt}\n\nUser request: ${userText}` }
+                  ];
+                  
+                  // Add images to parts
+                  for (const imageBase64 of images) {
+                    // Extract base64 data and mime type from data URL
+                    const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+                    if (matches) {
+                      const mimeType = matches[1];
+                      const base64Data = matches[2];
+                      parts.push({
+                        inline_data: {
+                          mime_type: mimeType,
+                          data: base64Data
+                        }
+                      });
+                    }
+                  }
+                  
+                  console.log(`📸 Calling Gemini Vision API with ${images.length} images`);
+                  
+                  const geminiResponse = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        contents: [{ parts }],
+                        generationConfig: {
+                          temperature: 0.7,
+                          maxOutputTokens: 4000
+                        }
+                      })
+                    }
+                  );
+                  
+                  if (geminiResponse.ok) {
+                    const geminiData = await geminiResponse.json();
+                    const geminiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (geminiText) {
+                      console.log('✅ Gemini Vision fallback successful');
+                      aiProvider = 'gemini';
+                      aiModel = 'gemini-1.5-flash';
+                      aiExecutiveTitle = 'Chief Strategy Officer (CSO) [Vision Fallback]';
+                      message = { role: 'assistant', content: geminiText };
+                      // Skip DeepSeek fallback since Gemini succeeded
+                    }
+                  } else {
+                    const errorText = await geminiResponse.text();
+                    console.warn('⚠️ Gemini Vision fallback failed:', errorText);
+                    // Continue to DeepSeek fallback
+                  }
+                } catch (geminiError) {
+                  console.warn('⚠️ Gemini Vision error:', geminiError.message);
+                  // Continue to DeepSeek fallback
+                }
+              } else {
+                console.warn('⚠️ GEMINI_API_KEY not configured - images cannot be analyzed');
+              }
             }
             
-            // Switch provider to DeepSeek and retry
-            aiProvider = 'deepseek';
-            aiModel = 'deepseek-chat';
-            aiExecutiveTitle = 'Chief Technology Officer (CTO) [Fallback]';
-            console.log('🔄 Retrying with DeepSeek API...');
-            
-            // Call DeepSeek API
-            const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
-            const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
-            
-            try {
-              const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${deepseekKey}`,
-                },
-                body: JSON.stringify({
-                  model: 'deepseek-chat',
-                  messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...messagesForDeepSeek
-                  ],
-                  tools: ELIZA_TOOLS,
-                  tool_choice: 'auto',
-                  stream: false,
-                }),
-              });
+            // ========== DEEPSEEK FALLBACK (text-only) ==========
+            // Only try DeepSeek if we don't already have a message from Gemini
+            if (!message) {
+              // Get DeepSeek API key
+              const deepseekKey = getAICredential('deepseek', session_credentials);
               
-              if (!deepseekResponse.ok) {
-                const errorBody = await deepseekResponse.text();
-                console.error('❌ DeepSeek fallback also failed:', errorBody);
+              if (!deepseekKey) {
+                const hasImages = images && images.length > 0;
                 return new Response(JSON.stringify({ 
                   success: false, 
-                  error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${errorBody}`,
-                  provider: 'deepseek',
+                  error: hasImages 
+                    ? 'Lovable AI out of credits and image analysis fallback failed. Please add Lovable AI credits or configure GEMINI_API_KEY for vision.'
+                    : 'Lovable AI out of credits and DeepSeek API key not configured. Please add credits or configure DeepSeek at /#credentials',
+                  provider: 'lovable_gateway',
                   fallback_failed: true
                 }), {
-                  status: deepseekResponse.status,
+                  status: 402,
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
               }
               
-              const data = await deepseekResponse.json();
-              message = data.choices?.[0]?.message;
+              // Warn if images present but using text-only model
+              if (images && images.length > 0) {
+                console.warn('⚠️ DeepSeek cannot analyze images - proceeding with text-only response');
+              }
               
-              if (!message) {
+              // Switch provider to DeepSeek and retry
+              aiProvider = 'deepseek';
+              aiModel = 'deepseek-chat';
+              aiExecutiveTitle = 'Chief Technology Officer (CTO) [Fallback]';
+              console.log('🔄 Retrying with DeepSeek API...');
+              
+              // Call DeepSeek API
+              const messagesForDeepSeek = currentMessages.filter(m => m.role !== 'system');
+              const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+              
+              try {
+                const deepseekResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${deepseekKey}`,
+                  },
+                  body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [
+                      { role: 'system', content: systemPrompt },
+                      ...messagesForDeepSeek
+                    ],
+                    tools: ELIZA_TOOLS,
+                    tool_choice: 'auto',
+                    stream: false,
+                  }),
+                });
+                
+                if (!deepseekResponse.ok) {
+                  const errorBody = await deepseekResponse.text();
+                  console.error('❌ DeepSeek fallback also failed:', errorBody);
+                  return new Response(JSON.stringify({ 
+                    success: false, 
+                    error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${errorBody}`,
+                    provider: 'deepseek',
+                    fallback_failed: true
+                  }), {
+                    status: deepseekResponse.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                  });
+                }
+                
+                const data = await deepseekResponse.json();
+                message = data.choices?.[0]?.message;
+                
+                if (!message) {
+                  return new Response(JSON.stringify({ 
+                    success: false, 
+                    error: 'DeepSeek returned invalid response',
+                    provider: 'deepseek'
+                  }), {
+                    status: 500,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                  });
+                }
+                
+                console.log(`✅ DeepSeek fallback successful with ${message.tool_calls?.length || 0} tool calls`);
+                
+              } catch (deepseekError) {
+                console.error('❌ DeepSeek fallback error:', deepseekError);
                 return new Response(JSON.stringify({ 
                   success: false, 
-                  error: 'DeepSeek returned invalid response',
-                  provider: 'deepseek'
+                  error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${deepseekError.message}`,
+                  provider: 'deepseek',
+                  fallback_failed: true
                 }), {
                   status: 500,
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
               }
-              
-              console.log(`✅ DeepSeek fallback successful with ${message.tool_calls?.length || 0} tool calls`);
-              
-            } catch (deepseekError) {
-              console.error('❌ DeepSeek fallback error:', deepseekError);
-              return new Response(JSON.stringify({ 
-                success: false, 
-                error: `Both Lovable AI and DeepSeek failed. Lovable: out of credits. DeepSeek: ${deepseekError.message}`,
-                provider: 'deepseek',
-                fallback_failed: true
-              }), {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
             }
             
           } else if (error.message?.includes('429')) {
