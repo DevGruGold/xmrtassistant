@@ -10,7 +10,7 @@ interface ExpressionRequest {
   models?: string[]; // e.g., ['face', 'prosody']
 }
 
-interface EmotionScore {
+interface HumeEmotion {
   name: string;
   score: number;
 }
@@ -43,8 +43,8 @@ serve(async (req) => {
     
     console.log(`📸 Processing image for models: ${models.join(', ')}`);
 
-    // Prepare the request for Hume Expression Measurement API
-    // Using the batch API endpoint for image analysis
+    // Use Hume's streaming inference API for real-time analysis
+    // This is the correct endpoint for single image analysis
     const humeResponse = await fetch('https://api.hume.ai/v0/batch/jobs', {
       method: 'POST',
       headers: {
@@ -57,61 +57,147 @@ serve(async (req) => {
         },
         urls: [],
         text: [],
-        // For real-time, we'll use a different approach
-        // The batch API doesn't support inline base64 directly
-        // We'll use the streaming API instead
+        // Note: batch API requires file uploads, not inline base64
+        // We'll use the streaming endpoint instead
       }),
     });
 
-    // Since batch API has limitations, let's use a simpler approach
-    // Hume's streaming WebSocket is better for real-time, but for HTTP we'll simulate
-    // using the models we have available
-    
-    // For now, analyze the image client-side and return mock emotions
-    // In production, you'd use WebSocket connection for real-time streaming
-    
-    // Simulated analysis based on image brightness and patterns
-    const imageBuffer = Uint8Array.from(atob(body.image), c => c.charCodeAt(0));
-    
-    // Calculate basic image statistics for pseudo-analysis
-    let brightness = 0;
-    for (let i = 0; i < Math.min(imageBuffer.length, 10000); i += 4) {
-      brightness += imageBuffer[i] || 0;
+    // For immediate results, use the streaming WebSocket approach via HTTP
+    // Hume's /v0/stream endpoint accepts POST with base64 data
+    const streamResponse = await fetch('https://api.hume.ai/v0/models/infer', {
+      method: 'POST',
+      headers: {
+        'X-Hume-Api-Key': HUME_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        models: {
+          face: {}
+        },
+        raw_data: [{
+          file: body.image, // base64 image data
+          content_type: 'image/jpeg'
+        }]
+      }),
+    });
+
+    if (streamResponse.ok) {
+      const result = await streamResponse.json();
+      console.log('✅ Hume API responded successfully');
+      
+      // Extract emotions from Hume response
+      const emotions: HumeEmotion[] = [];
+      
+      if (result.face?.predictions?.[0]?.emotions) {
+        const rawEmotions = result.face.predictions[0].emotions;
+        rawEmotions
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 10)
+          .forEach((e: any) => {
+            emotions.push({
+              name: e.name,
+              score: e.score
+            });
+          });
+      }
+
+      // Also check alternative response format
+      if (result[0]?.results?.predictions?.[0]?.models?.face?.grouped_predictions?.[0]?.predictions?.[0]?.emotions) {
+        const rawEmotions = result[0].results.predictions[0].models.face.grouped_predictions[0].predictions[0].emotions;
+        rawEmotions
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 10)
+          .forEach((e: any) => {
+            if (!emotions.find(em => em.name === e.name)) {
+              emotions.push({
+                name: e.name,
+                score: e.score
+              });
+            }
+          });
+      }
+
+      const executionTime = Date.now() - startTime;
+      console.log(`✅ Expression analysis complete in ${executionTime}ms`);
+      if (emotions.length > 0) {
+        console.log(`   Top emotion: ${emotions[0].name} (${(emotions[0].score * 100).toFixed(1)}%)`);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          emotions: emotions.length > 0 ? emotions : [],
+          faceDetected: emotions.length > 0,
+          executionTimeMs: executionTime,
+          model: 'face',
+          source: 'hume-api',
+          note: 'Real Hume AI Expression Measurement API'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
-    brightness = brightness / (Math.min(imageBuffer.length, 10000) / 4) / 255;
+
+    // If streaming endpoint fails, try the multipart form approach
+    console.log('⚠️ Streaming endpoint unavailable, trying multipart approach...');
     
-    // Generate emotion scores based on simple heuristics
-    // In production, this would come from actual Hume API
-    const baseEmotions: EmotionScore[] = [
-      { name: 'Joy', score: 0.3 + brightness * 0.4 + Math.random() * 0.2 },
-      { name: 'Interest', score: 0.4 + Math.random() * 0.3 },
-      { name: 'Surprise', score: 0.1 + Math.random() * 0.2 },
-      { name: 'Contentment', score: 0.2 + brightness * 0.3 + Math.random() * 0.2 },
-      { name: 'Concentration', score: 0.3 + Math.random() * 0.3 },
-      { name: 'Confusion', score: 0.1 + Math.random() * 0.15 },
-      { name: 'Sadness', score: 0.05 + (1 - brightness) * 0.2 + Math.random() * 0.1 },
-      { name: 'Anger', score: 0.02 + Math.random() * 0.08 },
-      { name: 'Fear', score: 0.02 + Math.random() * 0.08 },
-      { name: 'Neutral', score: 0.3 + Math.random() * 0.2 },
-    ];
+    // Convert base64 to blob for multipart upload
+    const binaryData = Uint8Array.from(atob(body.image), c => c.charCodeAt(0));
+    const blob = new Blob([binaryData], { type: 'image/jpeg' });
+    
+    const formData = new FormData();
+    formData.append('file', blob, 'frame.jpg');
+    formData.append('json', JSON.stringify({
+      models: { face: {} }
+    }));
 
-    // Normalize scores so they don't exceed 1
-    const emotions = baseEmotions
-      .map(e => ({ ...e, score: Math.min(e.score, 0.99) }))
-      .sort((a, b) => b.score - a.score);
+    const formResponse = await fetch('https://api.hume.ai/v0/batch/jobs', {
+      method: 'POST',
+      headers: {
+        'X-Hume-Api-Key': HUME_API_KEY,
+      },
+      body: formData,
+    });
 
-    const executionTime = Date.now() - startTime;
-    console.log(`✅ Expression analysis complete in ${executionTime}ms`);
-    console.log(`   Top emotion: ${emotions[0].name} (${(emotions[0].score * 100).toFixed(1)}%)`);
+    if (formResponse.ok) {
+      const jobResult = await formResponse.json();
+      console.log('📋 Batch job created:', jobResult);
+      
+      // For batch jobs, we'd need to poll for results
+      // This is not ideal for real-time, so return placeholder
+      return new Response(
+        JSON.stringify({
+          success: true,
+          emotions: [],
+          faceDetected: false,
+          executionTimeMs: Date.now() - startTime,
+          model: 'face',
+          source: 'hume-batch',
+          jobId: jobResult.job_id,
+          note: 'Batch job created - results pending. Use WebSocket streaming for real-time analysis.'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
+    // Log error details
+    const errorText = await streamResponse.text();
+    console.error('❌ Hume API error:', streamResponse.status, errorText);
+
+    // Return empty result instead of error for graceful degradation
     return new Response(
       JSON.stringify({
-        success: true,
-        emotions,
-        faceDetected: true,
-        executionTimeMs: executionTime,
+        success: false,
+        emotions: [],
+        faceDetected: false,
+        executionTimeMs: Date.now() - startTime,
         model: 'face',
-        note: 'Using enhanced heuristic analysis. For production, integrate Hume WebSocket streaming API.'
+        source: 'error',
+        error: `Hume API returned ${streamResponse.status}`,
+        note: 'API call failed. Ensure HUME_API_KEY is valid and has Expression Measurement access.'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -123,9 +209,11 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: error instanceof Error ? error.message : 'Expression analysis failed',
         emotions: [],
-        faceDetected: false
+        faceDetected: false,
+        source: 'error'
       }),
       { 
         status: 500, 

@@ -14,6 +14,8 @@ interface EmotionVisualizerProps {
   voiceEmotions?: EmotionReading[];
   facialEmotions?: EmotionReading[];
   className?: string;
+  isLive?: boolean; // Indicates real-time streaming vs HTTP polling
+  dataSource?: 'hume-streaming' | 'hume-http' | 'simulated' | 'unknown';
 }
 
 interface EmotionHistory {
@@ -25,7 +27,9 @@ interface EmotionHistory {
 export const EmotionVisualizer: React.FC<EmotionVisualizerProps> = ({
   voiceEmotions = [],
   facialEmotions = [],
-  className = ''
+  className = '',
+  isLive = false,
+  dataSource = 'unknown'
 }) => {
   const [fusedEmotions, setFusedEmotions] = useState<EmotionReading[]>([]);
   const [emotionHistory, setEmotionHistory] = useState<EmotionHistory[]>([]);
@@ -171,8 +175,23 @@ export const EmotionVisualizer: React.FC<EmotionVisualizerProps> = ({
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-purple-500" />
           <span className="text-sm font-medium">Emotional State</span>
+          {isLive && (
+            <Badge className="bg-red-500/80 text-white text-[10px] animate-pulse">
+              ● LIVE
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          {dataSource !== 'unknown' && dataSource !== 'simulated' && (
+            <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-400">
+              {dataSource === 'hume-streaming' ? 'Real-time' : 'Hume API'}
+            </Badge>
+          )}
+          {dataSource === 'simulated' && (
+            <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400">
+              Simulated
+            </Badge>
+          )}
           {getTrendIcon()}
           <Badge variant="outline" className="text-xs capitalize">
             {emotionalTrend}
