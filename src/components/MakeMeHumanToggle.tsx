@@ -21,8 +21,16 @@ import PermissionRequestDialog from './PermissionRequestDialog';
 
 export type HumeMode = 'tts' | 'voice' | 'multimodal';
 
+export interface HumeState {
+  mode: HumeMode;
+  isEnabled: boolean;
+  audioStream?: MediaStream | null;
+  videoStream?: MediaStream | null;
+}
+
 interface MakeMeHumanToggleProps {
   onModeChange?: (mode: HumeMode, enabled: boolean, streams?: { audio?: MediaStream; video?: MediaStream }) => void;
+  onStateChange?: (state: HumeState) => void;
   className?: string;
 }
 
@@ -42,6 +50,7 @@ const DEFAULT_SETTINGS: HumeSettings = {
 
 export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({ 
   onModeChange,
+  onStateChange,
   className = ''
 }) => {
   const [mode, setMode] = useState<HumeMode>('tts');
@@ -115,9 +124,19 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
     setMode(newMode);
     localStorage.setItem('humeMode', newMode);
     
+    const streams = { audio: audioStream || undefined, video: videoStream || undefined };
+    
     if (isEnabled) {
-      onModeChange?.(newMode, true, { audio: audioStream || undefined, video: videoStream || undefined });
+      onModeChange?.(newMode, true, streams);
     }
+    
+    // Always notify state change
+    onStateChange?.({
+      mode: newMode,
+      isEnabled,
+      audioStream: audioStream || undefined,
+      videoStream: videoStream || undefined
+    });
   };
 
   const handlePermissionRequest = async () => {
@@ -146,6 +165,12 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
       localStorage.setItem('humeEnabled', 'false');
       humanizedTTS.disableHumanizedMode();
       onModeChange?.(mode, false);
+      onStateChange?.({
+        mode,
+        isEnabled: false,
+        audioStream: audioStream || undefined,
+        videoStream: videoStream || undefined
+      });
       toast({
         title: "Hume AI Disabled",
         description: "Reverted to browser-based features"
@@ -161,6 +186,12 @@ export const MakeMeHumanToggle: React.FC<MakeMeHumanToggleProps> = ({
           setIsEnabled(true);
           localStorage.setItem('humeEnabled', 'true');
           onModeChange?.(mode, true);
+          onStateChange?.({
+            mode,
+            isEnabled: true,
+            audioStream: audioStream || undefined,
+            videoStream: videoStream || undefined
+          });
           toast({
             title: getModeTitle(mode),
             description: getModeDescription(mode)
