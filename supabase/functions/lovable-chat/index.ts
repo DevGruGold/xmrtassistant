@@ -504,11 +504,16 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials, images } = await req.json();
     
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    // Log if images are being passed
+    if (images && images.length > 0) {
+      console.log(`🖼️ Processing ${images.length} image attachment(s) for vision analysis`);
+    }
     
     // Check if Lovable AI Gateway is configured
     if (!LOVABLE_API_KEY) {
@@ -779,8 +784,32 @@ serve(async (req) => {
           console.log(`📡 Calling Lovable AI Gateway with ${ELIZA_TOOLS.length} tools available`);
           
           // Convert messages (excluding system prompt since it's passed separately)
-          const messagesForGateway = currentMessages.filter(m => m.role !== 'system');
+          let messagesForGateway = currentMessages.filter(m => m.role !== 'system');
           const systemPrompt = currentMessages.find(m => m.role === 'system')?.content || '';
+          
+          // If images are attached, format the last user message for multimodal
+          if (images && images.length > 0 && toolIterations === 1) {
+            messagesForGateway = messagesForGateway.map((msg, idx) => {
+              // Only attach images to the last user message
+              if (msg.role === 'user' && idx === messagesForGateway.length - 1) {
+                const contentParts: any[] = [
+                  { type: 'text', text: msg.content }
+                ];
+                
+                // Add each image
+                for (const imageBase64 of images) {
+                  contentParts.push({
+                    type: 'image_url',
+                    image_url: { url: imageBase64 }
+                  });
+                }
+                
+                return { role: 'user', content: contentParts };
+              }
+              return msg;
+            });
+            console.log(`📸 Formatted ${images.length} images for multimodal analysis`);
+          }
           
           // ✅ CRITICAL FIX: Pass tools to enable REAL execution
           message = await callLovableAIGateway(messagesForGateway, {

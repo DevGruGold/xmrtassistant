@@ -12,7 +12,8 @@ import { GitHubPATInput } from './GitHubContributorRegistration';
 import { GitHubTokenStatus } from './GitHubTokenStatus';
 import { mobilePermissionService } from '@/services/mobilePermissionService';
 import { formatTime } from '@/utils/dateFormatter';
-import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users, Vote } from 'lucide-react';
+import { Send, Volume2, VolumeX, Trash2, Key, Wifi, Users, Vote, Paperclip, X } from 'lucide-react';
+import { AttachmentPreview, type AttachmentFile } from './AttachmentPreview';
 import { ExecutiveCouncilChat } from './ExecutiveCouncilChat';
 import { GovernanceStatusBadge } from './GovernanceStatusBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
@@ -158,9 +159,73 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
     videoStream: null
   });
 
+  // File attachment state
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Refs
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // File handling functions
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const MAX_FILES = 5;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+    const newAttachments: AttachmentFile[] = [];
+
+    for (const file of files.slice(0, MAX_FILES - attachments.length)) {
+      if (file.size > MAX_SIZE) {
+        console.warn(`File ${file.name} exceeds 10MB limit`);
+        continue;
+      }
+
+      const type: AttachmentFile['type'] = file.type.startsWith('image/')
+        ? 'image'
+        : file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('video/')
+        ? 'video'
+        : 'document';
+
+      const url = URL.createObjectURL(file);
+      newAttachments.push({ type, url, name: file.name, file });
+    }
+
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_FILES));
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => {
+      const removed = prev[index];
+      if (removed) {
+        URL.revokeObjectURL(removed.url);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const clearAttachments = () => {
+    attachments.forEach(att => URL.revokeObjectURL(att.url));
+    setAttachments([]);
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   // Enable audio after user interaction (required for mobile browsers)
   const handleEnableAudio = async () => {
@@ -856,15 +921,28 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       setIsSpeaking(false);
     }
 
+    // Convert image attachments to base64
+    const imageBase64Array: string[] = [];
+    for (const att of attachments.filter(a => a.type === 'image')) {
+      try {
+        const base64 = await fileToBase64(att.file);
+        imageBase64Array.push(base64);
+      } catch (err) {
+        console.error('Failed to convert image to base64:', err);
+      }
+    }
+
     const userMessage: UnifiedMessage = {
       id: `user-${Date.now()}`,
       content: textInput,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      attachments: imageBase64Array.length > 0 ? { images: imageBase64Array } : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
     setTextInput('');
+    clearAttachments();
     setIsProcessing(true);
 
     // Store user message with comprehensive data capture
@@ -925,12 +1003,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       const response = await UnifiedElizaService.generateResponse(userInput, {
         miningStats,
         userContext,
-        inputMode: 'text',
+        inputMode: imageBase64Array.length > 0 ? 'vision' : 'text',
         shouldSpeak: false,
         enableBrowsing: true,
         conversationContext: fullContext,
         emotionalContext: emotionalContext || undefined, // Pass real-time emotional context
-        councilMode
+        councilMode,
+        images: imageBase64Array.length > 0 ? imageBase64Array : undefined
       }, language);
       
       // Handle council deliberation response
@@ -1418,6 +1497,19 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
                         : 'bg-muted/50 text-foreground rounded-bl-md'
                     }`}
                     >
+                      {/* Show attached images */}
+                      {message.attachments?.images && message.attachments.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {message.attachments.images.map((img, idx) => (
+                            <img
+                              key={idx}
+                              src={img}
+                              alt={`Attachment ${idx + 1}`}
+                              className="max-w-[200px] max-h-[150px] rounded-lg object-cover border border-border/30"
+                            />
+                          ))}
+                        </div>
+                      )}
                       <div className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</div>
                     
                     {/* Tool Call Indicators */}
@@ -1481,6 +1573,13 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
       {/* Text Input Area */}
       <div className="border-t border-border/50 bg-background/50">
         <div className="p-4">
+          {/* Attachment Preview */}
+          <AttachmentPreview
+            attachments={attachments}
+            onRemove={removeAttachment}
+            onClear={clearAttachments}
+          />
+          
           <div className="flex gap-3 items-center">
             {/* Hume Voice/Video Controls */}
             <HumeChatControls
@@ -1491,6 +1590,26 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               onVoiceInput={handleVoiceInput}
               onEmotionUpdate={handleEmotionUpdate}
             />
+            
+            {/* File Attachment Button */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept="image/*,audio/*,video/*,.pdf,.doc,.docx"
+              multiple
+              className="hidden"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing || attachments.length >= 5}
+              className="rounded-full min-h-[48px] min-w-[48px] hover:bg-muted/50"
+              title="Attach files (max 5)"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
             
             <Input
               value={textInput}
@@ -1506,18 +1625,20 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
               placeholder={
                 needsAPIKey 
                   ? "Provide your GitHub PAT using the 🔑 button to post discussions..." 
-                  : humeState.mode === 'voice' && humeState.isEnabled
-                    ? "Speak or type..."
-                    : isSpeaking 
-                      ? "Start typing to interrupt..." 
-                      : "Ask Eliza anything..."
+                  : attachments.length > 0
+                    ? `${attachments.length} file${attachments.length > 1 ? 's' : ''} attached - add a message...`
+                    : humeState.mode === 'voice' && humeState.isEnabled
+                      ? "Speak or type..."
+                      : isSpeaking 
+                        ? "Start typing to interrupt..." 
+                        : "Ask Eliza anything..."
               }
               className="flex-1 rounded-full border-border/50 bg-background/50 min-h-[48px] text-sm px-4"
               disabled={isProcessing}
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!textInput.trim() || isProcessing}
+              disabled={(!textInput.trim() && attachments.length === 0) || isProcessing}
               size="sm"
               className="rounded-full min-h-[48px] min-w-[48px] hover-scale"
             >
