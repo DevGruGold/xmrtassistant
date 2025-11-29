@@ -1,6 +1,7 @@
 /**
  * Hume Streaming Service
  * Manages WebSocket connections for real-time expression measurement
+ * Uses Hume's Expression Measurement streaming API with proper authentication
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -25,11 +26,13 @@ class HumeStreamingService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private isConnecting = false;
-  private accessToken: string | null = null;
+  private apiKey: string | null = null;
   private frameQueue: string[] = [];
   private processingFrame = false;
   private batchSize = 1;
   private batchDelay = 100; // ms between batches
+  private lastEmotionUpdate = 0;
+  private minUpdateInterval = 200; // Throttle emotion updates
 
   async connect(config: StreamingConfig): Promise<void> {
     if (this.isConnecting || this.ws?.readyState === WebSocket.OPEN) {
@@ -41,30 +44,31 @@ class HumeStreamingService {
     this.isConnecting = true;
 
     try {
-      // Get access token
-      if (!this.accessToken) {
+      // Get API key from edge function
+      if (!this.apiKey) {
         const { data, error } = await supabase.functions.invoke('hume-access-token');
         if (error) throw error;
-        this.accessToken = data?.access_token;
+        // The hume-access-token returns either access_token (OAuth) or api_key
+        this.apiKey = data?.access_token || data?.api_key;
+        console.log('🔑 Obtained Hume credentials');
       }
 
-      if (!this.accessToken) {
-        throw new Error('Failed to obtain Hume access token');
+      if (!this.apiKey) {
+        throw new Error('Failed to obtain Hume credentials');
       }
 
-      // Connect to Hume streaming API
-      const wsUrl = `wss://api.hume.ai/v0/stream/models?apikey=${this.accessToken}`;
+      // Connect to Hume Expression Measurement streaming API
+      // Using the models streaming endpoint with API key authentication
+      const wsUrl = `wss://api.hume.ai/v0/stream/models?apikey=${encodeURIComponent(this.apiKey)}`;
       
+      console.log('🔌 Connecting to Hume streaming API...');
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('✅ Connected to Hume streaming API');
+        console.log('✅ Connected to Hume streaming API (REAL)');
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.config?.onConnect?.();
-
-        // Send initial configuration
-        this.sendConfig();
       };
 
       this.ws.onmessage = (event) => {
@@ -76,13 +80,13 @@ class HumeStreamingService {
         this.config?.onError?.(new Error('WebSocket connection error'));
       };
 
-      this.ws.onclose = () => {
-        console.log('🔌 Disconnected from Hume streaming API');
+      this.ws.onclose = (event) => {
+        console.log('🔌 Disconnected from Hume streaming API', event.code, event.reason);
         this.isConnecting = false;
         this.config?.onDisconnect?.();
         
-        // Attempt reconnection
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        // Attempt reconnection if not intentionally closed
+        if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.scheduleReconnect();
         }
       };
@@ -94,40 +98,35 @@ class HumeStreamingService {
     }
   }
 
-  private sendConfig(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.config) return;
-
-    const configMessage = {
-      models: {
-        face: this.config.models.includes('face') ? {} : undefined,
-        prosody: this.config.models.includes('prosody') ? {} : undefined,
-        language: this.config.models.includes('language') ? {} : undefined,
-      },
-      stream_window_ms: 500,
-    };
-
-    this.ws.send(JSON.stringify(configMessage));
-    console.log('📤 Sent streaming config:', configMessage);
-  }
-
   private handleMessage(data: string): void {
     try {
       const response = JSON.parse(data);
       
+      // Throttle updates to avoid overwhelming the UI
+      const now = Date.now();
+      if (now - this.lastEmotionUpdate < this.minUpdateInterval) {
+        return;
+      }
+      this.lastEmotionUpdate = now;
+
+      let emotions: EmotionScore[] = [];
+
+      // Handle face model predictions
       if (response.face?.predictions?.[0]?.emotions) {
-        const emotions: EmotionScore[] = response.face.predictions[0].emotions
+        emotions = response.face.predictions[0].emotions
           .sort((a: any, b: any) => b.score - a.score)
           .slice(0, 10)
           .map((e: any) => ({
             name: e.name,
             score: e.score
           }));
-
-        this.config?.onEmotionUpdate(emotions);
+        
+        console.log(`🎭 Real face emotions detected: ${emotions[0]?.name} (${(emotions[0]?.score * 100).toFixed(1)}%)`);
       }
 
+      // Handle prosody model predictions (voice)
       if (response.prosody?.predictions?.[0]?.emotions) {
-        const emotions: EmotionScore[] = response.prosody.predictions[0].emotions
+        const prosodyEmotions = response.prosody.predictions[0].emotions
           .sort((a: any, b: any) => b.score - a.score)
           .slice(0, 10)
           .map((e: any) => ({
@@ -135,6 +134,23 @@ class HumeStreamingService {
             score: e.score
           }));
 
+        // Merge with face emotions or use prosody alone
+        if (emotions.length === 0) {
+          emotions = prosodyEmotions;
+        }
+        
+        console.log(`🎤 Real prosody emotions: ${prosodyEmotions[0]?.name}`);
+      }
+
+      // Handle error responses
+      if (response.error) {
+        console.error('❌ Hume streaming error:', response.error);
+        this.config?.onError?.(new Error(response.error.message || 'Hume streaming error'));
+        return;
+      }
+
+      // Only update if we have emotions
+      if (emotions.length > 0) {
         this.config?.onEmotionUpdate(emotions);
       }
 
@@ -157,6 +173,11 @@ class HumeStreamingService {
   }
 
   sendFrame(base64Image: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('⚠️ WebSocket not connected for frame');
+      return;
+    }
+
     this.frameQueue.push(base64Image);
     this.processQueue();
   }
@@ -171,17 +192,19 @@ class HumeStreamingService {
       const frames = this.frameQueue.splice(0, this.batchSize);
       
       for (const frame of frames) {
+        // Send frame in Hume's expected format
         const message = {
           data: frame,
           models: {
             face: {}
-          }
+          },
+          raw_text: false
         };
         
         this.ws.send(JSON.stringify(message));
       }
 
-      // Small delay between batches
+      // Small delay between batches to avoid overwhelming the API
       await new Promise(resolve => setTimeout(resolve, this.batchDelay));
       
     } catch (error) {
@@ -206,7 +229,8 @@ class HumeStreamingService {
       data: base64Audio,
       models: {
         prosody: {}
-      }
+      },
+      raw_text: false
     };
 
     this.ws.send(JSON.stringify(message));
@@ -214,12 +238,13 @@ class HumeStreamingService {
 
   disconnect(): void {
     if (this.ws) {
-      this.ws.close();
+      this.ws.close(1000, 'Intentional disconnect');
       this.ws = null;
     }
     this.frameQueue = [];
     this.processingFrame = false;
     this.reconnectAttempts = this.maxReconnectAttempts; // Prevent auto-reconnect
+    this.apiKey = null; // Clear cached key
     console.log('🔌 Hume streaming disconnected');
   }
 
@@ -231,6 +256,11 @@ class HumeStreamingService {
     if (this.isConnecting) return 'connecting';
     if (this.ws?.readyState === WebSocket.OPEN) return 'connected';
     return 'disconnected';
+  }
+
+  // Clear the API key cache (useful if credentials change)
+  clearCredentials(): void {
+    this.apiKey = null;
   }
 }
 
