@@ -36,14 +36,14 @@ export class VoiceStreamingService {
       console.log('🎤 VoiceStreaming: Getting Hume access token...');
       const { data, error } = await supabase.functions.invoke('hume-access-token');
       
-      if (error || !data?.access_token) {
+      if (error || !data?.accessToken) {
         throw new Error(`Failed to get Hume access token: ${error?.message || 'No token returned'}`);
       }
 
       console.log('🎤 VoiceStreaming: Connecting to Hume EVI...');
       
       // Connect to Hume EVI WebSocket
-      const wsUrl = `wss://api.hume.ai/v0/evi/chat?access_token=${data.access_token}`;
+      const wsUrl = `wss://api.hume.ai/v0/evi/chat?access_token=${data.accessToken}`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
