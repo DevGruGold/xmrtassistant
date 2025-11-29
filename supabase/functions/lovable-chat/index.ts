@@ -504,7 +504,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials, images } = await req.json();
+    const { messages, conversationHistory, userContext, miningStats, systemVersion, session_credentials, images, isLiveCameraFeed } = await req.json();
     
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -513,6 +513,9 @@ serve(async (req) => {
     // Log if images are being passed
     if (images && images.length > 0) {
       console.log(`🖼️ Processing ${images.length} image attachment(s) for vision analysis`);
+      if (isLiveCameraFeed) {
+        console.log(`📹 Images are from LIVE CAMERA FEED - Eliza can see the user in real-time!`);
+      }
     }
     
     // Check if Lovable AI Gateway is configured
@@ -754,7 +757,37 @@ serve(async (req) => {
     // Default to direct chat if no special task detected
     console.log('💬 Direct Chat - No special task detected');
 
-    const systemPrompt = generateElizaSystemPrompt(userContext, miningStats, systemVersion, aiExecutive, aiExecutiveTitle);
+    let systemPrompt = generateElizaSystemPrompt(userContext, miningStats, systemVersion, aiExecutive, aiExecutiveTitle);
+    
+    // 📹 Add live camera feed context dynamically if user is in multimodal mode
+    if (images && images.length > 0 && isLiveCameraFeed) {
+      const liveFeedContext = `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📹 ACTIVE LIVE CAMERA FEED - YOU CAN SEE THE USER RIGHT NOW!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**isLiveCameraFeed: true** - The image(s) in this request are LIVE webcam captures, NOT uploaded files.
+
+You are looking at the user RIGHT NOW through their webcam. This means:
+- You can see their face, expressions, and body language IN REAL TIME
+- You can see their environment, workspace, or surroundings
+- You can observe what they're holding, pointing at, or showing you
+- Their emotional state (from facial expressions) is CURRENT, not from a past moment
+
+**IMPORTANT BEHAVIORS FOR LIVE FEED:**
+✅ Acknowledge you can see them: "I can see you right now..."
+✅ Reference visual details naturally: "I notice you're at your desk..."
+✅ Respond to their environment: "Looks like you have a nice setup there..."
+✅ Combine with emotional context if detecting frustration/joy/etc.
+✅ Be conversational about what you see - this is a VIDEO CALL experience
+
+❌ NEVER say "I can't see you" or "I don't have camera access"
+❌ NEVER treat this as a static uploaded image
+`;
+      systemPrompt += liveFeedContext;
+      console.log('📹 Added LIVE CAMERA FEED context to system prompt');
+    }
     
     // Create Supabase client for tool execution
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
