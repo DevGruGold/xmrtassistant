@@ -972,14 +972,22 @@ const UnifiedChatInner: React.FC<UnifiedChatProps> = ({
 
     // Convert image attachments to base64
     const imageBase64Array: string[] = [];
-    for (const att of attachments.filter(a => a.type === 'image')) {
+    console.log('📎 Current attachments:', attachments.length, attachments.map(a => ({ type: a.type, name: a.name })));
+    
+    const imageAttachments = attachments.filter(a => a.type === 'image');
+    console.log('🖼️ Image attachments to convert:', imageAttachments.length);
+    
+    for (const att of imageAttachments) {
       try {
         const base64 = await fileToBase64(att.file);
         imageBase64Array.push(base64);
+        console.log(`✅ Converted image ${att.name} to base64 (${base64.substring(0, 50)}...)`);
       } catch (err) {
         console.error('Failed to convert image to base64:', err);
       }
     }
+    
+    console.log('📸 Total images converted:', imageBase64Array.length);
     
     // ✅ Capture video frame in multimodal mode (if camera is active)
     if (humeState?.mode === 'multimodal' && humeState?.videoStream) {
